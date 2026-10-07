@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-"Candy" (`.cdy`) is an early-stage experimental language. Right now the only code is a Python reader, `src/py_cdy/parse_cdy.py`, which parses an S-expression surface syntax into typed AST nodes (`Symbol`, `Number`, `Bool`, `SList`; `'x` desugars to `(quote x)`). `README.md` is empty. These directories exist but are empty placeholders (git does not track them): `bin/py/`, `script/`, `tst/cdy/` (presumably for Candy-language tests) and `tst/py_cdy/` (presumably for Python tests of `src/py_cdy`). There is no `pyproject.toml` or other build/tool config yet.
+"Candy" (`.cdy`) is an early-stage experimental language. Right now the only code is a Python reader, `src/py_cdy/parse_cdy.py`, which parses an S-expression surface syntax into typed AST nodes (`Symbol`, `Number`, `Bool`, `SList`; `'x` desugars to `(quote x)`). `README.md` is empty. These directories exist but are empty placeholders (git does not track them): `bin/py/`, `script/`, `tst/cdy/` (presumably for Candy-language tests) and `tst/py_cdy/` (presumably for Python tests of `src/py_cdy`). `pyproject.toml` holds only tool config: line length 100 for ruff and pylint, and `mypy --strict`. There is no packaging setup.
 
 ## Dependency: parsec.py v4 (not the PyPI release)
 
@@ -29,6 +29,9 @@ python src/py_cdy/parse_cdy.py         # parses a sample program and prints the 
 
 mypy src/py_cdy                     # type-check (both checkers currently clean)
 pyright src/py_cdy
+ruff check src                      # lint
+ruff format src                     # format
+pylint src/py_cdy
 pytest tst                          # no tests exist yet
 pytest tst/py_cdy/test_x.py::test_name   # run a single test
 ```

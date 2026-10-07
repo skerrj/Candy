@@ -10,7 +10,7 @@ Grammar::
 
 from __future__ import annotations
 
-from typing import NamedTuple, Union
+from typing import NamedTuple
 
 from parsec import (
     Parser,
@@ -28,34 +28,49 @@ from parsec import (
 
 
 class Symbol(NamedTuple):
+    """An identifier, e.g. ``define`` or ``*``."""
+
     name: str
 
 
 class Number(NamedTuple):
+    """An integer literal."""
+
     value: int
 
 
 class Bool(NamedTuple):
+    """``#t`` or ``#f``."""
+
     value: bool
 
 
 class SList(NamedTuple):
+    """A parenthesised list of forms."""
+
     items: tuple[SExpr, ...]
 
 
-SExpr = Union[Symbol, Number, Bool, SList]
+SExpr = Symbol | Number | Bool | SList
 
 
 def lexeme(p: Parser[str]) -> Parser[str]:
+    """Run ``p`` and skip any trailing whitespace."""
     return p << spaces
 
 
-number: Parser[SExpr] = lexeme(regex(r"-?\d+(?![^\s()])")).map(lambda s: Number(int(s))).label("number")
-symbol: Parser[SExpr] = lexeme(regex(r"[^\s()'#\d][^\s()']*|[-+](?![\d])")).map(Symbol).label("symbol")
-boolean: Parser[SExpr] = (lexeme(string("#t")) >> pure(Bool(True))) | (lexeme(string("#f")) >> pure(Bool(False)))
+number: Parser[SExpr] = (
+    lexeme(regex(r"-?\d+(?![^\s()])")).map(lambda s: Number(int(s))).label("number")
+)
+symbol: Parser[SExpr] = (
+    lexeme(regex(r"[^\s()'#\d][^\s()']*|[-+](?![\d])")).map(Symbol).label("symbol")
+)
+boolean: Parser[SExpr] = (lexeme(string("#t")) >> pure(Bool(True))) | (
+    lexeme(string("#f")) >> pure(Bool(False))
+)
 
 
-def form_from(form: Parser[SExpr]) -> Parser[SExpr]:
+def form_from(form: Parser[SExpr]) -> Parser[SExpr]:  # pylint: disable=redefined-outer-name
     """One s-expression, given the parser for nested ones."""
     slist = between(lexeme(char("(")), lexeme(char(")")), many(form)).map(SList)
     quote = (lexeme(char("'")) >> form).map(lambda f: SList((Symbol("quote"), f)))
