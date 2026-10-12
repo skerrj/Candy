@@ -9,6 +9,7 @@ __pycache__/
 # custom directories
 tmp/
 output/
+bin/
 
 # Distribution / packaging
 .Python
