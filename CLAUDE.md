@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Candy → Python translator (branch `py-py-translator`)
 
-The special forms are specified informally in `src/cdy/candy-special.md`. The first translator, written in Python, turns Candy into Python. It is an **MVP path to bootstrapping Candy**: its job is to get the language running so it can later implement itself. Favour the simplest thing that works over completeness or performance, and expect parts to be replaced. For example, the spec says `defn` and `cond` will become macros.
+The special forms are specified informally in `src/cdy/candy-special.md`. The full iMVP requirements, decisions, open questions and next steps are in `doc/hl_rqmt/iMVP_py_translator.md`; keep it up to date as decisions are made. The first translator, written in Python, turns Candy into Python. It is an **MVP path to bootstrapping Candy**: its job is to get the language running so it can later implement itself. Favour the simplest thing that works over completeness or performance, and expect parts to be replaced. For example, the spec says `defn` and `cond` will become macros.
 
 Decisions that fill gaps in the spec:
 - `let` bindings are `(name init)`: `(let ((x 1) (y 2)) (+ x y))`.
