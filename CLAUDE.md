@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-"Candy" (`.cdy`) is an early-stage experimental language. Right now the only code is a Python reader, `src/py_cdy/parse_cdy.py`, which parses an S-expression surface syntax into typed AST nodes (`Symbol`, `Number`, `Bool`, `SList`; `'x` desugars to `(quote x)`). `README.md` is empty. These directories exist but are empty placeholders (git does not track them): `bin/py/`, `script/`, `tst/cdy/` (presumably for Candy-language tests) and `tst/py_cdy/` (presumably for Python tests of `src/py_cdy`). `pyproject.toml` holds only tool config: line length 100 for ruff and pylint, and `mypy --strict`. There is no packaging setup.
+"Candy" (`.cdy`) is an early-stage experimental language. Right now the only code is a Python reader, `src/py_cdy/parse_cdy.py`, which parses an S-expression surface syntax into typed AST nodes (`Symbol`, `Number`, `Str`, `Bool`, `SList`; `'x` desugars to `(quote x)`). `README.md` is empty. These directories are empty placeholders: `bin/py/` (now git-ignored), `script/`, `tst/cdy/` (presumably for Candy-language tests). Python tests for `src/py_cdy` live in `tst/py_cdy/`; `pyproject.toml` puts `src/py_cdy` on the import path for pytest, ruff and pyright, so tests do `from parse_cdy import ...`. `pyproject.toml` holds only tool config: line length 100 for ruff and pylint, `mypy --strict`, and pylint exempts `test_*` functions from docstrings. There is no packaging setup.
 
 ## Candy → Python translator (branch `py-py-translator`)
 
@@ -33,7 +33,7 @@ Decisions that fill gaps in the spec:
 - **Choice is Parsec-style:** `p | q` tries `q` only if `p` failed without consuming input. Use `try_(p)` to backtrack. `string` and `regex` are atomic.
 - **Operators and names:** `>>` is `*>`, `<<` is `<*`, and the methods are `.map`, `.bind` and `.label`. Combinators use Haskell camelCase names (`sepBy`, `many1`, `chainl1`).
 - **Running parsers:** `parse(p, text)` requires the whole input to be consumed and raises `ParseFailure`. `runParser` returns `Success`/`Failure` without raising.
-- **Lexing:** the lexeme convention is `p << spaces` (see `lexeme` in `parse_cdy.py`).
+- **Lexing:** the lexeme convention is `p << ignore`, where `ignore` skips whitespace and `;` comments (see `lexeme` in `parse_cdy.py`). `;` also ends a number or symbol token.
 
 ## Running
 
@@ -41,13 +41,13 @@ Decisions that fill gaps in the spec:
 source ~/dev/activate-conda && conda activate py_cdy   # conda is not on PATH by default
 python src/py_cdy/parse_cdy.py         # parses a sample program and prints the AST
 
-mypy src/py_cdy                     # type-check (both checkers currently clean)
-pyright src/py_cdy
-ruff check src                      # lint
-ruff format src                     # format
-pylint src/py_cdy
-pytest tst                          # no tests exist yet
-pytest tst/py_cdy/test_x.py::test_name   # run a single test
+mypy src/py_cdy tst/py_cdy          # type-check (both checkers currently clean)
+pyright src/py_cdy tst/py_cdy
+ruff check src tst                  # lint
+ruff format src tst                 # format
+pylint src/py_cdy tst/py_cdy
+pytest                              # all tests (testpaths = tst)
+pytest tst/py_cdy/test_parse_cdy.py::test_atoms   # run a single test
 ```
 
-`.gitignore` excludes `output/` and `tmp/`, so put generated artifacts there.
+`.gitignore` excludes `output/`, `tmp/` and `bin/`, so put generated artifacts there.

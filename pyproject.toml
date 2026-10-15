@@ -1,9 +1,20 @@
 [tool.ruff]
 line-length = 100
 target-version = "py314"
+src = ["src/py_cdy"]
 
 [tool.pylint.format]
 max-line-length = 100
 
+[tool.pylint.basic]
+no-docstring-rgx = "^(_|test_)"
+
 [tool.mypy]
 strict = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src/py_cdy"]
+testpaths = ["tst"]
+
+[tool.pyright]
+extraPaths = ["src/py_cdy"]

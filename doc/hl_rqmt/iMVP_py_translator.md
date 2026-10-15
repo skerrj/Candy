@@ -27,7 +27,7 @@ agreed) or **open** (needs an answer).
 | Stage | Module | Status |
 |---|---|---|
 | Reader | `reader.py`. For the iMVP it just slurps a whole Candy file into a string (**decided**). | Not started. Owner to say whether they provide it or Claude writes it. |
-| Parser | `src/py_cdy/parse_cdy.py` (parsec.py v4). Produces `Symbol`, `Number`, `Bool` and `SList`, and `'x` becomes `(quote x)`. | Exists. Missing comments and strings (see below). |
+| Parser | `src/py_cdy/parse_cdy.py` (parsec.py v4). Produces `Symbol`, `Number`, `Str`, `Bool` and `SList`, and `'x` becomes `(quote x)`. | Exists, with string literals and `;` comments. |
 | Symbol table | `table.py` and `table_defs.py` (**decided**, to be provided by the owner). | Not started. |
 | Translator | Proposed: `src/py_cdy/translate_cdy.py`. | Not started. |
 
@@ -41,14 +41,32 @@ From `src/cdy/candy-special.md`:
 - **Grammar notation:** the spec writes special-form grammar with regex operators `?`, `*`
   and `+`, and italics mark placeholders.
 
-Parser work needed before the translator is useful:
+Parser work needed before the translator is useful (both done):
 
-1. **Comments.** `parse_cdy.py` doesn't skip `;` comments yet. The `spaces` used by `lexeme`
-   needs to skip comments as well as whitespace.
-2. **String literals.** These are not in the parser yet, but self-hosting needs them
+1. **Comments: done.** `lexeme` now skips `ignore` (whitespace and `;` comments, ported from
+   `doc/hl_rqmt/src/ignore_parse.py`) instead of `spaces`, and `;` ends a number or symbol
+   token. Tests are in `tst/py_cdy/test_parse_cdy.py`.
+2. **String literals: done.** Parsed into `Str`, with tests in `tst/py_cdy/test_parse_cdy.py`. Self-hosting needs them
    (`slurp`, `format`, string comparisons in macros). smz got its strings from the
    `edn_format` library. smz's `parse_string_help_4` in `smztils.py` handles the escapes
-   `\n \t \r \" \\`, and that logic belongs in the parser.
+   `\n \t \r \" \\`. The parser uses the `atom_parse.py` grammar below instead.
+
+**Reference: `doc/hl_rqmt/src/atom_parse.py`.** This is an old parser from before schmuz,
+written against an early (v3-style) parsec.py. Its string-literal grammar can be reused. It
+has JSON-style escapes (`\\ \/ \" \b \f \n \r \t \uXXXX`) and runs of plain characters with
+no escapes. It has to be ported to v4:
+
+- `@generate` and `@lexeme` become combinators.
+- `.parsecmap` becomes `.map`, and `.result(x)` becomes `>> pure(x)`.
+- The `^` try-choice becomes `try_(p) | q`.
+
+The file also suggests other features the spec hasn't decided:
+
+- `[ ]` and `{ }` brackets as well as parentheses.
+- Floats and exponents in numbers.
+- `true`/`false` for booleans. smz also uses these, while `parse_cdy.py` uses `#t`/`#f`.
+
+Its `ignore` parser (whitespace and `;` comments) is in `doc/hl_rqmt/src/ignore_parse.py`.
 
 ## Special forms
 
@@ -196,7 +214,7 @@ Either way:
 
 ## Next steps
 
-1. Parser: add `;` comments and string literals, with pytest tests.
+1. ~~Parser: add `;` comments and string literals, with pytest tests.~~ Done.
 2. Owner: provide `table.py` and `table_defs.py`, and say whether to provide `reader.py` or
    have Claude write it.
 3. Owner: write the signature statement spec, and the `format` and `tup` specs.
