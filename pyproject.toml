@@ -3,6 +3,9 @@ line-length = 100
 target-version = "py314"
 src = ["src/py_cdy"]
 
+[tool.pylint.main]
+init-hook = "import sys; sys.path.insert(0, 'src/py_cdy')"
+
 [tool.pylint.format]
 max-line-length = 100
 
@@ -11,6 +14,7 @@ no-docstring-rgx = "^(_|test_)"
 
 [tool.mypy]
 strict = true
+mypy_path = "src/py_cdy"
 
 [tool.pytest.ini_options]
 pythonpath = ["src/py_cdy"]

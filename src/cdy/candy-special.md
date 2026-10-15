@@ -2,6 +2,16 @@
 - these are informal descriptions 
 - the special form grammar uses regular expression syntax: ? (optional), * (0 or more), and + (1 or more). 
 - placeholders are denoted by a italics.
+## literals
+```
+100        ;; Int
+1500l      ;; Long
+3.14f      ;; Float
+10.0       ;; Double
+1b         ;; Byte
+true|false ;; Bool
+\e         ;; Char
+```
 ## comments
 - `;` are comments
 - `;` — Used for inline comments next to code.
@@ -33,6 +43,10 @@
 ### fn
 - lambda
  > (fn (*args**) *expr*)
+### quote
+- returns *form* unevaluated
+- the `'` shorthand will be added later as a reader macro... ala clojure
+ > (quote *form*)
 ## weird stuff 
 ### format
 ### tup

@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-"Candy" (`.cdy`) is an early-stage experimental language. Right now the only code is a Python reader, `src/py_cdy/parse_cdy.py`, which parses an S-expression surface syntax into typed AST nodes (`Symbol`, `Number`, `Str`, `Bool`, `SList`; `'x` desugars to `(quote x)`). `README.md` is empty. These directories are empty placeholders: `bin/py/` (now git-ignored), `script/`, `tst/cdy/` (presumably for Candy-language tests). Python tests for `src/py_cdy` live in `tst/py_cdy/`; `pyproject.toml` puts `src/py_cdy` on the import path for pytest, ruff and pyright, so tests do `from parse_cdy import ...`. `pyproject.toml` holds only tool config: line length 100 for ruff and pylint, `mypy --strict`, and pylint exempts `test_*` functions from docstrings. There is no packaging setup.
+"Candy" (`.cdy`) is an early-stage experimental language. Right now the only code is a Python reader, `src/py_cdy/parse_cdy.py`, which parses an S-expression surface syntax into typed AST nodes: `Symbol`, `SList`, `Str`, and one node per literal type (`Int` `100`, `Long` `1500l`, `Float` `3.14f`, `Double` `10.0`, `Byte` `1b`, `Bool` `true`/`false`, `Char` `\e`). Literals must end at a delimiter (whitespace, a paren, `;` or end of input). Quoting is the special form `(quote x)`. There is no `'` shorthand yet: `'` is reserved (a parse error) because the shorthand will come later as a Clojure-style reader macro. `README.md` is empty. These directories are empty placeholders: `bin/py/` (now git-ignored), `script/`, `tst/cdy/` (presumably for Candy-language tests). Python tests for `src/py_cdy` live in `tst/py_cdy/`; `pyproject.toml` puts `src/py_cdy` on the import path for every tool (pytest, mypy, pyright, ruff, pylint), so tests do `from parse_cdy import ...`. `pyproject.toml` holds only tool config: line length 100 for ruff and pylint, `mypy --strict`, and pylint exempts `test_*` functions from docstrings. There is no packaging setup.
 
 ## Candy → Python translator (branch `py-py-translator`)
 
 The special forms are specified informally in `src/cdy/candy-special.md`. The full iMVP requirements, decisions, open questions and next steps are in `doc/hl_rqmt/iMVP_py_translator.md`; keep it up to date as decisions are made. The first translator, written in Python, turns Candy into Python. It is an **MVP path to bootstrapping Candy**: its job is to get the language running so it can later implement itself. Favour the simplest thing that works over completeness or performance, and expect parts to be replaced. For example, the spec says `defn` and `cond` will become macros.
 
 Decisions that fill gaps in the spec:
-- `let` bindings are `(name init)`: `(let ((x 1) (y 2)) (+ x y))`.
+- `let` bindings are `(name init)`: `(let ((x 1) (y 2)) (+ x y))`. They are sequential, like Scheme's `let*`: each `init` sees the names bound before it.
 - `cond`'s `(else expr)` clause is optional. If no test matches, the result is `None`.
 - Missing values are `None`. This covers `(def x)`, an `if` with no else whose test is false, and the value of a `def` form itself.
 - `def` needs at least a symbol: `(def x)` is valid, but `(def)` and a bare `def` are errors.
