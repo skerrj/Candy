@@ -62,8 +62,8 @@ From `src/cdy/candy-special.md`:
   - `3f` (Float suffix with no point) is an error.
 
   **Open:**
-  - Byte's range (`-128..127` like Java, or `0..255`) and Int/Long sizes. The parser checks
-    no ranges yet.
+  - Byte's range, Int/Long sizes, overflow and Float precision. These matter once there is a
+    second target; see `doc/hl_rqmt/multi_target.md`. The parser checks no ranges yet.
   - Named chars for characters that can't follow `\` directly, such as space and newline
     (Clojure uses `\space`, `\newline`, `\tab`). `\` followed by whitespace is
     currently an error.
@@ -148,6 +148,20 @@ the translator.
 - `table_defs.py` starts from `~/dev/smz/smz-core/src/py_smz/smztils.py`. It holds the
   Python runtime helpers that table entries point to.
 - A Candy prelude may take this role over later.
+
+**Runtime boundary (decided).** Generated Python code may depend only on `table.py` and
+`table_defs.py`, not on the rest of `py_cdy` (parser, translator). The two modules import
+only each other and the standard library, so they can be shipped or pinned on their own
+alongside generated code.
+
+**Layout (proposed, owner leaning towards it).** Move the two modules into their own
+runtime package, `src/cdy_rt/` (the name is a placeholder), separate from the compiler in
+`src/py_cdy/`. Generated code imports `cdy_rt.table_defs`, and only `cdy_rt` has to be on
+the path, through an editable install of just `cdy_rt` or `PYTHONPATH=src`. The compiler
+imports `cdy_rt.table`, and nothing in `cdy_rt` imports the compiler. Pinning a bootstrap
+release then means tagging or copying only `cdy_rt/`. This replaces smz's copy scripts
+(`cp_py_smz_out`, `update_py_deps`). The first drafts are in `src/py_cdy/` until the owner
+has reviewed them; see `TODOS.md`.
 
 How smz's table works:
 
@@ -286,15 +300,19 @@ user names can never produce.
 ### Rules for each form
 
 **Literals.** Every literal becomes `ast.Constant`. A missing value is `Constant(None)`.
-Python has fewer number types than Candy, so for the iMVP (**proposed**):
-- `Int`, `Long` and `Byte` become Python `int`.
-- `Float` and `Double` become Python `float`.
-- `Char` becomes a one-character `str`.
+For now the iMVP uses the simplest mapping to Python types (**decided**):
 
-mypy can't then tell an `Int` from a `Long`, or a `Char` from a `String`. If the
-signature-based checking needs to, the types can become `typing.NewType`s (`Long =
-NewType("Long", int)`) and the literal gets wrapped (`Long(1500)`). That costs nothing at
-runtime. **Open** until the signature spec says how strict the iMVP should be.
+| Candy | Python |
+|---|---|
+| `Int`, `Long`, `Byte` | `int` |
+| `Float`, `Double` | `float` |
+| `Bool` | `bool` |
+| `Char`, `String` | `str` (a `Char` is one character long) |
+
+As a result, mypy can't tell an `Int` from a `Long`, or a `Char` from a `String`. That is
+intended: Python won't be the only target, so these distinctions belong to Candy's front end
+and type checker, not to the Python backend. That is also why `typing.NewType` was rejected.
+See `doc/hl_rqmt/multi_target.md`.
 
 **Symbols.** A symbol is looked up first in `ctx.env` (local names), then in the table.
 
