@@ -29,7 +29,7 @@ agreed) or **open** (needs an answer).
 | Reader | `reader.py`. For the iMVP it just slurps a whole Candy file into a string (**decided**). | Not started. Owner to say whether they provide it or Claude writes it. |
 | Parser | `src/py_cdy/parse_cdy.py` (parsec.py v4). Produces `Symbol`, `SList`, `Str` and one node per literal type (see below). No `'` shorthand. | Exists, with typed literals, string literals and `;` comments. |
 | Symbol table | `table.py` and `table_defs.py` (**decided**, to be provided by the owner). | Not started. |
-| Translator | Proposed: `src/py_cdy/translate_cdy.py`. | Not started. |
+| Translator | Proposed: `core_cdy.py` (`analyse`), `lower_cdy.py` (`lower`), `emit_py.py`, all in `src/py_cdy/`. See "Layers" under option A. | Not started. |
 
 ## Surface syntax
 
@@ -111,6 +111,8 @@ Its `ignore` parser (whitespace and `;` comments) is in `doc/hl_rqmt/src/ignore_
 | `cond` | `(cond (test expr)+ (else expr)?)` | The `else` clause is **optional for now** (**decided**). If no test matches, the result is `None`. It will become a macro. smz expands it to nested `if`s. |
 | `let` | `(let ((name init)*) expr)` | Each binding is `(name init)` (**decided**), as in `(let ((x 1) (y 2)) (+ x y))`. Bindings are sequential, like Scheme's `let*`: each `init` sees the earlier names (**decided**). |
 | `fn` | `(fn (args*) expr)` | Lambda. |
+| `deft` | `(deft Name ((field Type)*))` | Defines a record (product) type (**proposed**), modelled on Carp's `deftype`. See "User-defined types" under Types. |
+| `get`, `assoc` | `(get obj field)`, `(assoc obj field value ...)`, one or more field/value pairs | Generic field access for `deft` records (**decided**; the names are **proposed**). `assoc` returns a copy. |
 | `quote` | `(quote form)` | Returns `form` unevaluated (**decided**). There is no `'` shorthand yet; it will come later as a Clojure-style reader macro. The runtime representation of quoted data is **open** (see option A). |
 | `format` | Not specified yet (**open**). | In smz, `(format "x: {x} sum: {(f1 x y)}")` becomes a Python f-string whose `{...}` holes contain s-expressions. |
 | `tup` | Not specified yet (**open**). | In smz, `(tup a b)` builds a tuple, and `let` can destructure one: `((x y) (mp a b))`. |
@@ -137,6 +139,86 @@ Its `ignore` parser (whitespace and `;` comments) is in `doc/hl_rqmt/src/ignore_
   4. Scope: only top-level `def`/`defn`, or also `let` bindings and `fn`.
   5. Whether a signature is required, or whether an unsigned definition falls back to `Any`
      during bootstrapping.
+
+### User-defined types: `deft` (proposed)
+
+Modelled on Carp's `deftype`. In Carp:
+
+```clojure
+(deftype Vector2 [x Int, y Int])          ; a product (record) type; commas are whitespace
+(deftype (Pair a b) [first a, second b])  ; generic
+(deftype Shape (Circle [Double]) (Rect [Double Double]))  ; a sum type
+```
+
+For a product type, Carp generates a constructor (`Vector2.init`), getters (`Vector2.x`),
+setters (`Vector2.set-x`, and `Vector2.set-x!` to mutate), updaters (`Vector2.update-x`)
+and helpers such as `str` and `copy`.
+
+**Candy syntax.** Candy has no `[...]` and no commas, so fields are `(name Type)` pairs,
+the same shape as `let`'s `(name init)` bindings:
+
+```clojure
+(deft Vector2 ((x Int) (y Int)))
+```
+
+`deft` declares a type, not a value, so field types written inline don't contradict the
+rule that `def`, `defn` and `fn` take their types from signature statements.
+
+**Field access is generic (decided).** Fields are reached through generic forms, not
+through per-type names like Carp's `Vector2.x` or Scheme's `vector2-x`. The names `get` and
+`assoc` are **proposed** (`assoc` is Clojure's name for "a copy with a field replaced"):
+
+| Candy | Meaning | Python |
+|---|---|---|
+| `(deft Vector2 ((x Int) (y Int)))` | Defines the type | `class Vector2(NamedTuple):` with `x: int` and `y: int` |
+| `(Vector2 1 2)` | Constructor: the type name itself, rather than Carp's `Vector2.init` | `Vector2(1, 2)` |
+| `(get v x)` | The field `x` of `v` | `v.x` |
+| `(assoc v x 3)` | A copy of `v` with `x` replaced (like Carp's `set-x`, not `set-x!`) | `v._replace(x=3)` |
+| `(assoc v x 3 y 4)` | Several fields at once | `v._replace(x=3, y=4)` |
+
+- **`get` and `assoc` are special forms.** The field name is a bare symbol and is not
+  evaluated, the same way `def` treats its name. Their Core nodes are `Get(obj, field)`
+  and `Assoc(obj, ((field, value), ...))`.
+- **Why generic.** The translator doesn't need to know `v`'s type to write `v.x`, which
+  matters while the iMVP has no type checker of its own. mypy still rejects a field that
+  doesn't exist. Later, Candy's type checker resolves the field from `v`'s type, and
+  backends that need the type (a C `struct`, for example) get it from there. `deft` adds
+  no getter or setter names to the table, and the user's namespace stays small.
+- **Later.** `get` could also cover maps, as Clojure's does, once Candy has them.
+
+- **`NamedTuple` fits the repo's own style**: immutable, typed, and no decorators. mypy
+  checks the field types, and it works for the self-hosted compiler's own AST nodes.
+- **Table.** `deft` adds only the constructor to the table in `ctx`, as an ordinary
+  `call` entry, the same way a `defn` adds its name. `get` and `assoc` go in
+  `SPECIAL_FORMS`.
+- **Type namespace.** `Vector2` also becomes a type name that signatures (and other
+  `deft`s) can use. Field types are Candy type names, mapped to Python types like any
+  other: `Int` becomes `int`, and a user type keeps its name. The generated module starts
+  with `from __future__ import annotations`, so a type can refer to itself or to a type
+  defined later in the file.
+- **Core.** A `Deft(name, fields)` node, allowed only at top level, plus `Get` and
+  `Assoc`.
+- **Other targets.** A Candy record maps naturally to a C `struct`, a Java `record` or a
+  JavaScript class, so `Deft` belongs in Core, not in the Python backend.
+
+**Open (for `deft`):**
+
+1. ~~**Accessor names.**~~ Generic (**decided**). Still open: the names `get` and
+   `assoc`. Clojure-style alternatives are `(.x v)` or `(:x v)`; both already parse as
+   symbols.
+2. ~~**Mutation.**~~ **Skipped for the iMVP (decided).** Records stay immutable, and there
+   is no `set-x!`. See `doc/hl_rqmt/mutation_optimization.md` (a placeholder HLD for
+   mutation and optimizations).
+3. **Generics.** Carp's `(deftype (Pair a b) ...)` would be `(deft (Pair a b) ((first a)
+   (second b)))`. Python 3.12+ can express this as `class Pair[A, B](NamedTuple):`. This
+   depends on how the signature spec writes type variables.
+4. **Sum types.** These could be `(deft Shape (Circle ((r Double))) (Rect ((w Double) (h
+   Double))))`. That can be told apart from a product type, because each variant starts
+   with a symbol, while a product's field list starts with a list. Sum types need a `match`
+   form to be useful, so they come after the iMVP. In Python they would be one `NamedTuple`
+   per variant plus a type alias for their union.
+5. **Compound field types**, such as a list of `Int`. These wait on the signature spec's
+   compound types (open item 3 above).
 
 ## Symbol table: `table.py` and `table_defs.py`
 
@@ -232,7 +314,8 @@ Choose one:
 
 - **A. Build Python's `ast` module (recommended).** Every Candy form can appear anywhere,
   and the translator rearranges the output so that it is valid Python. Detailed in the next
-  section.
+  section. The recommended version splits the work into layers (a Core AST and a small
+  lowered IR, or "pseudo-AST", before Python's `ast`); see "Layers" below.
 - **B. Copy smz's tail-position rendering.** It is cheaper and already proven to bootstrap,
   but it restricts where `if`, `let` and `do` may appear. See the comparison at the end of
   the next section.
@@ -250,6 +333,104 @@ more than one line. An expression cannot contain a statement. So a Candy form su
 `(put (let ((m (* n 2))) (+ m 1)))` has no direct Python equivalent: the `let` needs an
 assignment, but it sits inside a function-call argument.
 
+### Layers: Core AST, lowered IR, Python (proposed)
+
+Instead of going straight from `SExpr` to Python's `ast`, the translator has three steps.
+Only the last one knows about Python.
+
+```
+SExpr ──analyse──▶ Core AST ──lower──▶ Lowered IR ──emit_py──▶ Python ast ──unparse──▶ .py
+(parser)           every form an       statements vs.          the only Python-
+                   expression;         expressions;            specific step
+                   names resolved      temporaries, order
+```
+
+Proposed modules: `core_cdy.py` (nodes and `analyse`), `lower_cdy.py` (IR nodes and
+`lower`), `emit_py.py`.
+
+**1. Core AST (`analyse`): target-independent.** It turns the generic `SList`s into one
+node per special form and checks their shape, so `(def)` and a `let` binding that isn't
+`(name init)` are rejected here, with Candy-level error messages. It also:
+
+- expands `cond` into nested `If`s, as the future macro will;
+- desugars `let` into nested applied `Fn`s, as in Scheme (**decided**; see the `let`
+  note below);
+- resolves every symbol to a local binding, a global or a table entry;
+- gives every binding a unique id. An inner `x` and an outer `x` become `Local("x", 7)` and
+  `Local("x", 3)`, so shadowing is settled once, here, instead of again in every backend;
+- attaches signatures. Later, Candy's own type checker runs on this stage and fills in
+  the types.
+
+| Node | Fields |
+|---|---|
+| `Lit` | `value` (`int`, `float`, `bool`, `str` or `None`), `ctype` (`"Int"`, `"Char"`, ...) |
+| `Local` | `name`, `id` |
+| `Global` | `name` |
+| `Prim` | `name`: a table entry such as `+` or `slurp` |
+| `Call` | `fn`, `args` |
+| `If` | `test`, `then`, `other` |
+| `Do` | `body` |
+| `Fn` | `params` (`Local`s), `body` |
+| `Def` | `name` (`Global`), `init` |
+| `Defn` | `name` (`Global`), `params`, `body` |
+| `Quote` | `form` (the `SExpr`, as is) |
+
+**2. Lowered IR (`lower`): the pseudo-AST.** This does the "statements first, then an
+expression" work described in the rest of this section, but builds a small IR of its own
+instead of Python `ast` nodes. The IR has:
+
+- statements: `Assign`, `ExprStmt`, `Return`, `IfStmt`, `FuncDef`;
+- expressions: `Const`, `Ref`, `CallE`, `BinOp`, `Compare`, `BoolOp`, `Not`, `CondExpr`,
+  `LambdaE`.
+
+Modes, temporaries, evaluation order and an `if` in value position are handled here. These
+problems are shared by every statement-based target (C, Java, JavaScript, Go, ...), not
+just Python. Names are still binding ids, not Python spellings.
+
+Targets differ in what their expressions can hold. Python has `a if t else b` and lambdas
+whose body is a single expression. C has `?:` but no closures, and Go has neither. So
+`lower` takes a `Caps` record saying what the target allows, and falls back to statements
+where it can't. The iMVP defines Python's `Caps` only. See `doc/hl_rqmt/multi_target.md`
+for the other targets.
+
+**3. Python backend (`emit_py`).** Mostly one IR node to one `ast` node. It also:
+
+- picks Python spellings: name mangling (below), keyword clashes, and renaming a binding
+  only if another binding with the same spelling is already used in the same Python
+  function (the `let` scoping rule below, applied by binding id);
+- maps each `Prim` through `table.py`: `+` becomes `ast.Add`, and `slurp` becomes
+  `table_defs.slurp`;
+- maps Candy types to Python annotations.
+
+`ast.unparse` then writes the text, and gets operator precedence and parentheses right.
+
+**Why the extra layers pay off in the iMVP.**
+
+- **Core** separates "is this valid Candy?" from "how is it written in Python?". It gives
+  clear errors and can be unit-tested without producing any Python. The type checker needs
+  it anyway.
+- **The IR** costs about a dozen small NamedTuples and a short emitter. In return, the
+  hard part (modes, temporaries, evaluation order) is tested on plain data, and a second
+  target reuses it.
+- **Bootstrapping.** The self-hosted translator, written in Candy, compiles to Python that
+  may depend only on `table.py` and `table_defs.py`. Building Python `ast` nodes from Candy
+  would need table entries for dozens of `ast` constructors. With an IR of its own, the
+  Candy version keeps steps 1 and 2 as plain data and replaces only `emit_py`, with a
+  small text printer. That printer indents with `get-indent`, as smz does, and puts
+  parentheses around every compound subexpression. The Python-hosted iMVP can still use
+  `ast`, because it is convenient and `compile()` checks its output.
+
+**Costs and risks.** There is one more layer to keep in step. An IR designed with only one
+target in sight may need reshaping when a second arrives, so keep it minimal: add a node
+only when a form needs it.
+
+**Fallback.** If three steps feel like too much for the iMVP, merge steps 2 and 3, so that
+`lower` builds Python `ast` directly as described below, but keep Core. Splitting them
+later is mechanical as long as Core exists.
+
+The rest of this section describes the lowering in terms of the Python it produces. With
+the layers above, `lower` builds the IR equivalents and `emit_py` turns them into Python.
+
 ### Core shape
 
 Each form translates to a pair: the statements that must run first, and an expression for
@@ -257,9 +438,12 @@ the form's value.
 
 ```python
 class Lowered(NamedTuple):
-    stmts: tuple[ast.stmt, ...]  # run these first, in order
-    expr: ast.expr               # then this is the form's value
+    stmts: tuple[Stmt, ...]  # run these first, in order
+    expr: Expr               # then this is the form's value
 ```
+
+`Stmt` and `Expr` are the lowered IR's node types (or `ast.stmt` and `ast.expr` if steps 2
+and 3 are merged).
 
 The `let` example above becomes `stmts = (m = n * 2,)` and `expr = print(m + 1)`. Whoever
 uses the result (a function body, an enclosing `do`, the module) emits the statements
@@ -277,6 +461,10 @@ class Ctx(NamedTuple):
 
 def lower(form: SExpr, mode: Mode, ctx: Ctx) -> tuple[Lowered, Ctx]: ...
 ```
+
+With the layers above, `lower` takes a Core node instead of an `SExpr`, and `env` and
+`fn_locals` are not needed in it: `analyse` resolves names to binding ids, and `emit_py`
+tracks which spellings each Python function uses.
 
 A new `Ctx` comes back because translating can add definitions and use up fresh names.
 
@@ -398,11 +586,48 @@ statements first), followed by `body` in the current mode, with `a` and `b` adde
   works.
 - **Known gap.** A global defined *later* in the file can still be captured by mistake. If
   that bites, switch to always renaming `let` bindings.
-- **Alternative rejected for the iMVP.** Wrapping every `let` in a nested function gives
-  exact scoping, but every `let` would become a function call and much harder to read.
+- **`let` is defined as an applied lambda, as in Scheme (decided).** Core has no `Let`
+  node, and `lower` turns the applied lambda back into the assignments described here. See
+  the note below.
 - **Sequential bindings (decided).** Each `init` can see the names bound before it in the
   same `let`, like Scheme's `let*` and like smz. This maps directly onto Python assignments
   in order.
+
+**Note: `let` as an applied lambda, as in Scheme.** In Scheme, `let` is sugar for calling
+a lambda straight away:
+
+```scheme
+(let ((a e1) (b e2)) body)    ≡  ((lambda (a b) body) e1 e2)
+(let* ((a e1) (b e2)) body)   ≡  ((lambda (a) ((lambda (b) body) e2)) e1)
+```
+
+Candy's `let` is sequential, so it is the nested `let*` form. There are two ways to use
+this.
+
+1. **Translate every `let` this way.** In Python, an expression-only body gives
+   `(lambda a: (lambda b: body)(e2))(e1)`. A body that needs statements gives a nested
+   `def _cdy_fnN(a): ...` followed by a call.
+   - *For:* scoping is exact, because a Python function is a real scope. There is no
+     renaming, no `fn_locals`, and no capturing a later global by mistake. When the inits
+     and the body are expressions, a `let` in value position needs no statements at all.
+   - *Against:* the output is hard to read. Every `let` costs a function call and a stack
+     frame, and deep nesting adds up against Python's recursion limit. mypy gets little
+     from an unannotated lambda, so typed `let`s would need `def`s with annotations. A
+     `def` inside the `let` body would bind a local of the lambda, not of the enclosing
+     function.
+   - **Rejected for the iMVP** as the general translation: assignments read better and
+     run faster.
+2. **Define `let` this way in Core, and undo it in `lower`.** `analyse` desugars
+   `Let(binds, body)` into nested `Call(Fn((a,), ...), (e1,))`, so Core no longer needs a
+   `Let` node. `lower` then recognises an immediately applied `Fn` (a beta-redex, which
+   Scheme compilers also turn back into plain bindings) and emits assignments, using the
+   binding ids for scoping. This keeps Core smaller and makes `let`'s meaning exactly
+   `fn`'s, which suits a later `let` macro. The cost is that `lower` must spot the
+   pattern. Otherwise every `let` would come out as the slow form above. **Decided.**
+
+Either way, a fallback is available. If a binding can't safely become an assignment (for
+example, a future case the renaming rule gets wrong), `lower` can emit that one `let` as an
+applied lambda.
 
 **`fn`.**
 - If the body needs no statements, it becomes `ast.Lambda`.
@@ -519,8 +744,9 @@ call.
 2. Owner: provide `table.py` and `table_defs.py`, and say whether to provide `reader.py` or
    have Claude write it.
 3. Owner: write the signature statement spec, and the `format` and `tup` specs.
-4. Pick translation strategy A or B, and answer the open items in the option A section
-   (`def` inside a function, the runtime representation of `quote`). Then build the translator core for `def`, `defn`, `do`,
+4. Pick translation strategy A or B (and, for A, whether to keep the lowered IR as its own
+   layer or merge it with the Python step), and answer the open items in the option A
+   section (`def` inside a function, the runtime representation of `quote`). Then build the translator core for `def`, `defn`, `do`,
    `if`, `cond`, `let` and `fn`, with tests.
 5. Wire up reader → parser → translator → `output/`, run mypy on the generated Python, and
    run a first Candy program end to end.

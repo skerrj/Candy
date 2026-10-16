@@ -17,16 +17,75 @@ targets, so that they aren't designed out by accident.
    - NewType is also awkward in Python itself. Arithmetic drops the wrapper: for two `Long`
      values `a` and `b`, mypy types `a + b` as plain `int`. Typed code would then need casts
      everywhere, or wrapper classes with overloaded operators.
-2. **The translator keeps a target-independent stage.** The pipeline is:
-   - parser
-   - typed Candy AST
-   - (later) a typed intermediate representation
-   - a lowering step for each target
+2. **The translator keeps target-independent stages.** The pipeline is:
+   - parser → `SExpr`
+   - `analyse` → Core AST (typed, once Candy's type checker exists)
+   - `lower` → lowered IR, the "pseudo-AST" (statements vs. expressions)
+   - one backend per target, which emits that target's code
 
-   The iMVP's Python lowering (option A, `lower()` in the iMVP doc) is the first such
-   step. A new target adds its own lowering and reuses everything before it.
+   The iMVP's Python backend (`emit_py`) is the first such backend. A new target adds its
+   own backend and reuses everything before it. See "Stages and targets" below and
+   "Layers" in the iMVP doc.
 3. **Each target maps the Candy types for itself.** For the iMVP's Python mapping (`Int`,
    `Long` and `Byte` to `int`, and so on), see the iMVP doc.
+
+## Stages and targets
+
+What each stage does, and how much of it a new target can reuse:
+
+| Stage | What it settles | Reused by |
+|---|---|---|
+| Core AST (`analyse`) | Valid Candy; special forms; `cond` expanded; names resolved to unique binding ids; signatures and (later) types | Every target |
+| Core → Core passes (none in the iMVP) | Closure conversion or lambda lifting, for targets without closures | C, WASM |
+| Lowered IR (`lower`) | Statements vs. expressions; temporaries; evaluation order; an `if` in value position | Statement-based targets: Python, JavaScript, Java source, C, Go |
+| Backend (`emit_<target>`) | Spellings (mangling, keywords); built-ins through the target's table; type mapping; output text or AST | One target |
+
+Expression-based targets (WASM, where blocks yield values; another Lisp) don't need the
+statement/expression split. They can lower from Core directly, or use a different IR.
+
+### Target capabilities (`Caps`)
+
+`lower` is shared by the statement-based targets, so it takes a `Caps` record saying what
+the target's expressions can do. Where a target can't do something, `lower` falls back to
+statements and temporaries.
+
+| Capability | Python | JavaScript | Java | C | Go |
+|---|---|---|---|---|---|
+| Conditional expression | `a if t else b` | `t ? a : b` | `t ? a : b` | `t ? a : b` | no |
+| Anonymous function | lambda, body one expression | closure, any body | lambda (captures effectively final) | none | closure, any body |
+| Chained comparison (`a < b < c`) | yes | no | no | no | no |
+
+Some differences are not `lower`'s problem:
+
+- No closures (C): a Core → Core pass first, then `lower`.
+- `(< a b c)` on targets without chained comparisons: `a < b and b < c`, with `b` stored in
+  a temporary if it isn't a plain name or a constant.
+- Integer sizes and memory management: the backend, the runtime and the open questions
+  below.
+
+### The symbol table across targets
+
+The iMVP's `TableEntry` already separates the two halves. Its `kind` (`binop`, `compare`,
+`call`, ...) and `arity` describe the Candy built-in and hold for any target. Only `py` is
+Python-specific. When a second target arrives, split `table.py` into:
+
+- a target-neutral table of built-ins: name, kind, arity and (later) Candy signature;
+- one mapping per target, from built-in name to that target's name or operator. Each
+  target also gets its own runtime, the equivalent of `table_defs.py`.
+
+Core refers to built-ins by Candy name (`Prim("+")`), so it never sees a target's names.
+
+### Is the pseudo-AST worth it?
+
+- **The Core AST is needed in any case.** The type checker, error messages and every
+  backend depend on it.
+- **The lowered IR** is worth keeping as its own layer if a second statement-based target
+  is likely. It is also worth keeping for bootstrapping: the self-hosted Candy translator
+  can keep it as plain data and print Python text from it, without Python's `ast` module.
+  (Generated code may depend only on `table.py` and `table_defs.py`.)
+- **The risk** is designing the IR around Python alone. To limit it, keep Python-isms out
+  of the IR nodes themselves and in `Caps` and `emit_py`: the IR has a `CondExpr` node,
+  but a `Caps` flag says whether a target may use it.
 
 ## Open language-level questions
 
@@ -45,5 +104,5 @@ fixed-size numbers can't.
 ## To be written
 
 - The candidate targets and which comes first.
-- How the typed intermediate representation is defined.
+- The exact lowered IR node set, and whether types live on IR nodes or only on Core.
 - How each target provides its runtime: the equivalent of `table.py` / `table_defs.py`.
