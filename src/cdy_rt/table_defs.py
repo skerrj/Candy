@@ -21,7 +21,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from table import SEARCH_PATH
+from cdy_rt.table import SEARCH_PATH
 
 # --- collections ---
 

@@ -43,7 +43,8 @@ true|false ;; Bool
 ### fn
 - lambda
  > (fn (*args**) *expr*)
-### quote
+### quote [SKIP]
+- skipped for the iMVP: no macros yet
 - returns *form* unevaluated
 - the `'` shorthand will be added later as a reader macro... ala clojure
  > (quote *form*)

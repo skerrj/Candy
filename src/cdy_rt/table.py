@@ -21,8 +21,8 @@ from typing import Literal, NamedTuple
 # Modules the generated code imports, by name. ``RUNTIME_MODULE`` holds the helper functions
 # (``table_defs.py``); ``TABLE_MODULE`` is this module, which the self-hosted compiler needs
 # for the ``table-*`` functions.
-RUNTIME_MODULE = "table_defs"
-TABLE_MODULE = "table"
+RUNTIME_MODULE = "cdy_rt.table_defs"
+TABLE_MODULE = "cdy_rt.table"
 IMPORTS: tuple[str, ...] = ("math", "re", TABLE_MODULE, RUNTIME_MODULE)
 
 # Where ``slurp`` looks for a Candy file that isn't found at the given path.
