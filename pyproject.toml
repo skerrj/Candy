@@ -22,6 +22,8 @@ src = ["src/py_cdy", "src"]
 
 [tool.pylint.main]
 init-hook = "import sys; sys.path.insert(0, 'src/py_cdy')"
+# mypy is compiled (mypyc); let pylint import it to see mypy.api.
+extension-pkg-allow-list = ["mypy"]
 
 [tool.pylint."messages control"]
 # ruff sorts imports; pylint's import-order check disagrees with it about first-party modules.

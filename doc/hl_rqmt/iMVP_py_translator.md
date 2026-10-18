@@ -27,10 +27,10 @@ agreed) or **open** (needs an answer).
 | Stage | Module | Status |
 |---|---|---|
 | Reader | `src/py_cdy/reader.py`. For the iMVP it just slurps a whole Candy file into a string (**decided**). `slurp` and its path helpers are copied from `cdy_rt.table_defs` for now; the search path comes from `cdy_rt.table`. | Exists, with tests. |
-| Entry point | `src/py_cdy/main.py`, modelled on smz's `main.py` (`run_2_out`): `python src/py_cdy/main.py FILE.cdy`. | Exists: runs reader → parser and prints the forms. Translating and writing `output/<name>.py` comes with the translator. |
+| Entry point | `src/py_cdy/main.py`, modelled on smz's `main.py`: `python src/py_cdy/main.py FILE.cdy [--run]`. | Exists: translates to `output/<name>.py` (like smz's `run_2_out`); `--run` then runs it (like `run_as_main`). |
 | Parser | `src/py_cdy/parse_cdy.py` (parsec.py v4). Produces `Symbol`, `SList`, `Str` and one node per literal type (see below). No `'` shorthand. | Exists, with typed literals, string literals and `;` comments. |
 | Symbol table | `src/cdy_rt/table.py` and `table_defs.py`, drafted from smz (**decided**: the owner skimmed them and accepted them for now). | Exists, linted, type-checked and tested (`tst/cdy_rt/`). |
-| Translator | `core_cdy.py` (`analyse`), `lower_cdy.py` (`lower`), then `emit_py.py`, all in `src/py_cdy/`. See "Layers" under option A. | Core and `lower` exist, with tests (`tst/py_cdy/test_core_cdy.py`, `test_lower_cdy.py`). `emit_py` not started. |
+| Translator | `core_cdy.py` (`analyse`), `lower_cdy.py` (`lower`), `emit_py.py`, and `translate_cdy.py` (`translate`: text to text, all steps), all in `src/py_cdy/`. See "Layers" under option A. | Exists, with tests (`test_core_cdy.py`, `test_lower_cdy.py`, `test_emit_py.py`). A test program runs end to end, and its generated Python passes `mypy --strict`. |
 
 ## Surface syntax
 
@@ -578,13 +578,43 @@ for the other targets.
 **3. Python backend (`emit_py`).** Mostly one IR node to one `ast` node. It also:
 
 - picks Python spellings: name mangling (below), keyword clashes, and renaming a binding
-  only if another binding with the same spelling is already used in the same Python
-  function (the `let` scoping rule below, applied by binding id);
+  only when its spelling is already taken (the `let` scoping rule below, applied by
+  binding id);
 - maps each `Prim` through `table.py`: `+` becomes `ast.Add`, and `slurp` becomes
   `table_defs.slurp`;
 - maps Candy types to Python annotations.
 
 `ast.unparse` then writes the text, and gets operator precedence and parentheses right.
+
+**`emit_py` as built** (`src/py_cdy/emit_py.py`):
+
+- **Header.** Every generated module starts with `from __future__ import annotations`,
+  imports `Any`, `NamedTuple`, `Callable` and `Mapping` under `_cdy_` aliases (so they
+  can't clash with user names), and imports every module in `table.py`'s `IMPORTS`
+  (`math`, `re`, `cdy_rt.table`, `cdy_rt.table_defs`), used or not.
+- **Spelling.** A user name that is a Python keyword, a Python built-in (`len`, `int`,
+  `tuple`, ... which the generated code relies on) or an imported module (`math`) gets a
+  trailing `_`. So does a user name starting with `_cdy_`, which keeps generated names
+  (`_cdy_t3`, `_cdy_x_2`) unique. Two top-level names that mangle to the same Python name
+  are an error.
+- **Locals.** At module level, a local avoids every global's spelling (the module is one
+  Python namespace). In a function, a local avoids only the outer names the function
+  actually refers to, plus the names it has already bound: so a function's `x` stays `x`
+  even when there is a global `x` it doesn't use. Otherwise the local becomes
+  `_cdy_<name>_<id>`.
+- **Types.** `Int`/`Long`/`Byte` → `int`, `Float`/`Double` → `float`, `Char`/`String` →
+  `str`, `Unit` → `None`, `Any` → `Any`, `(Maybe a)` → `A | None`, `(List a)` →
+  `tuple[A, ...]`, `(Tup a b)` → `tuple[A, B]`, `(Map k v)` → `Mapping[K, V]`, `(Fn (a) r)`
+  → `Callable[[A], R]`; type variables become PEP 695 type parameters on the `def` or
+  `class`.
+- **Records.** A `deft` becomes `class Name[...](NamedTuple)`. `get` becomes `obj.field`,
+  `assoc` becomes `obj._replace(field=...)`.
+- **Errors.** A built-in operator used as a value (`(put +)`) and a record field that
+  would start with `_` (which `NamedTuple` forbids) are `CandyError`s.
+
+A `defn` whose `sig` returns `Unit` is lowered in `effect` mode (in `lower`, not here): its
+body runs for its effect, and there is no `return`. Otherwise Python would get
+`return print(...)`, which mypy rejects.
 
 **Why the extra layers pay off in the iMVP.**
 
@@ -766,8 +796,9 @@ statements first), followed by `body` in the current mode, with `a` and `b` adde
   in this Python function). If it is, the binding is renamed to a fresh `_cdy_` name, and
   `ctx.env` maps the Candy name to it. Most code keeps readable names, and shadowing still
   works.
-- **Known gap.** A global defined *later* in the file can still be captured by mistake. If
-  that bites, switch to always renaming `let` bindings.
+- **Known gap: closed.** `emit_py` knows every top-level name before it emits anything, and
+  works from binding ids, so a global defined later in the file can't be captured by
+  mistake. See "`emit_py` as built" under "Layers".
 - **`let` is defined as an applied lambda, as in Scheme (decided).** Core has no `Let`
   node, and `lower` turns the applied lambda back into the assignments described here. See
   the note below.
@@ -1023,6 +1054,10 @@ other targets, integer sizes and float precision (`doc/hl_rqmt/multi_target.md`)
 3. ~~Owner: settle the `sig` proposal.~~ Done.
 4. ~~Pick translation strategy A or B.~~ A. ~~Build Core first (`core_cdy.py`: nodes and
    `analyse`).~~ Done, with tests. The lowered IR is its own layer (decided). ~~`lower`.~~ Done,
-   with tests. Next: `emit_py` (IR → Python `ast` → text), with tests.
-5. Wire up reader → parser → translator → `output/`, run mypy on the generated Python, and
-   run a first Candy program end to end.
+   with tests. ~~`emit_py`.~~ Done, with tests.
+5. ~~Wire up reader → parser → translator → `output/`, run mypy on the generated Python, and
+   run a first Candy program end to end.~~ Done: `main.py FILE.cdy --run`, and
+   `test_emit_py.py` runs a program and checks its Python with `mypy --strict`.
+6. Next: grow toward self-hosting. Write Candy programs that use more of the runtime
+   (strings, files, the table) and fix what breaks; record each shortcut in
+   `doc/leaks.md`.

@@ -40,6 +40,7 @@ from core_cdy import (
     Lit,
     Local,
     Prim,
+    TCon,
     TFn,
     TopLevel,
     Tup,
@@ -437,7 +438,11 @@ def lower_program(
                 stmts, result, n = value(init, ctx, n)
                 out += (*stmts, Assign(Global(name), result, sig))
             case Defn(name, params, body, sig):
-                body_stmts, n = tail(body, ctx, n)
+                # A Unit function's body runs for its effect; there is no value to return.
+                if sig.ret == TCon("Unit"):
+                    body_stmts, n = effect(body, ctx, n)
+                else:
+                    body_stmts, n = tail(body, ctx, n)
                 out += (FuncDef(Global(name), params, body_stmts, sig),)
             case Deft(name, tvars, fields):
                 out += (RecordDef(name, tvars, fields),)

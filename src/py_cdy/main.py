@@ -1,45 +1,51 @@
-"""Command-line entry point: ``python src/py_cdy/main.py FILE.cdy``.
+"""Command-line entry point: ``python src/py_cdy/main.py FILE.cdy [--run]``.
 
-Modelled on schmuz's ``src/py_smz/main.py`` (``run_2_out``). For now it runs the stages that
-exist, reader then parser, and prints the parsed forms. Once the translator exists, this is
-where the forms get translated and written to ``output/<name>.py``.
+Modelled on schmuz's ``src/py_smz/main.py``: like its ``run_2_out``, it translates a Candy
+file to ``output/<name>.py``; with ``--run`` it then runs that file, like ``run_as_main``.
 """
 
+import subprocess
 import sys
 from pathlib import Path
 
-from parsec import ParseFailure, parse
+from parsec import ParseFailure
 
-from parse_cdy import SExpr, program
+from core_cdy import CandyError
 from reader import slurp
+from translate_cdy import translate
 
 OUTPUT_DIR = Path("output")
-
-
-def read_forms(name: str) -> tuple[SExpr, ...]:
-    """The top-level forms of the Candy file ``name``."""
-    return parse(program, slurp(name))
+USAGE = "usage: main.py FILE.cdy [--run]"
 
 
 def out_path(name: str) -> Path:
-    """Where the translated Python for ``name`` will go: ``output/<stem>.py``."""
+    """Where the translated Python for ``name`` goes: ``output/<stem>.py``."""
     return OUTPUT_DIR / f"{Path(name).stem}.py"
 
 
+def translate_file(name: str) -> Path:
+    """Translate the Candy file ``name`` and write the Python; returns where it went."""
+    out = out_path(name)
+    source = translate(slurp(name))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(source, encoding="utf-8")
+    return out
+
+
 def main(args: list[str]) -> int:
-    """Read and parse the file named by ``args[0]``, and print its forms."""
-    if len(args) != 1:
-        print("usage: main.py FILE.cdy", file=sys.stderr)
+    """Translate the file named in ``args`` and, with ``--run``, run the result."""
+    files = [a for a in args if a != "--run"]
+    if len(files) != 1 or len(args) - len(files) > 1:
+        print(USAGE, file=sys.stderr)
         return 2
-    name = args[0]
-    print(f"candy: {name} -> {out_path(name)} (translator not written yet)")
     try:
-        forms = read_forms(name)
-    except (FileNotFoundError, ParseFailure) as err:
+        out = translate_file(files[0])
+    except (FileNotFoundError, ParseFailure, CandyError) as err:
         print(f"candy: {err}", file=sys.stderr)
         return 1
-    for form in forms:
-        print(form)
+    print(f"candy: {files[0]} -> {out}", file=sys.stderr)
+    if "--run" in args:
+        return subprocess.run([sys.executable, str(out)], check=False).returncode
     return 0
 
 

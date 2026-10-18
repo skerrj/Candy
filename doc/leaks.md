@@ -101,7 +101,15 @@ stopgap is destructuring. A `let` binding can destructure a tuple:
 
 - **Name mangling can collide.** `a-b` and `a_b` both become `a_b`. The translator reports
   an error when both appear in one scope, but doesn't rename.
-- **A `let` can capture a global defined later in the file**, in the gap described in the
-  iMVP doc's `let` scoping rule.
+- **Operators can't be values yet.** `(put +)` or passing `<` to a function is an error;
+  wrap it: `(fn (a b) (< a b))`.
+- **Record fields can't start with `_`** (or `-`, which mangles to `_`), because
+  `NamedTuple` forbids it.
+- **Using a `Unit` value.** `(put (put 1))` translates, but the Python uses the result of a
+  `None`-returning call, which mypy rejects. Candy's own type checker should reject it
+  first.
+- **Every runtime module is imported**, whether the program uses it or not.
+- **The destructuring temporary is named `_tup`**, a plain local; it is renamed like any
+  other local if the name is taken.
 - **No source positions** (skipped for the iMVP). Translation errors can't name a line
   yet; only parse errors have a line and column.
