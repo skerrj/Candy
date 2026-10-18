@@ -27,8 +27,8 @@ Candy text ─▶ parse_cdy (Python, parsec v4) ─▶ convert ─▶ translator
 
 ## Stages
 
-0. **Sum types and `match`** (`doc/hl_rqmt/sum_types.md`), in the Python translator. Without
-   them, forms, Core nodes and IR nodes are all `Any` in Candy.
+0. ~~**Sum types and `match`**~~ (`doc/hl_rqmt/sum_types.md`), in the Python translator.
+   **Done.** Without them, forms, Core nodes and IR nodes would all be `Any` in Candy.
 1. **The translator in Candy, with the Python parser.**
    - Candy source under `src/cdy/` (for example `core.cdy`, `lower.cdy`, `emit.cdy`,
      `translate.cdy`), compiled by the iMVP translator into Python modules (T1) under

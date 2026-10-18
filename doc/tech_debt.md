@@ -13,6 +13,13 @@ take one, and remove an entry once it is fixed.
   `pyproject.toml`) to fit the big `match` dispatches. Splitting those functions would let
   the defaults come back.
 
+- **`match` is an `isinstance` chain in Python**, not Python's `match`, because mypy (2.4)
+  loses a generic variant's type arguments in a class pattern (`case Node(l, v, r):` makes
+  `v` `Any`). pyright handles class patterns; switch back if mypy catches up
+  (`emit_match` in `emit_py.py`).
+- **`match` subjects that aren't simple get a temporary** in `lower`, only because the
+  Python chain tests the subject more than once.
+
 ## Runtime
 
 - **`slurp` is duplicated** in `src/py_cdy/reader.py` and `src/cdy_rt/table_defs.py`, on

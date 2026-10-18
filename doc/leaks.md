@@ -17,7 +17,11 @@ where it was fixed) rather than copying it here. This file is for leaks added fr
 
 ## Types
 
-(none yet)
+- **Sum types are Python unions of `NamedTuple`s.** Two variants of different sums with
+  the same fields compare equal (`==` is tuple equality), as records already do (see the
+  archived list). A variant is also a tuple, so Python's tuple operations work on it.
+- **`get` after `match` is checked by mypy, not Candy.** `(get s r)` on a `Shape` that
+  might be a `Rect` translates; mypy rejects it in strict mode, but Candy itself doesn't.
 
 ## Python semantics showing through
 
@@ -25,4 +29,7 @@ where it was fixed) rather than copying it here. This file is for leaks added fr
 
 ## Translator shortcuts
 
-(none yet)
+- **Types and values share one namespace.** A sum type's name and its variants are all
+  Python names, so a variant can't have its type's name (`(deft Box (Box ...))` is
+  "defined more than once"), and no other top-level name can reuse a sum type's name.
+  Candy keeps types and values apart in principle.

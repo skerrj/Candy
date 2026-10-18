@@ -44,12 +44,14 @@ from lower_cdy import (
     IrExpr,
     LambdaE,
     Loop,
+    MatchStmt,
     Op,
     Rebind,
     RecordDef,
     Return,
     Stmt,
     Stmts,
+    SumDef,
     Temp,
     TupleE,
 )
@@ -127,6 +129,8 @@ def global_names(stmts: Stmts) -> Mapping[str, str]:
         match stmt:
             case Assign(Global(name), _, _) | FuncDef(Global(name), _, _, _) | RecordDef(name):
                 names.append(name)
+            case SumDef(name, _, variants):
+                names.extend((name, *(v for v, _ in variants)))
             case _:
                 pass
     spelled: dict[str, str] = {}
@@ -150,6 +154,11 @@ def bound_locals(stmts: Stmts) -> tuple[Local, ...]:
                 out.extend(local for local in bound_locals((*then, *other)) if local not in out)
             case Loop(body):
                 out.extend(local for local in bound_locals(body) if local not in out)
+            case MatchStmt(_, cases, default):
+                binds = [local for c in cases for _, local in c.binds]
+                bodies = [s for c in cases for s in c.body] + list(default or ())
+                found = (*binds, *bound_locals(tuple(bodies)))
+                out.extend(local for local in found if local not in out)
             case _:
                 pass
     return tuple(out)
@@ -350,8 +359,15 @@ def field_name(field: str) -> str:
 
 def emit_stmts(stmts: Stmts, env: Env) -> list[ast.stmt]:
     """IR statements as Python statements (never empty: ``pass`` if there are none)."""
-    out = [emit_stmt(stmt, env) for stmt in stmts]
+    out = [py for stmt in stmts for py in emit_stmt_list(stmt, env)]
     return out or [ast.Pass()]
+
+
+def emit_stmt_list(stmt: Stmt, env: Env) -> list[ast.stmt]:
+    """One IR statement as Python statements: a sum type takes several, the rest one."""
+    if isinstance(stmt, SumDef):
+        return emit_sum(stmt, env)
+    return [emit_stmt(stmt, env)]
 
 
 def emit_stmt(stmt: Stmt, env: Env) -> ast.stmt:
@@ -383,6 +399,10 @@ def emit_stmt(stmt: Stmt, env: Env) -> ast.stmt:
             return ast.Assign([lhs], ast.Tuple([emit_expr(v, env) for v in values], ast.Load()))
         case Continue():
             return ast.Continue()
+        case MatchStmt():
+            return emit_match(stmt, env)
+        case SumDef():
+            raise CandyError("a sum type is only allowed at top level")
 
 
 def emit_record(record: RecordDef, env: Env) -> ast.stmt:
@@ -393,9 +413,52 @@ def emit_record(record: RecordDef, env: Env) -> ast.stmt:
     return ast.ClassDef(
         env.globals_[record.name],
         bases=[load(NAMED_TUPLE)],
-        body=fields,
+        body=fields or [ast.Pass()],  # a variant with no fields
         type_params=[ast.TypeVar(mangle(t)) for t in record.tvars],
     )
+
+
+def emit_sum(sum_def: SumDef, env: Env) -> list[ast.stmt]:
+    """A ``deft`` sum type: one ``NamedTuple`` class per variant, and a type alias for their
+    union. A variant is generic only in the type variables its fields use."""
+    out: list[ast.stmt] = []
+    members: list[ast.expr] = []
+    for v_name, fields in sum_def.variants:
+        used = frozenset().union(*(type_vars(t) for _, t in fields))
+        tvars = tuple(t for t in sum_def.tvars if t in used)
+        out.append(emit_record(RecordDef(v_name, tvars, fields), env))
+        cls = load(env.globals_[v_name])
+        members.append(subscript(cls, [load(mangle(t)) for t in tvars]) if tvars else cls)
+    union = members[0]
+    for member in members[1:]:
+        union = ast.BinOp(union, ast.BitOr(), member)
+    alias = ast.TypeAlias(
+        store(env.globals_[sum_def.name]),
+        [ast.TypeVar(mangle(t)) for t in sum_def.tvars],
+        union,
+    )
+    return [*out, alias]
+
+
+def emit_match(stmt: MatchStmt, env: Env) -> ast.stmt:
+    """``match`` as an ``isinstance`` chain, with each field bound by attribute.
+
+    Not Python's ``match``: mypy loses a generic variant's type arguments in a class pattern
+    (``case Node(l, v, r)`` makes ``v`` ``Any``), but keeps them when ``isinstance`` narrows.
+    """
+    subject = emit_expr(stmt.subject, env)
+    orelse: list[ast.stmt] = emit_stmts(stmt.default, env) if stmt.default is not None else []
+    for case in reversed(stmt.cases):
+        test = ast.Call(load("isinstance"), [subject, load(name_of(case.variant, env))], [])
+        binds: list[ast.stmt] = [
+            ast.Assign(
+                [store(name_of(local, env))], ast.Attribute(subject, field_name(f), ast.Load())
+            )
+            for f, local in case.binds
+        ]
+        body = binds + emit_stmts(case.body, env) if case.body else binds or [ast.Pass()]
+        orelse = [ast.If(test, body, orelse)]
+    return orelse[0]
 
 
 def emit_funcdef(

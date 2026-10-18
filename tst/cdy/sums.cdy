@@ -1,0 +1,67 @@
+;;; Sum types (deft with variants) and match.
+
+(deft Shape
+  (Circle ((r Double)))
+  (Rect ((w Double) (h Double))))
+
+;; Generic and recursive; Leaf has no fields, so it is a value.
+(deft (Tree a)
+  (Leaf)
+  (Node ((left (Tree a)) (val a) (right (Tree a)))))
+
+;; match in tail position, one clause per variant.
+(sig area (Fn (Shape) Double))
+(defn area (s)
+  (match s
+    ((Circle r) (* 3.0 r r))
+    ((Rect w h) (* w h))))
+
+(sig size (Fn ((Tree Int)) Int))
+(defn size (t)
+  (match t
+    ((Leaf) 0)
+    ((Node l _ r) (+ 1 (size l) (size r)))))
+
+(sig insert (Fn ((Tree Int) Int) (Tree Int)))
+(defn insert (t x)
+  (match t
+    ((Leaf) (Node Leaf x Leaf))
+    ((Node l v r)
+      (cond
+        ((< x v) (Node (insert l x) v r))
+        ((> x v) (Node l v (insert r x)))
+        (else t)))))
+
+;; A self tail call inside a match becomes a loop.
+(sig leftmost (Fn ((Tree Int) Int) Int))
+(defn leftmost (t best)
+  (match t
+    ((Leaf) best)
+    ((Node l v _) (leftmost l v))))
+
+;; match in value position, with else.
+(sig describe (Fn (Shape) String))
+(defn describe (s)
+  (format "{(match s ((Circle _) \"round\") (else \"square-ish\"))} of area {(area s)}"))
+
+;; match in effect position (a Unit function).
+(sig show-tree (Fn ((Tree Int)) Unit))
+(defn show-tree (t)
+  (match t
+    ((Leaf) nil)
+    ((Node l v r) (do (show-tree l) (put v) (show-tree r)))))
+
+(sig build (Fn ((Tree Int) (List Int)) (Tree Int)))
+(defn build (t xs)
+  (if (= (len xs) 0) t (build (insert t (at xs 0)) (slice xs 1 (len xs)))))
+
+(sig tree (Tree Int))
+(def tree (build Leaf (tup 5 2 8 1 9 3)))
+
+(put (area (Circle 1.0)))
+(put (describe (Rect 2.0 3.0)))
+(put (describe (Circle 2.0)))
+(put (size tree))
+(put (leftmost tree 0))
+(show-tree tree)
+(put (get (Rect 4.0 5.0) h))

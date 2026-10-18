@@ -12,6 +12,7 @@ from lower_cdy import (
     AssocE,
     CallE,
     Caps,
+    Case,
     CondE,
     Const,
     Continue,
@@ -24,11 +25,13 @@ from lower_cdy import (
     IrExpr,
     LambdaE,
     Loop,
+    MatchStmt,
     Op,
     Rebind,
     RecordDef,
     Return,
     Stmts,
+    SumDef,
     Temp,
     TupleE,
     effect,
@@ -244,3 +247,39 @@ def test_no_loop_without_a_tail_call_or_with_a_closure() -> None:
         "(sig f (Fn (Int) Any)) (defn f (n) (if (= n 0) (fn (x) (+ x n)) (f (- n 1))))"
     )
     assert isinstance(closure, FuncDef) and not isinstance(closure.body[0], Loop)
+
+
+SUM = "(deft Opt (No) (Yes ((v Int)))) "
+
+
+def test_match_in_tail_and_value_modes() -> None:
+    s, v = Local("s", 0), Local("v", 1)
+    *_, func = lowered(SUM + "(sig f (Fn (Opt) Int)) (defn f (s) (match s ((No) 0) ((Yes v) v)))")
+    assert func == FuncDef(
+        Global("f"),
+        (s,),
+        (
+            MatchStmt(
+                s,
+                (
+                    Case(Global("No"), (), (Return(c(0)),)),
+                    Case(Global("Yes"), (("v", v),), (Return(v),)),
+                ),
+                None,
+            ),
+        ),
+        TFn((TCon("Opt"),), TCon("Int")),
+    )
+    # In value position, each case assigns a temporary; a call as subject is stored first.
+    *_, put = lowered(
+        SUM + "(sig g (Fn (Int) Opt)) (defn g (x) No) (put (match (g 1) ((No) 0) (else 1)))"
+    )
+    assert put == ExprStmt(CallE(PUT, (Temp(0),)))
+    assert lowered(
+        SUM + "(sig g (Fn (Int) Opt)) (defn g (x) No) (put (match (g 1) ((No) 0) (else 1)))"
+    )[2] == (Assign(Temp(1), CallE(Global("g"), (c(1),))))
+
+
+def test_sum_def() -> None:
+    (out,) = lowered(SUM)
+    assert out == SumDef("Opt", (), (("No", ()), ("Yes", (("v", TCon("Int")),))))

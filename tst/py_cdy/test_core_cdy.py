@@ -1,5 +1,6 @@
 """Tests for the Core AST and ``analyse`` (``core_cdy.py``)."""
 
+import re
 from types import MappingProxyType
 
 import pytest
@@ -11,9 +12,11 @@ from core_cdy import (
     Assoc,
     Call,
     CandyError,
+    Clause,
     Def,
     Defn,
     Deft,
+    DeftSum,
     Do,
     Expr,
     Fn,
@@ -23,6 +26,7 @@ from core_cdy import (
     If,
     Lit,
     Local,
+    Match,
     Prim,
     Scope,
     TCon,
@@ -30,6 +34,7 @@ from core_cdy import (
     TopLevel,
     Tup,
     TVar,
+    Variant,
     analyse_expr,
     analyse_program,
 )
@@ -251,3 +256,78 @@ def test_deft() -> None:
         prog("(deft P ((x Int) (x Int)))")
     with pytest.raises(CandyError, match="takes 2 argument"):
         prog("(deft (Pair a b) ((f a) (s b))) (sig p (Pair Int)) (def p 1)")
+
+
+SHAPES = """
+(deft Shape (Circle ((r Double))) (Rect ((w Double) (h Double))) (Dot))
+(sig s Shape)
+(def s (Circle 1.0))
+"""
+
+
+def test_deft_sum() -> None:
+    out = prog("(deft (Tree a) (Leaf) (Node ((l (Tree a)) (v a))))")
+    tree = TCon("Tree", (TVar("a"),))
+    assert out == (
+        DeftSum(
+            "Tree", ("a",), (Variant("Leaf", ()), Variant("Node", (("l", tree), ("v", TVar("a")))))
+        ),
+    )
+    # A variant with no fields is a value, built with no arguments.
+    (_, dot) = prog(SHAPES + "(put Dot)")[-2:]
+    assert dot == Call(Prim("put"), (Call(Global("Dot"), ()),))
+
+
+def test_match() -> None:
+    *_, out = prog(SHAPES + "(match s ((Circle r) r) ((Rect _ h) h) ((Dot) 0.0))")
+    r, h = Local("r", 0), Local("h", 1)
+    assert out == Match(
+        Global("s"),
+        (
+            Clause("Circle", (("r", r),), r),
+            Clause("Rect", (("h", h),), h),
+            Clause("Dot", (), Lit(0.0, "Double")),
+        ),
+        None,
+    )
+    *_, with_else = prog(SHAPES + "(match s ((Dot) 1) (else 2))")
+    assert isinstance(with_else, Match) and with_else.default == Lit(2, "Int")
+
+
+@pytest.mark.parametrize(
+    ("src", "message"),
+    [
+        ("(match s ((Circle r) r))", "no clause for Dot, Rect"),
+        ("(match s ((Circle r) r) ((Circle r) r) (else 1))", "more than one clause for Circle"),
+        ("(match s ((Circle) 1) (else 2))", "needs 1 name"),
+        ("(match s ((Rect a a) a) (else 2))", "must be different"),
+        ("(match s (else 1))", "after a pattern"),
+        ("(match s (else 1) ((Dot) 2))", "must be the last clause"),
+        ("(match s ((Nope x) x))", "not a variant"),
+        ("(match s (x 1))", "pattern must be"),
+        ("(match s)", "expected (match"),
+        ("(put (Dot))", "it is a value"),
+        ("(put (Rect 1.0))", "takes 2 field"),
+    ],
+)
+def test_match_errors(src: str, message: str) -> None:
+    with pytest.raises(CandyError, match=re.escape(message)):
+        prog(SHAPES + src)
+
+
+def test_match_mixing_sums() -> None:
+    with pytest.raises(CandyError, match="mix variants"):
+        prog(SHAPES + "(deft B (T) (F)) (match s ((Dot) 1) ((T) 2) (else 3))")
+
+
+def test_deft_sum_errors() -> None:
+    with pytest.raises(CandyError, match="defined more than once: Box"):
+        prog("(deft Box (Box ((v Int))))")
+    with pytest.raises(CandyError, match="variant names are Capitalised"):
+        prog("(deft S (A) (b))")
+    with pytest.raises(CandyError, match="variant must be"):
+        prog("(deft S (A ()))")
+    with pytest.raises(CandyError, match="unknown type variable"):
+        prog("(deft S (A ((x a))))")
+    with pytest.raises(CandyError, match="unknown name Shape"):  # a type, not a value
+        prog(SHAPES + "(put Shape)")

@@ -361,11 +361,9 @@ through per-type names like Carp's `Vector2.x` or Scheme's `vector2-x`. The name
 3. **Generics.** Carp's `(deftype (Pair a b) ...)` would be `(deft (Pair a b) ((first a)
    (second b)))`. Python 3.12+ can express this as `class Pair[A, B](NamedTuple):`. This
    depends on how the signature spec writes type variables.
-4. **Sum types.** These could be `(deft Shape (Circle ((r Double))) (Rect ((w Double) (h
-   Double))))`. That can be told apart from a product type, because each variant starts
-   with a symbol, while a product's field list starts with a list. Sum types need a `match`
-   form to be useful, so they come after the iMVP. In Python they would be one `NamedTuple`
-   per variant plus a type alias for their union.
+4. ~~**Sum types.**~~ **Done after the iMVP** (branch `pre-self-host`), with `match`:
+   `(deft Shape (Circle ((r Double))) (Rect ((w Double) (h Double))))`. See
+   `doc/hl_rqmt/sum_types.md`.
 5. **Compound field types**, such as a list of `Int`. These wait on the signature spec's
    compound types, proposed in the `sig` subsection above (`(List Int)`).
 

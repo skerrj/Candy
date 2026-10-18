@@ -11,5 +11,6 @@ Done and earlier items are in `doc/archive/TODOS_imvp_py_translator.md`.
 
 ## pre-self-host
 
-- [ ] Review `doc/hl_rqmt/sum_types.md` (draft): sum types now (decided, via self-hosting choice A), syntax, nullary variants, exhaustiveness, `Maybe`, and the other open questions.
+- [x] `doc/hl_rqmt/sum_types.md`: all seven questions decided (variants in `deft`; nullary variants are values; exhaustive `match`; `Maybe` stays `A | None`; `get` after `match`; global variant names), and implemented (stage 0).
+- [ ] `src/cdy/candy-special.md`: add `deft` (records and sums) and `match` to the spec, with `sig`, `get` and `assoc` (see the carried-over item above).
 - [ ] Review `doc/hl_rqmt/self_hosting_primo.md` (draft staging plan): the translator in Candy with the Python parser borrowed, the T1 = T2 fixpoint, then the parser in Candy. Forms at the boundary: A, `deft` variants plus conversion (decided). Decided: Candy source in `src/cdy/`, T1/T2 generated into git-ignored `output/`. Driver: a `main.py` mode, for now (decided). Proposed, to confirm: the fixpoint compares the files T1 and T2 up to formatting (`ast.dump`) and their output byte for byte.

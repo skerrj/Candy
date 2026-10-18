@@ -5,6 +5,8 @@ This is the first of the translator's three steps (see "Layers" in
 into one node per form and checks their shape. It also:
 
 - expands ``cond`` into nested ``If``s;
+- checks ``match`` clauses against the ``deft`` sum type they take apart (one clause per
+  variant, or an ``else``);
 - desugars ``let`` into nested applied ``Fn``s, as in Scheme, so Core has no ``Let`` node
   (``lower`` turns them back into assignments); a destructuring binding ``((x y) e)``
   becomes a binding for ``e`` and one ``at`` call per name;
@@ -178,7 +180,24 @@ class Assoc(NamedTuple):
     fields: tuple[tuple[str, Expr], ...]
 
 
-Expr = Lit | Local | Global | Prim | Call | If | Do | Fn | Tup | Format | Get | Assoc
+class Clause(NamedTuple):
+    """One ``((Variant a b) body)`` clause of a ``match``: each bound name with its field
+    (``_`` binds nothing)."""
+
+    variant: str
+    binds: tuple[tuple[str, Local], ...]
+    body: Expr
+
+
+class Match(NamedTuple):
+    """``(match subject clause+ (else expr)?)``; ``default`` is the ``else``, if any."""
+
+    subject: Expr
+    clauses: tuple[Clause, ...]
+    default: Expr | None
+
+
+Expr = Lit | Local | Global | Prim | Call | If | Do | Fn | Tup | Format | Get | Assoc | Match
 
 
 # --- top-level forms ---
@@ -209,7 +228,22 @@ class Deft(NamedTuple):
     fields: tuple[tuple[str, CdyType], ...]
 
 
-TopLevel = Def | Defn | Deft | Expr
+class Variant(NamedTuple):
+    """One variant of a sum type: ``(Circle ((r Double)))``, or ``(Leaf)`` with no fields."""
+
+    name: str
+    fields: tuple[tuple[str, CdyType], ...]
+
+
+class DeftSum(NamedTuple):
+    """``(deft Name variant+)`` or ``(deft (Name a b) variant+)``: a sum type."""
+
+    name: str
+    tvars: tuple[str, ...]
+    variants: tuple[Variant, ...]
+
+
+TopLevel = Def | Defn | Deft | DeftSum | Expr
 
 LIT_TYPES: Mapping[type, str] = MappingProxyType(
     {
@@ -229,12 +263,23 @@ NOT_IN_IMVP = frozenset({"import", "quote"})
 DEFINERS = frozenset({"def", "defn", "deft"})
 
 
+class VariantInfo(NamedTuple):
+    """What ``match`` and calls need to know about a variant, before its ``deft`` is analysed."""
+
+    sum_name: str
+    fields: tuple[str, ...]
+
+
+NO_VARIANTS: Mapping[str, VariantInfo] = MappingProxyType({})
+
+
 class Scope(NamedTuple):
     """What a symbol can refer to at one point in the program."""
 
     env: Mapping[str, Local]  # local bindings in scope
     top: frozenset[str]  # top-level value names defined anywhere in this file
     table: Table  # built-ins
+    variants: Mapping[str, VariantInfo] = NO_VARIANTS  # sum type variants in this file
 
 
 def show(form: SExpr) -> str:
@@ -318,6 +363,7 @@ def analyse_expr(form: SExpr, scope: Scope, n: int) -> tuple[Expr, int]:
         case SList((Symbol(head), *rest)) if head in SPECIAL and head not in scope.env:
             return SPECIAL[head](tuple(rest), scope, n)
         case SList(items):
+            check_variant_call(items[0], len(items) - 1, scope)
             fn, n = analyse_expr(items[0], scope, n)
             args_e, n = analyse_all(items[1:], scope, n)
             check_call(fn, args_e, scope.table)
@@ -351,12 +397,28 @@ def resolve(name: str, scope: Scope) -> Expr:
     if name in scope.env:
         return scope.env[name]
     if name in scope.top:
+        info = scope.variants.get(name)
+        if info is not None and not info.fields:
+            return Call(Global(name), ())  # a variant with no fields is a value: Leaf
         return Global(name)
     if name in scope.table:
         if scope.table[name].kind == "special":
             raise CandyError(f"{name} is a special form, not a value")
         return Prim(name)
     raise CandyError(f"unknown name {name}")
+
+
+def check_variant_call(head: SExpr, count: int, scope: Scope) -> None:
+    """Fail if ``head`` names a variant that is called with the wrong number of fields."""
+    if not isinstance(head, Symbol) or head.name in scope.env or head.name not in scope.variants:
+        return
+    fields = scope.variants[head.name].fields
+    if not fields:
+        raise CandyError(
+            f"{head.name} has no fields, so it is a value: write {head.name}, not ({head.name})"
+        )
+    if count != len(fields):
+        raise CandyError(f"({head.name} ...) takes {len(fields)} field(s), got {count}")
 
 
 def check_call(fn: Expr, args: tuple[Expr, ...], table: Table) -> None:
@@ -547,6 +609,71 @@ def an_assoc(rest: tuple[SExpr, ...], scope: Scope, n: int) -> tuple[Expr, int]:
     return Assoc(obj, tuple(zip(names, values, strict=True))), n
 
 
+def an_match(rest: tuple[SExpr, ...], scope: Scope, n: int) -> tuple[Expr, int]:
+    """``(match subject ((Variant name*) expr)+ (else expr)?)``."""
+    if len(rest) < 2:
+        raise CandyError("match: expected (match subject ((Variant name*) expr)+ (else expr)?)")
+    subject, n = analyse_expr(rest[0], scope, n)
+    clauses: list[Clause] = []
+    default: Expr | None = None
+    sums: set[str] = set()
+    for i, clause in enumerate(rest[1:], start=1):
+        if not isinstance(clause, SList) or len(clause.items) != 2:
+            raise CandyError(f"match: clause must be (pattern expr), not {show(clause)}")
+        pattern, body_f = clause.items
+        if pattern == Symbol("else"):
+            if i != len(rest) - 1 or not clauses:
+                raise CandyError("match: (else expr) must be the last clause, after a pattern")
+            default, n = analyse_expr(body_f, scope, n)
+            continue
+        variant, names = match_pattern(pattern, scope)
+        if any(c.variant == variant for c in clauses):
+            raise CandyError(f"match: more than one clause for {variant}")
+        sums.add(scope.variants[variant].sum_name)
+        fields = scope.variants[variant].fields
+        named = [(field, name) for field, name in zip(fields, names, strict=True) if name != "_"]
+        binds = tuple((field, Local(name, n + j)) for j, (field, name) in enumerate(named))
+        n += len(binds)
+        inner = reduce(with_local, (local for _, local in binds), scope)
+        body, n = analyse_expr(body_f, inner, n)
+        clauses.append(Clause(variant, binds, body))
+    if len(sums) > 1:
+        raise CandyError(f"match: clauses mix variants of {', '.join(sorted(sums))}")
+    if default is None:
+        sum_name = next(iter(sums))
+        missing = sorted(
+            v
+            for v, info in scope.variants.items()
+            if info.sum_name == sum_name and all(c.variant != v for c in clauses)
+        )
+        if missing:
+            raise CandyError(
+                f"match on {sum_name}: no clause for {', '.join(missing)} (or add else)"
+            )
+    return Match(subject, tuple(clauses), default), n
+
+
+def match_pattern(pattern: SExpr, scope: Scope) -> tuple[str, tuple[str, ...]]:
+    """The variant and the names bound by a ``(Variant name*)`` pattern."""
+    match pattern:
+        case SList((Symbol(variant), *binds)) if variant in scope.variants:
+            fields = scope.variants[variant].fields
+            if len(binds) != len(fields):
+                raise CandyError(
+                    f"match: {variant} has {len(fields)} field(s), so the pattern needs "
+                    f"{len(fields)} name(s), not {len(binds)}"
+                )
+            names = tuple(binder(b, "match name", scope.table) for b in binds)
+            real = [name for name in names if name != "_"]
+            if len(set(real)) != len(real):
+                raise CandyError(f"match: names in a pattern must be different: {show(pattern)}")
+            return variant, names
+        case SList((Symbol(variant), *_)):
+            raise CandyError(f"match: {variant} is not a variant of a sum type")
+        case _:
+            raise CandyError(f"match: pattern must be (Variant name*) or else, not {show(pattern)}")
+
+
 def top_only(name: str) -> Special:
     """A handler for a definition form found inside an expression."""
 
@@ -576,6 +703,7 @@ SPECIAL: Mapping[str, Special] = MappingProxyType(
         "format": an_format,
         "get": an_get,
         "assoc": an_assoc,
+        "match": an_match,
         **{name: top_only(name) for name in TOP_ONLY},
         **{name: not_in_imvp(name) for name in NOT_IN_IMVP},
     }
@@ -597,38 +725,89 @@ class Program(NamedTuple):
 class Names(NamedTuple):
     """The top-level names a file defines, found before analysing it."""
 
-    values: frozenset[str]  # def, defn and deft constructor names
+    values: frozenset[str]  # def, defn, deft constructor and variant names
     sig_names: frozenset[str]  # names that need a sig: def and defn
     types: Mapping[str, int | None]  # built-in and deft type names, with argument counts
+    variants: Mapping[str, VariantInfo] = NO_VARIANTS  # sum type variants
+
+
+def is_sum(body: Sequence[SExpr]) -> bool:
+    """Whether a ``deft`` body (what follows the name) lists variants, not one field list.
+
+    A product's field list starts with a list, ``((x Int) ...)``; each variant starts with a
+    symbol, ``(Circle ...)`` or ``(Leaf)``.
+    """
+    return bool(body) and all(
+        isinstance(v, SList) and bool(v.items) and isinstance(v.items[0], Symbol) for v in body
+    )
+
+
+def variant_forms(body: Sequence[SExpr]) -> tuple[tuple[SExpr, tuple[SExpr, ...]], ...]:
+    """Each variant of a sum ``deft`` body: its name form and its field forms."""
+    out: list[tuple[SExpr, tuple[SExpr, ...]]] = []
+    for form in body:
+        assert isinstance(form, SList)
+        match form.items:
+            case (name,):
+                out.append((name, ()))
+            case (name, SList(fields)) if fields:
+                out.append((name, fields))
+            case _:
+                raise CandyError(
+                    f"deft: variant must be (Name) or (Name ((field Type)+)), not {show(form)}"
+                )
+    return tuple(out)
+
+
+def field_names(fields: Sequence[SExpr]) -> tuple[str, ...]:
+    """The names of ``(field Type)`` forms, as far as they can be read (checked later)."""
+    return tuple(
+        f.items[0].name
+        if isinstance(f, SList) and f.items and isinstance(f.items[0], Symbol)
+        else "?"
+        for f in fields
+    )
 
 
 def top_names(forms: Sequence[SExpr], table: Table) -> Names:
     """Every name defined at top level in ``forms``; fails if one is defined twice."""
     found: list[tuple[str, str, int]] = []  # (form, name, type parameter count)
+    variants: dict[str, VariantInfo] = {}
     for form in forms:
         match form:
-            case SList((Symbol("deft" as head), SList((name, *tvars)), *_)):
-                found.append((head, binder(name, "deft name", table), len(tvars)))
+            case SList((Symbol("deft" as head), name_f, *body)):
+                head_forms = name_f.items if isinstance(name_f, SList) else (name_f,)
+                if not head_forms:
+                    raise CandyError("deft: expected (deft Name ((field Type)+))")
+                name = binder(head_forms[0], "deft name", table)
+                found.append(("sum" if is_sum(body) else head, name, len(head_forms) - 1))
+                if is_sum(body):
+                    for v_name_f, fields in variant_forms(body):
+                        v_name = binder(v_name_f, "deft variant name", table)
+                        found.append(("variant", v_name, 0))
+                        variants[v_name] = VariantInfo(name, field_names(fields))
             case SList((Symbol(head), name, *_)) if head in DEFINERS:
                 found.append((head, binder(name, f"{head} name", table), 0))
             case _:
                 pass
+    # A sum type's name is a type, not a value, but in Python it is a name like the others.
     names = [name for _, name, _ in found]
     twice = sorted({name for name in names if names.count(name) > 1})
     if twice:
         raise CandyError(f"defined more than once: {', '.join(twice)}")
-    deft_types = {name: count for head, name, count in found if head == "deft"}
+    deft_types = {name: count for head, name, count in found if head in ("deft", "sum")}
     return Names(
-        values=frozenset(names),
-        sig_names=frozenset(name for head, name, _ in found if head != "deft"),
+        values=frozenset(name for head, name, _ in found if head != "sum"),
+        sig_names=frozenset(name for head, name, _ in found if head in ("def", "defn")),
         types=MappingProxyType({**BUILTIN_TYPES, **deft_types}),
+        variants=MappingProxyType(variants),
     )
 
 
 def analyse_program(forms: Sequence[SExpr], table: Table = INITIAL_TABLE) -> tuple[TopLevel, ...]:
     """A whole Candy file's top-level forms, analysed in order."""
     names = top_names(forms, table)
-    scope = Scope(MappingProxyType({}), names.values, table)
+    scope = Scope(MappingProxyType({}), names.values, table, names.variants)
 
     def step(prog: Program, form: SExpr) -> Program:
         match form:
@@ -700,28 +879,52 @@ def top_defn(rest: tuple[SExpr, ...], prog: Program, scope: Scope) -> Program:
 
 
 def top_deft(rest: tuple[SExpr, ...], prog: Program, names: Names) -> Program:
-    """``(deft Name ((field Type)+))`` or ``(deft (Name a b) ((field Type)+))``."""
-    if len(rest) != 2 or not isinstance(rest[1], SList) or not rest[1].items:
-        raise CandyError("deft: expected (deft Name ((field Type)+))")
+    """A record, ``(deft Name ((field Type)+))``, or a sum, ``(deft Name variant+)``.
+
+    Either can be generic: ``(deft (Name a b) ...)``.
+    """
+    usage = "deft: expected (deft Name ((field Type)+)) or (deft Name (Variant ((field Type)+))+)"
+    if len(rest) < 2:
+        raise CandyError(usage)
     head = rest[0].items if isinstance(rest[0], SList) else (rest[0],)
-    if not head:
-        raise CandyError("deft: expected (deft Name ((field Type)+))")
     name = binder(head[0], "deft name", INITIAL_TABLE)
     tvars = tuple(binder(t, "deft type variable", INITIAL_TABLE) for t in head[1:])
     if not name[:1].isupper() or not all(t[:1].islower() for t in tvars):
         raise CandyError(f"deft {name}: type names are Capitalised, type variables lowercase")
+    body = rest[1:]
+    if is_sum(body):
+        variants: list[Variant] = []
+        for v_name_f, field_forms in variant_forms(body):
+            v_name = binder(v_name_f, "deft variant name", INITIAL_TABLE)
+            if not v_name[:1].isupper():
+                raise CandyError(f"deft {name}: variant names are Capitalised, not {v_name}")
+            variants.append(
+                Variant(v_name, deft_fields(f"deft {name} {v_name}", field_forms, tvars, names))
+            )
+        defined = prog.defined | {name} | {v.name for v in variants}
+        return prog._replace(
+            out=(*prog.out, DeftSum(name, tvars, tuple(variants))), defined=defined
+        )
+    if len(rest) != 2 or not isinstance(rest[1], SList) or not rest[1].items:
+        raise CandyError(usage)
+    fields = deft_fields(f"deft {name}", rest[1].items, tvars, names)
+    return prog._replace(out=(*prog.out, Deft(name, tvars, fields)), defined=prog.defined | {name})
+
+
+def deft_fields(
+    what: str, forms: Sequence[SExpr], tvars: tuple[str, ...], names: Names
+) -> tuple[tuple[str, CdyType], ...]:
+    """The ``(field Type)`` forms of a record or a variant."""
     fields: list[tuple[str, CdyType]] = []
-    for field in rest[1].items:
+    for field in forms:
         if not isinstance(field, SList) or len(field.items) != 2:
-            raise CandyError(f"deft {name}: field must be (name Type), not {show(field)}")
+            raise CandyError(f"{what}: field must be (name Type), not {show(field)}")
         field_type = analyse_type(field.items[1], names.types)
         unknown = type_vars(field_type) - set(tvars)
         if unknown:
-            raise CandyError(f"deft {name}: unknown type variable(s) {', '.join(sorted(unknown))}")
+            raise CandyError(f"{what}: unknown type variable(s) {', '.join(sorted(unknown))}")
         fields.append((binder(field.items[0], "deft field", INITIAL_TABLE), field_type))
-    field_names = [f for f, _ in fields]
-    if len(set(field_names)) != len(field_names):
-        raise CandyError(f"deft {name}: a field is given twice")
-    return prog._replace(
-        out=(*prog.out, Deft(name, tvars, tuple(fields))), defined=prog.defined | {name}
-    )
+    field_list = [f for f, _ in fields]
+    if len(set(field_list)) != len(field_list):
+        raise CandyError(f"{what}: a field is given twice")
+    return tuple(fields)

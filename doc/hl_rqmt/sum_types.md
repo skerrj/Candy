@@ -1,6 +1,8 @@
-# Candy sum types and `match` (HLD, draft)
+# Candy sum types and `match` (HLD)
 
-**Status: draft.** Nothing here is decided. This is the first design step of the
+**Status: decided and implemented** (stage 0 of `doc/hl_rqmt/self_hosting_primo.md`).
+All seven open questions are answered (see the end). Tests: `tst/cdy/sums.cdy` (golden),
+and `test_core_cdy.py`/`test_lower_cdy.py`. This is the first design step of the
 pre-self-hosting phase (branch `pre-self-host`, after tag `imvp-py-translator`). It builds
 on `deft` (still **proposed**) in `doc/hl_rqmt/iMVP_py_translator.md` ("User-defined types:
 `deft`", open item 4) and on the `sig` decisions there.
@@ -25,7 +27,7 @@ The alternative is to keep `Any` and add runtime predicates (`is-str`, `is-coll`
 smz did. That is cheaper, but it gives up static typing exactly where the self-hosted
 translator needs it most. See open question 1.
 
-## Declaring: `deft` with variants (proposed)
+## Declaring: `deft` with variants (decided)
 
 This extends the `deft` proposal (open item 4 in the iMVP doc) and follows Carp's
 `deftype`, where a sum type lists its variants:
@@ -68,7 +70,7 @@ This extends the `deft` proposal (open item 4 in the iMVP doc) and follows Carp'
 everything else. Types are separate, so the type `Shape` and the variants `Circle` and
 `Rect` are all defined.
 
-## Taking apart: `match` (proposed)
+## Taking apart: `match` (decided)
 
 ```clojure
 (sig area (Fn (Shape) Double))
@@ -99,46 +101,61 @@ everything else. Types are separate, so the type `Shape` and the variants `Circl
 
 ## Through the translator layers
 
-- **Core (`analyse`).** A new `Match(subject, clauses, default)` node, where each clause
-  holds the variant name, the field locals and the body. Unlike `let`, there is no other
+- **Core (`analyse`).** A new `Match(subject, clauses, default)` node, where each
+  `Clause` holds the variant name, the `(field, Local)` pairs it binds (`_` is left out)
+  and the body. Unlike `let`, there is no other
   form for it to desugar into: an `if` chain would need a "which variant" test and field
   access, so Core would need those as primitives anyway. `match` is also something a
   target can do well natively (Python `match`, Rust `match`, a C `switch` on a tag), so
   keeping it whole is better for `doc/hl_rqmt/multi_target.md`.
-- **Top level.** `Deft` gains a variants form. The type and its variants are known in the
-  `top_names` pre-pass, like other `deft`s.
+- **Top level.** A sum is its own node, `DeftSum(name, tvars, variants)`, next to `Deft`
+  for records. The `top_names` pre-pass finds the type and its variants (with their field
+  names, as `VariantInfo`), so `match` and calls can check them before the `deft` is
+  analysed. Variant names are values, the sum's name is only a type, and all of them share
+  one namespace with other top-level names (a variant can't take its type's name).
 - **Lowered IR (`lower`).** A `MatchStmt(subject, cases, default)` statement, with each
   case's body lowered in the current mode (`value` through a temporary, `tail` or
-  `effect`). It needs no `Caps` flag at first. A target without a `match` statement can get
-  an `IfStmt` chain from the backend.
-- **Python (`emit_py`).** Each variant is a `NamedTuple` class, as a record is now. The sum
-  type is a PEP 695 alias of their union, and mypy accepts it being recursive:
+  `effect`), and `SumDef` for the type. The subject is always simple. It needs no `Caps`
+  flag: each backend writes `MatchStmt` its own way (Python: an `isinstance` chain).
+- **Python (`emit_py`).** Each variant is a `NamedTuple` class, as a record is now; a
+  variant is generic only in the type variables its fields use, and one with no fields
+  gets `pass`. The sum type is a PEP 695 alias of their union, which may be recursive. A
+  variant with no fields is built with no arguments, `Leaf()`.
+
+  **`match` is not emitted as Python's `match`** (as built). mypy (2.4) loses a generic
+  variant's type arguments in a class pattern: in `case Node(l, v, r):` on a
+  `Tree[int]`, `v` is `Any`, and strict mode rejects the result. It keeps them when
+  `isinstance` narrows, so `match` becomes an `isinstance` chain that binds each named
+  field by attribute (`_` binds nothing):
 
   ```python
-  class Circle(NamedTuple):
-      r: float
+  class Leaf(NamedTuple):
+      pass
 
-  class Rect(NamedTuple):
-      w: float
-      h: float
+  class Node[a](NamedTuple):
+      left: Tree[a]
+      val: a
+      right: Tree[a]
 
-  type Shape = Circle | Rect
+  type Tree[a] = Leaf | Node[a]
 
-  def area(s: Shape) -> float:
-      match s:
-          case Circle(r):
-              return 3.14159 * r * r
-          case Rect(w, h):
-              return w * h
+  def size(t: Tree[int]) -> int:
+      if isinstance(t, Leaf):
+          return 0
+      elif isinstance(t, Node):
+          l = t.left
+          r = t.right
+          return 1 + size(l) + size(r)
   ```
 
-  A positional class pattern works because `NamedTuple` sets `__match_args__`. mypy checks
-  exhaustiveness: a missing case leaves a path with no return, which strict mode reports.
-  In effect or value mode, an `assert_never` in a `case _:` would make it explicit.
-- **Tail calls.** `loop_tail_calls` has to look inside `MatchStmt` cases, as it does
+  The subject is tested more than once, so `lower` stores a subject that isn't simple in
+  a temporary first. `analyse` checks exhaustiveness, and mypy sees that the chain covers
+  the union, so a function that returns from every case needs no fallback `return`.
+  pyright handles class patterns fine, so a later Python backend could switch back.
+- **Tail calls.** `loop_tail_calls` looks inside `MatchStmt` cases, as it does
   `IfStmt` branches.
 
-## What it would change
+## What it changes
 
 - `tst/cdy/read_sexpr.cdy` could return `(List Form)` instead of `Any`, and drop the
   runtime-type checks.
@@ -151,16 +168,12 @@ everything else. Types are separate, so the type `Shape` and the variants `Circl
 1. ~~**Sum types now, or `Any` plus predicates** (as smz) until the translator is
    self-hosted?~~ **Sum types now** (decided as a consequence of choice A in
    `doc/hl_rqmt/self_hosting_primo.md`: forms at the boundary are `deft` variants).
-2. **Syntax.** Variants inside `deft`, as above, or a separate form (`defsum`, `defenum`)?
-   One form follows Carp. A separate form is easier to read and to give errors for.
-3. **Nullary variants.** `defn` and `fn` need at least one argument, so is `Leaf` a value
-   (`Leaf`, a singleton) or a constructor called with `nil` (`(Leaf nil)`)? A value is
-   simpler, and in Python it would be an instance, `Leaf()`.
-4. **Non-exhaustive `match` without `else`.** An error (proposed), or a `nil` result like
-   `cond`?
-5. **`Maybe`.** Keep it as `A | None` (as decided for the iMVP), or make it a real sum type
-   once `match` exists?
-6. **Field access.** Should `get` work on a sum-typed value only after `match` has narrowed
-   it (as mypy requires), or also on a field that every variant has?
-7. **Variant namespace.** Global names, as proposed, or qualified by the type
-   (`Shape.Circle`), as in Carp and Rust?
+2. ~~**Syntax.**~~ Variants inside `deft` (**decided**), following Carp.
+3. ~~**Nullary variants.**~~ A value, `Leaf` (**decided**); `(Leaf)` is an error. The
+   pattern is `(Leaf)`. In Python it is `Leaf()`.
+4. ~~**Non-exhaustive `match` without `else`.**~~ An error (**decided**): without `else`,
+   every variant needs a clause.
+5. ~~**`Maybe`.**~~ Stays `A | None` for now (**decided**); revisit after self-hosting.
+6. ~~**Field access.**~~ `get` on a sum-typed value only after `match` has narrowed it
+   (**decided**). Candy doesn't check this yet; mypy does.
+7. ~~**Variant namespace.**~~ Global names (**decided**), no `Shape.Circle`.

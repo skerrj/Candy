@@ -93,6 +93,7 @@ SPECIAL_FORMS: Table = {
     "deft": special(),
     "get": special(),
     "assoc": special(),
+    "match": special(),
 }
 
 MATH: Table = {
