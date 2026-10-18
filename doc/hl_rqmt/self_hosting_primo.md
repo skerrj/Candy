@@ -43,8 +43,8 @@ Candy text ─▶ parse_cdy (Python, parsec v4) ─▶ convert ─▶ translator
 2. **The fixpoint.** T1 translates the Candy translator's own source, giving T2. Then T1 and
    T2 must produce the same output for the translator's source and for every
    `tst/cdy/*.cdy` program. This becomes a test, as it was for smz. Two comparisons are
-   possible (open question 4):
-   - **What they produce: byte-identical** (proposed). T1 and T2 run the same Candy code,
+   possible, and both are done (open question 4, decided):
+   - **What they produce: byte-identical**. T1 and T2 run the same Candy code,
      the same `emit`, compiled two ways, so on the same input they must print exactly the
      same text. Formatting can't differ here, and any difference is a real bug.
    - **The files T1 and T2 themselves: equal up to formatting** (the owner's vote). T1 was
@@ -57,6 +57,54 @@ Candy text ─▶ parse_cdy (Python, parsec v4) ─▶ convert ─▶ translator
    style of `tst/cdy/read_sexpr.cdy`, which needs no closures), more of the runtime, and
    perhaps better recursion (mutual recursion and non-tail recursion still use the Python
    stack). After this, Candy is self-hosting on Python.
+
+## Stage 1 in slices (as planned)
+
+The Candy translator's source may use everything the Python translator supports (`let`,
+`cond`, `match`, `deft`, `format`, `tup`, ...). What the Candy translator itself supports
+grows slice by slice, until it can translate its own source (stage 2).
+
+- **1a: the pipeline and a small subset** (**done**). `Form` (`src/cdy/form.cdy`), the driver mode,
+  the conversion, and a translator with all three layers that handles literals, symbols
+  (locals, globals, built-ins of every table kind), calls, `if`, `cond`, `do`, `sig`,
+  `def`, `defn` and `put`. Tests: small programs in `tst/cdy/t1/`, each translated by T1,
+  run, compared with its `.out` and checked with `mypy --strict`.
+  - As built: `src/cdy/form.cdy`, `core.cdy`, `lower.cdy`, `emit.cdy` (about 600 lines of
+    Candy); `src/py_cdy/self_host.py` builds T1 into `output/t1/cdy_translator.py`,
+    converts forms and calls `translate`; `main.py FILE.cdy --translator t1`.
+    `tst/py_cdy/test_self_host.py` also runs `mypy --strict` on T1 itself, which
+    type-checks the Candy translator's own code. Both translators print the same output
+    for `tst/cdy/t1/basics.cdy`.
+- **1b:** `let` (with destructuring), `fn`, `tup`, `format`, `get`/`assoc`.
+- **1c:** `deft` records and sums, `match`.
+- **1d:** self tail calls as loops, local renaming as in the Python translator, and the
+  remaining checks. Then the T1 source is in the supported subset: stage 2.
+
+**Decisions for the Candy translator** (proposed with slice 1a and built that way;
+simplest first):
+
+- **No `import` yet, so the driver concatenates files.** The translator is several files
+  under `src/cdy/`, listed in order in `main.py`. They are joined into one program, which
+  works because top-level names may be used before their definition. This is a stopgap
+  (a leak) until `import` exists.
+- **IR expressions reuse Core's `Expr` sum.** The Python translator has separate IR
+  expressions (`CallE`, `CondE`, ...). Here `lower` produces statements (`Stmt`) whose
+  expressions are Core `Expr`s, plus a `Temp` variant; an `If` left inside an expression
+  is a conditional expression. One sum instead of two keeps the Candy code smaller.
+- **Emit text with full parentheses** around every operator, instead of working out
+  precedence. The output is valid and typed, just not pretty.
+- **Python-specific helpers live in the runtime** (`cdy_rt`), as smz's did: `py-mangle`
+  (Candy names to Python names, with the reserved-name list) and `py-repr` (Python
+  literals). They are part of the Python backend, so the target-independent layers don't
+  use them.
+- **Errors:** a new `fail` built-in raises `CandyFail` (Candy has no exceptions); the
+  driver reports it like a `CandyError`.
+- **Maps:** new built-ins `empty-map`, `map-get`, `map-has`, `map-set` (`map-set` returns
+  a new map). The table itself is an opaque value typed `Any` (a leak), read with the
+  `table-*` built-ins plus a new `table-get-kind`.
+- **No `Maybe` in the translator's own types.** mypy narrows `x is None`, but Candy's
+  `(= x nil)` is `x == None`, which mypy doesn't narrow, so optional values are sums
+  (`(deft Annot (NoAnnot) (HasAnnot ((t CType))))`).
 
 ## The boundary
 
@@ -108,7 +156,7 @@ These come up in stage 1 and go into the leaks list, or get fixed, as they appea
 3. ~~**Driver**~~ (**decided, for now**): a mode of `src/py_cdy/main.py`, not a separate
    script. The flag name is still to choose (for example `--translator t1`, where the
    default is the Python translator).
-4. **Fixpoint scope** (**proposed**, needs the owner's confirmation): both checks in stage
+4. ~~**Fixpoint scope**~~ (**decided**): both checks in stage
    2. The files T1 and T2 are compared up to formatting (`ast.dump`), as the owner voted,
    because they come from two different emitters. Their output is compared byte for byte,
    because it comes from the same emitter, so this costs nothing and catches more. (In the

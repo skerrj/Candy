@@ -17,11 +17,14 @@ Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
   one it used) and commented-out experiments.
 """
 
+import builtins
+import keyword
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import NoReturn
 
-from cdy_rt.table import SEARCH_PATH
+from cdy_rt.table import IMPORTS, SEARCH_PATH
 
 # --- collections ---
 
@@ -54,6 +57,21 @@ def is_lit(expr: object) -> bool:
 def to_list[T](val: T) -> tuple[T, ...]:
     """A one-item list holding ``val`` (a Candy ``List`` is a Python tuple)."""
     return (val,)
+
+
+def map_get[K, V](m: Mapping[K, V], key: K) -> V:
+    """The value for ``key``, which must be in ``m``."""
+    return m[key]
+
+
+def map_has[K, V](m: Mapping[K, V], key: K) -> bool:
+    """Whether ``key`` is in ``m``."""
+    return key in m
+
+
+def map_set[K, V](m: Mapping[K, V], key: K, val: V) -> Mapping[K, V]:
+    """A new map: ``m`` with ``key`` set to ``val``."""
+    return {**m, key: val}
 
 
 def in_(item: object, coll: Sequence[object]) -> bool:
@@ -164,7 +182,44 @@ def get_indent(n: int) -> str:
     return " " * 4 * n
 
 
+# Python names a Candy name must not take (as in ``py_cdy/emit_py.py``): keywords,
+# built-ins and the modules the generated code imports.
+PY_RESERVED = frozenset(
+    {*keyword.kwlist, *dir(builtins), *(module.split(".", maxsplit=1)[0] for module in IMPORTS)}
+)
+
+
+def py_mangle(name: str) -> str:
+    """A Candy name as a Python identifier: ``-`` to ``_``, ``?`` to ``_p``, ``!`` to ``_x``,
+    any other character to ``_uXXXX``; a reserved name or one starting ``_cdy_`` gets a ``_``.
+    """
+    special = {"-": "_", "?": "_p", "!": "_x"}
+    out = "".join(
+        ch
+        if (ch.isascii() and (ch.isalnum() or ch == "_"))
+        else special.get(ch, f"_u{ord(ch):04x}")
+        for ch in name
+    )
+    if out in PY_RESERVED or out.startswith("_cdy_"):
+        out += "_"
+    return out
+
+
+def py_repr(val: object) -> str:
+    """``val`` as a Python literal (``'a\\n'``, ``3.0``, ``True``)."""
+    return repr(val)
+
+
 # --- infra ---
+
+
+class CandyFail(Exception):
+    """Raised by ``fail``: a Candy program (such as the self-hosted translator) gave up."""
+
+
+def fail(msg: str) -> NoReturn:
+    """Stop with the error ``msg`` (Candy has no exceptions yet)."""
+    raise CandyFail(msg)
 
 
 def get_args() -> list[str]:

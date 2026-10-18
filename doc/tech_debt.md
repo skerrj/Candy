@@ -20,8 +20,19 @@ take one, and remove an entry once it is fixed.
 - **`match` subjects that aren't simple get a temporary** in `lower`, only because the
   Python chain tests the subject more than once.
 
+- **The Candy translator (T1) is simpler than the Python one in places**, to be closed
+  slice by slice (see `doc/hl_rqmt/self_hosting_primo.md`): every operator is
+  parenthesised; `if` in tail position stays an `if` statement (no conditional-expression
+  merge); a local is renamed only when a top-level name took its spelling; `and`/`or`
+  whose later arguments need statements don't short-circuit those statements; built-in
+  arity isn't checked.
+- **`self_host.py` raises the recursion limit** (to 20,000) while T1 runs, since T1 walks
+  lists by recursion.
+
 ## Runtime
 
+- **`mangle` lives in the runtime** (`py_mangle`, with `PY_RESERVED`) so the self-hosted
+  translator can use it; `emit_py.mangle` now calls it.
 - **`slurp` is duplicated** in `src/py_cdy/reader.py` and `src/cdy_rt/table_defs.py`, on
   purpose for the iMVP (pylint's `duplicate-code` is disabled in `reader.py`).
 - **`at` and `slice_` helpers are only used as values** now that `at` and `slice` are

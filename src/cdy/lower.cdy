@@ -1,0 +1,176 @@
+;;; Lower: Core expressions split into statements (the second step; target-neutral).
+;;; Mirrors py_cdy/lower_cdy.py, in value, tail and effect modes. Unlike the Python
+;;; translator, statements hold Core Exprs (plus Temp) instead of separate IR expressions;
+;;; an If left in an expression is a conditional expression.
+
+(deft Stmt
+  (SAssign ((target Expr) (val Expr)))
+  (SDefAssign ((name String) (val Expr) (t CType)))
+  (SExpr ((expr Expr)))
+  (SReturn ((val Expr)))
+  (SIf ((test Expr) (then (List Stmt)) (other (List Stmt))))
+  (SFunc ((name String) (params (List Expr)) (body (List Stmt)) (t CType))))
+
+;; An expression lowered in value mode: statements to run first, the value, the next Temp id.
+(deft Low ((stmts (List Stmt)) (expr Expr) (n Int)))
+
+;; Whether an expression can be evaluated later, out of order, with the same result.
+(sig is-simple (Fn (Expr) Bool))
+(defn is-simple (e)
+  (match e
+    ((Lit _) true)
+    ((Local _ _) true)
+    ((Global _) true)
+    ((Prim _) true)
+    ((Temp _) true)
+    (else false)))
+
+;; --- value mode ---
+
+(sig value (Fn (Expr Int) Low))
+(defn value (e n)
+  (match e
+    ((Call callee args) (value-call callee args n))
+    ((If test then other) (value-if test then other n))
+    ((Do body) (value-do body n))
+    (else (Low empty-list e n))))
+
+(sig value-call (Fn (Expr (List Expr) Int) Low))
+(defn value-call (callee args n)
+  (let (((stmts items n1) (value-seq (+ (to-list callee) args) n)))
+    (Low stmts (Call (at items 0) (slice items 1 (len items))) n1)))
+
+;; Each expression in value mode, keeping left-to-right order: an earlier value that isn't
+;; simple goes in a Temp if a later one needs statements.
+(sig value-seq (Fn ((List Expr) Int) (Tup (List Stmt) (List Expr) Int)))
+(defn value-seq (exprs n)
+  (let (((lows n1) (low-all exprs n empty-list)))
+    (seq-build lows n1 empty-list empty-list)))
+
+(sig low-all (Fn ((List Expr) Int (List Low)) (Tup (List Low) Int)))
+(defn low-all (exprs n acc)
+  (if (= (len exprs) 0)
+    (tup acc n)
+    (let ((low (value (at exprs 0) n)))
+      (low-all (slice exprs 1 (len exprs)) (get low n) (+ acc (to-list low))))))
+
+(sig has-stmts (Fn ((List Low)) Bool))
+(defn has-stmts (lows)
+  (cond
+    ((= (len lows) 0) false)
+    ((> (len (get (at lows 0) stmts)) 0) true)
+    (else (has-stmts (slice lows 1 (len lows))))))
+
+(sig seq-build (Fn ((List Low) Int (List Stmt) (List Expr)) (Tup (List Stmt) (List Expr) Int)))
+(defn seq-build (lows n stmts out)
+  (if (= (len lows) 0)
+    (tup stmts out n)
+    (let ((low (at lows 0))
+          (later (slice lows 1 (len lows))))
+      (if (and (has-stmts later) (not (is-simple (get low expr))))
+        (seq-build
+          later
+          (+ n 1)
+          (+ stmts (get low stmts) (to-list (SAssign (Temp n) (get low expr))))
+          (+ out (to-list (Temp n))))
+        (seq-build later n (+ stmts (get low stmts)) (+ out (to-list (get low expr))))))))
+
+(sig value-if (Fn (Expr Expr Expr Int) Low))
+(defn value-if (test then other n)
+  (let ((t (value test n))
+        (a (value then (get t n)))
+        (b (value other (get a n))))
+    (if (and (= (len (get a stmts)) 0) (= (len (get b stmts)) 0))
+      (Low (get t stmts) (If (get t expr) (get a expr) (get b expr)) (get b n))
+      (let ((tmp (Temp (get b n))))
+        (Low
+          (+ (get t stmts)
+             (to-list
+               (SIf
+                 (get t expr)
+                 (+ (get a stmts) (to-list (SAssign tmp (get a expr))))
+                 (+ (get b stmts) (to-list (SAssign tmp (get b expr)))))))
+          tmp
+          (+ (get b n) 1))))))
+
+(sig all-but-last (Fn ((List Expr)) (List Expr)))
+(defn all-but-last (exprs) (slice exprs 0 (- (len exprs) 1)))
+
+(sig last-of (Fn ((List Expr)) Expr))
+(defn last-of (exprs) (at exprs (- (len exprs) 1)))
+
+(sig value-do (Fn ((List Expr) Int) Low))
+(defn value-do (body n)
+  (let (((stmts n1) (effect-all (all-but-last body) n empty-list))
+        (low (value (last-of body) n1)))
+    (Low (+ stmts (get low stmts)) (get low expr) (get low n))))
+
+;; --- tail and effect modes ---
+
+(sig tail (Fn (Expr Int) (Tup (List Stmt) Int)))
+(defn tail (e n)
+  (match e
+    ((If test then other)
+      (let ((t (value test n))
+            ((a n1) (tail then (get t n)))
+            ((b n2) (tail other n1)))
+        (tup (+ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
+    ((Do body)
+      (let (((stmts n1) (effect-all (all-but-last body) n empty-list))
+            ((last n2) (tail (last-of body) n1)))
+        (tup (+ stmts last) n2)))
+    (else
+      (let ((low (value e n)))
+        (tup (+ (get low stmts) (to-list (SReturn (get low expr)))) (get low n))))))
+
+(sig effect (Fn (Expr Int) (Tup (List Stmt) Int)))
+(defn effect (e n)
+  (match e
+    ((If test then other)
+      (let ((t (value test n))
+            ((a n1) (effect then (get t n)))
+            ((b n2) (effect other n1)))
+        (tup (+ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
+    ((Do body) (effect-all body n empty-list))
+    (else
+      (if (is-simple e)
+        (tup empty-list n)
+        (let ((low (value e n)))
+          (tup (+ (get low stmts) (to-list (SExpr (get low expr)))) (get low n)))))))
+
+(sig effect-all (Fn ((List Expr) Int (List Stmt)) (Tup (List Stmt) Int)))
+(defn effect-all (exprs n acc)
+  (if (= (len exprs) 0)
+    (tup acc n)
+    (let (((stmts n1) (effect (at exprs 0) n)))
+      (effect-all (slice exprs 1 (len exprs)) n1 (+ acc stmts)))))
+
+;; --- top level ---
+
+;; Whether a function type returns Unit (its body then runs for its effect only).
+(sig returns-unit (Fn (CType) Bool))
+(defn returns-unit (t)
+  (match t
+    ((TFn _ ret)
+      (match ret
+        ((TCon name _) (= name "Unit"))
+        (else false)))
+    (else false)))
+
+(sig lower-top (Fn (Top Int) (Tup (List Stmt) Int)))
+(defn lower-top (top n)
+  (match top
+    ((TDef name init t)
+      (let ((low (value init n)))
+        (tup (+ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))
+    ((TDefn name params body t)
+      (let (((stmts n1) (if (returns-unit t) (effect body n) (tail body n))))
+        (tup (to-list (SFunc name params stmts t)) n1)))
+    ((TExpr e) (effect e n))))
+
+(sig lower-program (Fn ((List Top) Int (List Stmt)) (List Stmt)))
+(defn lower-program (tops n acc)
+  (if (= (len tops) 0)
+    acc
+    (let (((stmts n1) (lower-top (at tops 0) n)))
+      (lower-program (slice tops 1 (len tops)) n1 (+ acc stmts)))))

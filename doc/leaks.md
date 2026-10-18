@@ -13,7 +13,11 @@ where it was fixed) rather than copying it here. This file is for leaks added fr
 
 ## Hacked-in forms
 
-(none yet)
+- **The self-hosted translator is several files joined into one** (`TRANSLATOR_FILES` in
+  `src/py_cdy/self_host.py`), because Candy has no `import` yet. Top-level names can be
+  used before their definition, so the order only matters for reading. Fix: `import`.
+- **`fail` stands in for errors.** Candy has no exceptions; `(fail "msg")` raises
+  `CandyFail` from the runtime, and its result is typed as anything (`NoReturn`).
 
 ## Types
 
@@ -25,7 +29,10 @@ where it was fixed) rather than copying it here. This file is for leaks added fr
 
 ## Python semantics showing through
 
-(none yet)
+- **The symbol table is an opaque `Any`** in the self-hosted translator, read only through
+  the `table-*` built-ins. Candy has no type for it, nor for `TableEntry`.
+- **Python-specific helpers in the runtime** (`py-mangle`, `py-repr`) are the Candy
+  translator's Python backend; `py-repr` writes Python literals with Python's `repr`.
 
 ## Translator shortcuts
 

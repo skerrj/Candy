@@ -21,13 +21,12 @@ The generated module imports only the standard library and ``cdy_rt``.
 from __future__ import annotations
 
 import ast
-import builtins
-import keyword
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import NamedTuple
 
 from cdy_rt.table import IMPORTS, INITIAL_TABLE, Table
+from cdy_rt.table_defs import PY_RESERVED, py_mangle
 from core_cdy import CandyError, CdyType, Global, Local, Prim, TCon, TFn, TVar, type_vars
 from lower_cdy import (
     Assign,
@@ -68,9 +67,7 @@ from typing import Any as {ANY}, NamedTuple as {NAMED_TUPLE}
 
 # Python names a user name must not take: keywords, built-ins (the generated code uses
 # ``print``, ``len``, ``int``, ``tuple``, ...) and the modules it imports.
-RESERVED = frozenset(
-    {*keyword.kwlist, *dir(builtins), *(module.split(".", maxsplit=1)[0] for module in IMPORTS)}
-)
+RESERVED = PY_RESERVED  # shared with the runtime, which the self-hosted translator uses
 
 BINOPS: Mapping[str, type[ast.operator]] = MappingProxyType(
     {"+": ast.Add, "-": ast.Sub, "*": ast.Mult, "/": ast.Div}
@@ -101,16 +98,7 @@ BASE_TYPES: Mapping[str, str] = MappingProxyType(
 
 def mangle(name: str) -> str:
     """A Candy name as a Python identifier (see the module docstring)."""
-    special = {"-": "_", "?": "_p", "!": "_x"}
-    out = "".join(
-        ch
-        if (ch.isascii() and (ch.isalnum() or ch == "_"))
-        else special.get(ch, f"_u{ord(ch):04x}")
-        for ch in name
-    )
-    if out in RESERVED or out.startswith("_cdy_"):
-        out += "_"
-    return out
+    return py_mangle(name)
 
 
 class Env(NamedTuple):

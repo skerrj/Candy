@@ -145,6 +145,11 @@ COLLECTION: Table = {
     "join": runtime("join", 2),
     "is-coll": runtime("is_coll", 1),
     "to-list": runtime("to_list", 1),
+    # Maps: ``map-set`` returns a new map.
+    "empty-map": value("{}"),
+    "map-get": runtime("map_get", 2),
+    "map-has": runtime("map_has", 2),
+    "map-set": runtime("map_set", 3),
 }
 
 STRING: Table = {
@@ -172,16 +177,20 @@ META_TABLE: Table = {
     "table-is-bin-op": table_fn("is_bin_op", 2),
     "table-get-arity": table_fn("get_arity", 2),
     "table-get-py": table_fn("get_py", 2),
+    "table-get-kind": table_fn("get_kind", 2),
     "is-lit": runtime("is_lit", 1),
 }
 
 PY_RENDER: Table = {
     "get-indent": runtime("get_indent", 1),
+    "py-mangle": runtime("py_mangle", 1),
+    "py-repr": runtime("py_repr", 1),
 }
 
 INFRA: Table = {
     "PY_IMPORTS": value(f"{TABLE_MODULE}.IMPORTS"),
     "SYS_ARGS": value(f"{RUNTIME_MODULE}.get_args()"),
+    "fail": runtime("fail", 1),
 }
 
 INITIAL_TABLE: Table = MappingProxyType(
@@ -223,6 +232,11 @@ def is_bin_op(table: Table, name: str) -> bool:
 def get_arity(table: Table, name: str) -> int | None:
     """The number of arguments ``name`` takes, or ``None`` for any number."""
     return table[name].arity
+
+
+def get_kind(table: Table, name: str) -> str:
+    """How ``name`` is rendered (see ``Kind``); ``""`` if it isn't in the table."""
+    return table[name].kind if name in table else ""
 
 
 def get_py(table: Table, name: str) -> str:
