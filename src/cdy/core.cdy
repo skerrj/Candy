@@ -95,7 +95,7 @@
     ((map-has (get scope env) name) (map-get (get scope env) name))
     ((and (is-variant name scope) (= (len (variant-fields name scope)) 0))
       (Call (Global name) empty-list))
-    ((map-has (get scope top) name) (Global name))
+    ((and (map-has (get scope top) name) (map-get (get scope top) name)) (Global name))
     ((table-is-special (get scope table) name)
       (fail (format "{name} is a special form, not a value")))
     ((table-is-op (get scope table) name) (Prim name))
@@ -114,8 +114,24 @@
         (analyse-special head (rest-of items) scope n)
         (let ((checked (check-variant-call head (- (len items) 1) scope))
               ((callee n1) (analyse-expr (at items 0) scope n))
-              ((args n2) (analyse-all (rest-of items) scope n1 empty-list)))
+              ((args n2) (analyse-all (rest-of items) scope n1 empty-list))
+              (arity-ok (check-call callee (len args) scope)))
           (tup (Call callee args) n2))))))
+
+;; Fail if a built-in is called with the wrong number of arguments.
+(sig check-call (Fn (Expr Int Scope) Bool))
+(defn check-call (callee count scope)
+  (match callee
+    ((Prim name)
+      (let ((kind (table-get-kind (get scope table) name))
+            (arity (table-get-arity (get scope table) name)))
+        (cond
+          ((and (in kind (tup "binop" "compare" "boolop")) (< count 2))
+            (fail (format "({name} ...) needs at least 2 arguments, got {count}")))
+          ((and (!= arity nil) (!= arity count))
+            (fail (format "({name} ...) takes {arity} argument(s), got {count}")))
+          (else true))))
+    (else true)))
 
 ;; Fail if `name` is a variant called with the wrong number of fields.
 (sig check-variant-call (Fn (String Int Scope) Bool))
@@ -501,7 +517,13 @@
 
 ;; --- top level ---
 
-(deft Prog ((out (List Top)) (sigs (Map String CType)) (n Int)))
+;; `defs` are the names that need a sig (def and defn); `defined` those defined so far.
+(deft Prog
+  ((out (List Top))
+   (sigs (Map String CType))
+   (n Int)
+   (defs (Map String Bool))
+   (defined (Map String Bool))))
 
 ;; The names that def and defn define, so that any form can refer to them.
 (sig top-names (Fn ((List Form) (Map String Bool)) (Map String Bool)))
@@ -513,17 +535,27 @@
       (top-names
         (rest-of forms)
         (cond
-          ((or (= head "def") (= head "defn")) (map-set acc (sym-name (at items 1)) true))
+          ((or (= head "def") (= head "defn")) (add-name (sym-name (at items 1)) acc))
           ((and (= head "deft") (is-sum-body (slice items 2 (len items))))
-            (add-names (variant-names (slice items 2 (len items)) empty-list) acc))
-          ((= head "deft") (map-set acc (deft-name (at items 1)) true))
+            ;; A sum's own name is a type, but in Python it is a name like the others.
+            (add-names
+              (variant-names (slice items 2 (len items)) empty-list)
+              (map-set (add-name (deft-name (at items 1)) acc) (deft-name (at items 1)) false)))
+          ((= head "deft") (add-name (deft-name (at items 1)) acc))
           (else acc))))))
+
+;; Top-level names map to true for values, false for a sum's type name.
+(sig add-name (Fn (String (Map String Bool)) (Map String Bool)))
+(defn add-name (name acc)
+  (if (map-has acc name)
+    (fail (format "defined more than once: {name}"))
+    (map-set acc name true)))
 
 (sig add-names (Fn ((List String) (Map String Bool)) (Map String Bool)))
 (defn add-names (names acc)
   (if (= (len names) 0)
     acc
-    (add-names (slice names 1 (len names)) (map-set acc (at names 0) true))))
+    (add-names (slice names 1 (len names)) (add-name (at names 0) acc))))
 
 ;; Whether a deft body (what follows the name) lists variants, not one field list: each
 ;; variant starts with a symbol, (Circle ...) or (Leaf); a field list starts with a list.
@@ -595,7 +627,17 @@
 (sig analyse-program (Fn ((List Form) Any (Fn (String) (List Form))) (List Top)))
 (defn analyse-program (forms table parse)
   (let ((scope (find-variants forms (Scope empty-map (top-names forms empty-map) table parse empty-map empty-map))))
-    (get (analyse-tops forms scope (Prog empty-list empty-map 0)) out)))
+    (get (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms empty-map) empty-map)) out)))
+
+(sig def-names (Fn ((List Form) (Map String Bool)) (Map String Bool)))
+(defn def-names (forms acc)
+  (if (= (len forms) 0)
+    acc
+    (let ((items (list-items (at forms 0)))
+          (head (if (> (len items) 1) (sym-name (at items 0)) "")))
+      (def-names
+        (rest-of forms)
+        (if (or (= head "def") (= head "defn")) (map-set acc (sym-name (at items 1)) true) acc)))))
 
 (sig analyse-tops (Fn ((List Form) Scope Prog) Prog))
 (defn analyse-tops (forms scope prog)
@@ -605,6 +647,9 @@
 
 (sig add-top (Fn (Prog Top Int) Prog))
 (defn add-top (prog top n) (assoc prog out (+ (get prog out) (to-list top)) n n))
+
+(sig mark-defined (Fn (Prog String) Prog))
+(defn mark-defined (prog name) (assoc prog defined (map-set (get prog defined) name true)))
 
 (sig analyse-top (Fn (Form Scope Prog) Prog))
 (defn analyse-top (form scope prog)
@@ -624,6 +669,9 @@
   (let ((name (if (= (len items) 3) (sym-name (at items 1)) "")))
     (cond
       ((= name "") (fail "sig: expected (sig name Type)"))
+      ((not (map-has (get prog defs) name))
+        (fail (format "sig for {name}, but no def or defn of {name} in this file")))
+      ((map-has (get prog defined) name) (fail (format "sig for {name} comes after its definition")))
       ((map-has (get prog sigs) name) (fail (format "more than one sig for {name}")))
       (else (assoc prog sigs (map-set (get prog sigs) name (analyse-type (at items 2))))))))
 
@@ -689,7 +737,7 @@
     (let ((name (sym-name (at items 1)))
           (t (needs-sig name prog))
           ((init n) (analyse-expr (at items 2) scope (get prog n))))
-      (add-top prog (TDef name init t) n))))
+      (mark-defined (add-top prog (TDef name init t) n) name))))
 
 (sig top-defn (Fn ((List Form) Scope Prog) Prog))
 (defn top-defn (items scope prog)
@@ -704,7 +752,7 @@
         ((= (len params) 0) (fail (format "defn {name}: at least one argument is needed")))
         ((!= (len params) (fn-arity t))
           (fail (format "defn {name}: its sig must be a function type with one type per argument")))
-        (else (add-top prog (TDefn name params body t) n2))))))
+        (else (mark-defined (add-top prog (TDefn name params body t) n2) name))))))
 
 ;; How many arguments a function type takes; -1 if it isn't a function type.
 (sig fn-arity (Fn (CType) Int))

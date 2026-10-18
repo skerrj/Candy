@@ -1,9 +1,13 @@
 """Tests for the self-hosted translator, T1 (``self_host.py``, ``src/cdy/*.cdy``).
 
-T1 is built once per test session. Each ``tst/cdy/t1/NAME.cdy`` is translated by T1 and by
-the Python translator; both results must run and print ``NAME.out``, and T1's must pass
-``mypy --strict``. T1 itself must pass ``mypy --strict`` too: that type-checks the Candy
-translator's own code.
+T1 is built once per test session. Each ``tst/cdy/t1/NAME.cdy`` and ``tst/cdy/NAME.cdy`` is
+translated by T1 and by the Python translator; both results must run and print
+``NAME.out``, and T1's must pass ``mypy --strict``. T1 itself must pass ``mypy --strict``
+too: that type-checks the Candy translator's own code.
+
+The fixpoint (``doc/hl_rqmt/self_hosting_primo.md``, stage 2): T1 translates the Candy
+translator's source into T2. T2 must pass ``mypy --strict``, translate that source into the
+very same text (T3 = T2), and translate every test program exactly as T1 does.
 """
 
 import re
@@ -16,11 +20,13 @@ import pytest
 from mypy import api as mypy_api
 
 from cdy_rt.table_defs import CandyFail
-from self_host import build_t1, load, translate_with
+from self_host import build_t1, load, translate_with, translator_source
 from translate_cdy import translate
 
 ROOT = Path(__file__).resolve().parents[2]
-PROGRAMS = sorted((ROOT / "tst" / "cdy" / "t1").glob("*.cdy"))
+PROGRAMS = sorted((ROOT / "tst" / "cdy" / "t1").glob("*.cdy")) + sorted(
+    (ROOT / "tst" / "cdy").glob("*.cdy")
+)
 IDS = [p.stem for p in PROGRAMS]
 
 
@@ -34,6 +40,15 @@ def fixture_t1_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def fixture_t1(t1_path: Path) -> ModuleType:
     """T1, loaded."""
     return load(t1_path)
+
+
+@pytest.fixture(name="t2", scope="session")
+def fixture_t2(t1: ModuleType, tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, str]:
+    """T2 (T1's translation of the translator) written to a file, and its source text."""
+    source = translate_with(t1, translator_source())
+    path = tmp_path_factory.mktemp("t2") / "cdy_translator.py"
+    path.write_text(source, encoding="utf-8")
+    return path, source
 
 
 def run(source: str, tmp_path: Path, name: str) -> subprocess.CompletedProcess[str]:
@@ -78,6 +93,13 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(put ())", "empty form"),
         ("(put if)", "special form, not a value"),
         ("(put (quote x))", "not supported by the Candy translator yet"),
+        ("(put (+ 1))", "needs at least 2 arguments"),
+        ("(put (len 1 2))", "takes 1 argument(s), got 2"),
+        ("(sig y Int)", "no def or defn of y"),
+        ("(sig x Int) (def x 1) (sig x Int)", "comes after its definition"),
+        ("(sig x Int) (sig x Int) (def x 1)", "more than one sig"),
+        ("(sig x Int) (def x 1) (def x 2)", "defined more than once: x"),
+        ("(deft Box (Box ((v Int))))", "defined more than once: Box"),
         ("(put (let ((x)) x))", "binding must be"),
         ("(put (let (((a b))) a))", "binding must be"),
         ("(put (fn () 1))", "at least one"),
@@ -132,3 +154,19 @@ SHAPES = """
 def test_match_errors(src: str, message: str, t1: ModuleType) -> None:
     with pytest.raises(CandyFail, match=re.escape(message)):
         translate_with(t1, SHAPES + src)
+
+
+def test_fixpoint_t2_passes_mypy_strict(t2: tuple[Path, str]) -> None:
+    stdout, _, status = mypy_api.run(["--strict", "--no-incremental", str(t2[0])])
+    assert status == 0, stdout
+
+
+def test_fixpoint_t2_reproduces_itself(t2: tuple[Path, str]) -> None:
+    path, source = t2
+    assert translate_with(load(path), translator_source()) == source  # T3 == T2
+
+
+@pytest.mark.parametrize("program", PROGRAMS, ids=IDS)
+def test_fixpoint_t1_and_t2_agree(program: Path, t1: ModuleType, t2: tuple[Path, str]) -> None:
+    text = program.read_text(encoding="utf-8")
+    assert translate_with(load(t2[0]), text) == translate_with(t1, text)

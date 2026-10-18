@@ -40,7 +40,8 @@ Candy text ─▶ parse_cdy (Python, parsec v4) ─▶ convert ─▶ translator
    - **Emit Python text, not Python `ast`,** as smz's `render.py` did. Building `ast`
      objects from Candy would need a table entry for every `ast` constructor. This applies
      only to the Candy translator; the Python translator keeps strategy A.
-2. **The fixpoint.** T1 translates the Candy translator's own source, giving T2. Then T1 and
+2. **The fixpoint** (**reached** in slice 1d; see "Stage 2 as built" below). T1
+   translates the Candy translator's own source, giving T2. Then T1 and
    T2 must produce the same output for the translator's source and for every
    `tst/cdy/*.cdy` program. This becomes a test, as it was for smz. Two comparisons are
    possible, and both are done (open question 4, decided):
@@ -101,8 +102,36 @@ grows slice by slice, until it can translate its own source (stage 2).
     source while building this slice (a `get` on a sum value before `match` had narrowed
     it, and an `if` whose branches mypy typed too narrowly), and the Python translator's
     exhaustiveness check caught a `match` on `Expr` that missed the new `MatchE`.
-- **1d:** self tail calls as loops, local renaming as in the Python translator, and the
-  remaining checks. Then the T1 source is in the supported subset: stage 2.
+- **1d** (**done**): self tail calls as loops (`loop-tail-calls` in `lower.cdy`, skipped
+  for a function that makes a closure, as in the Python translator), the remaining checks
+  (built-in arity; a `sig` with no definition, or after it), and the fixpoint (stage 2).
+  `tst/cdy/*.cdy` (`loops`, `read_sexpr`, `sums`) now also run under T1. As built:
+  - Local renaming stays simpler than the Python translator's (see `doc/tech_debt.md`):
+    it changes names, never what a program does, so it isn't needed for the fixpoint.
+  - **mypy was slow on T1** (97 seconds) once the translator's sums grew: narrowing a
+    union of `NamedTuple`s with `isinstance` makes mypy compare the variants' fields
+    structurally. Both translators now put a `match` subject into a temporary typed
+    `object` (unless the sum is generic), and mypy checks T1 in about a second
+    (`doc/hl_rqmt/sum_types.md`). The whole test suite takes about 17 seconds.
+
+## Stage 2 as built: the fixpoint
+
+`tst/py_cdy/test_self_host.py` checks it on every run:
+
+- **T2 passes `mypy --strict`.** T2 is T1's translation of the translator's own source,
+  so this type-checks the Candy translator's emitter on its own output.
+- **T3 = T2, byte for byte.** T2 translates the same source into exactly the text T1
+  produced. That is the usual three-stage bootstrap check.
+- **T1 and T2 agree on every test program**, byte for byte (`tst/cdy/t1/*.cdy` and
+  `tst/cdy/*.cdy`), and T1's output runs and prints the expected `.out`.
+
+**Not done: comparing the files T1 and T2 up to formatting (`ast.dump`)** (open question
+4). Only 55 of their 146 functions have the same AST, and that is expected: T1 comes from
+the Python translator's emitter and T2 from the Candy one, and they differ on purpose
+(f-strings against concatenation, conditional-expression merging, local renaming). Making
+them equal would mean making the two emitters identical, which is not the point of the
+fixpoint. **Proposed:** drop this check in favour of the three above, which already show
+that T1 and T2 behave the same. Waiting for the owner.
 
 **Decisions for the Candy translator** (proposed with slice 1a and built that way;
 simplest first):
@@ -180,7 +209,8 @@ These come up in stage 1 and go into the leaks list, or get fixed, as they appea
 3. ~~**Driver**~~ (**decided, for now**): a mode of `src/py_cdy/main.py`, not a separate
    script. The flag name is still to choose (for example `--translator t1`, where the
    default is the Python translator).
-4. ~~**Fixpoint scope**~~ (**decided**): both checks in stage
+4. ~~**Fixpoint scope**~~ (**decided**, but see "Stage 2 as built": dropping the
+   `ast.dump` file comparison is proposed): both checks in stage
    2. The files T1 and T2 are compared up to formatting (`ast.dump`), as the owner voted,
    because they come from two different emitters. Their output is compared byte for byte,
    because it comes from the same emitter, so this costs nothing and catches more. (In the

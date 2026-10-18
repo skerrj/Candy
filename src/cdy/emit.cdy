@@ -3,11 +3,13 @@
 ;;; render.py did. Every operator gets parentheses, so precedence never matters.
 
 ;; Python names: top-level names (Candy name -> Python name), locals (Local id -> Python
-;; name), and the Python names already taken where new locals are bound.
+;; name), and the Python names already taken where new locals are bound. `generic`: the
+;; variants of generic sums.
 (deft Env
   ((globals (Map String String))
    (locals (Map Int String))
    (taken (Map String Bool))
+   (generic (Map String Bool))
    (table Any)))
 
 (sig HEADER String)
@@ -66,6 +68,24 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((TDefn name _ _ _) name)
     (else "")))
 
+;; The variants of the generic sums in `tops`, added to `acc`.
+(sig generic-variants (Fn ((List Top) (Map String Bool)) (Map String Bool)))
+(defn generic-variants (tops acc)
+  (if (= (len tops) 0)
+    acc
+    (generic-variants
+      (slice tops 1 (len tops))
+      (match (at tops 0)
+        ((TDeftSum _ tvars variants)
+          (if (= (len tvars) 0) acc (mark-all (variant-list-names variants empty-list) acc)))
+        (else acc)))))
+
+(sig mark-all (Fn ((List String) (Map String Bool)) (Map String Bool)))
+(defn mark-all (names acc)
+  (if (= (len names) 0)
+    acc
+    (mark-all (slice names 1 (len names)) (map-set acc (at names 0) true))))
+
 ;; A local's Python name, chosen when its scope was entered (bind-locals).
 (sig local-py (Fn (String Int Env) String))
 (defn local-py (name id env)
@@ -105,7 +125,8 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
             ((Local _ _) (+ acc (to-list target)))
             (else acc)))
         ((SIf _ then other) (bound-locals other (bound-locals then acc)))
-        ((SMatch _ cases default) (bound-in-cases cases (bound-in-lists default acc)))
+        ((SMatch _ _ cases default) (bound-in-cases cases (bound-in-lists default acc)))
+        ((SLoop body) (bound-locals body acc))
         (else acc)))))
 
 (sig bound-in-cases (Fn ((List Case) (List Expr)) (List Expr)))
@@ -288,7 +309,19 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
       (+ (emit-variants variants tvars level env "")
          (line level
            (format "type {(map-get (get env globals) name)}{(type-params tvars)} = {(join (variant-refs variants tvars env empty-list) \" | \")}"))))
-    ((SMatch subject cases default) (emit-match subject cases default "if" level env))
+    ((SMatch temp subject cases default)
+      (let ((t (emit-expr temp env))
+            (val (emit-expr subject env))
+            (generic (map-has (get env generic) (get (at cases 0) variant))))
+        (+ (line level (if generic (format "{t} = {val}") (format "{t}: object = {val}")))
+           (emit-match t cases default (and (not generic) (= (len default) 0)) "if" level env))))
+    ((SLoop body) (+ (line level "while True:") (emit-block body (+ level 1) env)))
+    ((SRebind targets vals)
+      (line level
+        (if (= (len targets) 1)
+          (format "{(emit-expr (at targets 0) env)} = {(emit-expr (at vals 0) env)}")
+          (format "{(comma-join (emit-exprs targets env empty-list))} = ({(comma-join (emit-exprs vals env empty-list))})"))))
+    ((SContinue) (line level "continue"))
     ((SAssign target val)
       (line level (format "{(emit-expr target env)} = {(emit-expr val env)}")))
     ((SDefAssign name val t)
@@ -386,23 +419,33 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
         env
         (+ acc (to-list (+ (map-get (get env globals) (get v name)) (type-params vt))))))))
 
-;; match as an isinstance chain (mypy keeps generic type arguments that way; see
-;; py_cdy/emit_py.py), each named field bound by attribute.
-(sig emit-match (Fn (Expr (List Case) (List (List Stmt)) String Int Env) String))
-(defn emit-match (subject cases default keyword level env)
-  (if (= (len cases) 0)
-    (if (= (len default) 0)
-      ""
-      (+ (line level "else:") (emit-block (at default 0) (+ level 1) env)))
-    (let ((c (at cases 0))
-          (subj (emit-expr subject env))
-          (test (format "{keyword} isinstance({subj}, {(map-get (get env globals) (get c variant))}):"))
-          (binds (emit-binds (get c binds) subj (+ level 1) env ""))
-          (body (if (= (len (get c body)) 0)
-                  (if (= binds "") (line (+ level 1) "pass") "")
-                  (emit-stmts (get c body) (+ level 1) env ""))))
-      (+ (line level test) binds body
-         (emit-match subject (slice cases 1 (len cases)) default "elif" level env)))))
+;; match as an isinstance chain on the temporary `subj` (mypy keeps generic type arguments
+;; that way), each named field bound by attribute. The temporary is typed object unless the
+;; sum is generic, which keeps mypy fast (see py_cdy/emit_py.py); then, with no else clause,
+;; the last case is an else that asserts its variant (`assert-last`).
+(sig emit-match (Fn (String (List Case) (List (List Stmt)) Bool String Int Env) String))
+(defn emit-match (subj cases default assert-last keyword level env)
+  (cond
+    ((= (len cases) 0)
+      (if (= (len default) 0)
+        ""
+        (+ (line level "else:") (emit-block (at default 0) (+ level 1) env))))
+    ((and assert-last (= (len cases) 1))
+      (let ((c (at cases 0))
+            (inner (if (= keyword "if") level (+ level 1))))
+        (+ (if (= keyword "if") "" (line level "else:"))
+           (line inner (format "assert isinstance({subj}, {(map-get (get env globals) (get c variant))})"))
+           (emit-binds (get c binds) subj inner env "")
+           (emit-stmts (get c body) inner env ""))))
+    (else
+      (let ((c (at cases 0))
+            (test (format "{keyword} isinstance({subj}, {(map-get (get env globals) (get c variant))}):"))
+            (binds (emit-binds (get c binds) subj (+ level 1) env ""))
+            (body (if (= (len (get c body)) 0)
+                    (if (= binds "") (line (+ level 1) "pass") "")
+                    (emit-stmts (get c body) (+ level 1) env ""))))
+        (+ (line level test) binds body
+           (emit-match subj (slice cases 1 (len cases)) default assert-last "elif" level env))))))
 
 (sig emit-binds (Fn ((List (Tup String Expr)) String Int Env String) String))
 (defn emit-binds (binds subj level env acc)
@@ -465,6 +508,6 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn translate (forms parse)
   (let ((tops (analyse-program forms initial-table parse))
         (stmts (lower-program tops 0 empty-list))
-        (globals (global-names tops (Env empty-map empty-map empty-map initial-table)))
+        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) initial-table)))
         (env (bind-locals (bound-locals stmts empty-list) globals)))
     (+ HEADER (emit-imports PY_IMPORTS "") "\n" (emit-stmts stmts 0 env ""))))

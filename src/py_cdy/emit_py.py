@@ -108,6 +108,7 @@ class Env(NamedTuple):
     globals_: Mapping[str, str]  # Candy top-level name -> Python name
     locals_: Mapping[int, str]  # Local id -> Python name
     taken: frozenset[str]  # Python names visible here, which a new local must not reuse
+    generic: frozenset[str]  # the variants of generic sums
 
 
 def global_names(stmts: Stmts) -> Mapping[str, str]:
@@ -131,6 +132,13 @@ def global_names(stmts: Stmts) -> Mapping[str, str]:
     return MappingProxyType(spelled)
 
 
+def generic_variants(stmts: Stmts) -> frozenset[str]:
+    """The variants of the program's generic sums."""
+    return frozenset(
+        v for stmt in stmts if isinstance(stmt, SumDef) and stmt.tvars for v, _ in stmt.variants
+    )
+
+
 def bound_locals(stmts: Stmts) -> tuple[Local, ...]:
     """The locals assigned in ``stmts``, in order (not looking inside nested functions)."""
     out: list[Local] = []
@@ -142,7 +150,7 @@ def bound_locals(stmts: Stmts) -> tuple[Local, ...]:
                 out.extend(local for local in bound_locals((*then, *other)) if local not in out)
             case Loop(body):
                 out.extend(local for local in bound_locals(body) if local not in out)
-            case MatchStmt(_, cases, default):
+            case MatchStmt(_, _, cases, default):
                 binds = [local for c in cases for _, local in c.binds]
                 bodies = [s for c in cases for s in c.body] + list(default or ())
                 found = (*binds, *bound_locals(tuple(bodies)))
@@ -355,6 +363,8 @@ def emit_stmt_list(stmt: Stmt, env: Env) -> list[ast.stmt]:
     """One IR statement as Python statements: a sum type takes several, the rest one."""
     if isinstance(stmt, SumDef):
         return emit_sum(stmt, env)
+    if isinstance(stmt, MatchStmt):
+        return emit_match(stmt, env)
     return [emit_stmt(stmt, env)]
 
 
@@ -387,10 +397,8 @@ def emit_stmt(stmt: Stmt, env: Env) -> ast.stmt:
             return ast.Assign([lhs], ast.Tuple([emit_expr(v, env) for v in values], ast.Load()))
         case Continue():
             return ast.Continue()
-        case MatchStmt():
-            return emit_match(stmt, env)
-        case SumDef():
-            raise CandyError("a sum type is only allowed at top level")
+        case SumDef() | MatchStmt():
+            raise CandyError("emit_stmt: handled by emit_stmt_list")
 
 
 def emit_record(record: RecordDef, env: Env) -> ast.stmt:
@@ -428,15 +436,23 @@ def emit_sum(sum_def: SumDef, env: Env) -> list[ast.stmt]:
     return [*out, alias]
 
 
-def emit_match(stmt: MatchStmt, env: Env) -> ast.stmt:
-    """``match`` as an ``isinstance`` chain, with each field bound by attribute.
+def emit_match(stmt: MatchStmt, env: Env) -> list[ast.stmt]:
+    """``match`` as an ``isinstance`` chain on a temporary, with each field bound by attribute.
 
     Not Python's ``match``: mypy loses a generic variant's type arguments in a class pattern
     (``case Node(l, v, r)`` makes ``v`` ``Any``), but keeps them when ``isinstance`` narrows.
+    The temporary is typed ``object`` unless the sum is generic: narrowing a union of
+    ``NamedTuple``s makes mypy compare the variants' fields structurally, which takes it
+    seconds per test on the translator's own sums. With ``object``, mypy doesn't see that the
+    chain is exhaustive (``analyse`` has checked that), so the last case is an ``else`` that
+    asserts its variant.
     """
-    subject = emit_expr(stmt.subject, env)
+    temp = name_of(stmt.temp, env)
+    subject = load(temp)
+    variant = stmt.cases[0].variant.name
+    generic = variant in env.generic
     orelse: list[ast.stmt] = emit_stmts(stmt.default, env) if stmt.default is not None else []
-    for case in reversed(stmt.cases):
+    for i, case in enumerate(reversed(stmt.cases)):
         test = ast.Call(load("isinstance"), [subject, load(name_of(case.variant, env))], [])
         binds: list[ast.stmt] = [
             ast.Assign(
@@ -445,8 +461,16 @@ def emit_match(stmt: MatchStmt, env: Env) -> ast.stmt:
             for f, local in case.binds
         ]
         body = binds + emit_stmts(case.body, env) if case.body else binds or [ast.Pass()]
-        orelse = [ast.If(test, body, orelse)]
-    return orelse[0]
+        if i == 0 and stmt.default is None and not generic:
+            orelse = [ast.Assert(test), *body]
+        else:
+            orelse = [ast.If(test, body, orelse)]
+    value = emit_expr(stmt.subject, env)
+    if generic:
+        bind: ast.stmt = ast.Assign([store(temp)], value)
+    else:
+        bind = ast.AnnAssign(store(temp), load("object"), value, 1)
+    return [bind, *orelse]
 
 
 def emit_funcdef(
@@ -477,7 +501,8 @@ def emit_funcdef(
 def emit_module(stmts: Stmts, table: Table = INITIAL_TABLE) -> ast.Module:
     """A whole lowered program as a Python module (without the import header)."""
     globals_ = global_names(stmts)
-    env = Env(table, globals_, MappingProxyType({}), RESERVED | frozenset(globals_.values()))
+    taken = RESERVED | frozenset(globals_.values())
+    env = Env(table, globals_, MappingProxyType({}), taken, generic_variants(stmts))
     env = with_locals(env, bound_locals(stmts))
     module = ast.Module(emit_stmts(stmts, env) if stmts else [], [])
     return ast.fix_missing_locations(module)

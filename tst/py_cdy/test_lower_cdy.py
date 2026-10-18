@@ -260,6 +260,7 @@ def test_match_in_tail_and_value_modes() -> None:
         (s,),
         (
             MatchStmt(
+                Temp(0),
                 s,
                 (
                     Case(Global("No"), (), (Return(c(0)),)),
@@ -270,14 +271,19 @@ def test_match_in_tail_and_value_modes() -> None:
         ),
         TFn((TCon("Opt"),), TCon("Int")),
     )
-    # In value position, each case assigns a temporary; a call as subject is stored first.
+    # In value position, each case assigns a temporary; the subject gets one of its own.
     *_, put = lowered(
         SUM + "(sig g (Fn (Int) Opt)) (defn g (x) No) (put (match (g 1) ((No) 0) (else 1)))"
     )
     assert put == ExprStmt(CallE(PUT, (Temp(0),)))
     assert lowered(
         SUM + "(sig g (Fn (Int) Opt)) (defn g (x) No) (put (match (g 1) ((No) 0) (else 1)))"
-    )[2] == (Assign(Temp(1), CallE(Global("g"), (c(1),))))
+    )[2] == MatchStmt(
+        Temp(1),
+        CallE(Global("g"), (c(1),)),
+        (Case(Global("No"), (), (Assign(Temp(0), c(0)),)),),
+        (Assign(Temp(0), c(1)),),
+    )
 
 
 def test_sum_def() -> None:

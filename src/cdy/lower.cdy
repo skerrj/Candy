@@ -7,8 +7,9 @@
 (deft Stmt
   (SRecord ((name String) (tvars (List String)) (fields (List (Tup String CType)))))
   (SSum ((name String) (tvars (List String)) (variants (List Variant))))
-  ;; `subject` is always simple. `default` is empty, or the else clause's statements.
-  (SMatch ((subject Expr) (cases (List Case)) (default (List (List Stmt)))))
+  ;; `subject` is evaluated once, into `temp` (a Temp). `default` is empty, or the else
+  ;; clause's statements.
+  (SMatch ((temp Expr) (subject Expr) (cases (List Case)) (default (List (List Stmt)))))
   (SAssign ((target Expr) (val Expr)))
   (SDefAssign ((name String) (val Expr) (t CType)))
   (SExpr ((expr Expr)))
@@ -16,7 +17,12 @@
   (SIf ((test Expr) (then (List Stmt)) (other (List Stmt))))
   (SFunc ((name String) (params (List Expr)) (body (List Stmt)) (t CType)))
   ;; A nested function (a fn whose body needs statements), named by a Temp; typed Any.
-  (SLocalFunc ((target Expr) (params (List Expr)) (body (List Stmt)))))
+  (SLocalFunc ((target Expr) (params (List Expr)) (body (List Stmt))))
+  ;; A self tail call as a loop: `while True:`, the parameters rebound all at once, then
+  ;; `continue`.
+  (SLoop ((body (List Stmt))))
+  (SRebind ((targets (List Expr)) (vals (List Expr))))
+  (SContinue))
 
 (deft Case ((variant String) (binds (List (Tup String Expr))) (body (List Stmt))))
 
@@ -104,13 +110,10 @@
   (match e
     ((MatchE subject clauses default)
       (let ((low (value subject n))
-            (simple (is-simple (get low expr)))
-            (subj (if simple (get low expr) (Temp (get low n))))
-            (n1 (if simple (get low n) (+ (get low n) 1)))
-            (first (if simple (get low stmts) (+ (get low stmts) (to-list (SAssign subj (get low expr))))))
-            ((cases n2) (lower-cases clauses mode tmp n1 empty-list))
+            (temp (Temp (get low n)))
+            ((cases n2) (lower-cases clauses mode tmp (+ (get low n) 1) empty-list))
             ((default-stmts n3) (lower-default default mode tmp n2)))
-        (tup (+ first (to-list (SMatch subj cases default-stmts))) n3)))
+        (tup (+ (get low stmts) (to-list (SMatch temp (get low expr) cases default-stmts))) n3)))
     (else (fail "lower: not a match"))))
 
 ;; The else clause's statements: none, or one list.
@@ -336,8 +339,154 @@
         (tup (+ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))
     ((TDefn name params body t)
       (let (((stmts n1) (if (returns-unit t) (effect body n) (tail body n))))
-        (tup (to-list (SFunc name params stmts t)) n1)))
+        (tup (to-list (SFunc name params (loop-tail-calls name params stmts (returns-unit t)) t)) n1)))
     ((TExpr e) (effect e n))))
+
+;; --- self tail calls ---
+
+;; The body as a loop, if its tail position calls the function itself. A function that makes
+;; a closure is left alone: the closure would see the loop's later values. A Unit function
+;; can fall off the end of its body, so its loop ends with a return.
+(sig loop-tail-calls (Fn (String (List Expr) (List Stmt) Bool) (List Stmt)))
+(defn loop-tail-calls (name params body unit)
+  (if (stmts-have-closure body)
+    body
+    (let ((looped (retail-all body name params)))
+      (if (= looped body)
+        body
+        (to-list (SLoop (if unit (+ looped (to-list (SReturn NIL))) looped)))))))
+
+(sig retail-all (Fn ((List Stmt) String (List Expr)) (List Stmt)))
+(defn retail-all (stmts name params)
+  (if (= (len stmts) 0)
+    stmts
+    (+ (slice stmts 0 (- (len stmts) 1)) (retail (at stmts (- (len stmts) 1)) name params))))
+
+;; A statement with its tail-position self calls replaced by jumps.
+(sig retail (Fn (Stmt String (List Expr)) (List Stmt)))
+(defn retail (s name params)
+  (match s
+    ((SReturn val) (if (is-self-call val name params) (jump params (call-args val)) (to-list s)))
+    ((SExpr e) (if (is-self-call e name params) (jump params (call-args e)) (to-list s)))
+    ((SIf test then other)
+      (to-list (SIf test (retail-all then name params) (retail-all other name params))))
+    ((SMatch temp subject cases default)
+      (to-list
+        (SMatch temp subject (retail-cases cases name params empty-list) (retail-lists default name params empty-list))))
+    (else (to-list s))))
+
+(sig retail-cases (Fn ((List Case) String (List Expr) (List Case)) (List Case)))
+(defn retail-cases (cases name params acc)
+  (if (= (len cases) 0)
+    acc
+    (let ((c (at cases 0)))
+      (retail-cases
+        (slice cases 1 (len cases))
+        name
+        params
+        (+ acc (to-list (assoc c body (retail-all (get c body) name params))))))))
+
+(sig retail-lists (Fn ((List (List Stmt)) String (List Expr) (List (List Stmt))) (List (List Stmt))))
+(defn retail-lists (lists name params acc)
+  (if (= (len lists) 0)
+    acc
+    (retail-lists (slice lists 1 (len lists)) name params (+ acc (to-list (retail-all (at lists 0) name params))))))
+
+(sig is-self-call (Fn (Expr String (List Expr)) Bool))
+(defn is-self-call (e name params)
+  (match e
+    ((Call callee args)
+      (match callee
+        ((Global g) (and (= g name) (= (len args) (len params))))
+        (else false)))
+    (else false)))
+
+(sig call-args (Fn (Expr) (List Expr)))
+(defn call-args (e)
+  (match e
+    ((Call _ args) args)
+    (else empty-list)))
+
+;; Instead of calling the function again: new values for the parameters that change, then
+;; go round.
+(sig jump (Fn ((List Expr) (List Expr)) (List Stmt)))
+(defn jump (params args)
+  (let (((targets vals) (changed params args empty-list empty-list)))
+    (if (= (len targets) 0)
+      (to-list SContinue)
+      (+ (to-list (SRebind targets vals)) (to-list SContinue)))))
+
+(sig changed (Fn ((List Expr) (List Expr) (List Expr) (List Expr)) (Tup (List Expr) (List Expr))))
+(defn changed (params args targets vals)
+  (cond
+    ((= (len params) 0) (tup targets vals))
+    ((= (at params 0) (at args 0))
+      (changed (slice params 1 (len params)) (slice args 1 (len args)) targets vals))
+    (else
+      (changed
+        (slice params 1 (len params))
+        (slice args 1 (len args))
+        (+ targets (to-list (at params 0)))
+        (+ vals (to-list (at args 0)))))))
+
+;; Whether statements make a function (a nested def, or a lambda in any expression).
+(sig stmts-have-closure (Fn ((List Stmt)) Bool))
+(defn stmts-have-closure (stmts)
+  (cond
+    ((= (len stmts) 0) false)
+    ((stmt-has-closure (at stmts 0)) true)
+    (else (stmts-have-closure (slice stmts 1 (len stmts))))))
+
+(sig stmt-has-closure (Fn (Stmt) Bool))
+(defn stmt-has-closure (s)
+  (match s
+    ((SLocalFunc _ _ _) true)
+    ((SAssign target val) (or (has-lambda target) (has-lambda val)))
+    ((SDefAssign _ val _) (has-lambda val))
+    ((SExpr e) (has-lambda e))
+    ((SReturn val) (has-lambda val))
+    ((SIf test then other)
+      (or (has-lambda test) (stmts-have-closure then) (stmts-have-closure other)))
+    ((SMatch _ subject cases default)
+      (or (has-lambda subject) (cases-have-closure cases) (lists-have-closure default)))
+    ((SLoop body) (stmts-have-closure body))
+    ((SRebind _ vals) (any-lambda vals))
+    (else false)))
+
+(sig cases-have-closure (Fn ((List Case)) Bool))
+(defn cases-have-closure (cases)
+  (cond
+    ((= (len cases) 0) false)
+    ((stmts-have-closure (get (at cases 0) body)) true)
+    (else (cases-have-closure (slice cases 1 (len cases))))))
+
+(sig lists-have-closure (Fn ((List (List Stmt))) Bool))
+(defn lists-have-closure (lists)
+  (cond
+    ((= (len lists) 0) false)
+    ((stmts-have-closure (at lists 0)) true)
+    (else (lists-have-closure (slice lists 1 (len lists))))))
+
+(sig any-lambda (Fn ((List Expr)) Bool))
+(defn any-lambda (exprs)
+  (cond
+    ((= (len exprs) 0) false)
+    ((has-lambda (at exprs 0)) true)
+    (else (any-lambda (slice exprs 1 (len exprs))))))
+
+(sig has-lambda (Fn (Expr) Bool))
+(defn has-lambda (e)
+  (match e
+    ((Lambda _ _) true)
+    ((Call callee args) (or (has-lambda callee) (any-lambda args)))
+    ((If test then other) (or (has-lambda test) (has-lambda then) (has-lambda other)))
+    ((Do body) (any-lambda body))
+    ((Tuple items) (any-lambda items))
+    ((Fmt parts) (any-lambda (holes parts empty-list)))
+    ((Field obj _) (has-lambda obj))
+    ((Assoc obj fields) (or (has-lambda obj) (any-lambda (field-vals fields empty-list))))
+    ((MatchE subject _ _) (has-lambda subject))
+    (else false)))
 
 (sig lower-program (Fn ((List Top) Int (List Stmt)) (List Stmt)))
 (defn lower-program (tops n acc)

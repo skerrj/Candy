@@ -17,16 +17,18 @@ take one, and remove an entry once it is fixed.
   loses a generic variant's type arguments in a class pattern (`case Node(l, v, r):` makes
   `v` `Any`). pyright handles class patterns; switch back if mypy catches up
   (`emit_match` in `emit_py.py`).
-- **`match` subjects that aren't simple get a temporary** in `lower`, only because the
-  Python chain tests the subject more than once.
+- **Every `match` subject gets a temporary** in `lower`, only because the Python chain
+  tests the subject more than once. The temporary is typed `object` for a non-generic sum,
+  to keep mypy fast (`doc/hl_rqmt/sum_types.md`), so mypy no longer checks that a chain is
+  exhaustive or that its variants belong to the subject's sum (`analyse` checks both).
 
 - **The Candy translator (T1) is simpler than the Python one in places**, to be closed
   slice by slice (see `doc/hl_rqmt/self_hosting_primo.md`): every operator is
   parenthesised; `if` in tail position stays an `if` statement (no conditional-expression
   merge); a nested scope's locals avoid every outer name, so T1 renames more than the
   Python translator; `format` is a `str()` concatenation, not an f-string; `and`/`or`
-  whose later arguments need statements don't short-circuit those statements; built-in
-  arity isn't checked.
+  whose later arguments need statements don't short-circuit those statements. None of
+  these change what a program does.
 - **`self_host.py` raises the recursion limit** (to 20,000) while T1 runs, since T1 walks
   lists by recursion.
 

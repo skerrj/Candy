@@ -196,9 +196,9 @@ class Case(NamedTuple):
 class MatchStmt(NamedTuple):
     """Run the body of the case whose variant ``subject`` is, else ``default`` (if any).
 
-    ``subject`` is always simple (a name or a constant), so a backend may test it several
-    times."""
+    ``subject`` is evaluated once, into ``temp``, which a backend may test several times."""
 
+    temp: Temp
     subject: IrExpr
     cases: tuple[Case, ...]
     default: tuple[Stmt, ...] | None
@@ -429,9 +429,7 @@ Mode = Callable[[Expr, Ctx, int], tuple[Stmts, int]]
 def match_stmt(expr: Match, body_mode: Mode, ctx: Ctx, n: int) -> tuple[Stmts, int]:
     """``match`` as a ``MatchStmt``, each body lowered by ``body_mode`` (tail, effect, ...)."""
     stmts, subject, n = value(expr.subject, ctx, n)
-    if not is_simple(subject):
-        temp = Temp(n)
-        stmts, subject, n = (*stmts, Assign(temp, subject)), temp, n + 1
+    temp, n = Temp(n), n + 1
     cases: list[Case] = []
     for clause in expr.clauses:
         body, n = body_mode(clause.body, ctx, n)
@@ -439,7 +437,7 @@ def match_stmt(expr: Match, body_mode: Mode, ctx: Ctx, n: int) -> tuple[Stmts, i
     default: Stmts | None = None
     if expr.default is not None:
         default, n = body_mode(expr.default, ctx, n)
-    return (*stmts, MatchStmt(subject, tuple(cases), default)), n
+    return (*stmts, MatchStmt(temp, subject, tuple(cases), default)), n
 
 
 def bind(pairs: Sequence[tuple[Local, Expr]], ctx: Ctx, n: int) -> tuple[Stmts, int]:
@@ -567,10 +565,10 @@ def retail(stmt: Stmt, name: Global, params: tuple[Local, ...]) -> Stmts:
             return jump(params, args)
         case IfStmt(test, then, other):
             return (IfStmt(test, retail_all(then, name, params), retail_all(other, name, params)),)
-        case MatchStmt(subject, cases, default):
+        case MatchStmt(temp, subject, cases, default):
             new_cases = tuple(c._replace(body=retail_all(c.body, name, params)) for c in cases)
             new_default = None if default is None else retail_all(default, name, params)
-            return (MatchStmt(subject, new_cases, new_default),)
+            return (MatchStmt(temp, subject, new_cases, new_default),)
         case _:
             return (stmt,)
 

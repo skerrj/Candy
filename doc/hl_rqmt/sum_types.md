@@ -113,9 +113,10 @@ everything else. Types are separate, so the type `Shape` and the variants `Circl
   names, as `VariantInfo`), so `match` and calls can check them before the `deft` is
   analysed. Variant names are values, the sum's name is only a type, and all of them share
   one namespace with other top-level names (a variant can't take its type's name).
-- **Lowered IR (`lower`).** A `MatchStmt(subject, cases, default)` statement, with each
-  case's body lowered in the current mode (`value` through a temporary, `tail` or
-  `effect`), and `SumDef` for the type. The subject is always simple. It needs no `Caps`
+- **Lowered IR (`lower`).** A `MatchStmt(temp, subject, cases, default)` statement, with
+  each case's body lowered in the current mode (`value` through a temporary, `tail` or
+  `effect`), and `SumDef` for the type. The subject is evaluated once, into `temp`. It
+  needs no `Caps`
   flag: each backend writes `MatchStmt` its own way (Python: an `isinstance` chain).
 - **Python (`emit_py`).** Each variant is a `NamedTuple` class, as a record is now; a
   variant is generic only in the type variables its fields use, and one with no fields
@@ -148,10 +149,32 @@ everything else. Types are separate, so the type `Shape` and the variants `Circl
           return 1 + size(l) + size(r)
   ```
 
-  The subject is tested more than once, so `lower` stores a subject that isn't simple in
-  a temporary first. `analyse` checks exhaustiveness, and mypy sees that the chain covers
-  the union, so a function that returns from every case needs no fallback `return`.
-  pyright handles class patterns fine, so a later Python backend could switch back.
+  The subject is tested more than once, so it goes into a temporary first (shown above as
+  `t` for short). **The temporary is typed `object` unless the sum is generic** (slice 1d).
+  When `isinstance` narrows a union of `NamedTuple`s, mypy compares the remaining variants
+  with each other field by field, since they are tuples. On the translator's own sums
+  (`Stmt` variants whose fields hold the 14-variant `Expr`), that took about 3.6 seconds
+  per test, and 97 seconds to check T1. Narrowing `object` costs nothing: checking T1
+  takes about 1 second. With `object`, mypy no longer sees that the chain is exhaustive
+  (`analyse` has already checked it), so with no `else`, the last case becomes an `else`
+  that asserts its variant:
+
+  ```python
+  def area(s: Shape) -> float:
+      _cdy_t0: object = s
+      if isinstance(_cdy_t0, Circle):
+          r = _cdy_t0.r
+          return 3.0 * r * r
+      else:
+          assert isinstance(_cdy_t0, Rect)
+          w = _cdy_t0.w
+          h = _cdy_t0.h
+          return w * h
+  ```
+
+  A generic sum keeps the union, since `isinstance` on `object` would give `Node[Any]`.
+  The cost comes back if a big generic sum ever appears. pyright handles class patterns
+  fine, so a later Python backend could switch back.
 - **Tail calls.** `loop_tail_calls` looks inside `MatchStmt` cases, as it does
   `IfStmt` branches.
 
