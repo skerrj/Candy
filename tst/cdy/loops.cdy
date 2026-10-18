@@ -1,0 +1,32 @@
+;;; Self tail calls become loops, so recursion this deep doesn't hit Python's limit.
+
+(sig sum-to (Fn (Int Int) Int))
+(defn sum-to (n acc)
+  (if (= n 0) acc (sum-to (- n 1) (+ acc n))))
+
+;; Parameters swap at once: `a, b = b, a + b`.
+(sig fib (Fn (Int Int Int) Int))
+(defn fib (n a b)
+  (cond
+    ((= n 0) a)
+    (else (fib (- n 1) b (+ a b)))))
+
+;; A Unit function's loop can fall off the end.
+(sig count-down (Fn (Int) Unit))
+(defn count-down (n)
+  (when-positive n))
+
+(sig when-positive (Fn (Int) Unit))
+(defn when-positive (n)
+  (if (> n 0)
+    (do (if (< n 4) (put n)) (when-positive (- n 1)))))
+
+;; Not a tail call: (+ 1 (len-of ...)) still recurses.
+(sig len-of (Fn (String Int) Int))
+(defn len-of (s i)
+  (if (>= i (len s)) 0 (+ 1 (len-of s (+ i 1)))))
+
+(put (sum-to 100000 0))
+(put (fib 90 0 1))
+(count-down 100000)
+(put (len-of "hello" 0))

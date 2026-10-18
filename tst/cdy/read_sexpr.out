@@ -1,0 +1,2 @@
+(('defn', 'sq', ('x',), ('*', 'x', 'x')), ('put', ('sq', 12), '"a (b) \\"c\\""'))
+24 forms; first: ('sig', 'skip-space', ('Fn', ('String', 'Int'), 'Int'))

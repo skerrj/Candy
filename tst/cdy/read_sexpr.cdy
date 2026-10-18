@@ -1,0 +1,81 @@
+;;; An S-expression reader written in Candy: a first step towards a self-hosted parser.
+;;; Reads symbols, integers, strings and nested lists into tuples, in the (text pos acc)
+;;; style of smz's parse.scm. A string stays as written, quotes and escapes included (as in
+;;; smz). Forms are untyped data for now, so they are `Any`.
+
+;; Skip whitespace and `;` comments.
+(sig skip-space (Fn (String Int) Int))
+(defn skip-space (text pos)
+  (cond
+    ((>= pos (len text)) pos)
+    ((isspace-at text pos) (skip-space text (+ pos 1)))
+    ((= (at text pos) ";") (skip-space text (skip-line text pos)))
+    (else pos)))
+
+(sig skip-line (Fn (String Int) Int))
+(defn skip-line (text pos)
+  (cond
+    ((>= pos (len text)) pos)
+    ((= (at text pos) "\n") pos)
+    (else (skip-line text (+ pos 1)))))
+
+(sig delim? (Fn (String) Bool))
+(defn delim? (ch) (or (isspace ch) (in ch "();")))
+
+;; A symbol or number token: everything up to the next delimiter.
+(sig read-token (Fn (String Int String) (Tup String Int)))
+(defn read-token (text pos acc)
+  (if (or (>= pos (len text)) (delim? (at text pos)))
+    (tup acc pos)
+    (read-token text (+ pos 1) (+ acc (at text pos)))))
+
+;; A string literal, from just after its opening quote; `acc` starts as the quote.
+(sig read-str (Fn (String Int String) (Tup String Int)))
+(defn read-str (text pos acc)
+  (cond
+    ((>= pos (len text)) (tup acc pos))
+    ((= (at text pos) "\"") (tup (+ acc "\"") (+ pos 1)))
+    ((= (at text pos) "\\") (read-str text (+ pos 2) (+ acc (slice text pos (+ pos 2)))))
+    (else (read-str text (+ pos 1) (+ acc (at text pos))))))
+
+(sig atom (Fn (String) Any))
+(defn atom (tok) (if (is-digit tok) (to-int tok) tok))
+
+(sig read-list (Fn (String Int (List Any)) (Tup (List Any) Int)))
+(defn read-list (text pos acc)
+  (let ((pos (skip-space text pos)))
+    (cond
+      ((>= pos (len text)) (tup acc pos))
+      ((= (at text pos) ")") (tup acc (+ pos 1)))
+      (else
+        (let (((form next) (read-form text pos)))
+          (read-list text next (+ acc (to-list form))))))))
+
+(sig read-form (Fn (String Int) (Tup Any Int)))
+(defn read-form (text pos)
+  (let ((pos (skip-space text pos)))
+    (cond
+      ((= (at text pos) "(") (read-list text (+ pos 1) empty-list))
+      ((= (at text pos) "\"") (read-str text (+ pos 1) "\""))
+      (else
+        (let (((tok next) (read-token text pos "")))
+          (tup (atom tok) next))))))
+
+(sig read-all (Fn (String Int (List Any)) (List Any)))
+(defn read-all (text pos acc)
+  (let ((pos (skip-space text pos)))
+    (if (>= pos (len text))
+      acc
+      (let (((form next) (read-form text pos)))
+        (read-all text next (+ acc (to-list form)))))))
+
+(sig read-string (Fn (String) (List Any)))
+(defn read-string (text) (read-all text 0 empty-list))
+
+(put (read-string "(defn sq (x) (* x x)) ; square
+                   (put (sq 12) \"a (b) \\\"c\\\"\")"))
+
+;; Read this file itself: count its top-level forms and show the first one.
+(sig me (List Any))
+(def me (read-string (slurp "read_sexpr")))
+(put (format "{(len me)} forms; first: {(at me 0)}"))

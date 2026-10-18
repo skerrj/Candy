@@ -1,0 +1,54 @@
+# Packaging covers only the Candy runtime, ``src/cdy_rt`` (installed editable so generated code
+# can import it). The compiler, ``src/py_cdy``, is not packaged.
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cdy-rt"
+version = "0.0.1"
+description = "Candy runtime: the initial symbol table and helpers that generated Python imports."
+requires-python = ">=3.14"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = ["cdy_rt"]
+package-data = { cdy_rt = ["py.typed"] }
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src/py_cdy", "src"]
+
+[tool.pylint.main]
+init-hook = "import sys; sys.path.insert(0, 'src/py_cdy')"
+# mypy is compiled (mypyc); let pylint import it to see mypy.api.
+extension-pkg-allow-list = ["mypy"]
+
+[tool.pylint."messages control"]
+# ruff sorts imports; pylint's import-order check disagrees with it about first-party modules.
+disable = ["wrong-import-order"]
+
+[tool.pylint.design]
+# The translator dispatches with one ``match`` over node types per function, which pylint's
+# defaults count as too many returns, branches and locals.
+max-returns = 15
+max-branches = 15
+max-locals = 20
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.basic]
+no-docstring-rgx = "^(_|test_)"
+
+[tool.mypy]
+strict = true
+mypy_path = "src/py_cdy"
+
+[tool.pytest.ini_options]
+pythonpath = ["src/py_cdy"]
+testpaths = ["tst"]
+
+[tool.pyright]
+extraPaths = ["src/py_cdy"]
