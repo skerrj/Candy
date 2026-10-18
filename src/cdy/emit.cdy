@@ -1,0 +1,518 @@
+;;; Emit: lowered statements as Python source text (the third step; the Python backend).
+;;; Unlike py_cdy/emit_py.py, which builds Python's ast, this writes text, as smz's
+;;; render.py did. Every operator gets parentheses, so precedence never matters.
+
+;; Python names: top-level names (Candy name -> Python name), locals (Local id -> Python
+;; name), and the Python names already taken where new locals are bound. `generic`: the
+;; variants of generic sums.
+(deft Env
+  ((globals (Map String String))
+   (locals (Map Int String))
+   (taken (Map String Bool))
+   (generic (Map String Bool))
+   (table Any)))
+
+(sig HEADER String)
+(def HEADER "from __future__ import annotations
+
+from collections.abc import Callable as _cdy_Callable, Mapping as _cdy_Mapping
+from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
+")
+
+(sig comma-join (Fn ((List String)) String))
+(defn comma-join (strs) (join strs ", "))
+
+(sig line (Fn (Int String) String))
+(defn line (level text) (+ (get-indent level) text "\n"))
+
+;; --- names ---
+
+(sig global-names (Fn ((List Top) Env) Env))
+(defn global-names (tops env)
+  (if (= (len tops) 0)
+    env
+    (global-names (slice tops 1 (len tops)) (add-globals (top-names-of (at tops 0)) env))))
+
+(sig add-globals (Fn ((List String) Env) Env))
+(defn add-globals (names env)
+  (if (= (len names) 0)
+    env
+    (let ((name (at names 0))
+          (py (py-mangle name)))
+      (add-globals
+        (slice names 1 (len names))
+        (assoc env
+          globals (map-set (get env globals) name py)
+          taken (map-set (get env taken) py true))))))
+
+;; The top-level names a definition makes: a sum makes its type and its variants.
+(sig top-names-of (Fn (Top) (List String)))
+(defn top-names-of (top)
+  (match top
+    ((TDeftSum name _ variants) (+ (to-list name) (variant-list-names variants empty-list)))
+    (else (if (= (top-name top) "") empty-list (to-list (top-name top))))))
+
+(sig variant-list-names (Fn ((List Variant) (List String)) (List String)))
+(defn variant-list-names (variants acc)
+  (if (= (len variants) 0)
+    acc
+    (variant-list-names
+      (slice variants 1 (len variants))
+      (+ acc (to-list (get (at variants 0) name))))))
+
+(sig top-name (Fn (Top) String))
+(defn top-name (top)
+  (match top
+    ((TDeft name _ _) name)
+    ((TDef name _ _) name)
+    ((TDefn name _ _ _) name)
+    (else "")))
+
+;; The variants of the generic sums in `tops`, added to `acc`.
+(sig generic-variants (Fn ((List Top) (Map String Bool)) (Map String Bool)))
+(defn generic-variants (tops acc)
+  (if (= (len tops) 0)
+    acc
+    (generic-variants
+      (slice tops 1 (len tops))
+      (match (at tops 0)
+        ((TDeftSum _ tvars variants)
+          (if (= (len tvars) 0) acc (mark-all (variant-list-names variants empty-list) acc)))
+        (else acc)))))
+
+(sig mark-all (Fn ((List String) (Map String Bool)) (Map String Bool)))
+(defn mark-all (names acc)
+  (if (= (len names) 0)
+    acc
+    (mark-all (slice names 1 (len names)) (map-set acc (at names 0) true))))
+
+;; A local's Python name, chosen when its scope was entered (bind-locals).
+(sig local-py (Fn (String Int Env) String))
+(defn local-py (name id env)
+  (if (map-has (get env locals) id)
+    (map-get (get env locals) id)
+    (fail (format "emit: local {name} has no Python name"))))
+
+;; Python names for locals bound in a new scope: each its own name, unless that is taken
+;; here (by a top-level name, an enclosing local or an earlier local of this scope).
+(sig bind-locals (Fn ((List Expr) Env) Env))
+(defn bind-locals (locs env)
+  (if (= (len locs) 0)
+    env
+    (bind-locals
+      (slice locs 1 (len locs))
+      (match (at locs 0)
+        ((Local name id)
+          (if (map-has (get env locals) id)
+            env
+            (let ((base (py-mangle name))
+                  (py (if (map-has (get env taken) base) (format "_cdy_{base}_{id}") base)))
+              (assoc env
+                locals (map-set (get env locals) id py)
+                taken (map-set (get env taken) py true)))))
+        (else env)))))
+
+;; The locals assigned in stmts, in order (not looking inside nested functions).
+(sig bound-locals (Fn ((List Stmt) (List Expr)) (List Expr)))
+(defn bound-locals (stmts acc)
+  (if (= (len stmts) 0)
+    acc
+    (bound-locals
+      (slice stmts 1 (len stmts))
+      (match (at stmts 0)
+        ((SAssign target _)
+          (match target
+            ((Local _ _) (+ acc (to-list target)))
+            (else acc)))
+        ((SIf _ then other) (bound-locals other (bound-locals then acc)))
+        ((SMatch _ _ cases default) (bound-in-cases cases (bound-in-lists default acc)))
+        ((SLoop body) (bound-locals body acc))
+        (else acc)))))
+
+(sig bound-in-cases (Fn ((List Case) (List Expr)) (List Expr)))
+(defn bound-in-cases (cases acc)
+  (if (= (len cases) 0)
+    acc
+    (let ((c (at cases 0)))
+      (bound-in-cases
+        (slice cases 1 (len cases))
+        (bound-locals (get c body) (+ acc (bind-locs (get c binds) empty-list)))))))
+
+(sig bind-locs (Fn ((List (Tup String Expr)) (List Expr)) (List Expr)))
+(defn bind-locs (binds acc)
+  (if (= (len binds) 0)
+    acc
+    (let (((_ loc) (at binds 0)))
+      (bind-locs (slice binds 1 (len binds)) (+ acc (to-list loc))))))
+
+(sig bound-in-lists (Fn ((List (List Stmt)) (List Expr)) (List Expr)))
+(defn bound-in-lists (lists acc)
+  (if (= (len lists) 0)
+    acc
+    (bound-in-lists (slice lists 1 (len lists)) (bound-locals (at lists 0) acc))))
+
+;; --- expressions ---
+
+(sig emit-expr (Fn (Expr Env) String))
+(defn emit-expr (e env)
+  (match e
+    ((Lit form) (emit-lit form))
+    ((Local name id) (local-py name id env))
+    ((Global name) (map-get (get env globals) name))
+    ((Prim name) (emit-prim name env))
+    ((Call callee args) (emit-call callee args env))
+    ((If test then other)
+      (format "({(emit-expr then env)} if {(emit-expr test env)} else {(emit-expr other env)})"))
+    ((Do _) (fail "emit: a do inside an expression (lower should have removed it)"))
+    ((MatchE _ _ _) (fail "emit: a match inside an expression (lower should have removed it)"))
+    ((Lambda params body)
+      (let ((inner (bind-locals params env)))
+        (format "(lambda {(comma-join (emit-exprs params inner empty-list))}: {(emit-expr body inner)})")))
+    ((Tuple items)
+      (let ((strs (emit-exprs items env empty-list)))
+        (if (= (len strs) 1) (format "({(at strs 0)},)") (format "({(comma-join strs)})"))))
+    ((Fmt parts) (emit-format parts env))
+    ((Field obj field) (format "{(emit-expr obj env)}.{(py-mangle field)}"))
+    ((Assoc obj fields)
+      (format "{(emit-expr obj env)}._replace({(comma-join (emit-fields fields env empty-list))})"))
+    ((Temp id) (format "_cdy_t{id}"))))
+
+;; A format string as a concatenation: literal text, and str() of each hole.
+(sig emit-format (Fn ((List FPart) Env) String))
+(defn emit-format (parts env)
+  (if (= (len parts) 0)
+    "''"
+    (format "({(join (emit-parts parts env empty-list) \" + \")})")))
+
+(sig emit-parts (Fn ((List FPart) Env (List String)) (List String)))
+(defn emit-parts (parts env acc)
+  (if (= (len parts) 0)
+    acc
+    (emit-parts
+      (slice parts 1 (len parts))
+      env
+      (+ acc
+         (to-list
+           (match (at parts 0)
+             ((FText text) (py-repr text))
+             ((FHole e) (format "str({(emit-expr e env)})"))))))))
+
+(sig emit-fields (Fn ((List (Tup String Expr)) Env (List String)) (List String)))
+(defn emit-fields (fields env acc)
+  (if (= (len fields) 0)
+    acc
+    (let (((f v) (at fields 0)))
+      (emit-fields
+        (slice fields 1 (len fields))
+        env
+        (+ acc (to-list (format "{(py-mangle f)}={(emit-expr v env)}")))))))
+
+(sig emit-exprs (Fn ((List Expr) Env (List String)) (List String)))
+(defn emit-exprs (exprs env acc)
+  (if (= (len exprs) 0)
+    acc
+    (emit-exprs (slice exprs 1 (len exprs)) env (+ acc (to-list (emit-expr (at exprs 0) env))))))
+
+(sig emit-lit (Fn (Form) String))
+(defn emit-lit (form)
+  (match form
+    ((Txt v) (py-repr v))
+    ((CharLit v) (py-repr v))
+    ((IntLit v) (py-repr v))
+    ((LongLit v) (py-repr v))
+    ((ByteLit v) (py-repr v))
+    ((FloatLit v) (py-repr v))
+    ((DoubleLit v) (py-repr v))
+    ((BoolLit v) (py-repr v))
+    (else (fail "emit: not a literal"))))
+
+(sig emit-prim (Fn (String Env) String))
+(defn emit-prim (name env)
+  (if (in (table-get-kind (get env table) name) (tup "call" "value" "index" "slice"))
+    (table-get-py (get env table) name)
+    (fail (format "the operator {name} can't be used as a value yet; wrap it in a fn"))))
+
+(sig emit-call (Fn (Expr (List Expr) Env) String))
+(defn emit-call (callee args env)
+  (let ((strs (emit-exprs args env empty-list)))
+    (match callee
+      ((Prim name) (emit-prim-call name strs env))
+      (else (format "{(emit-expr callee env)}({(comma-join strs)})")))))
+
+(sig emit-prim-call (Fn (String (List String) Env) String))
+(defn emit-prim-call (name strs env)
+  (let ((kind (table-get-kind (get env table) name))
+        (py (table-get-py (get env table) name))
+        (op (+ " " py " ")))
+    (cond
+      ((in kind (tup "binop" "compare" "boolop")) (format "({(join strs op)})"))
+      ((= kind "unary") (format "({py} {(at strs 0)})"))
+      ((= kind "index") (format "{(at strs 0)}[{(at strs 1)}]"))
+      ((= kind "slice") (format "{(at strs 0)}[{(at strs 1)}:{(at strs 2)}]"))
+      (else (format "{py}({(comma-join strs)})")))))
+
+;; --- types ---
+
+(sig emit-type (Fn (CType Env) String))
+(defn emit-type (t env)
+  (match t
+    ((TVar name) (py-mangle name))
+    ((TFn params ret)
+      (format "_cdy_Callable[[{(comma-join (emit-types params env empty-list))}], {(emit-type ret env)}]"))
+    ((TCon name args) (emit-tcon name (emit-types args env empty-list)))))
+
+(sig emit-types (Fn ((List CType) Env (List String)) (List String)))
+(defn emit-types (types env acc)
+  (if (= (len types) 0)
+    acc
+    (emit-types (slice types 1 (len types)) env (+ acc (to-list (emit-type (at types 0) env))))))
+
+(sig emit-tcon (Fn (String (List String)) String))
+(defn emit-tcon (name args)
+  (cond
+    ((in name (tup "Int" "Long" "Byte")) "int")
+    ((in name (tup "Float" "Double")) "float")
+    ((= name "Bool") "bool")
+    ((in name (tup "Char" "String")) "str")
+    ((= name "Unit") "None")
+    ((= name "Any") "_cdy_Any")
+    ((= name "Maybe") (format "{(at args 0)} | None"))
+    ((= name "List") (format "tuple[{(at args 0)}, ...]"))
+    ((= name "Tup") (format "tuple[{(comma-join args)}]"))
+    ((= name "Map") (format "_cdy_Mapping[{(comma-join args)}]"))
+    ((= (len args) 0) (py-mangle name))
+    (else (format "{(py-mangle name)}[{(comma-join args)}]"))))
+
+;; The type variables in the types, in order of first use, without repeats.
+(sig type-vars (Fn ((List CType) (List String)) (List String)))
+(defn type-vars (types acc)
+  (if (= (len types) 0)
+    acc
+    (type-vars
+      (slice types 1 (len types))
+      (match (at types 0)
+        ((TVar name) (if (in name acc) acc (+ acc (to-list name))))
+        ((TCon _ args) (type-vars args acc))
+        ((TFn params ret) (type-vars (+ params (to-list ret)) acc))))))
+
+;; --- statements ---
+
+(sig emit-stmt (Fn (Stmt Int Env) String))
+(defn emit-stmt (s level env)
+  (match s
+    ((SRecord name tvars fields)
+      (+ "\n"
+         (line level
+           (format "class {(map-get (get env globals) name)}{(type-params tvars)}(_cdy_NamedTuple):"))
+         (emit-record-fields fields (+ level 1) env "")))
+    ((SSum name tvars variants)
+      (+ (emit-variants variants tvars level env "")
+         (line level
+           (format "type {(map-get (get env globals) name)}{(type-params tvars)} = {(join (variant-refs variants tvars env empty-list) \" | \")}"))))
+    ((SMatch temp subject cases default)
+      (let ((t (emit-expr temp env))
+            (val (emit-expr subject env))
+            (generic (map-has (get env generic) (get (at cases 0) variant))))
+        (+ (line level (if generic (format "{t} = {val}") (format "{t}: object = {val}")))
+           (emit-match t cases default (and (not generic) (= (len default) 0)) "if" level env))))
+    ((SLoop body) (+ (line level "while True:") (emit-block body (+ level 1) env)))
+    ((SRebind targets vals)
+      (line level
+        (if (= (len targets) 1)
+          (format "{(emit-expr (at targets 0) env)} = {(emit-expr (at vals 0) env)}")
+          (format "{(comma-join (emit-exprs targets env empty-list))} = ({(comma-join (emit-exprs vals env empty-list))})"))))
+    ((SContinue) (line level "continue"))
+    ((SAssign target val)
+      (line level (format "{(emit-expr target env)} = {(emit-expr val env)}")))
+    ((SDefAssign name val t)
+      (line level
+        (format "{(map-get (get env globals) name)}: {(emit-type t env)} = {(emit-expr val env)}")))
+    ((SExpr e) (line level (emit-expr e env)))
+    ((SReturn e) (line level (format "return {(emit-expr e env)}")))
+    ((SIf test then other)
+      (+ (line level (format "if {(emit-expr test env)}:"))
+         (emit-block then (+ level 1) env)
+         (if (= (len other) 0) "" (+ (line level "else:") (emit-block other (+ level 1) env)))))
+    ((SFunc name params body t) (emit-func name params body t level env))
+    ((SLocalFunc target params body)
+      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env))
+            (args (comma-join (emit-any-params params inner empty-list))))
+        (+ (line level (format "def {(emit-expr target env)}({args}) -> _cdy_Any:"))
+           (emit-block body (+ level 1) inner))))))
+
+(sig emit-any-params (Fn ((List Expr) Env (List String)) (List String)))
+(defn emit-any-params (params env acc)
+  (if (= (len params) 0)
+    acc
+    (emit-any-params
+      (slice params 1 (len params))
+      env
+      (+ acc (to-list (format "{(emit-expr (at params 0) env)}: _cdy_Any"))))))
+
+;; PEP 695 type parameters: "" or "[a, b]".
+(sig type-params (Fn ((List String)) String))
+(defn type-params (tvars)
+  (if (= (len tvars) 0) "" (format "[{(comma-join (mangle-all tvars empty-list))}]")))
+
+(sig mangle-all (Fn ((List String) (List String)) (List String)))
+(defn mangle-all (names acc)
+  (if (= (len names) 0)
+    acc
+    (mangle-all (slice names 1 (len names)) (+ acc (to-list (py-mangle (at names 0)))))))
+
+(sig emit-record-fields (Fn ((List (Tup String CType)) Int Env String) String))
+(defn emit-record-fields (fields level env acc)
+  (if (= (len fields) 0)
+    acc
+    (let (((f t) (at fields 0)))
+      (emit-record-fields
+        (slice fields 1 (len fields))
+        level
+        env
+        (+ acc (line level (format "{(py-mangle f)}: {(emit-type t env)}")))))))
+
+;; --- sums and match ---
+
+;; The type variables of the sum that a variant's fields use, in the sum's order.
+(sig used-tvars (Fn ((List String) (List String) (List String)) (List String)))
+(defn used-tvars (tvars used acc)
+  (if (= (len tvars) 0)
+    acc
+    (used-tvars
+      (slice tvars 1 (len tvars))
+      used
+      (if (in (at tvars 0) used) (+ acc (to-list (at tvars 0))) acc))))
+
+(sig field-types (Fn ((List (Tup String CType)) (List CType)) (List CType)))
+(defn field-types (fields acc)
+  (if (= (len fields) 0)
+    acc
+    (let (((_ t) (at fields 0)))
+      (field-types (slice fields 1 (len fields)) (+ acc (to-list t))))))
+
+(sig variant-tvars (Fn (Variant (List String)) (List String)))
+(defn variant-tvars (v tvars)
+  (used-tvars tvars (type-vars (field-types (get v fields) empty-list) empty-list) empty-list))
+
+;; One NamedTuple class per variant; a variant with no fields gets `pass`.
+(sig emit-variants (Fn ((List Variant) (List String) Int Env String) String))
+(defn emit-variants (variants tvars level env acc)
+  (if (= (len variants) 0)
+    acc
+    (let ((v (at variants 0))
+          (head (format "class {(map-get (get env globals) (get v name))}{(type-params (variant-tvars v tvars))}(_cdy_NamedTuple):"))
+          (body (if (= (len (get v fields)) 0)
+                  (line (+ level 1) "pass")
+                  (emit-record-fields (get v fields) (+ level 1) env ""))))
+      (emit-variants (slice variants 1 (len variants)) tvars level env (+ acc "\n" (line level head) body)))))
+
+;; Each variant as a member of the sum's union: `Leaf`, `Node[a]`.
+(sig variant-refs (Fn ((List Variant) (List String) Env (List String)) (List String)))
+(defn variant-refs (variants tvars env acc)
+  (if (= (len variants) 0)
+    acc
+    (let ((v (at variants 0))
+          (vt (variant-tvars v tvars)))
+      (variant-refs
+        (slice variants 1 (len variants))
+        tvars
+        env
+        (+ acc (to-list (+ (map-get (get env globals) (get v name)) (type-params vt))))))))
+
+;; match as an isinstance chain on the temporary `subj` (mypy keeps generic type arguments
+;; that way), each named field bound by attribute. The temporary is typed object unless the
+;; sum is generic, which keeps mypy fast (see py_cdy/emit_py.py); then, with no else clause,
+;; the last case is an else that asserts its variant (`assert-last`).
+(sig emit-match (Fn (String (List Case) (List (List Stmt)) Bool String Int Env) String))
+(defn emit-match (subj cases default assert-last keyword level env)
+  (cond
+    ((= (len cases) 0)
+      (if (= (len default) 0)
+        ""
+        (+ (line level "else:") (emit-block (at default 0) (+ level 1) env))))
+    ((and assert-last (= (len cases) 1))
+      (let ((c (at cases 0))
+            (inner (if (= keyword "if") level (+ level 1))))
+        (+ (if (= keyword "if") "" (line level "else:"))
+           (line inner (format "assert isinstance({subj}, {(map-get (get env globals) (get c variant))})"))
+           (emit-binds (get c binds) subj inner env "")
+           (emit-stmts (get c body) inner env ""))))
+    (else
+      (let ((c (at cases 0))
+            (test (format "{keyword} isinstance({subj}, {(map-get (get env globals) (get c variant))}):"))
+            (binds (emit-binds (get c binds) subj (+ level 1) env ""))
+            (body (if (= (len (get c body)) 0)
+                    (if (= binds "") (line (+ level 1) "pass") "")
+                    (emit-stmts (get c body) (+ level 1) env ""))))
+        (+ (line level test) binds body
+           (emit-match subj (slice cases 1 (len cases)) default assert-last "elif" level env))))))
+
+(sig emit-binds (Fn ((List (Tup String Expr)) String Int Env String) String))
+(defn emit-binds (binds subj level env acc)
+  (if (= (len binds) 0)
+    acc
+    (let (((f loc) (at binds 0)))
+      (emit-binds
+        (slice binds 1 (len binds))
+        subj
+        level
+        env
+        (+ acc (line level (format "{(emit-expr loc env)} = {subj}.{(py-mangle f)}")))))))
+
+(sig emit-stmts (Fn ((List Stmt) Int Env String) String))
+(defn emit-stmts (stmts level env acc)
+  (if (= (len stmts) 0)
+    acc
+    (emit-stmts (slice stmts 1 (len stmts)) level env (+ acc (emit-stmt (at stmts 0) level env)))))
+
+(sig emit-block (Fn ((List Stmt) Int Env) String))
+(defn emit-block (stmts level env)
+  (if (= (len stmts) 0) (line level "pass") (emit-stmts stmts level env "")))
+
+(sig emit-params (Fn ((List Expr) (List CType) Env (List String)) (List String)))
+(defn emit-params (params types env acc)
+  (if (= (len params) 0)
+    acc
+    (emit-params
+      (slice params 1 (len params))
+      (slice types 1 (len types))
+      env
+      (+ acc (to-list (format "{(emit-expr (at params 0) env)}: {(emit-type (at types 0) env)}"))))))
+
+(sig emit-func (Fn (String (List Expr) (List Stmt) CType Int Env) String))
+(defn emit-func (name params body t level env)
+  (match t
+    ((TFn types ret)
+      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env))
+            (tvars (type-vars (+ types (to-list ret)) empty-list))
+            (tparams (type-params tvars))
+            (args (comma-join (emit-params params types inner empty-list))))
+        (+ "\n"
+           (line level
+             (format "def {(map-get (get env globals) name)}{tparams}({args}) -> {(emit-type ret env)}:"))
+           (emit-block body (+ level 1) inner))))
+    (else (fail (format "defn {name}: its sig must be a function type")))))
+
+;; --- module ---
+
+(sig emit-imports (Fn ((List String) String) String))
+(defn emit-imports (modules acc)
+  (if (= (len modules) 0)
+    acc
+    (emit-imports (slice modules 1 (len modules)) (+ acc (format "import {(at modules 0)}\n")))))
+
+;; --- the whole translator: forms in, Python source out ---
+
+;; `parse` reads the forms in `format` holes: read-forms (see translate-text).
+(sig translate (Fn ((List Form) (Fn (String) (List Form))) String))
+(defn translate (forms parse)
+  (let ((tops (analyse-program forms initial-table parse))
+        (stmts (lower-program tops 0 empty-list))
+        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) initial-table)))
+        (env (bind-locals (bound-locals stmts empty-list) globals)))
+    (+ HEADER (emit-imports PY_IMPORTS "") "\n" (emit-stmts stmts 0 env ""))))
+
+;; Candy text in, Python source out, read by the Candy reader (read.cdy), which also
+;; reads the forms in `format` holes.
+(sig translate-text (Fn (String) String))
+(defn translate-text (text) (translate (read-forms text) read-forms))

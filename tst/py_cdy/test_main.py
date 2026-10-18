@@ -37,3 +37,27 @@ def test_main_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert main(["missing.cdy"]) == 1
     assert main(["bad.cdy"]) == 1
     assert main(["nosig.cdy"]) == 1
+
+
+def test_main_translator_t1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    Path("p.cdy").write_text('(put "via t1")\n', encoding="utf-8")
+    assert main(["p.cdy", "--run", "--translator", "t1"]) == 0
+    assert capfd.readouterr().out == "via t1\n"
+    assert Path("output/t1/cdy_translator.py").exists()
+    assert main(["p.cdy", "--translator"]) == 2
+    assert main(["p.cdy", "--translator", "nope"]) == 2
+    Path("bad.cdy").write_text("(put nope)\n", encoding="utf-8")
+    assert main(["bad.cdy", "--translator", "t1"]) == 1
+    assert "unknown name nope" in capfd.readouterr().err
+
+
+def test_main_translator_bin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    Path("p.cdy").write_text('(put "via bin")\n', encoding="utf-8")
+    assert main(["p.cdy", "--run", "--translator", "bin"]) == 0
+    assert capfd.readouterr().out == "via bin\n"

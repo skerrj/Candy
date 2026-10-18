@@ -1,0 +1,55 @@
+# Tech debt
+
+Small shortcuts in the implementation (the Python translator, the runtime, tests and
+tooling) that a Candy user can't see. They don't affect Candy's design, so they don't
+belong in `doc/leaks.md`, but they are worth cleaning up some day. Add to the list when you
+take one, and remove an entry once it is fixed.
+
+## Translator
+
+- **`retail` calls `self_call` twice** (once in the `case` guard, once in the body) and
+  then `assert`s the result. It would be simpler without the guard (`lower_cdy.py`).
+- **Raised pylint limits** (`max-returns` 15, `max-branches` 15, `max-locals` 20 in
+  `pyproject.toml`) to fit the big `match` dispatches. Splitting those functions would let
+  the defaults come back.
+
+- **`match` is an `isinstance` chain in Python**, not Python's `match`, because mypy (2.4)
+  loses a generic variant's type arguments in a class pattern (`case Node(l, v, r):` makes
+  `v` `Any`). pyright handles class patterns; switch back if mypy catches up
+  (`emit_match` in `emit_py.py`).
+- **Every `match` subject gets a temporary** in `lower`, only because the Python chain
+  tests the subject more than once. The temporary is typed `object` for a non-generic sum,
+  to keep mypy fast (`doc/hl_rqmt/sum_types.md`), so mypy no longer checks that a chain is
+  exhaustive or that its variants belong to the subject's sum (`analyse` checks both).
+
+- **The Candy translator (T1) is simpler than the Python one in places**, to be closed
+  slice by slice (see `doc/hl_rqmt/self_hosting_primo.md`): every operator is
+  parenthesised; `if` in tail position stays an `if` statement (no conditional-expression
+  merge); a nested scope's locals avoid every outer name, so T1 renames more than the
+  Python translator; `format` is a `str()` concatenation, not an f-string; `and`/`or`
+  whose later arguments need statements don't short-circuit those statements. None of
+  these change what a program does.
+- **Two readers to keep in step:** `parse_cdy.py` (the Python translator's) and
+  `src/cdy/read.cdy` (the Candy translator's). Tests check they agree, so a syntax change
+  must go into both until the Python translator is retired. The Candy reader builds
+  strings and lists by appending one item at a time (quadratic, but fast enough: it reads
+  the whole translator in about 0.02s).
+- **`self_host.py` raises the recursion limit** (to 20,000) while T1 runs, since T1 walks
+  lists by recursion.
+
+## Runtime
+
+- **`mangle` lives in the runtime** (`py_mangle`, with `PY_RESERVED`) so the self-hosted
+  translator can use it; `emit_py.mangle` now calls it.
+- **`slurp` is duplicated** in `src/py_cdy/reader.py` and `src/cdy_rt/table_defs.py`, on
+  purpose for the iMVP (pylint's `duplicate-code` is disabled in `reader.py`).
+- **`at` and `slice_` helpers are only used as values** now that `at` and `slice` are
+  emitted as subscripts. They still return `object`/`Sequence`, so passing them as values
+  loses the element type.
+
+## Tests and tooling
+
+- **Golden tests run mypy once per program** (`tst/py_cdy/test_cdy_programs.py`). That's
+  fine with two programs, but one mypy run over all of them would be faster.
+- **Repo naming.** The default branch is `master`, while some notes and tools assume
+  `main`.

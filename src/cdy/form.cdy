@@ -1,0 +1,33 @@
+;;; Form: a parsed Candy form, as the self-hosted translator sees it. The reader
+;;; (read.cdy) makes these; py_cdy/self_host.py can also convert py_cdy/parse_cdy.py's nodes
+;;; into them, to check that the two readers agree. See doc/hl_rqmt/self_hosting_primo.md.
+
+(deft Form
+  (Sym ((name String)))
+  (Lst ((items (List Form))))
+  (Txt ((val String)))
+  (IntLit ((val Int)))
+  (LongLit ((val Int)))
+  (ByteLit ((val Int)))
+  (FloatLit ((val Double)))
+  (DoubleLit ((val Double)))
+  (CharLit ((val Char)))
+  (BoolLit ((val Bool))))
+
+;; The name of a symbol form, or "" for any other form.
+(sig sym-name (Fn (Form) String))
+(defn sym-name (form)
+  (match form
+    ((Sym name) name)
+    (else "")))
+
+;; The items of a list form, or an empty list for any other form.
+(sig list-items (Fn (Form) (List Form)))
+(defn list-items (form)
+  (match form
+    ((Lst items) items)
+    (else empty-list)))
+
+;; Everything after the first item of a list.
+(sig rest-of (Fn ((List Form)) (List Form)))
+(defn rest-of (forms) (slice forms 1 (len forms)))

@@ -22,7 +22,7 @@ has; the IR itself is target-neutral.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
 from cdy_rt.table import INITIAL_TABLE, Table
@@ -33,6 +33,7 @@ from core_cdy import (
     Def,
     Defn,
     Deft,
+    DeftSum,
     Do,
     Expr,
     Fn,
@@ -42,6 +43,7 @@ from core_cdy import (
     If,
     Lit,
     Local,
+    Match,
     Prim,
     TCon,
     TFn,
@@ -183,6 +185,33 @@ class RecordDef(NamedTuple):
     fields: tuple[tuple[str, CdyType], ...]
 
 
+class Case(NamedTuple):
+    """One case of a ``MatchStmt``: the variant, the locals its fields bind, the body."""
+
+    variant: Global
+    binds: tuple[tuple[str, Local], ...]  # (field, local)
+    body: tuple[Stmt, ...]
+
+
+class MatchStmt(NamedTuple):
+    """Run the body of the case whose variant ``subject`` is, else ``default`` (if any).
+
+    ``subject`` is evaluated once, into ``temp``, which a backend may test several times."""
+
+    temp: Temp
+    subject: IrExpr
+    cases: tuple[Case, ...]
+    default: tuple[Stmt, ...] | None
+
+
+class SumDef(NamedTuple):
+    """A ``deft`` sum type: its variants, each with its fields."""
+
+    name: str
+    tvars: tuple[str, ...]
+    variants: tuple[tuple[str, tuple[tuple[str, CdyType], ...]], ...]
+
+
 class Loop(NamedTuple):
     """Run ``body`` over and over; it leaves by ``Return`` (``while True:`` in Python)."""
 
@@ -200,7 +229,19 @@ class Continue(NamedTuple):
     """Start the enclosing ``Loop``'s body again."""
 
 
-Stmt = Assign | ExprStmt | Return | IfStmt | FuncDef | RecordDef | Loop | Rebind | Continue
+Stmt = (
+    Assign
+    | ExprStmt
+    | Return
+    | IfStmt
+    | FuncDef
+    | RecordDef
+    | SumDef
+    | MatchStmt
+    | Loop
+    | Rebind
+    | Continue
+)
 Stmts = tuple[Stmt, ...]
 
 OPERATOR_KINDS = frozenset({"binop", "compare", "boolop", "unary", "index", "slice"})
@@ -260,6 +301,15 @@ def value(expr: Expr, ctx: Ctx, n: int) -> tuple[Stmts, IrExpr, int]:
             return stmts, GetE(obj_e, expr.field), n
         case Assoc():
             return value_assoc(expr.obj, expr.fields, ctx, n)
+        case Match():
+            temp = Temp(n)
+
+            def assign(body: Expr, ctx: Ctx, n: int) -> tuple[Stmts, int]:
+                stmts, result, n = value(body, ctx, n)
+                return (*stmts, Assign(temp, result)), n
+
+            stmts, n = match_stmt(expr, assign, ctx, n + 1)
+            return stmts, temp, n
 
 
 def value_call(fn: Expr, args: tuple[Expr, ...], ctx: Ctx, n: int) -> tuple[Stmts, IrExpr, int]:
@@ -373,6 +423,23 @@ def value_fn(params: tuple[Local, ...], body: Expr, ctx: Ctx, n: int) -> tuple[S
             return (FuncDef(temp, params, body_stmts, None),), temp, n + 1
 
 
+Mode = Callable[[Expr, Ctx, int], tuple[Stmts, int]]
+
+
+def match_stmt(expr: Match, body_mode: Mode, ctx: Ctx, n: int) -> tuple[Stmts, int]:
+    """``match`` as a ``MatchStmt``, each body lowered by ``body_mode`` (tail, effect, ...)."""
+    stmts, subject, n = value(expr.subject, ctx, n)
+    temp, n = Temp(n), n + 1
+    cases: list[Case] = []
+    for clause in expr.clauses:
+        body, n = body_mode(clause.body, ctx, n)
+        cases.append(Case(Global(clause.variant), clause.binds, body))
+    default: Stmts | None = None
+    if expr.default is not None:
+        default, n = body_mode(expr.default, ctx, n)
+    return (*stmts, MatchStmt(temp, subject, tuple(cases), default)), n
+
+
 def bind(pairs: Sequence[tuple[Local, Expr]], ctx: Ctx, n: int) -> tuple[Stmts, int]:
     """Assignments for the bindings of an applied ``Fn`` (a ``let``)."""
     stmts, values, n = value_seq(tuple(v for _, v in pairs), ctx, n)
@@ -404,6 +471,8 @@ def tail(expr: Expr, ctx: Ctx, n: int) -> tuple[Stmts, int]:
             stmts, n = effect_all(body[:-1], ctx, n)
             last, n = tail(body[-1], ctx, n)
             return stmts + last, n
+        case Match():
+            return match_stmt(expr, tail, ctx, n)
         case _:
             stmts, result, n = value(expr, ctx, n)
             return (*stmts, Return(result)), n
@@ -428,6 +497,8 @@ def effect(expr: Expr, ctx: Ctx, n: int) -> tuple[Stmts, int]:
             return (*test_stmts, IfStmt(test_e, then_stmts, other_stmts)), n
         case Do(body):
             return effect_all(body, ctx, n)
+        case Match():
+            return match_stmt(expr, effect, ctx, n)
         case _:
             stmts, result, n = value(expr, ctx, n)
             return (*stmts, *(() if is_simple(result) else (ExprStmt(result),))), n
@@ -494,6 +565,10 @@ def retail(stmt: Stmt, name: Global, params: tuple[Local, ...]) -> Stmts:
             return jump(params, args)
         case IfStmt(test, then, other):
             return (IfStmt(test, retail_all(then, name, params), retail_all(other, name, params)),)
+        case MatchStmt(temp, subject, cases, default):
+            new_cases = tuple(c._replace(body=retail_all(c.body, name, params)) for c in cases)
+            new_default = None if default is None else retail_all(default, name, params)
+            return (MatchStmt(temp, subject, new_cases, new_default),)
         case _:
             return (stmt,)
 
@@ -547,6 +622,8 @@ def lower_program(
                 out += (loop_tail_calls(func, sig.ret == TCon("Unit")),)
             case Deft(name, tvars, fields):
                 out += (RecordDef(name, tvars, fields),)
+            case DeftSum(name, tvars, variants):
+                out += (SumDef(name, tvars, tuple((v.name, v.fields) for v in variants)),)
             case _:
                 stmts, n = effect(top, ctx, n)
                 out += stmts

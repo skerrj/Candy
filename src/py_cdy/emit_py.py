@@ -21,13 +21,12 @@ The generated module imports only the standard library and ``cdy_rt``.
 from __future__ import annotations
 
 import ast
-import builtins
-import keyword
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import NamedTuple
 
 from cdy_rt.table import IMPORTS, INITIAL_TABLE, Table
+from cdy_rt.table_defs import PY_RESERVED, py_mangle
 from core_cdy import CandyError, CdyType, Global, Local, Prim, TCon, TFn, TVar, type_vars
 from lower_cdy import (
     Assign,
@@ -44,12 +43,14 @@ from lower_cdy import (
     IrExpr,
     LambdaE,
     Loop,
+    MatchStmt,
     Op,
     Rebind,
     RecordDef,
     Return,
     Stmt,
     Stmts,
+    SumDef,
     Temp,
     TupleE,
 )
@@ -66,9 +67,7 @@ from typing import Any as {ANY}, NamedTuple as {NAMED_TUPLE}
 
 # Python names a user name must not take: keywords, built-ins (the generated code uses
 # ``print``, ``len``, ``int``, ``tuple``, ...) and the modules it imports.
-RESERVED = frozenset(
-    {*keyword.kwlist, *dir(builtins), *(module.split(".", maxsplit=1)[0] for module in IMPORTS)}
-)
+RESERVED = PY_RESERVED  # shared with the runtime, which the self-hosted translator uses
 
 BINOPS: Mapping[str, type[ast.operator]] = MappingProxyType(
     {"+": ast.Add, "-": ast.Sub, "*": ast.Mult, "/": ast.Div}
@@ -99,16 +98,7 @@ BASE_TYPES: Mapping[str, str] = MappingProxyType(
 
 def mangle(name: str) -> str:
     """A Candy name as a Python identifier (see the module docstring)."""
-    special = {"-": "_", "?": "_p", "!": "_x"}
-    out = "".join(
-        ch
-        if (ch.isascii() and (ch.isalnum() or ch == "_"))
-        else special.get(ch, f"_u{ord(ch):04x}")
-        for ch in name
-    )
-    if out in RESERVED or out.startswith("_cdy_"):
-        out += "_"
-    return out
+    return py_mangle(name)
 
 
 class Env(NamedTuple):
@@ -118,6 +108,7 @@ class Env(NamedTuple):
     globals_: Mapping[str, str]  # Candy top-level name -> Python name
     locals_: Mapping[int, str]  # Local id -> Python name
     taken: frozenset[str]  # Python names visible here, which a new local must not reuse
+    generic: frozenset[str]  # the variants of generic sums
 
 
 def global_names(stmts: Stmts) -> Mapping[str, str]:
@@ -127,6 +118,8 @@ def global_names(stmts: Stmts) -> Mapping[str, str]:
         match stmt:
             case Assign(Global(name), _, _) | FuncDef(Global(name), _, _, _) | RecordDef(name):
                 names.append(name)
+            case SumDef(name, _, variants):
+                names.extend((name, *(v for v, _ in variants)))
             case _:
                 pass
     spelled: dict[str, str] = {}
@@ -137,6 +130,13 @@ def global_names(stmts: Stmts) -> Mapping[str, str]:
             raise CandyError(f"{clash[0]} and {name} both become the Python name {py}")
         spelled[name] = py
     return MappingProxyType(spelled)
+
+
+def generic_variants(stmts: Stmts) -> frozenset[str]:
+    """The variants of the program's generic sums."""
+    return frozenset(
+        v for stmt in stmts if isinstance(stmt, SumDef) and stmt.tvars for v, _ in stmt.variants
+    )
 
 
 def bound_locals(stmts: Stmts) -> tuple[Local, ...]:
@@ -150,6 +150,11 @@ def bound_locals(stmts: Stmts) -> tuple[Local, ...]:
                 out.extend(local for local in bound_locals((*then, *other)) if local not in out)
             case Loop(body):
                 out.extend(local for local in bound_locals(body) if local not in out)
+            case MatchStmt(_, _, cases, default):
+                binds = [local for c in cases for _, local in c.binds]
+                bodies = [s for c in cases for s in c.body] + list(default or ())
+                found = (*binds, *bound_locals(tuple(bodies)))
+                out.extend(local for local in found if local not in out)
             case _:
                 pass
     return tuple(out)
@@ -350,8 +355,17 @@ def field_name(field: str) -> str:
 
 def emit_stmts(stmts: Stmts, env: Env) -> list[ast.stmt]:
     """IR statements as Python statements (never empty: ``pass`` if there are none)."""
-    out = [emit_stmt(stmt, env) for stmt in stmts]
+    out = [py for stmt in stmts for py in emit_stmt_list(stmt, env)]
     return out or [ast.Pass()]
+
+
+def emit_stmt_list(stmt: Stmt, env: Env) -> list[ast.stmt]:
+    """One IR statement as Python statements: a sum type takes several, the rest one."""
+    if isinstance(stmt, SumDef):
+        return emit_sum(stmt, env)
+    if isinstance(stmt, MatchStmt):
+        return emit_match(stmt, env)
+    return [emit_stmt(stmt, env)]
 
 
 def emit_stmt(stmt: Stmt, env: Env) -> ast.stmt:
@@ -383,6 +397,8 @@ def emit_stmt(stmt: Stmt, env: Env) -> ast.stmt:
             return ast.Assign([lhs], ast.Tuple([emit_expr(v, env) for v in values], ast.Load()))
         case Continue():
             return ast.Continue()
+        case SumDef() | MatchStmt():
+            raise CandyError("emit_stmt: handled by emit_stmt_list")
 
 
 def emit_record(record: RecordDef, env: Env) -> ast.stmt:
@@ -393,9 +409,68 @@ def emit_record(record: RecordDef, env: Env) -> ast.stmt:
     return ast.ClassDef(
         env.globals_[record.name],
         bases=[load(NAMED_TUPLE)],
-        body=fields,
+        body=fields or [ast.Pass()],  # a variant with no fields
         type_params=[ast.TypeVar(mangle(t)) for t in record.tvars],
     )
+
+
+def emit_sum(sum_def: SumDef, env: Env) -> list[ast.stmt]:
+    """A ``deft`` sum type: one ``NamedTuple`` class per variant, and a type alias for their
+    union. A variant is generic only in the type variables its fields use."""
+    out: list[ast.stmt] = []
+    members: list[ast.expr] = []
+    for v_name, fields in sum_def.variants:
+        used = frozenset().union(*(type_vars(t) for _, t in fields))
+        tvars = tuple(t for t in sum_def.tvars if t in used)
+        out.append(emit_record(RecordDef(v_name, tvars, fields), env))
+        cls = load(env.globals_[v_name])
+        members.append(subscript(cls, [load(mangle(t)) for t in tvars]) if tvars else cls)
+    union = members[0]
+    for member in members[1:]:
+        union = ast.BinOp(union, ast.BitOr(), member)
+    alias = ast.TypeAlias(
+        store(env.globals_[sum_def.name]),
+        [ast.TypeVar(mangle(t)) for t in sum_def.tvars],
+        union,
+    )
+    return [*out, alias]
+
+
+def emit_match(stmt: MatchStmt, env: Env) -> list[ast.stmt]:
+    """``match`` as an ``isinstance`` chain on a temporary, with each field bound by attribute.
+
+    Not Python's ``match``: mypy loses a generic variant's type arguments in a class pattern
+    (``case Node(l, v, r)`` makes ``v`` ``Any``), but keeps them when ``isinstance`` narrows.
+    The temporary is typed ``object`` unless the sum is generic: narrowing a union of
+    ``NamedTuple``s makes mypy compare the variants' fields structurally, which takes it
+    seconds per test on the translator's own sums. With ``object``, mypy doesn't see that the
+    chain is exhaustive (``analyse`` has checked that), so the last case is an ``else`` that
+    asserts its variant.
+    """
+    temp = name_of(stmt.temp, env)
+    subject = load(temp)
+    variant = stmt.cases[0].variant.name
+    generic = variant in env.generic
+    orelse: list[ast.stmt] = emit_stmts(stmt.default, env) if stmt.default is not None else []
+    for i, case in enumerate(reversed(stmt.cases)):
+        test = ast.Call(load("isinstance"), [subject, load(name_of(case.variant, env))], [])
+        binds: list[ast.stmt] = [
+            ast.Assign(
+                [store(name_of(local, env))], ast.Attribute(subject, field_name(f), ast.Load())
+            )
+            for f, local in case.binds
+        ]
+        body = binds + emit_stmts(case.body, env) if case.body else binds or [ast.Pass()]
+        if i == 0 and stmt.default is None and not generic:
+            orelse = [ast.Assert(test), *body]
+        else:
+            orelse = [ast.If(test, body, orelse)]
+    value = emit_expr(stmt.subject, env)
+    if generic:
+        bind: ast.stmt = ast.Assign([store(temp)], value)
+    else:
+        bind = ast.AnnAssign(store(temp), load("object"), value, 1)
+    return [bind, *orelse]
 
 
 def emit_funcdef(
@@ -426,7 +501,8 @@ def emit_funcdef(
 def emit_module(stmts: Stmts, table: Table = INITIAL_TABLE) -> ast.Module:
     """A whole lowered program as a Python module (without the import header)."""
     globals_ = global_names(stmts)
-    env = Env(table, globals_, MappingProxyType({}), RESERVED | frozenset(globals_.values()))
+    taken = RESERVED | frozenset(globals_.values())
+    env = Env(table, globals_, MappingProxyType({}), taken, generic_variants(stmts))
     env = with_locals(env, bound_locals(stmts))
     module = ast.Module(emit_stmts(stmts, env) if stmts else [], [])
     return ast.fix_missing_locations(module)
