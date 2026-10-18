@@ -27,4 +27,3 @@ take one, and remove an entry once it is fixed.
   fine with two programs, but one mypy run over all of them would be faster.
 - **Repo naming.** The default branch is `master`, while some notes and tools assume
   `main`.
-- **`.vscode/` is untracked** and not in `.gitignore`.

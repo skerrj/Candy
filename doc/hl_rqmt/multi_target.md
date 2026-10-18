@@ -149,3 +149,11 @@ fixed-size numbers can't.
 - The candidate targets and which comes first.
 - The exact lowered IR node set, and whether types live on IR nodes or only on Core.
 - How each target provides its runtime: the equivalent of `table.py` / `table_defs.py`.
+
+## Checked-in translators: `bin/<target>/`
+
+`bin/` was git-ignored to leave room for per-target build outputs. It is tracked again from
+branch `pre-self-host`, so that a self-hosted translator can be checked in as `bin/py/`
+(see `doc/hl_rqmt/self_hosting_primo.md`). Open: how other targets' outputs fit next to it
+(checked-in bootstrap translators in `bin/<target>/`, with throwaway build output under
+`output/<target>/`?).

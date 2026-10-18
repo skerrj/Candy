@@ -148,9 +148,9 @@ everything else. Types are separate, so the type `Shape` and the variants `Circl
 
 ## Open questions
 
-1. **Sum types now, or `Any` plus predicates** (as smz) until the translator is
-   self-hosted? Recommendation: sum types now, since the self-hosted translator is mostly
-   code that takes sums apart.
+1. ~~**Sum types now, or `Any` plus predicates** (as smz) until the translator is
+   self-hosted?~~ **Sum types now** (decided as a consequence of choice A in
+   `doc/hl_rqmt/self_hosting_primo.md`: forms at the boundary are `deft` variants).
 2. **Syntax.** Variants inside `deft`, as above, or a separate form (`defsum`, `defenum`)?
    One form follows Carp. A separate form is easier to read and to give errors for.
 3. **Nullary variants.** `defn` and `fn` need at least one argument, so is `Leaf` a value

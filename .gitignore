@@ -9,7 +9,6 @@ __pycache__/
 # custom directories
 tmp/
 output/
-bin/
 
 # Distribution / packaging
 .Python
@@ -163,14 +162,15 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Ignore all local VS Code configurations
-.vscode/*
+# Ignore the entire .vscode directory by default
+.vscode/**/*
 
-# Allow tracking of shared project settings and tools
+# BUT allow tracking of specific team-shared configuration files
 !.vscode/settings.json
 !.vscode/tasks.json
+!.vscode/launch.json
 !.vscode/extensions.json
 
-# Keep personal debugging and local states private
-.vscode/launch.json
-.vscode/workspace.json
+# Ignore user-specific overrides or local state files if they appear
+.vscode/sftp.json
+.vscode/.history/
