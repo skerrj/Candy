@@ -6,6 +6,7 @@ the Python translator; both results must run and print ``NAME.out``, and T1's mu
 translator's own code.
 """
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -71,16 +72,27 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
     ("src", "message"),
     [
         ("(put nope)", "unknown name nope"),
-        ("(def x 1)", r"x needs a \(sig x Type\)"),
+        ("(def x 1)", "x needs a (sig x Type)"),
         ("(put (if 1))", "if: expected"),
         ("(put (cond (else 1) (true 2)))", "must be the last clause"),
         ("(put ())", "empty form"),
         ("(put if)", "special form, not a value"),
-        ("(put (fn (x) x))", "not supported by the Candy translator yet"),
+        ("(put (match 1 (else 2)))", "not supported by the Candy translator yet"),
+        ("(deft S (A) (B))", "sum types are not supported"),
+        ("(put (let ((x)) x))", "binding must be"),
+        ("(put (let (((a b))) a))", "binding must be"),
+        ("(put (fn () 1))", "at least one"),
+        ("(put (tup))", "at least one item"),
+        ("(put (get 1))", "expected (get obj field)"),
+        ("(put (assoc 1 x))", "expected (assoc obj field value"),
+        ("(put (assoc 1 x 2 y))", "expected (assoc obj field value"),
+        ('(put (format "a } b"))', "unmatched }"),
+        ('(put (format "a { b"))', "unmatched {"),
+        ('(put (format "{1 2}"))', "exactly one form"),
         ("(sig f (Fn (Int) Int)) (defn f (x y) x)", "one type per argument"),
         ("(put (do (sig x Int)))", "only allowed at top level"),
     ],
 )
 def test_errors(src: str, message: str, t1: ModuleType) -> None:
-    with pytest.raises(CandyFail, match=message):
+    with pytest.raises(CandyFail, match=re.escape(message)):
         translate_with(t1, src)

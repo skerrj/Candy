@@ -1,0 +1,36 @@
+;;; Slice 1b: let (with destructuring and shadowing), fn, tup, format, get, assoc.
+
+(deft P ((x Int) (y Int)))
+
+(sig swap (Fn ((Tup Int String)) (Tup String Int)))
+(defn swap (p) (let (((a b) p)) (tup b a)))
+
+(sig twice (Fn ((Fn (Int) Int) Int) Int))
+(defn twice (f x) (f (f x)))
+
+(sig shadow (Fn (Int) Int))
+(defn shadow (x)
+  (let ((y (let ((x (* x 10))) (+ x 1))))
+    (+ x y)))
+
+(sig siblings (Fn (Int) String))
+(defn siblings (n)
+  (do
+    (let ((v (+ n 1))) (put v))
+    (let ((v "text")) v)))
+
+(sig make-adder (Fn (Int) (Fn (Int) Int)))
+(defn make-adder (n) (fn (x) (+ x n)))
+
+(sig busy-fn (Fn (Int) (Fn (Int) Int)))
+(defn busy-fn (n) (fn (x) (let ((d (* 2 x))) (+ d n))))
+
+(put (swap (tup 1 "one")))
+(put (twice (fn (x) (* x 3)) 2))
+(put (shadow 2) (siblings 4))
+(put ((make-adder 5) 10) ((busy-fn 1) 20))
+(put (format "a {(+ 1 2)} b {{c}} {(swap (tup 7 \"s\"))}"))
+(put (format ""))
+(let ((p (P 1 2))
+      (q (assoc p y 5)))
+  (put (get p x) (get q y) (tup 9)))

@@ -4,7 +4,8 @@ See ``doc/hl_rqmt/self_hosting_primo.md``. The translator is written in Candy, i
 ``TRANSLATOR_FILES`` under ``src/cdy/``. ``build_t1`` translates them with the Python
 translator into one module, T1, under ``output/t1/``. ``translate_t1`` then parses a Candy
 program with ``parse_cdy``, converts the parsed nodes into T1's ``Form`` variants (the one
-boundary between the two translators), and calls T1's ``translate``.
+boundary between the two translators), and calls T1's ``translate``. It also passes the
+parser itself, as a function, since ``format`` parses the forms in its holes.
 
 Candy has no ``import`` yet, so the translator's files are joined into one program (a
 stopgap, listed in ``doc/leaks.md``).
@@ -97,11 +98,15 @@ def to_form(node: SExpr, t1: ModuleType) -> Any:
 
 def translate_with(t1: ModuleType, text: str) -> str:
     """The Candy program ``text`` as Python source, translated by ``t1``."""
-    forms = tuple(to_form(node, t1) for node in parse(program, text))
+
+    def parse_forms(source: str) -> tuple[Any, ...]:
+        return tuple(to_form(node, t1) for node in parse(program, source))
+
+    forms = parse_forms(text)
     limit = sys.getrecursionlimit()
     sys.setrecursionlimit(max(limit, RECURSION_LIMIT))
     try:
-        return cast(str, t1.translate(forms))
+        return cast(str, t1.translate(forms, parse_forms))
     finally:
         sys.setrecursionlimit(limit)
 

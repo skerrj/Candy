@@ -23,7 +23,8 @@ take one, and remove an entry once it is fixed.
 - **The Candy translator (T1) is simpler than the Python one in places**, to be closed
   slice by slice (see `doc/hl_rqmt/self_hosting_primo.md`): every operator is
   parenthesised; `if` in tail position stays an `if` statement (no conditional-expression
-  merge); a local is renamed only when a top-level name took its spelling; `and`/`or`
+  merge); a nested scope's locals avoid every outer name, so T1 renames more than the
+  Python translator; `format` is a `str()` concatenation, not an f-string; `and`/`or`
   whose later arguments need statements don't short-circuit those statements; built-in
   arity isn't checked.
 - **`self_host.py` raises the recursion limit** (to 20,000) while T1 runs, since T1 walks

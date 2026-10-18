@@ -2,9 +2,13 @@
 ;;; Unlike py_cdy/emit_py.py, which builds Python's ast, this writes text, as smz's
 ;;; render.py did. Every operator gets parentheses, so precedence never matters.
 
-;; Python names: top-level names (Candy name -> Python name) and the Python names they
-;; take, which a local must not reuse.
-(deft Env ((globals (Map String String)) (taken (Map String Bool)) (table Any)))
+;; Python names: top-level names (Candy name -> Python name), locals (Local id -> Python
+;; name), and the Python names already taken where new locals are bound.
+(deft Env
+  ((globals (Map String String))
+   (locals (Map Int String))
+   (taken (Map String Bool))
+   (table Any)))
 
 (sig HEADER String)
 (def HEADER "from __future__ import annotations
@@ -38,15 +42,51 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (sig top-name (Fn (Top) String))
 (defn top-name (top)
   (match top
+    ((TDeft name _ _) name)
     ((TDef name _ _) name)
     ((TDefn name _ _ _) name)
     (else "")))
 
-;; A local's Python name: its own, unless a top-level name already took it.
+;; A local's Python name, chosen when its scope was entered (bind-locals).
 (sig local-py (Fn (String Int Env) String))
 (defn local-py (name id env)
-  (let ((py (py-mangle name)))
-    (if (map-has (get env taken) py) (format "_cdy_{py}_{id}") py)))
+  (if (map-has (get env locals) id)
+    (map-get (get env locals) id)
+    (fail (format "emit: local {name} has no Python name"))))
+
+;; Python names for locals bound in a new scope: each its own name, unless that is taken
+;; here (by a top-level name, an enclosing local or an earlier local of this scope).
+(sig bind-locals (Fn ((List Expr) Env) Env))
+(defn bind-locals (locs env)
+  (if (= (len locs) 0)
+    env
+    (bind-locals
+      (slice locs 1 (len locs))
+      (match (at locs 0)
+        ((Local name id)
+          (if (map-has (get env locals) id)
+            env
+            (let ((base (py-mangle name))
+                  (py (if (map-has (get env taken) base) (format "_cdy_{base}_{id}") base)))
+              (assoc env
+                locals (map-set (get env locals) id py)
+                taken (map-set (get env taken) py true)))))
+        (else env)))))
+
+;; The locals assigned in stmts, in order (not looking inside nested functions).
+(sig bound-locals (Fn ((List Stmt) (List Expr)) (List Expr)))
+(defn bound-locals (stmts acc)
+  (if (= (len stmts) 0)
+    acc
+    (bound-locals
+      (slice stmts 1 (len stmts))
+      (match (at stmts 0)
+        ((SAssign target _)
+          (match target
+            ((Local _ _) (+ acc (to-list target)))
+            (else acc)))
+        ((SIf _ then other) (bound-locals other (bound-locals then acc)))
+        (else acc)))))
 
 ;; --- expressions ---
 
@@ -61,7 +101,47 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((If test then other)
       (format "({(emit-expr then env)} if {(emit-expr test env)} else {(emit-expr other env)})"))
     ((Do _) (fail "emit: a do inside an expression (lower should have removed it)"))
+    ((Lambda params body)
+      (let ((inner (bind-locals params env)))
+        (format "(lambda {(comma-join (emit-exprs params inner empty-list))}: {(emit-expr body inner)})")))
+    ((Tuple items)
+      (let ((strs (emit-exprs items env empty-list)))
+        (if (= (len strs) 1) (format "({(at strs 0)},)") (format "({(comma-join strs)})"))))
+    ((Fmt parts) (emit-format parts env))
+    ((Field obj field) (format "{(emit-expr obj env)}.{(py-mangle field)}"))
+    ((Assoc obj fields)
+      (format "{(emit-expr obj env)}._replace({(comma-join (emit-fields fields env empty-list))})"))
     ((Temp id) (format "_cdy_t{id}"))))
+
+;; A format string as a concatenation: literal text, and str() of each hole.
+(sig emit-format (Fn ((List FPart) Env) String))
+(defn emit-format (parts env)
+  (if (= (len parts) 0)
+    "''"
+    (format "({(join (emit-parts parts env empty-list) \" + \")})")))
+
+(sig emit-parts (Fn ((List FPart) Env (List String)) (List String)))
+(defn emit-parts (parts env acc)
+  (if (= (len parts) 0)
+    acc
+    (emit-parts
+      (slice parts 1 (len parts))
+      env
+      (+ acc
+         (to-list
+           (match (at parts 0)
+             ((FText text) (py-repr text))
+             ((FHole e) (format "str({(emit-expr e env)})"))))))))
+
+(sig emit-fields (Fn ((List (Tup String Expr)) Env (List String)) (List String)))
+(defn emit-fields (fields env acc)
+  (if (= (len fields) 0)
+    acc
+    (let (((f v) (at fields 0)))
+      (emit-fields
+        (slice fields 1 (len fields))
+        env
+        (+ acc (to-list (format "{(py-mangle f)}={(emit-expr v env)}")))))))
 
 (sig emit-exprs (Fn ((List Expr) Env (List String)) (List String)))
 (defn emit-exprs (exprs env acc)
@@ -156,6 +236,11 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (sig emit-stmt (Fn (Stmt Int Env) String))
 (defn emit-stmt (s level env)
   (match s
+    ((SRecord name tvars fields)
+      (+ "\n"
+         (line level
+           (format "class {(map-get (get env globals) name)}{(type-params tvars)}(_cdy_NamedTuple):"))
+         (emit-record-fields fields (+ level 1) env "")))
     ((SAssign target val)
       (line level (format "{(emit-expr target env)} = {(emit-expr val env)}")))
     ((SDefAssign name val t)
@@ -167,7 +252,43 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
       (+ (line level (format "if {(emit-expr test env)}:"))
          (emit-block then (+ level 1) env)
          (if (= (len other) 0) "" (+ (line level "else:") (emit-block other (+ level 1) env)))))
-    ((SFunc name params body t) (emit-func name params body t level env))))
+    ((SFunc name params body t) (emit-func name params body t level env))
+    ((SLocalFunc target params body)
+      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env))
+            (args (comma-join (emit-any-params params inner empty-list))))
+        (+ (line level (format "def {(emit-expr target env)}({args}) -> _cdy_Any:"))
+           (emit-block body (+ level 1) inner))))))
+
+(sig emit-any-params (Fn ((List Expr) Env (List String)) (List String)))
+(defn emit-any-params (params env acc)
+  (if (= (len params) 0)
+    acc
+    (emit-any-params
+      (slice params 1 (len params))
+      env
+      (+ acc (to-list (format "{(emit-expr (at params 0) env)}: _cdy_Any"))))))
+
+;; PEP 695 type parameters: "" or "[a, b]".
+(sig type-params (Fn ((List String)) String))
+(defn type-params (tvars)
+  (if (= (len tvars) 0) "" (format "[{(comma-join (mangle-all tvars empty-list))}]")))
+
+(sig mangle-all (Fn ((List String) (List String)) (List String)))
+(defn mangle-all (names acc)
+  (if (= (len names) 0)
+    acc
+    (mangle-all (slice names 1 (len names)) (+ acc (to-list (py-mangle (at names 0)))))))
+
+(sig emit-record-fields (Fn ((List (Tup String CType)) Int Env String) String))
+(defn emit-record-fields (fields level env acc)
+  (if (= (len fields) 0)
+    acc
+    (let (((f t) (at fields 0)))
+      (emit-record-fields
+        (slice fields 1 (len fields))
+        level
+        env
+        (+ acc (line level (format "{(py-mangle f)}: {(emit-type t env)}")))))))
 
 (sig emit-stmts (Fn ((List Stmt) Int Env String) String))
 (defn emit-stmts (stmts level env acc)
@@ -193,13 +314,14 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn emit-func (name params body t level env)
   (match t
     ((TFn types ret)
-      (let ((tvars (type-vars (+ types (to-list ret)) empty-list))
-            (tparams (if (= (len tvars) 0) "" (format "[{(comma-join tvars)}]")))
-            (args (comma-join (emit-params params types env empty-list))))
+      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env))
+            (tvars (type-vars (+ types (to-list ret)) empty-list))
+            (tparams (type-params tvars))
+            (args (comma-join (emit-params params types inner empty-list))))
         (+ "\n"
            (line level
              (format "def {(map-get (get env globals) name)}{tparams}({args}) -> {(emit-type ret env)}:"))
-           (emit-block body (+ level 1) env))))
+           (emit-block body (+ level 1) inner))))
     (else (fail (format "defn {name}: its sig must be a function type")))))
 
 ;; --- module ---
@@ -212,9 +334,11 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 
 ;; --- the whole translator: forms in, Python source out ---
 
-(sig translate (Fn ((List Form)) String))
-(defn translate (forms)
-  (let ((tops (analyse-program forms initial-table))
+;; `parse` is the borrowed Python parser (see the driver, py_cdy/self_host.py).
+(sig translate (Fn ((List Form) (Fn (String) (List Form))) String))
+(defn translate (forms parse)
+  (let ((tops (analyse-program forms initial-table parse))
         (stmts (lower-program tops 0 empty-list))
-        (env (global-names tops (Env empty-map empty-map initial-table))))
+        (globals (global-names tops (Env empty-map empty-map empty-map initial-table)))
+        (env (bind-locals (bound-locals stmts empty-list) globals)))
     (+ HEADER (emit-imports PY_IMPORTS "") "\n" (emit-stmts stmts 0 env ""))))

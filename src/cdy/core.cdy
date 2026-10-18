@@ -1,6 +1,7 @@
 ;;; Core: analyse forms into the Core AST (the first step; target-independent).
-;;; Mirrors py_cdy/core_cdy.py. Slice 1a: literals, symbols, calls, if, cond, do,
-;;; sig, def and defn.
+;;; Mirrors py_cdy/core_cdy.py. Slices 1a-1b: literals, symbols, calls, if, cond, do,
+;;; let (desugared into applied Lambdas, as in Scheme), fn, tup, format, get, assoc, sig,
+;;; def and defn.
 
 ;; --- types (from sig) ---
 
@@ -11,8 +12,8 @@
 
 ;; --- expressions ---
 
-;; Temp is made by lower only; an If that is still inside an expression after lower is a
-;; conditional expression.
+;; Temp is made by lower only. After lower, an If or a Lambda still inside an expression
+;; is a conditional expression or a lambda.
 (deft Expr
   (Lit ((form Form)))
   (Local ((name String) (id Int)))
@@ -21,11 +22,22 @@
   (Call ((callee Expr) (args (List Expr))))
   (If ((test Expr) (then Expr) (other Expr)))
   (Do ((body (List Expr))))
+  (Lambda ((params (List Expr)) (body Expr)))
+  (Tuple ((items (List Expr))))
+  (Fmt ((parts (List FPart))))
+  (Field ((obj Expr) (field String)))
+  (Assoc ((obj Expr) (fields (List (Tup String Expr)))))
   (Temp ((id Int))))
+
+;; A piece of a format string: literal text, or a hole holding an expression.
+(deft FPart
+  (FText ((text String)))
+  (FHole ((expr Expr))))
 
 ;; --- top-level forms ---
 
 (deft Top
+  (TDeft ((name String) (tvars (List String)) (fields (List (Tup String CType)))))
   (TDef ((name String) (init Expr) (t CType)))
   (TDefn ((name String) (params (List Expr)) (body Expr) (t CType)))
   (TExpr ((expr Expr))))
@@ -33,8 +45,13 @@
 (sig NIL Expr)
 (def NIL (Prim "nil"))
 
-;; What a symbol can refer to: locals, top-level names of this file, and the table.
-(deft Scope ((env (Map String Expr)) (top (Map String Bool)) (table Any)))
+;; What a symbol can refer to: locals, top-level names of this file, and the table. `parse`
+;; is the borrowed Python parser, which format needs for the forms in its holes.
+(deft Scope
+  ((env (Map String Expr))
+   (top (Map String Bool))
+   (table Any)
+   (parse (Fn (String) (List Form)))))
 
 ;; --- expressions ---
 
@@ -83,6 +100,12 @@
     ((= head "if") (an-if rest scope n))
     ((= head "cond") (an-cond rest scope n))
     ((= head "do") (an-do rest scope n))
+    ((= head "let") (an-let rest scope n))
+    ((= head "fn") (an-fn rest scope n))
+    ((= head "tup") (an-tup rest scope n))
+    ((= head "format") (an-format rest scope n))
+    ((= head "get") (an-get rest scope n))
+    ((= head "assoc") (an-assoc rest scope n))
     ((in head (tup "def" "defn" "deft" "sig"))
       (fail (format "{head} is only allowed at top level")))
     (else (fail (format "{head} is not supported by the Candy translator yet")))))
@@ -130,6 +153,166 @@
       ((= (len body) 1) (tup (at body 0) n1))
       (else (tup (Do body) n1)))))
 
+;; (let ((name init)*) body): sequential bindings, as nested applied Lambdas.
+(sig an-let (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-let (rest scope n)
+  (cond
+    ((or (!= (len rest) 2) (not (is-list-form (at rest 0))))
+      (fail "let: expected (let ((name init)*) body)"))
+    ((= (len (list-items (at rest 0))) 0) (analyse-expr (at rest 1) scope n))
+    (else
+    (let (((pairs inner n1) (let-bindings (list-items (at rest 0)) scope n empty-list))
+          ((body n2) (analyse-expr (at rest 1) inner n1)))
+      (tup (nest pairs body) n2)))))
+
+(sig is-list-form (Fn (Form) Bool))
+(defn is-list-form (form)
+  (match form
+    ((Lst _) true)
+    (else false)))
+
+;; Each binding's Local and init, in order, and the scope after them all.
+(sig let-bindings
+  (Fn ((List Form) Scope Int (List (Tup Expr Expr))) (Tup (List (Tup Expr Expr)) Scope Int)))
+(defn let-bindings (bindings scope n acc)
+  (if (= (len bindings) 0)
+    (tup acc scope n)
+    (let ((items (list-items (at bindings 0))))
+      (if (!= (len items) 2)
+        (fail "let: binding must be (name init)")
+        (let (((init n1) (analyse-expr (at items 1) scope n))
+              (target (at items 0)))
+          (match target
+            ((Lst names)
+              (let ((tmp (Local "_tup" n1))
+                    ((more inner n2) (destructure names tmp 0 scope (+ n1 1) empty-list)))
+                (let-bindings (rest-of bindings) inner n2 (+ acc (to-list (tup tmp init)) more))))
+            (else
+              (let ((name (sym-name target))
+                    (loc (Local name n1)))
+                (if (or (= name "") (table-is-special (get scope table) name))
+                  (fail "let name must be a name, not a special form")
+                  (let-bindings
+                    (rest-of bindings)
+                    (assoc scope env (map-set (get scope env) name loc))
+                    (+ n1 1)
+                    (+ acc (to-list (tup loc init)))))))))))))
+
+;; ((x y) e): one binding per name, (at tmp i).
+(sig destructure
+  (Fn ((List Form) Expr Int Scope Int (List (Tup Expr Expr))) (Tup (List (Tup Expr Expr)) Scope Int)))
+(defn destructure (names tmp i scope n acc)
+  (if (= (len names) 0)
+    (tup acc scope n)
+    (let ((name (sym-name (at names 0)))
+          (loc (Local name n))
+          (item (Call (Prim "at") (tup tmp (Lit (IntLit i))))))
+      (if (= name "")
+        (fail "let name must be a name")
+        (destructure
+          (rest-of names)
+          tmp
+          (+ i 1)
+          (assoc scope env (map-set (get scope env) name loc))
+          (+ n 1)
+          (+ acc (to-list (tup loc item))))))))
+
+;; ((fn (a) ((fn (b) body) e2)) e1)
+(sig nest (Fn ((List (Tup Expr Expr)) Expr) Expr))
+(defn nest (pairs body)
+  (if (= (len pairs) 0)
+    body
+    (let (((loc init) (at pairs 0)))
+      (Call (Lambda (to-list loc) (nest (slice pairs 1 (len pairs)) body)) (to-list init)))))
+
+(sig an-fn (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-fn (rest scope n)
+  (if (!= (len rest) 2)
+    (fail "fn: expected (fn (args+) body), with exactly one body form")
+    (let (((params inner n1) (bind-params (list-items (at rest 0)) scope n empty-list))
+          ((body n2) (analyse-expr (at rest 1) inner n1)))
+      (if (= (len params) 0)
+        (fail "fn arguments: at least one is needed")
+        (tup (Lambda params body) n2)))))
+
+(sig an-tup (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-tup (rest scope n)
+  (if (= (len rest) 0)
+    (fail "tup: needs at least one item")
+    (let (((items n1) (analyse-all rest scope n empty-list)))
+      (tup (Tuple items) n1))))
+
+(sig an-get (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-get (rest scope n)
+  (if (or (!= (len rest) 2) (= (sym-name (at rest 1)) ""))
+    (fail "get: expected (get obj field)")
+    (let (((obj n1) (analyse-expr (at rest 0) scope n)))
+      (tup (Field obj (sym-name (at rest 1))) n1))))
+
+(sig an-assoc (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-assoc (rest scope n)
+  (if (< (len rest) 3)
+    (fail "assoc: expected (assoc obj field value ...)")
+    (let (((obj n1) (analyse-expr (at rest 0) scope n))
+          ((fields n2) (assoc-fields (rest-of rest) scope n1 empty-list)))
+      (tup (Assoc obj fields) n2))))
+
+(sig assoc-fields
+  (Fn ((List Form) Scope Int (List (Tup String Expr))) (Tup (List (Tup String Expr)) Int)))
+(defn assoc-fields (forms scope n acc)
+  (cond
+    ((= (len forms) 0) (tup acc n))
+    ((= (len forms) 1) (fail "assoc: expected (assoc obj field value ...)"))
+    (else
+    (let ((field (sym-name (at forms 0)))
+          ((val n1) (analyse-expr (at forms 1) scope n)))
+      (if (= field "")
+        (fail "assoc field must be a name")
+        (assoc-fields (slice forms 2 (len forms)) scope n1 (+ acc (to-list (tup field val)))))))))
+
+;; (format "text {form} ..."): {{ and }} are literal braces.
+(sig an-format (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-format (rest scope n)
+  (if (!= (len rest) 1)
+    (fail "format: expected one string literal")
+    (match (at rest 0)
+      ((Txt text)
+        (let (((parts n1) (format-parts text 0 "" scope n empty-list)))
+          (tup (Fmt parts) n1)))
+      (else (fail "format: expected one string literal")))))
+
+;; The parts of a format string from `pos`; `acc` is the literal text so far.
+(sig format-parts (Fn (String Int String Scope Int (List FPart)) (Tup (List FPart) Int)))
+(defn format-parts (text pos acc scope n parts)
+  (let ((c (if (< pos (len text)) (slice text pos (+ pos 1)) ""))
+        (next (if (< (+ pos 1) (len text)) (slice text (+ pos 1) (+ pos 2)) "")))
+    (cond
+      ((= c "") (tup (add-text parts acc) n))
+      ((and (= c "{") (= next "{")) (format-parts text (+ pos 2) (+ acc "{") scope n parts))
+      ((and (= c "}") (= next "}")) (format-parts text (+ pos 2) (+ acc "}") scope n parts))
+      ((= c "}") (fail "format: unmatched } (write }} for a brace)"))
+      ((= c "{")
+        (let ((end (hole-end text (+ pos 1)))
+              (forms ((get scope parse) (slice text (+ pos 1) end))))
+          (if (!= (len forms) 1)
+            (fail "format: a {hole} must hold exactly one form")
+            (let (((e n1) (analyse-expr (at forms 0) scope n)))
+              (format-parts text (+ end 1) "" scope n1 (+ (add-text parts acc) (to-list (FHole e))))))))
+      (else (format-parts text (+ pos 1) (+ acc c) scope n parts)))))
+
+;; Where the hole starting at `pos` ends (its closing brace).
+(sig hole-end (Fn (String Int) Int))
+(defn hole-end (text pos)
+  (cond
+    ((>= pos (len text)) (fail "format: unmatched { (write {{ for a brace)"))
+    ((= (slice text pos (+ pos 1)) "}") pos)
+    ((= (slice text pos (+ pos 1)) "{") (fail "format: a {hole} can't hold a brace"))
+    (else (hole-end text (+ pos 1)))))
+
+(sig add-text (Fn ((List FPart) String) (List FPart)))
+(defn add-text (parts text)
+  (if (= text "") parts (+ parts (to-list (FText text)))))
+
 ;; --- types ---
 
 (sig is-lower (Fn (String) Bool))
@@ -169,11 +352,21 @@
           (head (if (> (len items) 1) (sym-name (at items 0)) "")))
       (top-names
         (rest-of forms)
-        (if (or (= head "def") (= head "defn")) (map-set acc (sym-name (at items 1)) true) acc)))))
+        (cond
+          ((or (= head "def") (= head "defn")) (map-set acc (sym-name (at items 1)) true))
+          ((= head "deft") (map-set acc (deft-name (at items 1)) true))
+          (else acc))))))
 
-(sig analyse-program (Fn ((List Form) Any) (List Top)))
-(defn analyse-program (forms table)
-  (let ((scope (Scope empty-map (top-names forms empty-map) table)))
+;; The name in (deft Name ...) or (deft (Name a b) ...).
+(sig deft-name (Fn (Form) String))
+(defn deft-name (form)
+  (match form
+    ((Lst items) (if (= (len items) 0) "" (sym-name (at items 0))))
+    (else (sym-name form))))
+
+(sig analyse-program (Fn ((List Form) Any (Fn (String) (List Form))) (List Top)))
+(defn analyse-program (forms table parse)
+  (let ((scope (Scope empty-map (top-names forms empty-map) table parse)))
     (get (analyse-tops forms scope (Prog empty-list empty-map 0)) out)))
 
 (sig analyse-tops (Fn ((List Form) Scope Prog) Prog))
@@ -193,7 +386,7 @@
       ((= head "sig") (top-sig items prog))
       ((= head "def") (top-def items scope prog))
       ((= head "defn") (top-defn items scope prog))
-      ((= head "deft") (fail "deft is not supported by the Candy translator yet"))
+      ((= head "deft") (top-deft items prog))
       (else
         (let (((e n) (analyse-expr form scope (get prog n))))
           (add-top prog (TExpr e) n))))))
@@ -205,6 +398,34 @@
       ((= name "") (fail "sig: expected (sig name Type)"))
       ((map-has (get prog sigs) name) (fail (format "more than one sig for {name}")))
       (else (assoc prog sigs (map-set (get prog sigs) name (analyse-type (at items 2))))))))
+
+;; (deft Name ((field Type)+)) or (deft (Name a b) ((field Type)+)): a record type.
+(sig top-deft (Fn ((List Form) Prog) Prog))
+(defn top-deft (items prog)
+  (let ((name (deft-name (at items 1)))
+        (tvars (syms (rest-of (list-items (at items 1))) empty-list))
+        (field-forms (if (= (len items) 3) (list-items (at items 2)) empty-list)))
+    (cond
+      ((or (= name "") (= (len field-forms) 0))
+        (fail "deft: expected (deft Name ((field Type)+)); sum types are not supported by the Candy translator yet"))
+      ((not (is-list-form (at field-forms 0)))
+        (fail "deft: sum types are not supported by the Candy translator yet"))
+      (else (add-top prog (TDeft name tvars (deft-fields field-forms empty-list)) (get prog n))))))
+
+(sig syms (Fn ((List Form) (List String)) (List String)))
+(defn syms (forms acc)
+  (if (= (len forms) 0) acc (syms (rest-of forms) (+ acc (to-list (sym-name (at forms 0)))))))
+
+(sig deft-fields (Fn ((List Form) (List (Tup String CType))) (List (Tup String CType))))
+(defn deft-fields (forms acc)
+  (if (= (len forms) 0)
+    acc
+    (let ((items (list-items (at forms 0))))
+      (if (or (!= (len items) 2) (= (sym-name (at items 0)) ""))
+        (fail "deft: field must be (name Type)")
+        (deft-fields
+          (rest-of forms)
+          (+ acc (to-list (tup (sym-name (at items 0)) (analyse-type (at items 1))))))))))
 
 (sig needs-sig (Fn (String Prog) CType))
 (defn needs-sig (name prog)

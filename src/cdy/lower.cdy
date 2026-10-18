@@ -1,15 +1,19 @@
 ;;; Lower: Core expressions split into statements (the second step; target-neutral).
 ;;; Mirrors py_cdy/lower_cdy.py, in value, tail and effect modes. Unlike the Python
 ;;; translator, statements hold Core Exprs (plus Temp) instead of separate IR expressions;
-;;; an If left in an expression is a conditional expression.
+;;; an If left in an expression is a conditional expression, and a Lambda a lambda.
+;;; A let arrives as applied Lambdas and becomes assignments again.
 
 (deft Stmt
+  (SRecord ((name String) (tvars (List String)) (fields (List (Tup String CType)))))
   (SAssign ((target Expr) (val Expr)))
   (SDefAssign ((name String) (val Expr) (t CType)))
   (SExpr ((expr Expr)))
   (SReturn ((val Expr)))
   (SIf ((test Expr) (then (List Stmt)) (other (List Stmt))))
-  (SFunc ((name String) (params (List Expr)) (body (List Stmt)) (t CType))))
+  (SFunc ((name String) (params (List Expr)) (body (List Stmt)) (t CType)))
+  ;; A nested function (a fn whose body needs statements), named by a Temp; typed Any.
+  (SLocalFunc ((target Expr) (params (List Expr)) (body (List Stmt)))))
 
 ;; An expression lowered in value mode: statements to run first, the value, the next Temp id.
 (deft Low ((stmts (List Stmt)) (expr Expr) (n Int)))
@@ -25,15 +29,108 @@
     ((Temp _) true)
     (else false)))
 
+;; --- applied Lambdas (let) ---
+
+;; Whether e is ((fn (a b) body) x y), as let desugars to.
+(sig is-applied (Fn (Expr) Bool))
+(defn is-applied (e)
+  (match e
+    ((Call callee args)
+      (match callee
+        ((Lambda params _) (= (len params) (len args)))
+        (else false)))
+    (else false)))
+
+;; The assignments for an applied Lambda's parameters, and its body.
+(sig bind-applied (Fn (Expr Int) (Tup (List Stmt) Expr Int)))
+(defn bind-applied (e n)
+  (match e
+    ((Call callee args)
+      (match callee
+        ((Lambda params body)
+          (let (((stmts vals n1) (value-seq args n)))
+            (tup (+ stmts (assigns params vals empty-list)) body n1)))
+        (else (fail "lower: not an applied fn"))))
+    (else (fail "lower: not an applied fn"))))
+
+(sig assigns (Fn ((List Expr) (List Expr) (List Stmt)) (List Stmt)))
+(defn assigns (targets vals acc)
+  (if (= (len targets) 0)
+    acc
+    (assigns
+      (slice targets 1 (len targets))
+      (slice vals 1 (len vals))
+      (+ acc (to-list (SAssign (at targets 0) (at vals 0)))))))
+
 ;; --- value mode ---
 
 (sig value (Fn (Expr Int) Low))
 (defn value (e n)
-  (match e
-    ((Call callee args) (value-call callee args n))
-    ((If test then other) (value-if test then other n))
-    ((Do body) (value-do body n))
-    (else (Low empty-list e n))))
+  (if (is-applied e)
+    (let (((stmts body n1) (bind-applied e n))
+          (low (value body n1)))
+      (Low (+ stmts (get low stmts)) (get low expr) (get low n)))
+    (match e
+      ((Call callee args) (value-call callee args n))
+      ((If test then other) (value-if test then other n))
+      ((Do body) (value-do body n))
+      ((Lambda params body) (value-fn params body n))
+      ((Tuple items)
+        (let (((stmts vals n1) (value-seq items n)))
+          (Low stmts (Tuple vals) n1)))
+      ((Fmt parts)
+        (let (((stmts vals n1) (value-seq (holes parts empty-list) n)))
+          (Low stmts (Fmt (fill-holes parts vals empty-list)) n1)))
+      ((Field obj field)
+        (let ((low (value obj n)))
+          (Low (get low stmts) (Field (get low expr) field) (get low n))))
+      ((Assoc obj fields)
+        (let (((stmts vals n1) (value-seq (+ (to-list obj) (field-vals fields empty-list)) n)))
+          (Low stmts (Assoc (at vals 0) (refill fields (slice vals 1 (len vals)) empty-list)) n1)))
+      (else (Low empty-list e n)))))
+
+;; fn: a lambda if its body is one expression, otherwise a nested function.
+(sig value-fn (Fn ((List Expr) Expr Int) Low))
+(defn value-fn (params body n)
+  (let (((stmts n1) (tail body n)))
+    (match (if (= (len stmts) 1) (at stmts 0) (SExpr NIL))
+      ((SReturn result) (Low empty-list (Lambda params result) n1))
+      (else
+        (Low (to-list (SLocalFunc (Temp n1) params stmts)) (Temp n1) (+ n1 1))))))
+
+(sig holes (Fn ((List FPart) (List Expr)) (List Expr)))
+(defn holes (parts acc)
+  (if (= (len parts) 0)
+    acc
+    (holes
+      (slice parts 1 (len parts))
+      (match (at parts 0)
+        ((FHole e) (+ acc (to-list e)))
+        ((FText _) acc)))))
+
+;; The parts again, with the holes' lowered values in place.
+(sig fill-holes (Fn ((List FPart) (List Expr) (List FPart)) (List FPart)))
+(defn fill-holes (parts vals acc)
+  (if (= (len parts) 0)
+    acc
+    (match (at parts 0)
+      ((FHole _)
+        (fill-holes (slice parts 1 (len parts)) (slice vals 1 (len vals)) (+ acc (to-list (FHole (at vals 0))))))
+      ((FText text) (fill-holes (slice parts 1 (len parts)) vals (+ acc (to-list (FText text))))))))
+
+(sig field-vals (Fn ((List (Tup String Expr)) (List Expr)) (List Expr)))
+(defn field-vals (fields acc)
+  (if (= (len fields) 0)
+    acc
+    (let (((_ v) (at fields 0)))
+      (field-vals (slice fields 1 (len fields)) (+ acc (to-list v))))))
+
+(sig refill (Fn ((List (Tup String Expr)) (List Expr) (List (Tup String Expr))) (List (Tup String Expr))))
+(defn refill (fields vals acc)
+  (if (= (len fields) 0)
+    acc
+    (let (((f _) (at fields 0)))
+      (refill (slice fields 1 (len fields)) (slice vals 1 (len vals)) (+ acc (to-list (tup f (at vals 0))))))))
 
 (sig value-call (Fn (Expr (List Expr) Int) Low))
 (defn value-call (callee args n)
@@ -109,6 +206,14 @@
 
 (sig tail (Fn (Expr Int) (Tup (List Stmt) Int)))
 (defn tail (e n)
+  (if (is-applied e)
+    (let (((stmts body n1) (bind-applied e n))
+          ((more n2) (tail body n1)))
+      (tup (+ stmts more) n2))
+    (tail-plain e n)))
+
+(sig tail-plain (Fn (Expr Int) (Tup (List Stmt) Int)))
+(defn tail-plain (e n)
   (match e
     ((If test then other)
       (let ((t (value test n))
@@ -125,6 +230,14 @@
 
 (sig effect (Fn (Expr Int) (Tup (List Stmt) Int)))
 (defn effect (e n)
+  (if (is-applied e)
+    (let (((stmts body n1) (bind-applied e n))
+          ((more n2) (effect body n1)))
+      (tup (+ stmts more) n2))
+    (effect-plain e n)))
+
+(sig effect-plain (Fn (Expr Int) (Tup (List Stmt) Int)))
+(defn effect-plain (e n)
   (match e
     ((If test then other)
       (let ((t (value test n))
@@ -160,6 +273,7 @@
 (sig lower-top (Fn (Top Int) (Tup (List Stmt) Int)))
 (defn lower-top (top n)
   (match top
+    ((TDeft name tvars fields) (tup (to-list (SRecord name tvars fields)) n))
     ((TDef name init t)
       (let ((low (value init n)))
         (tup (+ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))

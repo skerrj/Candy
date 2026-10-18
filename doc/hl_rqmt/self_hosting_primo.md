@@ -75,8 +75,19 @@ grows slice by slice, until it can translate its own source (stage 2).
     `tst/py_cdy/test_self_host.py` also runs `mypy --strict` on T1 itself, which
     type-checks the Candy translator's own code. Both translators print the same output
     for `tst/cdy/t1/basics.cdy`.
-- **1b:** `let` (with destructuring), `fn`, `tup`, `format`, `get`/`assoc`.
-- **1c:** `deft` records and sums, `match`.
+- **1b** (**done**): `let` (with destructuring), `fn`, `tup`, `format`, `get`/`assoc`,
+  and `deft` records (moved up from 1c, since `get` and `assoc` need them).
+  `tst/cdy/t1/forms_1b.cdy`. As built:
+  - `format` parses the forms in its holes, so the driver passes the borrowed parser into
+    `translate` as a function, `(Fn (String) (List Form))`, kept in `Scope`. That keeps
+    the parser at the one boundary; stage 3 passes the Candy parser instead.
+  - Locals are named per function scope, as in the Python translator: shadowing and
+    sibling `let`s get `_cdy_<name>_<id>`. A nested scope avoids every outer name (the
+    Python translator avoids only the outer names it uses), so it renames more.
+  - `format` is emitted as a concatenation, `('a ' + str(x))`, not an f-string.
+  - New `Expr` variants `Lambda`, `Tuple`, `Fmt`, `Field`, `Assoc` (named to stay clear of
+    the `Fn` and `Tup` types), and `FPart` for format pieces.
+- **1c:** `deft` sums, `match`.
 - **1d:** self tail calls as loops, local renaming as in the Python translator, and the
   remaining checks. Then the T1 source is in the supported subset: stage 2.
 
