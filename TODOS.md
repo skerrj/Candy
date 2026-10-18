@@ -13,4 +13,4 @@ Done and earlier items are in `doc/archive/TODOS_pre_self_host.md` and
 
 ## self-host-cleanup
 
-- [ ] Review `doc/hl_rqmt/self_host_cleanup.md` (draft HLD): `import` (inclusion first, modules later), freezing the Python translator and rebuilding `bin/py/` from itself, and the cleanup candidates. Four open questions.
+- [x] Review `doc/hl_rqmt/self_host_cleanup.md`: accepted (inclusion first, Python translator frozen, top file `cdyc.cdy`).
