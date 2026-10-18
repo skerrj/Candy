@@ -11,7 +11,7 @@ Until stage 3, the driver parsed with ``parse_cdy`` and converted its nodes into
 agree.
 
 Candy has no ``import`` yet, so the translator's files are joined into one program (a
-stopgap, listed in ``doc/leaks.md``).
+stopgap, listed in ``doc/archive/leaks_pre_self_host.md``).
 
 The checked-in translator ``bin/py/cdy_translator.py`` is T2, T1's translation of the
 translator's own source (the fixpoint: it translates that source into itself). Running this
