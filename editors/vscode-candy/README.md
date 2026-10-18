@@ -26,6 +26,8 @@ grammar, changed to match `src/py_cdy/parse_cdy.py` and `src/cdy/read.cdy`:
 - the special forms in head position (`tst/py_cdy/test_editor_grammar.py` checks the list
   against `SPECIAL_FORMS` in `src/cdy_rt/table.py`), `else`, and the operators;
 - the name defined by `defn`, `def`, `sig` and `deft`;
+- the parameters of `defn` and `fn`, and the names `let` binds (`x` in `(x 1)`, and
+  `form next` in `((form next) (read-form text pos))`), as parameters, not calls;
 - capitalised names as types and variants (`Shape`, `Circle`, `Fn`, `List`), and
   all-caps names (`HEADER`) as constants;
 - the holes in `format` strings as Candy code (`{(+ 1 2)}`), with `{{`/`}}` as escapes
@@ -34,7 +36,9 @@ grammar, changed to match `src/py_cdy/parse_cdy.py` and `src/cdy/read.cdy`:
 
 ## Not yet
 
-- Parameter lists (`(defn f (x y) ...)`, `fn`) and `let` bindings aren't told apart from
-  calls: their first name is coloured as a function.
+- Parameters (`defn`, `fn`) and `let` binding names (`x` in `(x 1)`, `a b` in
+  `((a b) (tup 1 2))`) are coloured as parameters only where the list starts on the line
+  of its form: a parameter list or a binding name on the next line falls back to the
+  colours of a call.
 - A `format` inside a hole isn't recognised.
 - No snippets, no Markdown code-block support (the docs use ```` ```clojure ```` fences).

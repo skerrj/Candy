@@ -17,9 +17,8 @@ GRAMMAR = (
 
 def test_grammar_has_every_special_form() -> None:
     repo = json.loads(GRAMMAR.read_text(encoding="utf-8"))["repository"]
-    patterns = [p.get("match", "") for p in repo["head"]["patterns"]]
-    patterns += [p["match"] for p in repo["definition"]["patterns"]]
-    patterns.append(repo["format"]["begin"])
+    rules = [*repo["head"]["patterns"], *repo["definition"]["patterns"], repo["format"]]
+    patterns = [rule.get("match", rule.get("begin", "")) for rule in rules]
     named = {
         name
         for pattern in patterns

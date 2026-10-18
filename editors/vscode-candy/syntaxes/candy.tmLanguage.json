@@ -63,6 +63,9 @@
           "include": "#definition"
         },
         {
+          "include": "#let"
+        },
+        {
           "include": "#format"
         },
         {
@@ -76,7 +79,38 @@
     "definition": {
       "patterns": [
         {
-          "match": "(?<=\\()(defn|sig)\\s+([^\\s()'\\\";\\\\]+)",
+          "comment": "(defn name (params) body): the parameters, up to the list's ).",
+          "begin": "(?<=\\()(defn)\\s+([^\\s()'\\\";\\\\{}]+)\\s+(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.definition.candy"
+            },
+            "2": {
+              "name": "entity.name.function.candy"
+            },
+            "3": {
+              "name": "punctuation.section.expression.begin.candy"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.expression.end.candy"
+            }
+          },
+          "name": "meta.parameters.candy",
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "match": "[^\\s()'\\\";\\\\{}]+",
+              "name": "variable.parameter.candy"
+            }
+          ]
+        },
+        {
+          "match": "(?<=\\()(defn|sig)\\s+([^\\s()'\\\";\\\\{}]+)",
           "captures": {
             "1": {
               "name": "keyword.control.definition.candy"
@@ -85,6 +119,34 @@
               "name": "entity.name.function.candy"
             }
           }
+        },
+        {
+          "comment": "(fn (params) body)",
+          "begin": "(?<=\\()(fn)\\s+(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.candy"
+            },
+            "2": {
+              "name": "punctuation.section.expression.begin.candy"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.expression.end.candy"
+            }
+          },
+          "name": "meta.parameters.candy",
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "match": "[^\\s()'\\\";\\\\{}]+",
+              "name": "variable.parameter.candy"
+            }
+          ]
         },
         {
           "match": "(?<=\\()(def)\\s+([^\\s()'\\\";\\\\]+)",
@@ -297,6 +359,84 @@
         },
         {
           "include": "#hole-forms"
+        }
+      ]
+    },
+    "let": {
+      "comment": "(let (bindings) body): each binding's name, or the names of a tup taken apart, is a parameter, not a call.",
+      "begin": "(?<=\\()(let)\\s+(\\()",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.candy"
+        },
+        "2": {
+          "name": "punctuation.section.expression.begin.candy"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.end.candy"
+        }
+      },
+      "name": "meta.bindings.candy",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#binding"
+        }
+      ]
+    },
+    "binding": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.begin.candy"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.end.candy"
+        }
+      },
+      "name": "meta.binding.candy",
+      "patterns": [
+        {
+          "match": "\\G\\s*([^\\s()'\\\";\\\\{}]+)(?=[\\s();]|$)",
+          "captures": {
+            "1": {
+              "name": "variable.parameter.candy"
+            }
+          }
+        },
+        {
+          "begin": "\\G\\s*(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.expression.begin.candy"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.expression.end.candy"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "match": "[^\\s()'\\\";\\\\{}]+",
+              "name": "variable.parameter.candy"
+            }
+          ]
+        },
+        {
+          "include": "#forms"
         }
       ]
     }
