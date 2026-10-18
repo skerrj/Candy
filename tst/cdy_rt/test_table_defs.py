@@ -10,8 +10,10 @@ from cdy_rt.table_defs import (
     fail,
     file_put_lines,
     get_indent,
+    hex_char,
     in_,
     is_coll,
+    is_decimal,
     is_lit,
     is_neg_int,
     join,
@@ -23,6 +25,7 @@ from cdy_rt.table_defs import (
     replace,
     slice_,
     spit,
+    to_float,
     to_list,
 )
 
@@ -43,6 +46,9 @@ def test_strings() -> None:
     assert not is_neg_int("-", 0)
     assert replace("a-a", "a", "b") == "b-a"
     assert get_indent(2) == " " * 8
+    assert to_float("-1.5") == -1.5
+    assert is_decimal("09") and not is_decimal("") and not is_decimal("\u00b2")
+    assert hex_char("0041") == "A"
 
 
 def test_files(tmp_path: Path) -> None:

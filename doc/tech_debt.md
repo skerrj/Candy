@@ -29,6 +29,11 @@ take one, and remove an entry once it is fixed.
   Python translator; `format` is a `str()` concatenation, not an f-string; `and`/`or`
   whose later arguments need statements don't short-circuit those statements. None of
   these change what a program does.
+- **Two readers to keep in step:** `parse_cdy.py` (the Python translator's) and
+  `src/cdy/read.cdy` (the Candy translator's). Tests check they agree, so a syntax change
+  must go into both until the Python translator is retired. The Candy reader builds
+  strings and lists by appending one item at a time (quadratic, but fast enough: it reads
+  the whole translator in about 0.02s).
 - **`self_host.py` raises the recursion limit** (to 20,000) while T1 runs, since T1 walks
   lists by recursion.
 

@@ -1,0 +1,183 @@
+;;; Read: Candy source text as Forms (stage 3 of doc/hl_rqmt/self_hosting_primo.md).
+;;; A hand-written recursive-descent reader that accepts exactly what py_cdy/parse_cdy.py
+;;; accepts (see the grammar there). Like tst/cdy/read_sexpr.cdy it walks the text by
+;;; position, so it needs no closures. An error fails with its line and column.
+
+(sig read-forms (Fn (String) (List Form)))
+(defn read-forms (text) (read-all text (skip text 0) empty-list))
+
+(sig read-all (Fn (String Int (List Form)) (List Form)))
+(defn read-all (text pos acc)
+  (if (>= pos (len text))
+    acc
+    (let (((form next) (read-form text pos)))
+      (read-all text (skip text next) (+ acc (to-list form))))))
+
+;; --- whitespace and comments ---
+
+;; The position of the next character that isn't whitespace or in a `;` comment.
+(sig skip (Fn (String Int) Int))
+(defn skip (text pos)
+  (cond
+    ((>= pos (len text)) pos)
+    ((isspace-at text pos) (skip text (+ pos 1)))
+    ((= (at text pos) ";") (skip text (line-end text pos)))
+    (else pos)))
+
+(sig line-end (Fn (String Int) Int))
+(defn line-end (text pos)
+  (if (or (>= pos (len text)) (= (at text pos) "\n")) pos (line-end text (+ pos 1))))
+
+;; Whether a literal may end just before `pos`: at the end, whitespace, a paren or a `;`.
+(sig ends-at (Fn (String Int) Bool))
+(defn ends-at (text pos)
+  (or (>= pos (len text)) (isspace-at text pos) (in (at text pos) "();")))
+
+(sig word-end (Fn (String Int) Int))
+(defn word-end (text pos) (if (ends-at text pos) pos (word-end text (+ pos 1))))
+
+;; --- forms ---
+
+;; The form at `pos` (not whitespace), and the position after it.
+(sig read-form (Fn (String Int) (Tup Form Int)))
+(defn read-form (text pos)
+  (let ((ch (at text pos)))
+    (cond
+      ((= ch "(") (read-list text (skip text (+ pos 1)) empty-list pos))
+      ((= ch ")") (fail (parse-error text pos "unexpected )")))
+      ((= ch "\"") (read-str text (+ pos 1) "" pos))
+      ((= ch "\\") (read-char text pos))
+      (else (read-atom text pos (word-end text pos))))))
+
+;; The rest of the list whose `(` is at `start`, from `pos`; and the position after its `)`.
+(sig read-list (Fn (String Int (List Form) Int) (Tup Form Int)))
+(defn read-list (text pos acc start)
+  (cond
+    ((>= pos (len text)) (fail (parse-error text start "( is never closed")))
+    ((= (at text pos) ")") (tup (Lst acc) (+ pos 1)))
+    (else
+      (let (((form next) (read-form text pos)))
+        (read-list text (skip text next) (+ acc (to-list form)) start)))))
+
+;; A char literal: `\` and one character that isn't whitespace, then a delimiter.
+(sig read-char (Fn (String Int) (Tup Form Int)))
+(defn read-char (text pos)
+  (if (and (< (+ pos 1) (len text)) (not (isspace-at text (+ pos 1))) (ends-at text (+ pos 2)))
+    (tup (CharLit (at text (+ pos 1))) (+ pos 2))
+    (fail (parse-error text pos "a char is \\ and one character, then a delimiter"))))
+
+;; A number, boolean or symbol; the word (up to the next delimiter) runs to `end`.
+(sig read-atom (Fn (String Int Int) (Tup Form Int)))
+(defn read-atom (text pos end)
+  (let ((word (slice text pos end))
+        (kind (number-kind word)))
+    (cond
+      ((!= kind "") (tup (number-form word kind) end))
+      ((= word "true") (tup (BoolLit true) end))
+      ((= word "false") (tup (BoolLit false) end))
+      ((symbol-start (at text pos))
+        (let ((stop (symbol-end text (+ pos 1))))
+          (tup (Sym (slice text pos stop)) stop)))
+      (else (fail (parse-error text pos (format "unexpected {(at text pos)}")))))))
+
+;; --- symbols ---
+
+;; A symbol can't start with a digit, `'`, `#`, `"` or `\` (or a delimiter).
+(sig symbol-start (Fn (String) Bool))
+(defn symbol-start (ch) (not (or (in ch "'#\"\\") (is-decimal ch))))
+
+;; A symbol runs up to a delimiter, `'`, `"` or `\`.
+(sig symbol-end (Fn (String Int) Int))
+(defn symbol-end (text pos)
+  (if (or (>= pos (len text)) (isspace-at text pos) (in (at text pos) "()'\";\\"))
+    pos
+    (symbol-end text (+ pos 1))))
+
+;; --- numbers ---
+
+(sig digits-end (Fn (String Int) Int))
+(defn digits-end (word pos)
+  (if (and (< pos (len word)) (is-decimal (at word pos))) (digits-end word (+ pos 1)) pos))
+
+;; What literal `word` is: "int" (100), "long" (1500l), "byte" (1b), "double" (10.0),
+;; "float" (3.14f), or "" if it isn't a number. The digits may follow a `-`.
+(sig number-kind (Fn (String) String))
+(defn number-kind (word)
+  (let ((start (if (= (at word 0) "-") 1 0))
+        (i (digits-end word start))
+        (rest (slice word i (len word))))
+    (cond
+      ((= i start) "")
+      ((= rest "") "int")
+      ((= rest "l") "long")
+      ((= rest "b") "byte")
+      ((= (at rest 0) ".")
+        (let ((j (digits-end word (+ i 1)))
+              (tail (slice word j (len word))))
+          (cond
+            ((= j (+ i 1)) "")
+            ((= tail "") "double")
+            ((= tail "f") "float")
+            (else ""))))
+      (else ""))))
+
+(sig number-form (Fn (String String) Form))
+(defn number-form (word kind)
+  (let ((body (slice word 0 (- (len word) 1))))
+    (cond
+      ((= kind "int") (IntLit (to-int word)))
+      ((= kind "long") (LongLit (to-int body)))
+      ((= kind "byte") (ByteLit (to-int body)))
+      ((= kind "double") (DoubleLit (to-float word)))
+      (else (FloatLit (to-float body))))))
+
+;; --- strings ---
+
+;; The rest of the string whose `"` is at `start`, from `pos`, decoded into `acc`; and the
+;; position after its closing `"`.
+(sig read-str (Fn (String Int String Int) (Tup Form Int)))
+(defn read-str (text pos acc start)
+  (cond
+    ((>= pos (len text)) (fail (parse-error text start "string is never closed")))
+    ((= (at text pos) "\"") (tup (Txt acc) (+ pos 1)))
+    ((= (at text pos) "\\")
+      (let (((ch next) (escape text pos)))
+        (read-str text next (+ acc ch) start)))
+    (else (read-str text (+ pos 1) (+ acc (at text pos)) start))))
+
+;; The escape sequence whose `\` is at `pos`: what it stands for, and the position after it.
+(sig escape (Fn (String Int) (Tup String Int)))
+(defn escape (text pos)
+  (let ((c (if (< (+ pos 1) (len text)) (at text (+ pos 1)) "")))
+    (cond
+      ((in c (tup "\\" "/" "\"")) (tup c (+ pos 2)))
+      ((= c "b") (tup "\b" (+ pos 2)))
+      ((= c "f") (tup "\f" (+ pos 2)))
+      ((= c "n") (tup "\n" (+ pos 2)))
+      ((= c "r") (tup "\r" (+ pos 2)))
+      ((= c "t") (tup "\t" (+ pos 2)))
+      ((and (= c "u") (<= (+ pos 6) (len text)) (all-hex text (+ pos 2) (+ pos 6)))
+        (tup (hex-char (slice text (+ pos 2) (+ pos 6))) (+ pos 6)))
+      (else (fail (parse-error text pos "bad escape sequence"))))))
+
+(sig all-hex (Fn (String Int Int) Bool))
+(defn all-hex (text pos end)
+  (cond
+    ((>= pos end) true)
+    ((in (at text pos) "0123456789abcdefABCDEF") (all-hex text (+ pos 1) end))
+    (else false)))
+
+;; --- errors ---
+
+(sig parse-error (Fn (String Int String) String))
+(defn parse-error (text pos msg)
+  (let (((row col) (row-col text 0 pos 1 1)))
+    (format "parse error at line {row}, column {col}: {msg}")))
+
+;; The line and column of `pos`, counting from character `i` at line `row`, column `col`.
+(sig row-col (Fn (String Int Int Int Int) (Tup Int Int)))
+(defn row-col (text i pos row col)
+  (cond
+    ((>= i pos) (tup row col))
+    ((= (at text i) "\n") (row-col text (+ i 1) pos (+ row 1) 1))
+    (else (row-col text (+ i 1) pos row (+ col 1)))))

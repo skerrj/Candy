@@ -155,6 +155,9 @@ COLLECTION: Table = {
 STRING: Table = {
     "is-empty-str": runtime("is_empty_str", 1),
     "to-int": runtime("to_int", 1),
+    "to-float": runtime("to_float", 1),
+    "is-decimal": runtime("is_decimal", 1),
+    "hex-char": runtime("hex_char", 1),
     "is-str": runtime("is_str", 1),
     "is-digit": runtime("is_digit", 1),
     "is-alpha": runtime("is_alpha", 1),

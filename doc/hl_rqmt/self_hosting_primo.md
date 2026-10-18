@@ -47,11 +47,12 @@ Candy text ─▶ parse_cdy (Python, parsec v4) ─▶ convert ─▶ translator
    Candy code, the same `emit`, compiled two ways, so on the same input they must print
    exactly the same text; any difference is a real bug. (Comparing the files T1 and T2
    themselves up to formatting was planned too, then dropped: see open question 4.)
-3. **The parser in Candy.** It replaces `parse_cdy` and the conversion step. It needs a
-   closure story (typed nested `fn`s, or a hand-written recursive-descent reader in the
-   style of `tst/cdy/read_sexpr.cdy`, which needs no closures), more of the runtime, and
-   perhaps better recursion (mutual recursion and non-tail recursion still use the Python
-   stack). After this, Candy is self-hosting on Python.
+3. **The parser in Candy** (**done**; see "Stage 3 as built"). It replaces `parse_cdy`
+   and the conversion step. It needs a closure story (typed nested `fn`s, or a
+   hand-written recursive-descent reader in the style of `tst/cdy/read_sexpr.cdy`, which
+   needs no closures), more of the runtime, and perhaps better recursion (mutual recursion
+   and non-tail recursion still use the Python stack). After this, Candy is self-hosting
+   on Python.
 
 ## Stage 1 in slices (as planned)
 
@@ -133,6 +134,37 @@ the Candy translator, rebuild it with `python src/py_cdy/self_host.py`. It is us
 the borrowed parser and `cdy_rt`. Rebuilding it still goes through T1 (so through the
 Python translator); rebuilding it with itself, as smz did, comes once the Python
 translator is retired.
+
+## Stage 3 as built: the reader in Candy
+
+`src/cdy/read.cdy` (about 190 lines) is a **hand-written recursive-descent reader**, the
+closure-free choice above: it walks the text by position, as `tst/cdy/read_sexpr.cdy`
+does, and makes `Form` variants directly. Only nesting recurses on the Python stack; the
+loops over characters and over a list's items are self tail calls, so they are loops.
+
+- **It accepts exactly what `parse_cdy` accepts**, and reads it into the same forms. Its
+  rules follow `parse_cdy`'s regexes: a word up to the next delimiter is a number if it is
+  all number (`-`, digits, then nothing, `l`, `b`, `.` digits, or `.` digits `f`), else
+  `true`/`false`, else a symbol, which runs up to a delimiter, `'`, `"` or `\` (so
+  `a"b"` is a symbol and a string, and `-5x` is a symbol, as in `parse_cdy`). Python's
+  `\s` and `\d` match exactly what `str.isspace` and `str.isdecimal` do (checked over all
+  of Unicode), so the reader uses `isspace-at` and a new `is-decimal`.
+- **Tests** (`tst/py_cdy/test_self_host.py`): both readers make the same forms (compared
+  by `repr`, which names each variant) for every `.cdy` file in the repo and for a list of
+  edge cases, valid and invalid; and errors give a line and column, like
+  `parse error at line 2, column 3: unexpected )`. A one-off fuzz run of 200,000 random
+  short inputs found no difference.
+- **The boundary is gone.** `translate-text` (in `emit.cdy`) reads and translates; the
+  driver just passes the text. `translate` still takes the reader as a function, for
+  `format` holes, so `core.cdy` doesn't depend on `read.cdy`. `self_host.parse_forms`
+  keeps the old conversion only to compare the readers.
+- **New runtime built-ins:** `to-float`, `is-decimal`, `hex-char` (for `\uXXXX`).
+- **Candy is self-hosting on Python.** The checked-in translator `bin/py/cdy_translator.py`
+  rebuilds itself (bin(source) = bin, tested), and a test runs it with `parsec` and the
+  Python translator's modules blocked from importing. It still needs the runtime
+  `cdy_rt`. `python src/py_cdy/self_host.py` still rebuilds it through T1, so a change
+  that the old checked-in copy can't translate yet still works; rebuilding from the
+  checked-in copy alone is possible now, as smz did, but no driver does it yet.
 
 **Decisions for the Candy translator** (proposed with slice 1a and built that way;
 simplest first):

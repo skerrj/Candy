@@ -1,6 +1,6 @@
-;;; Form: a parsed Candy form, as the self-hosted translator sees it.
-;;; The parser is still Python's (py_cdy/parse_cdy.py); the driver (py_cdy/self_host.py)
-;;; converts its nodes into these. See doc/hl_rqmt/self_hosting_primo.md.
+;;; Form: a parsed Candy form, as the self-hosted translator sees it. The reader
+;;; (read.cdy) makes these; py_cdy/self_host.py can also convert py_cdy/parse_cdy.py's nodes
+;;; into them, to check that the two readers agree. See doc/hl_rqmt/self_hosting_primo.md.
 
 (deft Form
   (Sym ((name String)))

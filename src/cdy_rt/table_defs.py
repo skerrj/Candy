@@ -122,6 +122,21 @@ def to_int(text: str) -> int:
     return int(text)
 
 
+def to_float(text: str) -> float:
+    """``text`` parsed as a floating-point number."""
+    return float(text)
+
+
+def is_decimal(text: str) -> bool:
+    """Whether ``text`` is all decimal digits (and not empty), as a regex's ``\\d`` matches."""
+    return text.isdecimal()
+
+
+def hex_char(text: str) -> str:
+    """The character whose code is ``text`` in hexadecimal: ``hex_char("41")`` is ``"A"``."""
+    return chr(int(text, 16))
+
+
 def strip(text: str, chars: str) -> str:
     """``text`` without leading or trailing characters from ``chars``."""
     return text.strip(chars)

@@ -1,11 +1,14 @@
-"""The self-hosted translator, stage 1: Candy's own translator, with the Python parser.
+"""The self-hosted translator: Candy's own translator, reader included.
 
 See ``doc/hl_rqmt/self_hosting_primo.md``. The translator is written in Candy, in the files
 ``TRANSLATOR_FILES`` under ``src/cdy/``. ``build_t1`` translates them with the Python
-translator into one module, T1, under ``output/t1/``. ``translate_t1`` then parses a Candy
-program with ``parse_cdy``, converts the parsed nodes into T1's ``Form`` variants (the one
-boundary between the two translators), and calls T1's ``translate``. It also passes the
-parser itself, as a function, since ``format`` parses the forms in its holes.
+translator into one module, T1, under ``output/t1/``. ``translate_t1`` then hands a Candy
+program's text to T1's ``translate_text``, which reads it with the Candy reader
+(``read.cdy``, stage 3) and translates it.
+
+Until stage 3, the driver parsed with ``parse_cdy`` and converted its nodes into T1's
+``Form`` variants. ``parse_forms`` still does that, so tests can check that the two readers
+agree.
 
 Candy has no ``import`` yet, so the translator's files are joined into one program (a
 stopgap, listed in ``doc/leaks.md``).
@@ -13,7 +16,7 @@ stopgap, listed in ``doc/leaks.md``).
 The checked-in translator ``bin/py/cdy_translator.py`` is T2, T1's translation of the
 translator's own source (the fixpoint: it translates that source into itself). Running this
 file rebuilds it: ``python src/py_cdy/self_host.py``. ``translate_bin`` translates with it,
-so Candy runs without the Python translator (the parser is still borrowed).
+so Candy runs without the Python translator or its parser.
 """
 
 import importlib.util
@@ -43,7 +46,7 @@ from translate_cdy import translate
 
 ROOT = Path(__file__).resolve().parents[2]
 CDY_DIR = ROOT / "src" / "cdy"
-TRANSLATOR_FILES = ("form", "core", "lower", "emit")
+TRANSLATOR_FILES = ("form", "read", "core", "lower", "emit")
 T1_DIR = Path("output") / "t1"
 T1_MODULE = "cdy_translator"
 BIN_PATH = ROOT / "bin" / "py" / f"{T1_MODULE}.py"
@@ -103,17 +106,17 @@ def to_form(node: SExpr, t1: ModuleType) -> Any:
     return variant(val)
 
 
+def parse_forms(t1: ModuleType, text: str) -> tuple[Any, ...]:
+    """``text`` parsed by ``parse_cdy``, as ``t1``'s ``Form`` variants (to compare readers)."""
+    return tuple(to_form(node, t1) for node in parse(program, text))
+
+
 def translate_with(t1: ModuleType, text: str) -> str:
-    """The Candy program ``text`` as Python source, translated by ``t1``."""
-
-    def parse_forms(source: str) -> tuple[Any, ...]:
-        return tuple(to_form(node, t1) for node in parse(program, source))
-
-    forms = parse_forms(text)
+    """The Candy program ``text`` as Python source, read and translated by ``t1``."""
     limit = sys.getrecursionlimit()
     sys.setrecursionlimit(max(limit, RECURSION_LIMIT))
     try:
-        return cast(str, t1.translate(forms, parse_forms))
+        return cast(str, t1.translate_text(text))
     finally:
         sys.setrecursionlimit(limit)
 

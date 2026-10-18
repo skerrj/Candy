@@ -54,7 +54,7 @@
 (def NIL (Prim "nil"))
 
 ;; What a symbol can refer to: locals, top-level names of this file, and the table. `parse`
-;; is the borrowed Python parser, which format needs for the forms in its holes.
+;; is the reader (read-forms), which format needs for the forms in its holes.
 ;; `variants` maps each variant to its sum and field names; `sums` each sum to its variants.
 (deft Scope
   ((env (Map String Expr))
