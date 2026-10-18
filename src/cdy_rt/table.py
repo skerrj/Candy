@@ -87,6 +87,10 @@ SPECIAL_FORMS: Table = {
     "quote": special(),
     "format": special(),
     "tup": special(),
+    "sig": special(),
+    "deft": special(),
+    "get": special(),
+    "assoc": special(),
 }
 
 MATH: Table = {
@@ -130,7 +134,7 @@ RE: Table = {
 
 COLLECTION: Table = {
     "len": call("len", 1),
-    "empty-list": value("[]"),
+    "empty-list": value("()"),
     "at": runtime("at", 2),
     "slice": runtime("slice_", 3),
     "join": runtime("join", 2),

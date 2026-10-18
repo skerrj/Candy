@@ -23,6 +23,17 @@ src = ["src/py_cdy", "src"]
 [tool.pylint.main]
 init-hook = "import sys; sys.path.insert(0, 'src/py_cdy')"
 
+[tool.pylint."messages control"]
+# ruff sorts imports; pylint's import-order check disagrees with it about first-party modules.
+disable = ["wrong-import-order"]
+
+[tool.pylint.design]
+# The translator dispatches with one ``match`` over node types per function, which pylint's
+# defaults count as too many returns, branches and locals.
+max-returns = 15
+max-branches = 15
+max-locals = 20
+
 [tool.pylint.format]
 max-line-length = 100
 

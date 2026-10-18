@@ -26,10 +26,11 @@ agreed) or **open** (needs an answer).
 
 | Stage | Module | Status |
 |---|---|---|
-| Reader | `reader.py`. For the iMVP it just slurps a whole Candy file into a string (**decided**). | Not started. Owner to say whether they provide it or Claude writes it. |
+| Reader | `src/py_cdy/reader.py`. For the iMVP it just slurps a whole Candy file into a string (**decided**). `slurp` and its path helpers are copied from `cdy_rt.table_defs` for now; the search path comes from `cdy_rt.table`. | Exists, with tests. |
+| Entry point | `src/py_cdy/main.py`, modelled on smz's `main.py` (`run_2_out`): `python src/py_cdy/main.py FILE.cdy`. | Exists: runs reader → parser and prints the forms. Translating and writing `output/<name>.py` comes with the translator. |
 | Parser | `src/py_cdy/parse_cdy.py` (parsec.py v4). Produces `Symbol`, `SList`, `Str` and one node per literal type (see below). No `'` shorthand. | Exists, with typed literals, string literals and `;` comments. |
-| Symbol table | `table.py` and `table_defs.py` (**decided**, to be provided by the owner). | Not started. |
-| Translator | Proposed: `core_cdy.py` (`analyse`), `lower_cdy.py` (`lower`), `emit_py.py`, all in `src/py_cdy/`. See "Layers" under option A. | Not started. |
+| Symbol table | `src/cdy_rt/table.py` and `table_defs.py`, drafted from smz (**decided**: the owner skimmed them and accepted them for now). | Exists, linted, type-checked and tested (`tst/cdy_rt/`). |
+| Translator | `core_cdy.py` (`analyse`), `lower_cdy.py` (`lower`), then `emit_py.py`, all in `src/py_cdy/`. See "Layers" under option A. | Core and `lower` exist, with tests (`tst/py_cdy/test_core_cdy.py`, `test_lower_cdy.py`). `emit_py` not started. |
 
 ## Surface syntax
 
@@ -104,19 +105,19 @@ Its `ignore` parser (whitespace and `;` comments) is in `doc/hl_rqmt/src/ignore_
 | Form | Grammar | Semantics |
 |---|---|---|
 | `import` | `(import sym)`, `(import-as sym as-sym)`, `(import-from sym from-sym+)` | **Skipped** until after the initial bootstrap. |
-| `def` | `(def sym init?)` | Binds `sym`. The spec says it is not immutable, for now. `(def x)` binds `None`, and a `def` form evaluates to `None` (**decided**). `(def)` and a bare `def` are errors (**decided**). |
-| `defn` | `(defn sym (args*) expr)` | Defines a function with a single body expression (use `do` for several). It will become a macro. |
+| `def` | `(def sym init)` | Binds `sym`. The spec says it is not immutable, for now. The initial value is **required** (**decided**): `(def x)`, `(def)` and a bare `def` are errors. A `def` form evaluates to `None` (**decided**). |
+| `defn` | `(defn sym (args+) expr)` | Defines a function. It needs **at least one argument**, and its body is **exactly one form, a literal or an expression** (**decided**); use `do` for several. `(defn f () ...)` and a missing body are errors. It will become a macro. |
 | `do` | `(do expr*)` | Evaluates its expressions in order and returns the last value. |
 | `if` | `(if test then else?)` | If `else` is missing and `test` is false, the result is `None` (**decided**). |
 | `cond` | `(cond (test expr)+ (else expr)?)` | The `else` clause is **optional for now** (**decided**). If no test matches, the result is `None`. It will become a macro. smz expands it to nested `if`s. |
 | `let` | `(let ((name init)*) expr)` | Each binding is `(name init)` (**decided**), as in `(let ((x 1) (y 2)) (+ x y))`. Bindings are sequential, like Scheme's `let*`: each `init` sees the earlier names (**decided**). |
-| `fn` | `(fn (args*) expr)` | Lambda. |
+| `fn` | `(fn (args+) expr)` | Lambda. Same rules as `defn` (**decided**): at least one argument, and a body of exactly one form, a literal or an expression. |
 | `deft` | `(deft Name ((field Type)*))` | Defines a record (product) type (**proposed**), modelled on Carp's `deftype`. See "User-defined types" under Types. |
 | `get`, `assoc` | `(get obj field)`, `(assoc obj field value ...)`, one or more field/value pairs | Generic field access for `deft` records (**decided**; the names are **proposed**). `assoc` returns a copy. |
-| `sig` | `(sig name Type)` | The type of the top-level `def` or `defn` named `name`, modelled on Carp's `register` and `sig`. Required, and anywhere before its definition (**decided**). The type names are **proposed**. See "Signature statement" under Types. |
+| `sig` | `(sig name Type)` | The type of the top-level `def` or `defn` named `name`, modelled on Carp's `register` and `sig`. Required, and anywhere before its definition (**decided**). After the iMVP, a `sig` with no definition in `system.cdy` (or a file it imports) declares a runtime built-in, like Carp's `register`. The type names are **decided**. See "Signature statement" under Types. |
 | `quote` | `(quote form)` | Returns `form` unevaluated. **Skipped for the iMVP** (**decided**): it mainly serves macros, and the iMVP has none. The translator rejects it, like `import`. The `'` shorthand will come later as a Clojure-style reader macro. |
 | `format` | `(format "text {form} ...")` | **Hacked in from smz for the iMVP** (**decided**): `(format "x: {x} sum: {(f1 x y)}")` becomes a Python f-string whose `{...}` holes contain Candy forms. See option A and `doc/leaks.md`. |
-| `tup` | `(tup expr*)` | **Hacked in from smz for the iMVP** (**decided**): `(tup a b)` builds a Python tuple, and a `let` binding can destructure one: `((x y) (mp a b))`. See option A and `doc/leaks.md`. |
+| `tup` | `(tup expr*)` | Builds a tuple, typed `(Tup A B)` (**decided**), as in smz. Not a hack in itself; only its destructuring is a stopgap: a `let` binding can destructure one, `((x y) (mp a b))`, and nothing else can. See option A and `doc/leaks.md`. |
 
 ## Types
 
@@ -156,9 +157,19 @@ gives the type of a `def` or `defn` that follows. Candy writes lists with `( )`,
 (def origin (Vector2 0 0))
 ```
 
-A `register`-style form, giving the types of built-ins with no Candy body, is still
-useful: it is how `table.py`'s entries (and later a Candy prelude) can get types. For the
-iMVP those types can live in `TableEntry`. A separate form waits until the prelude.
+**After the iMVP, `sig` also does `register`'s job (decided direction).** There is no
+separate `register` form. Candy will have two kinds of library files:
+
+- **`system.cdy`, and every file it imports:** here a `sig` with no definition declares a
+  built-in that the target's runtime provides, like Carp's `register`. For Python, that
+  is a helper in `cdy_rt` or a Python built-in. This is how `table.py`'s entries get
+  Candy types, and eventually how `system.cdy` replaces `table.py`.
+- **`prelude.cdy`:** ordinary Candy definitions (`sig` plus `def`/`defn`) that every
+  program gets, written in terms of `system`.
+- **Everywhere else**, a `sig` with no definition is an error, as in the iMVP.
+
+In the iMVP there are no `system` or `prelude` files: built-ins come from `table.py`, and
+every `sig` needs a definition.
 
 **Rules (decided):**
 
@@ -172,7 +183,7 @@ iMVP those types can live in `TableEntry`. A separate form waits until the prelu
   and becomes Python's `typing.Any`. Use it where a type can't be written yet. Every use is
   a leak (see `doc/leaks.md`).
 
-**Type syntax (proposed):** type names start with an uppercase letter, and type variables
+**Type syntax (decided):** type names start with an uppercase letter, and type variables
 are lowercase (`a`, `b`), as in Carp. A compound type is a list headed by its name:
 `(List Int)`, `(Fn (Int Int) Int)`.
 
@@ -181,16 +192,16 @@ are lowercase (`a`, `b`), as in Carp. A compound type is a list headed by its na
 | `Int`, `Long`, `Byte` | Integers | `int` | Decided (literal types) |
 | `Float`, `Double` | Floats | `float` | Decided (literal types) |
 | `Bool`, `Char` | | `bool`, `str` | Decided (literal types) |
-| `String` | Text | `str` | Proposed (see below) |
+| `String` | Text | `str` | Decided |
 | `Any` | Anything; no checking | `Any` | Decided |
-| `Unit` | The type of `nil`, the one "no value" value | `None` | Proposed (see below) |
-| `(Maybe A)` | An `A` or `nil` | `A \| None` | Proposed (see below) |
-| `(Fn (A B) R)` | A function from `A`, `B` to `R`; `(Fn () R)` takes nothing | `def f(a: A, b: B) -> R`, or `Callable[[A, B], R]` for a value | Proposed |
-| `(List A)` | A sequence | `list[A]` or `tuple[A, ...]` | Proposed (see below) |
-| `(Tup A B)` | A tuple, for `tup` | `tuple[A, B]` | Proposed |
-| `(Map K V)` | A lookup table | `Mapping[K, V]` | Proposed (see below) |
-| `Vector2`, `(Pair a b)` | A `deft` type, possibly generic | `Vector2`, `Pair[A, B]` | Proposed |
-| `a`, `b` | Type variables | PEP 695: `def f[A](x: A) -> A` | Proposed |
+| `Unit` | The type of `nil`, the one "no value" value | `None` | Decided |
+| `(Maybe A)` | An `A` or `nil` | `A \| None` | Decided |
+| `(Fn (A B) R)` | A function from `A`, `B` to `R`; at least one parameter type, since `defn` and `fn` need an argument | `def f(a: A, b: B) -> R`, or `Callable[[A, B], R]` for a value | Decided |
+| `(List A)` | A sequence; later one kind of abstract `Collection` | `tuple[A, ...]` | Decided |
+| `(Tup A B)` | A fixed-size tuple, for `tup` | `tuple[A, B]` | Decided |
+| `(Map K V)` | A lookup table | `Mapping[K, V]` | Decided |
+| `Vector2`, `(Pair a b)` | A `deft` type, possibly generic | `Vector2`, `Pair[A, B]` | Proposed (with `deft`) |
+| `a`, `b` | Type variables | PEP 695: `def f[A](x: A) -> A` | Decided |
 
 The iMVP uses only Candy's names. Each backend maps them to its own types (see
 `doc/hl_rqmt/multi_target.md`).
@@ -201,20 +212,25 @@ The iMVP uses only Candy's names. Each backend maps them to its own types (see
   `Bool`, `Char`), and Carp, Clojure (Java), Haskell and Rust all say `String`. `Str` was only
   ever the parser's node name, which is internal and can stay.
 - **`Unit` for the type of "no value", with `nil` as its value.**
-  - `()` (Carp, Haskell, Rust) can't work in Candy: `(Fn () Int)` already uses `()` for
-    "no parameters", so `(Fn (Int) ())` would be confusing at best.
+  - `()` (Carp, Haskell, Rust) reads badly in Candy, where `()` is an empty list form:
+    `(Fn (Int) ())` looks like a missing return type.
   - `Nil` as a type name is easy to confuse with the value `nil` (already in `table.py`),
     and in Lisps `nil` also means the empty list and false.
   - `Void` (C, Java) means "no value at all", but Candy's forms always produce one.
-  - `Unit` is the ML/Scala/Kotlin name for a type with exactly one value. `(sig main (Fn ()
-    Unit))` reads well.
-- **`(Maybe A)` for a value that might be `nil`.** This follows from `sig` being required:
-  `(sig x Int)` followed by `(def x)` gives `x: int = None`, which mypy rejects. The
-  definition needs `(sig x (Maybe Int))`. The same goes for an `if` with no else, whose type
-  is `(Maybe A)`. `Maybe` is Carp's and Haskell's name. Rust and Scala say `Option`.
+  - `Unit` is the ML/Scala/Kotlin name for a type with exactly one value. `(sig log (Fn
+    (String) Unit))` reads well.
+  - **A function with no real input takes a `Unit` argument** (**decided**), as in ML,
+    because `defn` and `fn` need at least one argument: `(sig run (Fn (Unit) Unit))`,
+    `(defn run (_) ...)`, called as `(run nil)`. The generated Python module runs its
+    top-level forms in order, so a program needs no `main` function.
+- **`(Maybe A)` for a value that might be `nil`.** This follows from `sig` being required.
+  An `if` with no else can produce `nil`, so its type is `(Maybe A)`, and a `def` whose
+  init might be `nil` needs `(sig x (Maybe Int))`; otherwise mypy rejects `x: int = None`.
+  (`def` always has an init, so `(def x)` can't create a `nil` on its own.) `Maybe` is
+  Carp's and Haskell's name. Rust and Scala say `Option`.
   - In the iMVP, `(Maybe A)` is just Python's `A | None`. Properly it is a sum type, which
     needs `deft` sum types and `match`, so that is a leak.
-- **`List`, not `Array` or `Vector`.** The name sets expectations:
+- **`List`, not `Array` or `Vector` (decided).** The name sets expectations:
   - `Array` (Carp) suggests a fixed-size, mutable, contiguous block, as in C.
   - `Vector` (Clojure, Rust) suggests an indexed, growable sequence.
   - `List` is the usual Lisp (and Haskell, Python) name, and smz already uses `empty-list`
@@ -222,9 +238,23 @@ The iMVP uses only Candy's names. Each backend maps them to its own types (see
 
   The Python type matters more than the name. Option one is `list[A]`, which is mutable and
   is what `empty-list` (`[]`) gives today. Option two is `tuple[A, ...]`, which is immutable
-  and fits the rest of the iMVP: records are `NamedTuple`s, and `assoc` copies. **Lean:**
-  `tuple[A, ...]`, with `empty-list` changed to `()`. That is one of the `table.py` review
-  points in `TODOS.md`.
+  and fits the rest of the iMVP: records are `NamedTuple`s, and `assoc` copies.
+  **Decided: `tuple[A, ...]`**, so `empty-list` changes from `[]` to `()` in `table.py`
+  (listed in `TODOS.md` with the table review).
+
+  **At the Candy level, `List` is one kind of abstract `Collection` (decided direction).**
+  `Collection` is an interface, not a concrete type. The collection operations (`len`,
+  `at`, `in`, `slice`, `join`, ...) are defined for any `Collection`, and `List` is one
+  implementation; `Map`, `Tup` and perhaps `String` could be others. That needs a way to
+  declare interfaces and their implementations (Carp's `definterface`, Clojure's protocols,
+  Haskell's type classes), which comes after the iMVP. For the iMVP:
+  - `sig`s name only concrete types (`(List Int)`), not `Collection`.
+  - The helpers in `table_defs.py` are already typed with Python's abstract
+    `Sequence[T]`, so they accept a `list` or a `tuple`. Python's `collections.abc`
+    (`Collection`, `Sequence`, `Mapping`) is the natural target for Candy's `Collection`
+    later.
+  - Choosing `tuple` or `list` for `List` is therefore a backend detail, invisible at the
+    Candy level, and can change without touching Candy code.
 - **`Fn` and `Tup` are named after their forms.** `Fn` is the type of what `fn` makes, and
   `Tup` the type of what `tup` makes. The alternatives are the arrow `(-> Int Int Int)`
   (Typed Racket), which hides how many parameters there are, or `Tuple`/`Pair`.
@@ -236,8 +266,8 @@ The iMVP uses only Candy's names. Each backend maps them to its own types (see
   `Regex` and `Match` when a program needs them.
 
 Built-ins need no `sig`s in the iMVP. mypy reads their types from `table_defs.py`'s
-annotations directly. Candy's own type checker will need them later, in `TableEntry` or a
-prelude.
+annotations directly. Candy's own type checker will need them later, and will get them from
+the bodiless `sig`s in `system.cdy` (see above).
 
 **How the translator uses it:**
 
@@ -248,14 +278,16 @@ prelude.
   `TFn(params, ret)`), which a later Candy type checker also uses.
 - The parser needs no changes: a `sig` is an ordinary list.
 
-**Open (for `sig`):**
+**Also decided:**
 
-1. **Type names:** confirm `String`, `Unit` (and `nil` as its value), `Maybe`, `List`,
-   `Fn`, `Tup` and `Map`; and whether `List` is a Python `list` or `tuple`.
+1. **Type names:** `String`, `Unit` (with `nil` as its value), `Maybe`, `Fn`, `List`,
+   `Tup` and `Map`, as in the table above. `List` is a Python `tuple`.
 2. **`fn` and nested functions.** `sig` covers only top-level definitions. A `fn` that
    becomes a nested Python `def` has no annotations, and mypy in strict mode rejects that.
-   For the iMVP, give its parameters and result `Any` (a leak) until Candy infers types.
+   For the iMVP its parameters and result get `Any` (a leak) until Candy infers types.
    Lambdas and `let` bindings are fine, because mypy infers their types.
+
+Nothing about `sig` is open for the iMVP.
 
 ### User-defined types: `deft` (proposed)
 
@@ -346,7 +378,8 @@ the translator.
   to Python operators and helper definitions and becomes the **initial symbol table**.
 - `table_defs.py` starts from `~/dev/smz/smz-core/src/py_smz/smztils.py`. It holds the
   Python runtime helpers that table entries point to.
-- A Candy prelude may take this role over later.
+- Later, `system.cdy` (bodiless `sig`s, acting like Carp's `register`) and `prelude.cdy`
+  (Candy definitions) take this role over. See "Signature statement" under Types.
 
 **Runtime boundary (decided).** Generated Python code may depend only on `table.py` and
 `table_defs.py`, not on the rest of `py_cdy` (parser, translator). The two modules import
@@ -426,11 +459,12 @@ assignments followed by `return`, and `if` becomes `if ...: return ... else: ret
 This is simple and worked well enough to self-host, but an `if` or `let` in any other
 position produces broken Python.
 
-## Translation strategy (proposed, not decided)
+## Translation strategy (decided: A)
 
-Choose one:
+**Decided: A** ("let's try A"), **with the lowered IR as its own layer** (**decided**): three
+steps, `analyse` → `lower` → `emit_py`, as in "Layers" below. Not the merged fallback.
 
-- **A. Build Python's `ast` module (recommended).** Every Candy form can appear anywhere,
+- **A. Build Python's `ast` module (chosen).** Every Candy form can appear anywhere,
   and the translator rearranges the output so that it is valid Python. Detailed in the next
   section. The recommended version splits the work into layers (a Core AST and a small
   lowered IR, or "pseudo-AST", before Python's `ast`); see "Layers" below.
@@ -463,12 +497,28 @@ SExpr ──analyse──▶ Core AST ──lower──▶ Lowered IR ──emit
                    names resolved      temporaries, order
 ```
 
-Proposed modules: `core_cdy.py` (nodes and `analyse`), `lower_cdy.py` (IR nodes and
-`lower`), `emit_py.py`.
+Modules: `core_cdy.py` (nodes and `analyse`) and `lower_cdy.py` (IR nodes and `lower`)
+**exist**; `emit_py.py` is next.
+
+**Core as built** (`src/py_cdy/core_cdy.py`), beyond the node table below:
+
+- Types from `sig` and `deft` are `TCon`, `TVar` and `TFn` (the union is `CdyType`).
+  `BUILTIN_TYPES` lists the built-in type names with their argument counts; `deft` adds
+  its own. Unknown type names and wrong argument counts are errors.
+- Name resolution: a local first, then a top-level name defined anywhere in the file (so
+  forward references and recursion work), then the `cdy_rt` table. An unknown name is an
+  error. Special-form names can't be bound (as parameters, `let` names or definitions).
+- Calls to built-ins are checked against the table: the `arity`, and at least two
+  arguments for `binop`, `compare` and `boolop` entries.
+- A `defn`'s `sig` must be an `Fn` type with as many parameters as the `defn`.
+- `sig` produces no node of its own; `Def` and `Defn` carry their signature (`sig` field).
+- `Local` ids come from a counter threaded through `analyse`, so the functions stay pure.
+- `table.py`'s `SPECIAL_FORMS` gained `sig`, `deft`, `get` and `assoc`.
 
 **1. Core AST (`analyse`): target-independent.** It turns the generic `SList`s into one
-node per special form and checks their shape, so `(def)` and a `let` binding that isn't
-`(name init)` are rejected here, with Candy-level error messages. It also:
+node per special form and checks their shape, so `(def x)`, a `defn` or `fn` with no
+arguments or no body, and a `let` binding that isn't `(name init)` are rejected here, with
+Candy-level error messages. It also:
 
 - expands `cond` into nested `If`s, as the future macro will;
 - rewrites a destructuring `let` binding (`((x y) e)`) into plain bindings (see `tup`);
@@ -497,11 +547,22 @@ node per special form and checks their shape, so `(def)` and a `let` binding tha
 
 **2. Lowered IR (`lower`): the pseudo-AST.** This does the "statements first, then an
 expression" work described in the rest of this section, but builds a small IR of its own
-instead of Python `ast` nodes. The IR has:
+instead of Python `ast` nodes. As built in `src/py_cdy/lower_cdy.py`, the IR has:
 
-- statements: `Assign`, `ExprStmt`, `Return`, `IfStmt`, `FuncDef`;
-- expressions: `Const`, `Ref`, `CallE`, `BinOp`, `Compare`, `BoolOp`, `Not`, `CondExpr`,
-  `LambdaE`.
+- statements: `Assign` (with the `sig` type for a top-level `def`), `ExprStmt`, `Return`,
+  `IfStmt` (either branch may be empty), `FuncDef` (`sig` is `None` for a nested `fn`, so
+  the backend uses `Any`) and `RecordDef` (a `deft`);
+- expressions: `Const`, `Temp` (a temporary), Core's `Local`, `Global` and `Prim` as names,
+  `CallE`, `Op` (any `binop`, `compare`, `boolop` or `unary` table entry, n-ary, by its
+  Candy name), `CondE`, `LambdaE`, `TupleE`, `FormatE`, `GetE` and `AssocE`.
+
+`lower_program` lowers a whole file: `def` becomes an `Assign` to a `Global`, `defn` a
+`FuncDef` whose body is in `tail` mode, `deft` a `RecordDef`, and an expression is lowered
+in `effect` mode. An applied `Fn` (what `let` desugars to) becomes assignments in all three
+modes. `and`/`or` stay an `Op` unless a later argument needs statements; then they become
+a temporary and nested `IfStmt`s, so they still short-circuit. Chained comparisons stay
+n-ary `Op`s: Python can chain them; a target that can't would expand them in its backend
+or with a new `Caps` flag.
 
 Modes, temporaries, evaluation order and an `if` in value position are handled here. These
 problems are shared by every statement-based target (C, Java, JavaScript, Go, ...), not
@@ -510,7 +571,8 @@ just Python. Names are still binding ids, not Python spellings.
 Targets differ in what their expressions can hold. Python has `a if t else b` and lambdas
 whose body is a single expression. C has `?:` but no closures, and Go has neither. So
 `lower` takes a `Caps` record saying what the target allows, and falls back to statements
-where it can't. The iMVP defines Python's `Caps` only. See `doc/hl_rqmt/multi_target.md`
+where it can't. The iMVP defines Python's `Caps` only: `Caps(cond_expr=True,
+lambda_expr=True)`. See `doc/hl_rqmt/multi_target.md`
 for the other targets.
 
 **3. Python backend (`emit_py`).** Mostly one IR node to one `ast` node. It also:
@@ -544,9 +606,8 @@ for the other targets.
 target in sight may need reshaping when a second arrives, so keep it minimal: add a node
 only when a form needs it.
 
-**Fallback.** If three steps feel like too much for the iMVP, merge steps 2 and 3, so that
-`lower` builds Python `ast` directly as described below, but keep Core. Splitting them
-later is mechanical as long as Core exists.
+**Fallback (not taken).** Merging steps 2 and 3, so that `lower` builds Python `ast`
+directly, was the fallback. The owner chose three separate steps.
 
 The rest of this section describes the lowering in terms of the Python it produces. With
 the layers above, `lower` builds the IR equivalents and `emit_py` turns them into Python.
@@ -657,9 +718,10 @@ f(_cdy_t1, x)
 
 **`def`.** `(def x init)` becomes the statements of `init`, then `x = <init expr>`. With a
 signature it becomes an annotated assignment, `x: int = ...`. The form's value is `None`.
-`(def x)` becomes `x = None`.
+`init` is required: `(def x)` is an error.
 
-**`defn`.** `(defn name (args*) body)` becomes an `ast.FunctionDef`:
+**`defn`.** `(defn name (args+) body)` becomes an `ast.FunctionDef`. It has at least one
+argument, and `body` is exactly one form: a literal or an expression.
 
 - Its body is `body` translated in `tail` mode.
 - The function's own name is added to `ctx.env` and the table before the body is
@@ -744,6 +806,8 @@ this.
    binding ids for scoping. This keeps Core smaller and makes `let`'s meaning exactly
    `fn`'s, which suits a later `let` macro. The cost is that `lower` must spot the
    pattern. Otherwise every `let` would come out as the slow form above. **Decided.**
+   Each binding becomes a one-argument `Fn`, so this fits the rule that `fn` needs at
+   least one argument. A `let` with no bindings, `(let () body)`, is just `body` (no `Fn`).
 
 Either way, a fallback is available. If a binding can't safely become an assignment (for
 example, a future case the renaming rule gets wrong), `lower` can emit that one `let` as an
@@ -779,15 +843,44 @@ text inside with the parser's `form`, and translates it in `value` mode. The res
 that needs statements puts them before the f-string, like any call argument. `{{` and `}}`
 are literal braces. The shortcuts are listed in `doc/leaks.md`.
 
-**`tup` (hacked in from smz, decided).** `(tup a b)` becomes `ast.Tuple`, `(a, b)`, typed
-`(Tup A B)`. In a `let`, a binding whose name is a list destructures: `analyse` rewrites
-`((x y) e)` into a fresh binding `t` for `e`, then `(x (at t 0))` and `(y (at t 1))`. Core
-therefore needs no pattern node, and `let` stays an applied lambda. Destructuring works
-only in `let`. See `doc/leaks.md`.
+**`tup` (decided, as in smz).** `(tup a b)` becomes `ast.Tuple`, `(a, b)`, typed
+`(Tup A B)`. Building a tuple is an ordinary form, not a hack. The stopgap is
+destructuring: in a `let`, a binding whose name is a list destructures, and `analyse`
+rewrites `((x y) e)` into a fresh binding `t` for `e`, then `(x (at t 0))` and
+`(y (at t 1))`. Core therefore needs no pattern node, and `let` stays an applied lambda.
+Destructuring works only in `let`; real patterns come later with `match`. See
+`doc/leaks.md`.
 
-**`def` inside a function.** **Open.** In the proposal it binds a local, like a `let`
-without a body. Assigning a global from inside a function would need a Python `global`
-statement.
+**Definitions only at top level (decided for `def` and `deft`).** `def` and `deft` inside
+a function are errors. Use `let` for a local value. Where to catch it (**proposed**):
+
+- **Not in the parser.** The parser is a context-free S-expression reader. It doesn't know
+  which lists are special forms, and it shouldn't have to.
+- **Not in `lower` or `emit_py`.** That is too late: the error is about Candy, not Python,
+  and every backend would have to repeat the check.
+- **In `analyse`, by splitting it into two functions.** `analyse_top(form)` handles a
+  file's top-level forms and returns a `TopLevel` node: `Def`, `Defn`, `Deft`, `Sig`, or an
+  expression. `analyse_expr(form)` handles everything else, and returns only `Expr` nodes,
+  a union that has no definition nodes at all. When `analyse_expr` meets a list headed by
+  `def` or `deft`, it reports "`def` is only allowed at top level". The body of a `defn` or
+  `fn`, `let` bindings and bodies, `if` branches and call arguments all go through
+  `analyse_expr`, so the rule holds everywhere with no flag to pass around. mypy then
+  checks it too: an `Expr` can never contain a `Def`.
+- **Same rule, proposed, for `defn` and `sig`.** A nested `defn` would be a local function;
+  `(let ((f (fn (x) ...))) ...)` already covers that. A `sig` only makes sense next to a
+  top-level definition. `import` will follow the same rule when it arrives.
+- **Top-level `do` (proposed: no splicing).** `(do (def x 1) (def y 2))` at top level is
+  an error too, because `do` is an expression. Scheme's `begin` splices its contents into
+  the top level; Candy can add that later if macros need it.
+
+Because a `def` can no longer sit where its value is used, its value (`None`) only matters
+at top level, where it is thrown away.
+
+**As built in `core_cdy.py`:** the proposals above are implemented as described, so they
+are easy to change if you decide otherwise. `analyse_program` handles the top-level forms
+(`def`, `defn`, `deft`, `sig`, or an expression); `analyse_expr` rejects `def`, `defn`,
+`deft` and `sig` with "... is only allowed at top level", and `quote` and `import` with
+"... is not supported in the iMVP".
 
 ### Name mangling
 
@@ -826,9 +919,10 @@ same Python name.
    and execute it. The generated code imports helpers from `table_defs`, so `src/py_cdy`
    has to be on `PYTHONPATH` when it runs.
 
-**Error positions (open).** The parser's AST nodes don't record where they came from, so a
-translation error can't name a line yet. Adding source offsets to `SExpr` nodes would fix
-that.
+**Error positions (skipped for the iMVP, decided).** The parser's AST nodes don't record
+where they came from, so a translation error can't name a line. Parse errors do have a line
+and column (from parsec). Adding source offsets to `SExpr` nodes would fix the rest later;
+see `doc/leaks.md`.
 
 ### Worked comparison with smz (option B)
 
@@ -880,48 +974,55 @@ details.
 
 **Language (owner):**
 
-1. **`sig`:** required, anywhere before its definition, with `Any` as the escape hatch
-   (**decided**). Still open: confirm the type names (`String`, `Unit`, `Maybe`, `List`,
-   `Fn`, `Tup`, `Map`), whether `List` is a Python `list` or `tuple`, and `Any` for nested
-   `fn`s. See "Signature statement" under Types.
-2. ~~**`format` and `tup`**~~: hacked in from smz (**decided**); the shortcuts are listed
-   in `doc/leaks.md`.
-3. **`deft`:** the names `get` and `assoc`; generics (lowercase type variables, as `sig`
-   proposes). See "User-defined types" under Types.
+1. ~~**`sig`**~~ (**decided**): required, anywhere before its definition, with `Any` as the
+   escape hatch. The type names are `String`, `Unit` (value `nil`), `Maybe`, `Fn`,
+   `List` (a Python `tuple`; an abstract `Collection` later), `Tup` and `Map`. `fn`s that
+   become nested Python `def`s get `Any`. A function with no real input takes a `Unit`
+   argument (`(defn run (_) ...)`, called `(run nil)`). See "Signature statement" under
+   Types.
+2. ~~**`format` and `tup`**~~ (**decided**, as in smz). `format` is a hack; `tup` is an
+   ordinary form whose `let`-only destructuring is the stopgap. Both are in
+   `doc/leaks.md`.
+3. **`deft`:** the form as a whole is still **proposed**: `(deft Vector2 ((x Int) (y
+   Int)))`, a `NamedTuple`, with the type name as constructor. Generic field access is
+   decided, but the names `get` and `assoc` are proposed. Generics use lowercase type
+   variables, as `sig` proposes. See "User-defined types" under Types.
 4. ~~**`quote`**~~: skipped for the iMVP (**decided**).
-5. **`def` inside a function:** a local binding (proposed), or a global. See option A.
+5. ~~**`def` inside a function**~~: `def` and `deft` are only allowed at top level
+   (**decided**). Proposed: catch it in `analyse` by splitting it into `analyse_top` and
+   `analyse_expr`; apply the same rule to `defn` and `sig`; no splicing of a top-level
+   `do`. See option A, "Definitions only at top level".
 6. **Literals:** confirm the proposed parser rules (lowercase suffixes; digits on both
    sides of the point; `3f` is an error); named chars such as `\space` and `\newline`. See
    Surface syntax.
 
 **Translator:**
 
-7. **Strategy A or B**, and for A, whether the lowered IR is its own layer or merged into
-   the Python step. See "Translation strategy" and "Layers".
-8. **Error positions:** add source offsets to `SExpr` nodes? See option A, "Output and
-   checking".
+7. ~~**Strategy**~~: A, with the lowered IR as its own layer (**decided**). See
+   "Translation strategy" and "Layers".
+8. ~~**Error positions**~~: skipped for the iMVP (**decided**).
 
 **Runtime and tooling:**
 
-9. **Review `src/cdy_rt/table.py` and `table_defs.py`.** The points to check are listed in
-   `TODOS.md` (`rest`, `empty-list`, behaviour changes from smz, renames, what was
-   dropped).
-10. **`reader.py`:** does the owner provide it, or does Claude write it?
+9. ~~**Review `table.py` and `table_defs.py`**~~: accepted for now (**decided**), and now
+   linted, type-checked and tested.
+10. ~~**`reader.py`**~~: written, with `slurp` copied from `table_defs`; `main.py` added,
+    modelled on smz's.
 
 **Deferred past the iMVP (not open for now):** `import`; `quote` and the `'` reader
-macro (no macros in the iMVP); `deft` sum
-types and `match`; mutation and optimizations (`doc/hl_rqmt/mutation_optimization.md`);
+macro (no macros in the iMVP); `deft` sum types and `match`; interfaces, including the
+abstract `Collection`; `system.cdy` and `prelude.cdy`, with bodiless `sig`s acting
+like Carp's `register`; mutation and optimizations (`doc/hl_rqmt/mutation_optimization.md`);
 other targets, integer sizes and float precision (`doc/hl_rqmt/multi_target.md`).
 
 ## Next steps
 
 1. ~~Parser: add `;` comments and string literals, with pytest tests.~~ Done.
-2. ~~Draft `table.py` and `table_defs.py` and move them to `src/cdy_rt/`.~~ Done. Owner:
-   review them, and say whether to provide `reader.py` or have Claude write it.
-3. Owner: settle the `sig` proposal (see "Open items" below).
-4. Pick translation strategy A or B (and, for A, whether to keep the lowered IR as its own
-   layer or merge it with the Python step), and answer the open items in the option A
-   section (`def` inside a function). Then build the translator core for `def`, `defn`, `do`,
-   `if`, `cond`, `let` and `fn`, with tests.
+2. ~~Draft `table.py` and `table_defs.py` and move them to `src/cdy_rt/`.~~ Done, and
+   accepted for now. ~~`reader.py` and `main.py`.~~ Done.
+3. ~~Owner: settle the `sig` proposal.~~ Done.
+4. ~~Pick translation strategy A or B.~~ A. ~~Build Core first (`core_cdy.py`: nodes and
+   `analyse`).~~ Done, with tests. The lowered IR is its own layer (decided). ~~`lower`.~~ Done,
+   with tests. Next: `emit_py` (IR → Python `ast` → text), with tests.
 5. Wire up reader → parser → translator → `output/`, run mypy on the generated Python, and
    run a first Candy program end to end.

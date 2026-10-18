@@ -32,17 +32,20 @@ See `doc/hl_rqmt/iMVP_py_translator.md` for the iMVP itself, and
 - **Later:** parse format strings properly (holes as part of the grammar, or a reader
   macro), and give Candy its own `str`/show for each type.
 
-### `tup` (from smz)
+### `tup` destructuring (from smz)
 
-`(tup a b)` becomes the Python tuple `(a, b)`. A `let` binding can destructure it:
+`(tup a b)` becomes the Python tuple `(a, b)`. Building a tuple is not a hack; the
+stopgap is destructuring. A `let` binding can destructure a tuple:
 `(let (((x y) (f a b))) ...)`.
 
 - **How:** `tup` is a special form that builds `ast.Tuple`. In `analyse`, a destructuring
   binding `((x y) e)` is rewritten into a fresh binding for `e` followed by `(x (at t 0))`
   and `(y (at t 1))`, so Core needs no pattern node. Its type is `(Tup A B)` in a `sig`.
 - **Leaks:**
-  - Tuples are Python tuples. A tuple and a `deft` record with the same items compare
-    equal, because records are `NamedTuple`s too.
+  - Tuples are Python tuples, and so are `List`s and `deft` records (`NamedTuple`s). A
+    `Tup`, a `List` and a record with the same items compare equal. mypy also accepts a
+    `(Tup Int Int)` (`tuple[int, int]`) where a `(List Int)` (`tuple[int, ...]`) is
+    expected.
   - Destructuring works only in `let`, not in `defn` or `fn` parameters. The translator
     doesn't check its arity. mypy catches a wrong arity when a `sig` gives the tuple's type;
     otherwise it fails at runtime with an `IndexError`.
@@ -64,8 +67,8 @@ See `doc/hl_rqmt/iMVP_py_translator.md` for the iMVP itself, and
 
 ## Python semantics showing through
 
-- **Missing values are `None`.** `(def x)`, an `if` with no else, and the value of `def`
-  are all `None`. Candy will need a real unit/`Nil` type.
+- **Missing values are `None`.** An `if` with no else, a `cond` with no match, and the
+  value of a `def` form are all `None`. Candy will need a real unit/`Nil` type.
 - **Numbers.** `Int`, `Long` and `Byte` are all unbounded Python `int`s, and `Float` is
   64-bit like `Double`. There are no range checks (`300b` is accepted). See
   `doc/hl_rqmt/multi_target.md`.
@@ -85,7 +88,13 @@ See `doc/hl_rqmt/iMVP_py_translator.md` for the iMVP itself, and
 - **`empty-list` is a mutable Python list**, while everything else is immutable.
 - **Regexes are Python's.** `re-search`, `re-findall` and `re-compile` use Python's
   syntax and return Python match objects.
+- **No unary minus.** `-` is a `binop` in `table.py`, and binops need two or more
+  arguments, so `(- x)` is an error: write `(- 0 x)`. A negative literal (`-5`) is fine.
 - **`in` works on both strings and lists**, as Python's `in` does.
+- **No `Collection` interface yet.** Candy's collection operations are meant to work on an
+  abstract `Collection`. In the iMVP they work on whatever Python accepts: the
+  `table_defs` helpers take any `Sequence`, and `len` is Python's `len`, so strings,
+  tuples and lists all pass. Candy has no way to declare the interface itself yet.
 - **`print` for `put` and `display`.** Output formatting is Python's, as for `format`.
 
 ## Translator shortcuts
@@ -94,4 +103,5 @@ See `doc/hl_rqmt/iMVP_py_translator.md` for the iMVP itself, and
   an error when both appear in one scope, but doesn't rename.
 - **A `let` can capture a global defined later in the file**, in the gap described in the
   iMVP doc's `let` scoping rule.
-- **No source positions.** Errors can't name a line yet.
+- **No source positions** (skipped for the iMVP). Translation errors can't name a line
+  yet; only parse errors have a line and column.

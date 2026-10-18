@@ -55,6 +55,9 @@ statements and temporaries.
 | Anonymous function | lambda, body one expression | closure, any body | lambda (captures effectively final) | none | closure, any body |
 | Chained comparison (`a < b < c`) | yes | no | no | no | no |
 
+The iMVP's `Caps` has only `cond_expr` and `lambda_expr` (see `src/py_cdy/lower_cdy.py`);
+the other rows become flags when a target needs them.
+
 Some differences are not `lower`'s problem:
 
 - No closures (C): a Core → Core pass first, then `lower`.
@@ -74,6 +77,46 @@ Python-specific. When a second target arrives, split `table.py` into:
   target also gets its own runtime, the equivalent of `table_defs.py`.
 
 Core refers to built-ins by Candy name (`Prim("+")`), so it never sees a target's names.
+
+Later, the target-neutral half becomes Candy code. `system.cdy` (and the files it imports)
+declares each built-in with a bodiless `sig`, the way Carp's `register` does, and
+`prelude.cdy` defines more on top of it.
+
+### Open: abstracting `system.cdy` while allowing specifics
+
+`system.cdy` has to do two things that pull against each other:
+
+- **Abstract.** Portable Candy code (the prelude, the self-hosted compiler, user programs)
+  should see one set of built-ins with one set of types, whatever the target.
+- **Allow specifics.** Specifics come at two levels:
+  - **Between targets.** Python, C and the JVM offer different built-ins, and the same
+    built-in may need a different type or behaviour on each (integer sizes, how strings
+    and chars are stored, file I/O).
+  - **Within one target.** One target can still differ by platform (Linux, macOS,
+    Windows: paths, line endings), by runtime or version (CPython vs. PyPy, Python 3.14 vs.
+    later), or by optional libraries (`re` is in the standard library, a GUI toolkit is not).
+
+None of this is designed yet. Questions to answer:
+
+1. **Layout.** One shared `system.cdy` plus per-target files that add or override
+   (`system/py.cdy`, `system/c.cdy`), with platform files beneath them
+   (`system/py/windows.cdy`)? Or one `system.cdy` per target, with the shared part in a
+   file they all import?
+2. **Selection.** How does the compiler choose the files: by the target and platform it is
+   compiling for, by explicit imports, or by conditional forms inside one file? Examples
+   from other languages: Clojure's reader conditionals (`#?(:clj ... :cljs ...)`), Rust's
+   `#[cfg(...)]`, Zig's compile-time `builtin.target`, Go's `_linux.go` file suffixes.
+3. **Overrides.** May a target-specific `sig` replace a shared one, or only add new names?
+   If it replaces one, must the type stay the same, so portable code still type-checks on
+   every target?
+4. **Portability checks.** How does portable code find out it used a target-only built-in?
+   An error unless the code says it is target-specific, or a warning?
+5. **Interfaces.** Abstract interfaces such as `Collection` (see the iMVP doc) are one way
+   to keep the shared surface small: `system.cdy` declares the interface, and each target
+   supplies its own implementation.
+6. **Relation to `Caps`.** `Caps` describes what a target's *code* can express (for
+   `lower`). This is about what its *runtime library* provides. The two may end up in one
+   target description.
 
 ### Is the pseudo-AST worth it?
 

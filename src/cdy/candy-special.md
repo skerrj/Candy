@@ -25,11 +25,11 @@ true|false ;; Bool
  > (import-from *symbol* *from-symbols*+) 
 ### def
 - not immutable... for now... 
- > (def *symbol* *init*?)
+ > (def *symbol* *init*)
 ### defn
 - define a function
 - this will be replaced w/ a macro
- > (defn *symbol* (*args**) *expr*)
+ > (defn *symbol* (*args*+) *expr*)
 ### do
 - multiple expressions sequentially and returns the value of the last expression
  > (do *expr**)
@@ -42,7 +42,7 @@ true|false ;; Bool
  > (let ( (*binding*)* ) *expr*)
 ### fn
 - lambda
- > (fn (*args**) *expr*)
+ > (fn (*args*+) *expr*)
 ### quote [SKIP]
 - skipped for the iMVP: no macros yet
 - returns *form* unevaluated

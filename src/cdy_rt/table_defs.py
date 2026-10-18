@@ -56,8 +56,8 @@ def to_list[T](val: T) -> list[T]:
     return [val]
 
 
-def in_(item: object, coll: Sequence[object] | str) -> bool:
-    """Whether ``item`` is in ``coll``."""
+def in_(item: object, coll: Sequence[object]) -> bool:
+    """Whether ``item`` is in ``coll`` (a string is a sequence too)."""
     return item in coll
 
 
@@ -120,14 +120,14 @@ def replace(text: str, old: str, new: str) -> str:
 def find_path(name: str, search_path: Sequence[str]) -> Path | None:
     """The first ``.cdy`` file under ``search_path`` whose stem matches ``name``.
 
-    Files under a ``tmp`` directory are skipped.
+    Files under a ``tmp`` directory (below the search root) are skipped.
     """
     stem = Path(name).stem
     matches = (
         path
         for root in search_path
         for path in Path(root).rglob("*.cdy")
-        if path.stem == stem and "tmp" not in path.parts
+        if path.stem == stem and "tmp" not in path.relative_to(root).parts
     )
     return next(matches, None)
 
@@ -143,17 +143,17 @@ def get_path(name: str, search_path: Sequence[str]) -> Path:
 
 def slurp(name: str) -> str:
     """The whole text of a Candy file, found as ``get_path`` describes."""
-    return get_path(name, SEARCH_PATH).read_text()
+    return get_path(name, SEARCH_PATH).read_text(encoding="utf-8")
 
 
 def spit(path: str, text: str) -> None:
     """Write ``text`` to ``path``, replacing its contents."""
-    Path(path).write_text(text)
+    Path(path).write_text(text, encoding="utf-8")
 
 
 def file_put_lines(path: str, lines: Sequence[str]) -> None:
     """Write ``lines`` to ``path`` as they are (they carry their own newlines)."""
-    Path(path).write_text("".join(lines))
+    Path(path).write_text("".join(lines), encoding="utf-8")
 
 
 # --- rendering Python source ---
