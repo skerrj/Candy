@@ -157,7 +157,7 @@
     ((= head "get") (an-get rest scope n))
     ((= head "assoc") (an-assoc rest scope n))
     ((= head "match") (an-match rest scope n))
-    ((in head (tup "def" "defn" "deft" "sig"))
+    ((in head (tup "def" "defn" "deft" "sig" "import"))
       (fail (format "{head} is only allowed at top level")))
     (else (fail (format "{head} is not supported by the Candy translator yet")))))
 

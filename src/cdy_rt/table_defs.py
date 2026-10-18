@@ -189,6 +189,26 @@ def file_put_lines(path: str, lines: Sequence[str]) -> None:
     Path(path).write_text("".join(lines), encoding="utf-8")
 
 
+def file_exists(path: str) -> bool:
+    """Whether ``path`` is a file (``slurp`` would otherwise search for it)."""
+    return Path(path).is_file()
+
+
+def path_dir(path: str) -> str:
+    """The directory part of ``path``."""
+    return str(Path(path).parent)
+
+
+def path_join(directory: str, name: str) -> str:
+    """``name`` inside ``directory``."""
+    return str(Path(directory) / name)
+
+
+def path_resolve(path: str) -> str:
+    """``path`` made absolute, with symbolic links and ``..`` resolved."""
+    return str(Path(path).resolve())
+
+
 # --- rendering Python source ---
 
 

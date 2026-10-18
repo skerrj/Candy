@@ -1,0 +1,4 @@
+(import greet)
+
+(sig twice (Fn (Int) Int))
+(defn twice (n) (* 2 n))

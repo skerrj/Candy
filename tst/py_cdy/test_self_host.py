@@ -1,19 +1,22 @@
-"""Tests for the self-hosted translator, T1 (``self_host.py``, ``src/cdy/*.cdy``).
+"""Tests for the self-hosted translator (``self_host.py``, ``src/cdy/cdyc.cdy``).
 
-T1 is built once per test session. Each ``tst/cdy/t1/NAME.cdy`` and ``tst/cdy/NAME.cdy`` is
-translated by T1 and by the Python translator; both results must run and print
-``NAME.out``, and T1's must pass ``mypy --strict``. T1 itself must pass ``mypy --strict``
-too: that type-checks the Candy translator's own code.
+T1, the Candy translator built by the checked-in one (``bin``), is built once per test
+session. Each test program (``tst/cdy/t1/NAME.cdy``, ``tst/cdy/NAME.cdy`` and
+``tst/cdy/cdyc/NAME.cdy``) is translated by T1, and all but those in ``tst/cdy/cdyc/`` also
+by the Python translator, which is frozen (``cdyc/`` holds programs that use what only the
+Candy translator has, such as ``import``). Every result must run and print ``NAME.out``,
+and T1's must pass ``mypy --strict``. T1 itself must pass ``mypy --strict`` too: that
+type-checks the Candy translator's own code.
 
-T1 reads with its own reader (``src/cdy/read.cdy``, stage 3), which must accept exactly what
+T1 reads with its own reader (``src/cdy/read.cdy``), which must accept exactly what
 ``parse_cdy`` accepts, and read it into the same forms.
 
-The fixpoint (``doc/hl_rqmt/self_hosting_primo.md``, stage 2): T1 translates the Candy
-translator's source into T2. T2 must pass ``mypy --strict``, translate that source into the
-very same text (T3 = T2), and translate every test program exactly as T1 does. The
-checked-in translator ``bin/py/cdy_translator.py`` must be that same T2: after changing the
-Candy translator, rebuild it with ``python src/py_cdy/self_host.py``. It must rebuild itself,
-and run with neither ``parsec`` nor ``py_cdy`` importable.
+The fixpoint: T1 translates the Candy translator into T2. T2 must pass ``mypy --strict``,
+translate the translator into the very same text (T3 = T2), and translate every test
+program exactly as T1 does. The checked-in translator ``bin/py/cdy_translator.py`` must be
+that same T2: after changing the Candy translator, rebuild it with
+``python src/py_cdy/self_host.py``. It must rebuild itself, and do so with neither
+``parsec`` nor ``py_cdy`` importable.
 """
 
 import re
@@ -30,18 +33,23 @@ from cdy_rt.table_defs import CandyFail
 from self_host import (
     BIN_PATH,
     CDY_DIR,
+    TRANSLATOR,
     build_t1,
+    build_with,
     load,
     parse_forms,
+    translate_file_with,
     translate_with,
-    translator_source,
 )
 from translate_cdy import translate
 
 ROOT = Path(__file__).resolve().parents[2]
-PROGRAMS = sorted((ROOT / "tst" / "cdy" / "t1").glob("*.cdy")) + sorted(
-    (ROOT / "tst" / "cdy").glob("*.cdy")
-)
+CDYC_ONLY = ROOT / "tst" / "cdy" / "cdyc"
+PROGRAMS = [
+    *sorted((ROOT / "tst" / "cdy" / "t1").glob("*.cdy")),
+    *sorted((ROOT / "tst" / "cdy").glob("*.cdy")),
+    *sorted(CDYC_ONLY.glob("*.cdy")),
+]
 IDS = [p.stem for p in PROGRAMS]
 
 
@@ -58,12 +66,10 @@ def fixture_t1(t1_path: Path) -> ModuleType:
 
 
 @pytest.fixture(name="t2", scope="session")
-def fixture_t2(t1: ModuleType, tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, str]:
+def fixture_t2(t1_path: Path, tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, str]:
     """T2 (T1's translation of the translator) written to a file, and its source text."""
-    source = translate_with(t1, translator_source())
-    path = tmp_path_factory.mktemp("t2") / "cdy_translator.py"
-    path.write_text(source, encoding="utf-8")
-    return path, source
+    path = build_with(t1_path, tmp_path_factory.mktemp("t2"))
+    return path, path.read_text(encoding="utf-8")
 
 
 def run(source: str, tmp_path: Path, name: str) -> subprocess.CompletedProcess[str]:
@@ -82,9 +88,11 @@ def test_t1_passes_mypy_strict(t1_path: Path) -> None:
 
 @pytest.mark.parametrize("program", PROGRAMS, ids=IDS)
 def test_output(program: Path, t1: ModuleType, tmp_path: Path) -> None:
-    text = program.read_text(encoding="utf-8")
     expected = program.with_suffix(".out").read_text(encoding="utf-8")
-    for name, source in (("t1", translate_with(t1, text)), ("py", translate(text))):
+    sources = [("t1", translate_file_with(t1, program))]
+    if program.parent != CDYC_ONLY:
+        sources.append(("py", translate(program.read_text(encoding="utf-8"))))
+    for name, source in sources:
         done = run(source, tmp_path, name)
         assert done.returncode == 0, f"{name}: {done.stderr}"
         assert done.stdout == expected, name
@@ -93,7 +101,7 @@ def test_output(program: Path, t1: ModuleType, tmp_path: Path) -> None:
 @pytest.mark.parametrize("program", PROGRAMS, ids=IDS)
 def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
     out = tmp_path / f"{program.stem}.py"
-    out.write_text(translate_with(t1, program.read_text(encoding="utf-8")), encoding="utf-8")
+    out.write_text(translate_file_with(t1, program), encoding="utf-8")
     stdout, _, status = mypy_api.run(["--strict", "--no-incremental", str(out)])
     assert status == 0, stdout
 
@@ -127,6 +135,11 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ('(put (format "{1 2}"))', "exactly one form"),
         ("(sig f (Fn (Int) Int)) (defn f (x y) x)", "one type per argument"),
         ("(put (do (sig x Int)))", "only allowed at top level"),
+        ("(import)", "expected (import name)"),
+        ('(import "x")', "expected (import name)"),
+        ("(import a b)", "expected (import name)"),
+        ("(import nope)", "can't find nope.cdy in ."),
+        ("(put (do (import x)))", "only allowed at top level"),
     ],
 )
 def test_errors(src: str, message: str, t1: ModuleType) -> None:
@@ -178,24 +191,18 @@ def test_fixpoint_t2_passes_mypy_strict(t2: tuple[Path, str]) -> None:
 
 def test_fixpoint_t2_reproduces_itself(t2: tuple[Path, str]) -> None:
     path, source = t2
-    assert translate_with(load(path), translator_source()) == source  # T3 == T2
+    assert translate_file_with(load(path), TRANSLATOR) == source  # T3 == T2
 
 
 @pytest.mark.parametrize("program", PROGRAMS, ids=IDS)
 def test_fixpoint_t1_and_t2_agree(program: Path, t1: ModuleType, t2: tuple[Path, str]) -> None:
-    text = program.read_text(encoding="utf-8")
-    assert translate_with(load(t2[0]), text) == translate_with(t1, text)
+    assert translate_file_with(load(t2[0]), program) == translate_file_with(t1, program)
 
 
 def test_bin_is_t2(t2: tuple[Path, str]) -> None:
     assert BIN_PATH.read_text(encoding="utf-8") == t2[1], (
         "bin/py/cdy_translator.py is stale: run python src/py_cdy/self_host.py"
     )
-
-
-def test_bin_rebuilds_itself() -> None:
-    source = BIN_PATH.read_text(encoding="utf-8")
-    assert translate_with(load(BIN_PATH), translator_source()) == source
 
 
 BLOCKED_IMPORTS = """
@@ -214,23 +221,20 @@ import importlib.util
 spec = importlib.util.spec_from_file_location("cdy_translator", sys.argv[1])
 bin_ = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bin_)
-print(bin_.translate_text(open(sys.argv[2], encoding="utf-8").read()), end="")
+print(bin_.translate_file(sys.argv[2]), end="")
 """
 
 
-def test_bin_needs_no_python_translator(tmp_path: Path) -> None:
-    program = ROOT / "tst" / "cdy" / "sums.cdy"
+def test_bin_rebuilds_itself_without_python_translator(tmp_path: Path) -> None:
     done = subprocess.run(
-        [sys.executable, "-c", BLOCKED_IMPORTS, str(BIN_PATH), str(program)],
+        [sys.executable, "-c", BLOCKED_IMPORTS, str(BIN_PATH), str(TRANSLATOR)],
         capture_output=True,
         text=True,
         check=False,
         cwd=tmp_path,
     )
     assert done.returncode == 0, done.stderr
-    assert run(done.stdout, tmp_path, "sums").stdout == program.with_suffix(".out").read_text(
-        encoding="utf-8"
-    )
+    assert done.stdout == BIN_PATH.read_text(encoding="utf-8")
 
 
 # --- the reader ---

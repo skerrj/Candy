@@ -8,9 +8,11 @@ acceptable for bootstrapping. Each entry says what leaks, and what a proper fix 
 
 ## Hacked-in forms
 
-- **The self-hosted translator is several files joined into one** (`TRANSLATOR_FILES` in
+- ~~**The self-hosted translator is several files joined into one** (`TRANSLATOR_FILES` in
   `src/py_cdy/self_host.py`), because Candy has no `import` yet. Top-level names can be
-  used before their definition, so the order only matters for reading. Fix: `import`.
+  used before their definition, so the order only matters for reading. Fix: `import`.~~
+  Fixed on `self-host-cleanup`: `src/cdy/cdyc.cdy` imports the other files (`import` as
+  inclusion, which has its own leak in `doc/leaks.md`).
 - **`fail` stands in for errors.** Candy has no exceptions; `(fail "msg")` raises
   `CandyFail` from the runtime, and its result is typed as anything (`NoReturn`).
 

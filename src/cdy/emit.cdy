@@ -500,19 +500,3 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len modules) 0)
     acc
     (emit-imports (slice modules 1 (len modules)) (+ acc (format "import {(at modules 0)}\n")))))
-
-;; --- the whole translator: forms in, Python source out ---
-
-;; `parse` reads the forms in `format` holes: read-forms (see translate-text).
-(sig translate (Fn ((List Form) (Fn (String) (List Form))) String))
-(defn translate (forms parse)
-  (let ((tops (analyse-program forms initial-table parse))
-        (stmts (lower-program tops 0 empty-list))
-        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) initial-table)))
-        (env (bind-locals (bound-locals stmts empty-list) globals)))
-    (+ HEADER (emit-imports PY_IMPORTS "") "\n" (emit-stmts stmts 0 env ""))))
-
-;; Candy text in, Python source out, read by the Candy reader (read.cdy), which also
-;; reads the forms in `format` holes.
-(sig translate-text (Fn (String) String))
-(defn translate-text (text) (translate (read-forms text) read-forms))

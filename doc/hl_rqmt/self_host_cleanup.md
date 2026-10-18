@@ -50,6 +50,26 @@ result is still one program and one Python module.
   imported implicitly at the start of every program. That would let `table.py` shrink
   later; it is a separate step.
 
+### Step A as built
+
+- **`src/cdy/include.cdy`** does it, between the reader and `analyse`. `read-program`
+  reads a file and replaces each top-level `(import name)` with the forms of `name.cdy`,
+  found in the importing file's directory (resolved to an absolute path), recursively.
+  A file already included (imported twice, or in a cycle, or the main file itself) is
+  skipped. The name may hold a relative path: `(import lib/util)`.
+- **Errors:** `import: expected (import name)` for any other shape, `import: can't find
+  name.cdy in dir` for a missing file, and `import is only allowed at top level` for an
+  import inside an expression. `import-as` and `import-from` aren't supported.
+- **Entry points** are in `src/cdy/cdyc.cdy`, which imports `form`, `read`, `include`,
+  `core`, `lower` and `emit`: `translate-file` (a path; imports found next to it, which
+  `main.py --translator t1|bin` uses) and `translate-text` (text; imports found in the
+  current directory).
+- **New runtime built-ins:** `file-exists`, `path-dir`, `path-join`, `path-resolve`.
+- **Tests:** `tst/cdy/cdyc/imports.cdy` (a cycle and repeated imports, from a
+  subdirectory), the error cases in `test_self_host.py`, and a `main.py` test that an
+  import is found next to the importing file, not in the current directory.
+- **Leak:** no namespaces (`doc/leaks.md`). **Tech debt:** errors don't name their file.
+
 ### Step B: modules (later)
 
 One Python module per Candy file, qualified names (`(import-as emit e)` then `e/line`, or
@@ -79,16 +99,35 @@ Today every language change goes into both translators, and both readers. Propos
 The question is when: `import` (step A) is the natural first feature to add to the Candy
 translator only.
 
+### As built
+
+- **Frozen** with `import` (step A), the first feature in the Candy translator only.
+- **`self_host.py`:** `build_t1` builds T1 with `bin`; `build_bin` has T1 build T2, checks
+  that T2 translates the translator into itself and passes `mypy --strict`, and only then
+  copies it over `bin` (see `bin/README.md`). The order mattered: `import` first went into
+  `src/cdy/` unused and `bin` was rebuilt by the Python translator one last time; then
+  `cdyc.cdy` started using it and `bin` rebuilt itself.
+- **Tests:** T1 is built by `bin`. Programs in `tst/cdy/t1/` and `tst/cdy/` still run
+  under both translators, new ones that need the Candy translator go in `tst/cdy/cdyc/`.
+  The reader agreement tests stay until the first syntax change. The test that `bin` runs
+  without `py_cdy` now has it rebuild itself.
+- **Bootstrapping from nothing:** check out tag `self-host-py`.
+
 ## 3. Cleanup candidates
 
 From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
 
-- **The spec:** add `sig`, `deft` (records and sums), `match`, `get` and `assoc` to
-  `src/cdy/candy-special.md` (an open item since the iMVP).
+- ~~**The spec:** add `sig`, `deft` (records and sums), `match`, `get` and `assoc` to
+  `src/cdy/candy-special.md` (an open item since the iMVP).~~ Done, with `import`
+  (step A), the type names, and the rules decided in the iMVP doc.
 - **The Candy translator's simpler output** (every operator parenthesised, `format` as a
   `str()` concatenation, more renaming, no conditional-expression merging, `and`/`or`
   arguments with statements not short-circuiting). The last one is a real semantic gap
   if such code ever appears; the rest only change what the generated Python looks like.
+- **Tuple patterns in `match`**, so a `tup` can be taken apart anywhere, not only in a
+  `let` binding (the stopgap that rewrites it into `at` calls, in
+  `doc/archive/leaks_imvp_py_translator.md`). Candy translator only; the `let` form could
+  then become one more kind of pattern.
 - **Types and values share one namespace** (a variant can't take its type's name).
 - **The symbol table is an opaque `Any`** in the Candy translator. Typing it in Candy
   (`deft TableEntry ...`) would let `system.cdy` replace `table.py` later.

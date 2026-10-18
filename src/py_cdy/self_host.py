@@ -1,31 +1,36 @@
 """The self-hosted translator: Candy's own translator, reader included.
 
-See ``doc/hl_rqmt/self_hosting_primo.md``. The translator is written in Candy, in the files
-``TRANSLATOR_FILES`` under ``src/cdy/``. ``build_t1`` translates them with the Python
-translator into one module, T1, under ``output/t1/``. ``translate_t1`` then hands a Candy
-program's text to T1's ``translate_text``, which reads it with the Candy reader
-(``read.cdy``, stage 3) and translates it.
+See ``doc/hl_rqmt/self_hosting_primo.md`` and ``doc/hl_rqmt/self_host_cleanup.md``. The
+translator is written in Candy: ``src/cdy/cdyc.cdy`` and the files it imports. The
+checked-in translator ``bin/py/cdy_translator.py`` builds it: ``build_t1`` translates it
+with ``bin`` into T1 under ``output/t1/``. ``translate_t1`` hands a Candy file to T1's
+``translate_file``, which reads it with the Candy reader (``read.cdy``), includes its
+imports (``include.cdy``) and translates it.
 
-Until stage 3, the driver parsed with ``parse_cdy`` and converted its nodes into T1's
-``Form`` variants. ``parse_forms`` still does that, so tests can check that the two readers
-agree.
+``build_bin`` rebuilds ``bin``: T1 translates the translator into T2, which must translate
+it into the very same text again (the fixpoint, T3 = T2) and pass ``mypy --strict``; only
+then does T2 replace ``bin``. A change to ``src/cdy/`` that ``bin`` can't translate, or that
+breaks the result, so never reaches ``bin``, and the previous copy is in git. Run this file
+to rebuild: ``python src/py_cdy/self_host.py``.
 
-Candy has no ``import`` yet, so the translator's files are joined into one program (a
-stopgap, listed in ``doc/archive/leaks_pre_self_host.md``).
+The Python translator (``py_cdy``) is frozen at tag ``self-host-py``: new features go into
+the Candy translator only. It can't build the translator any more (``src/cdy/`` uses
+``import``); to bootstrap from scratch, check out ``self-host-py``, where it builds T1 from
+the translator's files joined into one program.
 
-The checked-in translator ``bin/py/cdy_translator.py`` is T2, T1's translation of the
-translator's own source (the fixpoint: it translates that source into itself). Running this
-file rebuilds it: ``python src/py_cdy/self_host.py``. ``translate_bin`` translates with it,
-so Candy runs without the Python translator or its parser.
+``parse_forms`` converts ``parse_cdy``'s nodes into a translator's ``Form`` variants, so
+tests can check that the two readers agree.
 """
 
 import importlib.util
+import shutil
 import sys
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 from typing import Any, cast
 
+from mypy import api as mypy_api
 from parsec import parse
 
 from parse_cdy import (
@@ -42,12 +47,12 @@ from parse_cdy import (
     Symbol,
     program,
 )
-from translate_cdy import translate
 
 ROOT = Path(__file__).resolve().parents[2]
 CDY_DIR = ROOT / "src" / "cdy"
-TRANSLATOR_FILES = ("form", "read", "core", "lower", "emit")
+TRANSLATOR = CDY_DIR / "cdyc.cdy"
 T1_DIR = Path("output") / "t1"
+T2_DIR = Path("output") / "t2"
 T1_MODULE = "cdy_translator"
 BIN_PATH = ROOT / "bin" / "py" / f"{T1_MODULE}.py"
 
@@ -55,18 +60,8 @@ BIN_PATH = ROOT / "bin" / "py" / f"{T1_MODULE}.py"
 RECURSION_LIMIT = 20_000
 
 
-def translator_source() -> str:
-    """The Candy translator's files, joined into one program."""
-    parts = [(CDY_DIR / f"{name}.cdy").read_text(encoding="utf-8") for name in TRANSLATOR_FILES]
-    return "\n".join(parts)
-
-
-def build_t1(out_dir: Path = T1_DIR) -> Path:
-    """Translate the Candy translator with the Python translator; returns the module's path."""
-    out = out_dir / f"{T1_MODULE}.py"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(translate(translator_source()), encoding="utf-8")
-    return out
+class FixpointError(Exception):
+    """A rebuilt translator doesn't reproduce itself or doesn't pass ``mypy --strict``."""
 
 
 def load(path: Path) -> ModuleType:
@@ -121,20 +116,53 @@ def translate_with(t1: ModuleType, text: str) -> str:
         sys.setrecursionlimit(limit)
 
 
-def translate_t1(text: str) -> str:
-    """The Candy program ``text`` as Python source, translated by a freshly built T1."""
-    return translate_with(load(build_t1()), text)
+def translate_file_with(translator: ModuleType, path: Path) -> str:
+    """The Candy file at ``path`` as Python source, translated by ``translator``, which
+    includes the file's imports."""
+    limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(max(limit, RECURSION_LIMIT))
+    try:
+        return cast(str, translator.translate_file(str(path)))
+    finally:
+        sys.setrecursionlimit(limit)
+
+
+def build_with(translator: Path, out_dir: Path) -> Path:
+    """Translate the Candy translator with the translator module at ``translator`` into
+    ``out_dir``; returns the new module's path."""
+    out = out_dir / f"{T1_MODULE}.py"
+    source = translate_file_with(load(translator), TRANSLATOR)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(source, encoding="utf-8")
+    return out
+
+
+def build_t1(out_dir: Path = T1_DIR) -> Path:
+    """T1: the Candy translator, translated by the checked-in one; returns its path."""
+    return build_with(BIN_PATH, out_dir)
+
+
+def translate_t1(path: Path) -> str:
+    """The Candy file at ``path`` as Python source, translated by a freshly built T1."""
+    return translate_file_with(load(build_t1()), path)
+
+
+def translate_bin(path: Path) -> str:
+    """The Candy file at ``path`` as Python source, translated by the checked-in translator."""
+    return translate_file_with(load(BIN_PATH), path)
 
 
 def build_bin(path: Path = BIN_PATH) -> Path:
-    """Rebuild the checked-in translator: T1's translation of the translator's source."""
-    path.write_text(translate_with(load(build_t1()), translator_source()), encoding="utf-8")
+    """Rebuild the checked-in translator as T2, T1's translation of the translator, once
+    T2 has reproduced itself and passed ``mypy --strict``."""
+    t2 = build_with(build_t1(), T2_DIR)
+    if translate_file_with(load(t2), TRANSLATOR) != t2.read_text(encoding="utf-8"):
+        raise FixpointError(f"{t2} doesn't translate the translator into itself")
+    stdout, _, status = mypy_api.run(["--strict", "--no-incremental", str(t2)])
+    if status != 0:
+        raise FixpointError(f"{t2} fails mypy --strict:\n{stdout}")
+    shutil.copyfile(t2, path)
     return path
-
-
-def translate_bin(text: str) -> str:
-    """The Candy program ``text`` as Python source, translated by the checked-in translator."""
-    return translate_with(load(BIN_PATH), text)
 
 
 if __name__ == "__main__":

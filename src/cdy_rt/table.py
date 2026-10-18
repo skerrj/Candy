@@ -127,6 +127,10 @@ IO: Table = {
     "file-put-lines": runtime("file_put_lines", 2),
     "slurp": runtime("slurp", 1),
     "spit": runtime("spit", 2),
+    "file-exists": runtime("file_exists", 1),
+    "path-dir": runtime("path_dir", 1),
+    "path-join": runtime("path_join", 2),
+    "path-resolve": runtime("path_resolve", 1),
 }
 
 RE: Table = {

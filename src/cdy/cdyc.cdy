@@ -1,0 +1,31 @@
+;;; cdyc: the Candy translator, written in Candy. Candy in, Python out. Its steps are in the
+;;; files it imports: form (the forms), read (the reader), include (`import`), core (analyse
+;;; into the Core AST), lower (the lowered IR) and emit (Python source). The checked-in
+;;; build is bin/py/cdy_translator.py; it rebuilds itself from this file (see bin/README.md).
+
+(import form)
+(import read)
+(import include)
+(import core)
+(import lower)
+(import emit)
+
+;; --- the whole translator: forms in, Python source out ---
+
+;; `parse` reads the forms in `format` holes: read-forms (see translate-text).
+(sig translate (Fn ((List Form) (Fn (String) (List Form))) String))
+(defn translate (forms parse)
+  (let ((tops (analyse-program forms initial-table parse))
+        (stmts (lower-program tops 0 empty-list))
+        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) initial-table)))
+        (env (bind-locals (bound-locals stmts empty-list) globals)))
+    (+ HEADER (emit-imports PY_IMPORTS "") "\n" (emit-stmts stmts 0 env ""))))
+
+;; Candy text in, Python source out, read by the Candy reader (read.cdy), which also
+;; reads the forms in `format` holes. Its imports are found in the current directory.
+(sig translate-text (Fn (String) String))
+(defn translate-text (text) (translate (include-imports (read-forms text) ".") read-forms))
+
+;; The Candy file at `path` as Python source; its imports are found next to it.
+(sig translate-file (Fn (String) String))
+(defn translate-file (path) (translate (read-program path) read-forms))

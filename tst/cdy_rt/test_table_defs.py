@@ -8,6 +8,7 @@ from cdy_rt.table_defs import (
     CandyFail,
     at,
     fail,
+    file_exists,
     file_put_lines,
     get_indent,
     hex_char,
@@ -20,6 +21,9 @@ from cdy_rt.table_defs import (
     map_get,
     map_has,
     map_set,
+    path_dir,
+    path_join,
+    path_resolve,
     py_mangle,
     py_repr,
     replace,
@@ -57,6 +61,9 @@ def test_files(tmp_path: Path) -> None:
     assert out.read_text(encoding="utf-8") == "hi"
     file_put_lines(str(out), ("a\n", "b\n"))
     assert out.read_text(encoding="utf-8") == "a\nb\n"
+    assert file_exists(str(out)) and not file_exists(str(tmp_path))
+    assert path_dir(path_join(str(tmp_path), "o.txt")) == str(tmp_path)
+    assert path_resolve(path_join(str(tmp_path / "x"), "../o.txt")) == str(out.resolve())
 
 
 def test_maps() -> None:

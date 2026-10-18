@@ -15,4 +15,12 @@ Those entries stay in effect until they are fixed. When one is fixed, mark it th
 it through and say where it was fixed) rather than copying it here. This file is for leaks
 added from branch `self-host-cleanup` on.
 
-(None yet.)
+## Hacked-in forms
+
+- **`import` is inclusion, not modules** (step A of `doc/hl_rqmt/self_host_cleanup.md`,
+  `src/cdy/include.cdy`). `(import name)` pastes `name.cdy`'s forms into the program, once
+  per file, so there are no namespaces: every top-level name is global across all the
+  files, two files can't define the same name, and a file sees names from files it
+  doesn't import (whatever else the program includes). The name is a path relative to the
+  importing file, without `.cdy` (`(import lib/util)`). Only the Candy translator has it.
+  `import-as` and `import-from` are still unsupported. Fix: modules (step B).

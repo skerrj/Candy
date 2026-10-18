@@ -29,11 +29,17 @@ take one, and remove an entry once it is fixed.
   Python translator; `format` is a `str()` concatenation, not an f-string; `and`/`or`
   whose later arguments need statements don't short-circuit those statements. None of
   these change what a program does.
-- **Two readers to keep in step:** `parse_cdy.py` (the Python translator's) and
-  `src/cdy/read.cdy` (the Candy translator's). Tests check they agree, so a syntax change
-  must go into both until the Python translator is retired. The Candy reader builds
-  strings and lists by appending one item at a time (quadratic, but fast enough: it reads
-  the whole translator in about 0.02s).
+- **Two readers:** `parse_cdy.py` (the frozen Python translator's) and `src/cdy/read.cdy`
+  (the Candy translator's). Tests still check they agree; the first syntax change, which
+  goes into `read.cdy` only, will have to drop or narrow those tests. The Candy reader
+  builds strings and lists by appending one item at a time (quadratic, but fast enough: it
+  reads the whole translator in about 0.02s).
+- **Errors don't say which file** they're in: a parse error in an imported file gives its
+  line and column, but not its name (`read-forms` only sees the text, and Candy can't catch
+  a `fail` to add it).
+- **Programs only the Candy translator handles** go in `tst/cdy/cdyc/`, which the frozen
+  Python translator skips; files they import live in subdirectories (`lib/`), so they
+  aren't taken for programs.
 - **`self_host.py` raises the recursion limit** (to 20,000) while T1 runs, since T1 walks
   lists by recursion.
 
