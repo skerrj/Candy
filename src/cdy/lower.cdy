@@ -191,8 +191,54 @@
 
 (sig value-call (Fn (Expr (List Expr) Int) Low))
 (defn value-call (callee args n)
-  (let (((stmts items n1) (value-seq (+ (to-list callee) args) n)))
-    (Low stmts (Call (at items 0) (slice items 1 (len items))) n1)))
+  (if (in (prim-name callee) (tup "and" "or"))
+    (value-boolop callee args n)
+    (let (((stmts items n1) (value-seq (+ (to-list callee) args) n)))
+      (Low stmts (Call (at items 0) (slice items 1 (len items))) n1))))
+
+(sig prim-name (Fn (Expr) String))
+(defn prim-name (e)
+  (match e
+    ((Prim name) name)
+    (else "")))
+
+;; `and`/`or`: one Call, unless a later argument needs statements. They short-circuit, so
+;; those statements can't run first: (and a b) becomes t = a; if t: t = b, and `or` tests
+;; (not t).
+(sig value-boolop (Fn (Expr (List Expr) Int) Low))
+(defn value-boolop (op args n)
+  (let (((lows n1) (low-all args n empty-list))
+        (first (at lows 0))
+        (later (slice lows 1 (len lows))))
+    (if (has-stmts later)
+      (let ((tmp (Temp n1)))
+        (Low
+          (+ (get first stmts)
+             (to-list (SAssign tmp (get first expr)))
+             (to-list (guard op tmp (guarded op later tmp))))
+          tmp
+          (+ n1 1)))
+      (Low (get first stmts) (Call op (low-exprs lows empty-list)) n1))))
+
+;; The rest of `and`/`or`: each argument's statements, then its value into `tmp`, and the
+;; ones after it only if that didn't decide the result.
+(sig guarded (Fn (Expr (List Low) Expr) (List Stmt)))
+(defn guarded (op lows tmp)
+  (let ((low (at lows 0))
+        (assign (+ (get low stmts) (to-list (SAssign tmp (get low expr))))))
+    (if (= (len lows) 1)
+      assign
+      (+ assign (to-list (guard op tmp (guarded op (slice lows 1 (len lows)) tmp)))))))
+
+(sig guard (Fn (Expr Expr (List Stmt)) Stmt))
+(defn guard (op tmp body)
+  (SIf (if (= (prim-name op) "and") tmp (Call (Prim "not") (to-list tmp))) body empty-list))
+
+(sig low-exprs (Fn ((List Low) (List Expr)) (List Expr)))
+(defn low-exprs (lows acc)
+  (if (= (len lows) 0)
+    acc
+    (low-exprs (slice lows 1 (len lows)) (+ acc (to-list (get (at lows 0) expr))))))
 
 ;; Each expression in value mode, keeping left-to-right order: an earlier value that isn't
 ;; simple goes in a Temp if a later one needs statements.

@@ -16,4 +16,5 @@ Done and earlier items are in `doc/archive/TODOS_pre_self_host.md` and
 - [x] Review `doc/hl_rqmt/self_host_cleanup.md`: accepted (inclusion first, Python translator frozen, top file `cdyc.cdy`).
 - [x] `import` step A (inclusion) in the Candy translator; `src/cdy/cdyc.cdy`; `bin/py/` rebuilds itself.
 - [ ] Review `import` step A as built (`doc/hl_rqmt/self_host_cleanup.md`, "Step A as built"), and the new leak in `doc/leaks.md`.
-- [ ] Review the spec update (`src/cdy/candy-special.md`): `import` (step A), types, `sig`, `deft`, `get`, `assoc`, `match`, and the rules from the iMVP doc's decisions; `format` and `tup` filled in.
+- [x] `and`/`or` short-circuit in the Candy translator (`tst/cdy/short_circuit.cdy`).
+- [x] Review the spec update (`src/cdy/candy-special.md`): approved; `tup` moved out of "weird stuff".

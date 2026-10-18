@@ -26,9 +26,9 @@ take one, and remove an entry once it is fixed.
   slice by slice (see `doc/hl_rqmt/self_hosting_primo.md`): every operator is
   parenthesised; `if` in tail position stays an `if` statement (no conditional-expression
   merge); a nested scope's locals avoid every outer name, so T1 renames more than the
-  Python translator; `format` is a `str()` concatenation, not an f-string; `and`/`or`
-  whose later arguments need statements don't short-circuit those statements. None of
-  these change what a program does.
+  Python translator; `format` is a `str()` concatenation, not an f-string. None of these
+  change what a program does. (`and`/`or` whose later arguments needed statements used to
+  run those statements regardless, which did; fixed on `self-host-cleanup`.)
 - **Two readers:** `parse_cdy.py` (the frozen Python translator's) and `src/cdy/read.cdy`
   (the Candy translator's). Tests still check they agree; the first syntax change, which
   goes into `read.cdy` only, will have to drop or narrow those tests. The Candy reader

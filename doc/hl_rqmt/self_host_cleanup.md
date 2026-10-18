@@ -121,9 +121,14 @@ From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
   `src/cdy/candy-special.md` (an open item since the iMVP).~~ Done, with `import`
   (step A), the type names, and the rules decided in the iMVP doc.
 - **The Candy translator's simpler output** (every operator parenthesised, `format` as a
-  `str()` concatenation, more renaming, no conditional-expression merging, `and`/`or`
-  arguments with statements not short-circuiting). The last one is a real semantic gap
-  if such code ever appears; the rest only change what the generated Python looks like.
+  `str()` concatenation, more renaming, no conditional-expression merging). These only
+  change what the generated Python looks like.
+- ~~**`and`/`or` arguments with statements didn't short-circuit**~~ in the Candy
+  translator: `(or (< n 0) (do (put "x") (> n 10)))` printed `x` even when `n` was
+  negative. Fixed: `value-boolop` in `lower.cdy` does what the Python translator's
+  `value_boolop` does, `(and a b)` becoming `t = a; if t: t = b` (`or` tests `not t`).
+  The translator's own code had such cases, so `bin` changed. Test:
+  `tst/cdy/short_circuit.cdy`, run under both translators.
 - **Tuple patterns in `match`**, so a `tup` can be taken apart anywhere, not only in a
   `let` binding (the stopgap that rewrites it into `at` calls, in
   `doc/archive/leaks_imvp_py_translator.md`). Candy translator only; the `let` form could
