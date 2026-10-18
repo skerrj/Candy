@@ -6,6 +6,9 @@
 
 (deft Stmt
   (SRecord ((name String) (tvars (List String)) (fields (List (Tup String CType)))))
+  (SSum ((name String) (tvars (List String)) (variants (List Variant))))
+  ;; `subject` is always simple. `default` is empty, or the else clause's statements.
+  (SMatch ((subject Expr) (cases (List Case)) (default (List (List Stmt)))))
   (SAssign ((target Expr) (val Expr)))
   (SDefAssign ((name String) (val Expr) (t CType)))
   (SExpr ((expr Expr)))
@@ -14,6 +17,8 @@
   (SFunc ((name String) (params (List Expr)) (body (List Stmt)) (t CType)))
   ;; A nested function (a fn whose body needs statements), named by a Temp; typed Any.
   (SLocalFunc ((target Expr) (params (List Expr)) (body (List Stmt)))))
+
+(deft Case ((variant String) (binds (List (Tup String Expr))) (body (List Stmt))))
 
 ;; An expression lowered in value mode: statements to run first, the value, the next Temp id.
 (deft Low ((stmts (List Stmt)) (expr Expr) (n Int)))
@@ -87,7 +92,56 @@
       ((Assoc obj fields)
         (let (((stmts vals n1) (value-seq (+ (to-list obj) (field-vals fields empty-list)) n)))
           (Low stmts (Assoc (at vals 0) (refill fields (slice vals 1 (len vals)) empty-list)) n1)))
+      ((MatchE _ _ _)
+        (let ((tmp (Temp n))
+              ((stmts n1) (lower-match e "value" tmp (+ n 1))))
+          (Low stmts tmp n1)))
       (else (Low empty-list e n)))))
+
+;; match as an SMatch, each clause's body lowered in `mode` ("value" assigns `tmp`).
+(sig lower-match (Fn (Expr String Expr Int) (Tup (List Stmt) Int)))
+(defn lower-match (e mode tmp n)
+  (match e
+    ((MatchE subject clauses default)
+      (let ((low (value subject n))
+            (simple (is-simple (get low expr)))
+            (subj (if simple (get low expr) (Temp (get low n))))
+            (n1 (if simple (get low n) (+ (get low n) 1)))
+            (first (if simple (get low stmts) (+ (get low stmts) (to-list (SAssign subj (get low expr))))))
+            ((cases n2) (lower-cases clauses mode tmp n1 empty-list))
+            ((default-stmts n3) (lower-default default mode tmp n2)))
+        (tup (+ first (to-list (SMatch subj cases default-stmts))) n3)))
+    (else (fail "lower: not a match"))))
+
+;; The else clause's statements: none, or one list.
+(sig lower-default (Fn ((List Expr) String Expr Int) (Tup (List (List Stmt)) Int)))
+(defn lower-default (default mode tmp n)
+  (if (= (len default) 0)
+    (tup empty-list n)
+    (let (((stmts n1) (lower-body (at default 0) mode tmp n)))
+      (tup (to-list stmts) n1))))
+
+(sig lower-cases (Fn ((List Clause) String Expr Int (List Case)) (Tup (List Case) Int)))
+(defn lower-cases (clauses mode tmp n acc)
+  (if (= (len clauses) 0)
+    (tup acc n)
+    (let ((clause (at clauses 0))
+          ((body n1) (lower-body (get clause body) mode tmp n)))
+      (lower-cases
+        (slice clauses 1 (len clauses))
+        mode
+        tmp
+        n1
+        (+ acc (to-list (Case (get clause variant) (get clause binds) body)))))))
+
+(sig lower-body (Fn (Expr String Expr Int) (Tup (List Stmt) Int)))
+(defn lower-body (e mode tmp n)
+  (cond
+    ((= mode "tail") (tail e n))
+    ((= mode "effect") (effect e n))
+    (else
+      (let ((low (value e n)))
+        (tup (+ (get low stmts) (to-list (SAssign tmp (get low expr)))) (get low n))))))
 
 ;; fn: a lambda if its body is one expression, otherwise a nested function.
 (sig value-fn (Fn ((List Expr) Expr Int) Low))
@@ -224,6 +278,7 @@
       (let (((stmts n1) (effect-all (all-but-last body) n empty-list))
             ((last n2) (tail (last-of body) n1)))
         (tup (+ stmts last) n2)))
+    ((MatchE _ _ _) (lower-match e "tail" NIL n))
     (else
       (let ((low (value e n)))
         (tup (+ (get low stmts) (to-list (SReturn (get low expr)))) (get low n))))))
@@ -245,6 +300,7 @@
             ((b n2) (effect other n1)))
         (tup (+ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
     ((Do body) (effect-all body n empty-list))
+    ((MatchE _ _ _) (lower-match e "effect" NIL n))
     (else
       (if (is-simple e)
         (tup empty-list n)
@@ -274,6 +330,7 @@
 (defn lower-top (top n)
   (match top
     ((TDeft name tvars fields) (tup (to-list (SRecord name tvars fields)) n))
+    ((TDeftSum name tvars variants) (tup (to-list (SSum name tvars variants)) n))
     ((TDef name init t)
       (let ((low (value init n)))
         (tup (+ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))

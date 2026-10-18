@@ -87,7 +87,20 @@ grows slice by slice, until it can translate its own source (stage 2).
   - `format` is emitted as a concatenation, `('a ' + str(x))`, not an f-string.
   - New `Expr` variants `Lambda`, `Tuple`, `Fmt`, `Field`, `Assoc` (named to stay clear of
     the `Fn` and `Tup` types), and `FPart` for format pieces.
-- **1c:** `deft` sums, `match`.
+- **1c** (**done**): `deft` sums, `match` (exhaustive unless there is an `else`; nullary
+  variants are values), emitted as in the Python translator: a `NamedTuple` per variant,
+  a `type` alias for the union, and an `isinstance` chain. `tst/cdy/t1/sums_1c.cdy`. As
+  built:
+  - `Map` has no way to list its keys, so `analyse` keeps two maps from a pre-pass: each
+    variant's sum and field names (`VInfo`), and each sum's variant names (for the
+    exhaustiveness check).
+  - The clause bodies are lowered by mode name (`"value"`, `"tail"`, `"effect"`) rather
+    than by passing `tail`/`effect` as functions, which keeps the Candy typed without
+    closures.
+  - Checking T1 with `mypy --strict` caught two type errors in the Candy translator's own
+    source while building this slice (a `get` on a sum value before `match` had narrowed
+    it, and an `if` whose branches mypy typed too narrowly), and the Python translator's
+    exhaustiveness check caught a `match` on `Expr` that missed the new `MatchE`.
 - **1d:** self tail calls as loops, local renaming as in the Python translator, and the
   remaining checks. Then the T1 source is in the supported subset: stage 2.
 

@@ -1,7 +1,7 @@
 ;;; Core: analyse forms into the Core AST (the first step; target-independent).
-;;; Mirrors py_cdy/core_cdy.py. Slices 1a-1b: literals, symbols, calls, if, cond, do,
-;;; let (desugared into applied Lambdas, as in Scheme), fn, tup, format, get, assoc, sig,
-;;; def and defn.
+;;; Mirrors py_cdy/core_cdy.py. Slices 1a-1c: literals, symbols, calls, if, cond, do,
+;;; let (desugared into applied Lambdas, as in Scheme), fn, tup, format, get, assoc,
+;;; match, sig, def, defn and deft (records and sums).
 
 ;; --- types (from sig) ---
 
@@ -27,7 +27,12 @@
   (Fmt ((parts (List FPart))))
   (Field ((obj Expr) (field String)))
   (Assoc ((obj Expr) (fields (List (Tup String Expr)))))
+  ;; `default` is the else clause: empty, or one expression.
+  (MatchE ((subject Expr) (clauses (List Clause)) (default (List Expr))))
   (Temp ((id Int))))
+
+;; ((Variant a b) body): the (field, Local) pairs it binds (`_` binds nothing).
+(deft Clause ((variant String) (binds (List (Tup String Expr))) (body Expr)))
 
 ;; A piece of a format string: literal text, or a hole holding an expression.
 (deft FPart
@@ -36,8 +41,11 @@
 
 ;; --- top-level forms ---
 
+(deft Variant ((name String) (fields (List (Tup String CType)))))
+
 (deft Top
   (TDeft ((name String) (tvars (List String)) (fields (List (Tup String CType)))))
+  (TDeftSum ((name String) (tvars (List String)) (variants (List Variant))))
   (TDef ((name String) (init Expr) (t CType)))
   (TDefn ((name String) (params (List Expr)) (body Expr) (t CType)))
   (TExpr ((expr Expr))))
@@ -47,11 +55,23 @@
 
 ;; What a symbol can refer to: locals, top-level names of this file, and the table. `parse`
 ;; is the borrowed Python parser, which format needs for the forms in its holes.
+;; `variants` maps each variant to its sum and field names; `sums` each sum to its variants.
 (deft Scope
   ((env (Map String Expr))
    (top (Map String Bool))
    (table Any)
-   (parse (Fn (String) (List Form)))))
+   (parse (Fn (String) (List Form)))
+   (variants (Map String VInfo))
+   (sums (Map String (List String)))))
+
+(deft VInfo ((sum String) (fields (List String))))
+
+(sig is-variant (Fn (String Scope) Bool))
+(defn is-variant (name scope)
+  (and (map-has (get scope variants) name) (not (map-has (get scope env) name))))
+
+(sig variant-fields (Fn (String Scope) (List String)))
+(defn variant-fields (name scope) (get (map-get (get scope variants) name) fields))
 
 ;; --- expressions ---
 
@@ -73,6 +93,8 @@
 (defn resolve (name scope)
   (cond
     ((map-has (get scope env) name) (map-get (get scope env) name))
+    ((and (is-variant name scope) (= (len (variant-fields name scope)) 0))
+      (Call (Global name) empty-list))
     ((map-has (get scope top) name) (Global name))
     ((table-is-special (get scope table) name)
       (fail (format "{name} is a special form, not a value")))
@@ -90,9 +112,21 @@
     (let ((head (sym-name (at items 0))))
       (if (is-special-head head scope)
         (analyse-special head (rest-of items) scope n)
-        (let (((callee n1) (analyse-expr (at items 0) scope n))
+        (let ((checked (check-variant-call head (- (len items) 1) scope))
+              ((callee n1) (analyse-expr (at items 0) scope n))
               ((args n2) (analyse-all (rest-of items) scope n1 empty-list)))
           (tup (Call callee args) n2))))))
+
+;; Fail if `name` is a variant called with the wrong number of fields.
+(sig check-variant-call (Fn (String Int Scope) Bool))
+(defn check-variant-call (name count scope)
+  (cond
+    ((not (is-variant name scope)) true)
+    ((= (len (variant-fields name scope)) 0)
+      (fail (format "{name} has no fields, so it is a value: write {name}, not ({name})")))
+    ((!= count (len (variant-fields name scope)))
+      (fail (format "({name} ...) takes {(len (variant-fields name scope))} field(s), got {count}")))
+    (else true)))
 
 (sig analyse-special (Fn (String (List Form) Scope Int) (Tup Expr Int)))
 (defn analyse-special (head rest scope n)
@@ -106,6 +140,7 @@
     ((= head "format") (an-format rest scope n))
     ((= head "get") (an-get rest scope n))
     ((= head "assoc") (an-assoc rest scope n))
+    ((= head "match") (an-match rest scope n))
     ((in head (tup "def" "defn" "deft" "sig"))
       (fail (format "{head} is only allowed at top level")))
     (else (fail (format "{head} is not supported by the Candy translator yet")))))
@@ -313,6 +348,131 @@
 (defn add-text (parts text)
   (if (= text "") parts (+ parts (to-list (FText text)))))
 
+;; (match subject ((Variant name*) expr)+ (else expr)?)
+(sig an-match (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-match (rest scope n)
+  (if (< (len rest) 2)
+    (fail "match: expected (match subject ((Variant name*) expr)+ (else expr)?)")
+    (let (((subject n1) (analyse-expr (at rest 0) scope n))
+          ((m n2) (match-clauses (rest-of rest) scope n1 (MatchE subject empty-list empty-list) ""))
+          (sum (if (> (len (match-clause-list m)) 0) (match-sum (match-clause-list m) scope) "")))
+      (tup (check-exhaustive m sum scope) n2))))
+
+;; The sum that a clause list takes apart (all its clauses are of one sum, checked before).
+(sig match-sum (Fn ((List Clause) Scope) String))
+(defn match-sum (clauses scope) (get (map-get (get scope variants) (get (at clauses 0) variant)) sum))
+
+(sig check-exhaustive (Fn (Expr String Scope) Expr))
+(defn check-exhaustive (m sum scope)
+  (match m
+    ((MatchE _ clauses default)
+      (let ((missing (missing-variants (map-get (get scope sums) sum) clauses empty-list)))
+        (if (and (= (len default) 0) (> (len missing) 0))
+          (fail (format "match on {sum}: no clause for {(join missing \", \")} (or add else)"))
+          m)))
+    (else m)))
+
+(sig missing-variants (Fn ((List String) (List Clause) (List String)) (List String)))
+(defn missing-variants (names clauses acc)
+  (if (= (len names) 0)
+    acc
+    (missing-variants
+      (slice names 1 (len names))
+      clauses
+      (if (has-clause (at names 0) clauses) acc (+ acc (to-list (at names 0)))))))
+
+(sig has-clause (Fn (String (List Clause)) Bool))
+(defn has-clause (name clauses)
+  (cond
+    ((= (len clauses) 0) false)
+    ((= (get (at clauses 0) variant) name) true)
+    (else (has-clause name (slice clauses 1 (len clauses))))))
+
+;; The clauses, added to `m` (a MatchE) one by one; `sum` is the sum seen so far.
+(sig match-clauses (Fn ((List Form) Scope Int Expr String) (Tup Expr Int)))
+(defn match-clauses (forms scope n m sum)
+  (if (= (len forms) 0)
+    (tup m n)
+    (let ((items (list-items (at forms 0))))
+      (cond
+        ((!= (len items) 2) (fail "match: clause must be (pattern expr)"))
+        ((is-else (at items 0))
+          (if (or (> (len forms) 1) (= (len (match-clause-list m)) 0))
+            (fail "match: (else expr) must be the last clause, after a pattern")
+            (let (((e n1) (analyse-expr (at items 1) scope n)))
+              (tup (set-default m e) n1))))
+        (else
+          (let ((pattern (list-items (at items 0)))
+                (variant (if (> (len pattern) 0) (sym-name (at pattern 0)) ""))
+                (checked (check-pattern variant pattern sum m scope))
+                ((binds inner n1) (pattern-binds (variant-fields variant scope) (rest-of pattern) scope n empty-list))
+                ((body n2) (analyse-expr (at items 1) inner n1)))
+            (match-clauses
+              (rest-of forms)
+              scope
+              n2
+              (add-clause m (Clause variant binds body))
+              (get (map-get (get scope variants) variant) sum))))))))
+
+(sig check-pattern (Fn (String (List Form) String Expr Scope) Bool))
+(defn check-pattern (variant pattern sum m scope)
+  (cond
+    ((= variant "") (fail "match: pattern must be (Variant name*) or else"))
+    ((not (is-variant variant scope)) (fail (format "match: {variant} is not a variant of a sum type")))
+    ((has-clause variant (match-clause-list m)) (fail (format "match: more than one clause for {variant}")))
+    ((and (!= sum "") (!= sum (get (map-get (get scope variants) variant) sum)))
+      (fail (format "match: clauses mix variants of {sum} and {(get (map-get (get scope variants) variant) sum)}")))
+    ((!= (- (len pattern) 1) (len (variant-fields variant scope)))
+      (fail (format "match: {variant} has {(len (variant-fields variant scope))} field(s), so the pattern needs that many names")))
+    (else true)))
+
+(sig match-clause-list (Fn (Expr) (List Clause)))
+(defn match-clause-list (m)
+  (match m
+    ((MatchE _ clauses _) clauses)
+    (else empty-list)))
+
+(sig add-clause (Fn (Expr Clause) Expr))
+(defn add-clause (m clause)
+  (match m
+    ((MatchE subject clauses default) (MatchE subject (+ clauses (to-list clause)) default))
+    (else m)))
+
+(sig set-default (Fn (Expr Expr) Expr))
+(defn set-default (m e)
+  (match m
+    ((MatchE subject clauses _) (MatchE subject clauses (to-list e)))
+    (else m)))
+
+;; The (field, Local) pairs a pattern's names bind, and the scope with them.
+(sig pattern-binds
+  (Fn ((List String) (List Form) Scope Int (List (Tup String Expr))) (Tup (List (Tup String Expr)) Scope Int)))
+(defn pattern-binds (fields names scope n acc)
+  (if (= (len names) 0)
+    (tup acc scope n)
+    (let ((name (sym-name (at names 0)))
+          (loc (Local name n)))
+      (cond
+        ((= name "") (fail "match name must be a name"))
+        ((= name "_") (pattern-binds (slice fields 1 (len fields)) (rest-of names) scope n acc))
+        ((bound-in name acc) (fail "match: names in a pattern must be different"))
+        (else
+          (pattern-binds
+            (slice fields 1 (len fields))
+            (rest-of names)
+            (assoc scope env (map-set (get scope env) name loc))
+            (+ n 1)
+            (+ acc (to-list (tup (at fields 0) loc)))))))))
+
+(sig bound-in (Fn (String (List (Tup String Expr))) Bool))
+(defn bound-in (name binds)
+  (if (= (len binds) 0)
+    false
+    (let (((_ loc) (at binds 0)))
+      (match loc
+        ((Local other _) (or (= other name) (bound-in name (slice binds 1 (len binds)))))
+        (else (bound-in name (slice binds 1 (len binds))))))))
+
 ;; --- types ---
 
 (sig is-lower (Fn (String) Bool))
@@ -354,8 +514,76 @@
         (rest-of forms)
         (cond
           ((or (= head "def") (= head "defn")) (map-set acc (sym-name (at items 1)) true))
+          ((and (= head "deft") (is-sum-body (slice items 2 (len items))))
+            (add-names (variant-names (slice items 2 (len items)) empty-list) acc))
           ((= head "deft") (map-set acc (deft-name (at items 1)) true))
           (else acc))))))
+
+(sig add-names (Fn ((List String) (Map String Bool)) (Map String Bool)))
+(defn add-names (names acc)
+  (if (= (len names) 0)
+    acc
+    (add-names (slice names 1 (len names)) (map-set acc (at names 0) true))))
+
+;; Whether a deft body (what follows the name) lists variants, not one field list: each
+;; variant starts with a symbol, (Circle ...) or (Leaf); a field list starts with a list.
+(sig is-sum-body (Fn ((List Form)) Bool))
+(defn is-sum-body (body)
+  (and (> (len body) 0) (all-variant-forms body)))
+
+(sig all-variant-forms (Fn ((List Form)) Bool))
+(defn all-variant-forms (body)
+  (cond
+    ((= (len body) 0) true)
+    ((= (sym-name (first-item (at body 0))) "") false)
+    (else (all-variant-forms (rest-of body)))))
+
+(sig first-item (Fn (Form) Form))
+(defn first-item (form)
+  (let ((items (list-items form)))
+    (if (= (len items) 0) (Lst empty-list) (at items 0))))
+
+(sig variant-names (Fn ((List Form) (List String)) (List String)))
+(defn variant-names (body acc)
+  (if (= (len body) 0)
+    acc
+    (variant-names (rest-of body) (+ acc (to-list (sym-name (first-item (at body 0))))))))
+
+;; Each variant's sum and field names, and each sum's variants, before analysing them.
+(sig find-variants (Fn ((List Form) Scope) Scope))
+(defn find-variants (forms scope)
+  (if (= (len forms) 0)
+    scope
+    (let ((items (list-items (at forms 0)))
+          (head (if (> (len items) 2) (sym-name (at items 0)) ""))
+          (body (slice items 2 (len items))))
+      (find-variants
+        (rest-of forms)
+        (if (and (= head "deft") (is-sum-body body))
+          (let ((sum (deft-name (at items 1))))
+            (add-variants
+              sum
+              body
+              (assoc scope sums (map-set (get scope sums) sum (variant-names body empty-list)))))
+          scope)))))
+
+(sig add-variants (Fn (String (List Form) Scope) Scope))
+(defn add-variants (sum body scope)
+  (if (= (len body) 0)
+    scope
+    (let ((v-items (list-items (at body 0)))
+          (name (sym-name (at v-items 0)))
+          (fields (if (= (len v-items) 2) (field-names (list-items (at v-items 1)) empty-list) empty-list)))
+      (add-variants
+        sum
+        (rest-of body)
+        (assoc scope variants (map-set (get scope variants) name (VInfo sum fields)))))))
+
+(sig field-names (Fn ((List Form) (List String)) (List String)))
+(defn field-names (fields acc)
+  (if (= (len fields) 0)
+    acc
+    (field-names (rest-of fields) (+ acc (to-list (sym-name (first-item (at fields 0))))))))
 
 ;; The name in (deft Name ...) or (deft (Name a b) ...).
 (sig deft-name (Fn (Form) String))
@@ -366,7 +594,7 @@
 
 (sig analyse-program (Fn ((List Form) Any (Fn (String) (List Form))) (List Top)))
 (defn analyse-program (forms table parse)
-  (let ((scope (Scope empty-map (top-names forms empty-map) table parse)))
+  (let ((scope (find-variants forms (Scope empty-map (top-names forms empty-map) table parse empty-map empty-map))))
     (get (analyse-tops forms scope (Prog empty-list empty-map 0)) out)))
 
 (sig analyse-tops (Fn ((List Form) Scope Prog) Prog))
@@ -400,17 +628,38 @@
       (else (assoc prog sigs (map-set (get prog sigs) name (analyse-type (at items 2))))))))
 
 ;; (deft Name ((field Type)+)) or (deft (Name a b) ((field Type)+)): a record type.
+;; A sum, (deft Name variant+), lists its variants instead: (Circle ((r Double))) or (Leaf).
 (sig top-deft (Fn ((List Form) Prog) Prog))
 (defn top-deft (items prog)
-  (let ((name (deft-name (at items 1)))
-        (tvars (syms (rest-of (list-items (at items 1))) empty-list))
+  (let ((name (if (> (len items) 1) (deft-name (at items 1)) ""))
+        (tvars (if (> (len items) 1) (syms (rest-of (list-items (at items 1))) empty-list) empty-list))
+        (body (slice items 2 (len items)))
         (field-forms (if (= (len items) 3) (list-items (at items 2)) empty-list)))
     (cond
-      ((or (= name "") (= (len field-forms) 0))
-        (fail "deft: expected (deft Name ((field Type)+)); sum types are not supported by the Candy translator yet"))
-      ((not (is-list-form (at field-forms 0)))
-        (fail "deft: sum types are not supported by the Candy translator yet"))
+      ((= name "") (fail "deft: expected (deft Name ((field Type)+)) or (deft Name variant+)"))
+      ((is-sum-body body)
+        (add-top prog (TDeftSum name tvars (deft-variants body empty-list)) (get prog n)))
+      ((= (len field-forms) 0) (fail "deft: expected (deft Name ((field Type)+))"))
       (else (add-top prog (TDeft name tvars (deft-fields field-forms empty-list)) (get prog n))))))
+
+(sig deft-variants (Fn ((List Form) (List Variant)) (List Variant)))
+(defn deft-variants (body acc)
+  (if (= (len body) 0)
+    acc
+    (let ((v-items (list-items (at body 0)))
+          (name (sym-name (at v-items 0))))
+      (cond
+        ((not (is-upper name)) (fail (format "deft: variant names are Capitalised, not {name}")))
+        ((= (len v-items) 1) (deft-variants (rest-of body) (+ acc (to-list (Variant name empty-list)))))
+        ((and (= (len v-items) 2) (> (len (list-items (at v-items 1))) 0))
+          (deft-variants
+            (rest-of body)
+            (+ acc (to-list (Variant name (deft-fields (list-items (at v-items 1)) empty-list))))))
+        (else (fail "deft: variant must be (Name) or (Name ((field Type)+))"))))))
+
+(sig is-upper (Fn (String) Bool))
+(defn is-upper (name)
+  (and (> (len name) 0) (>= (slice name 0 1) "A") (<= (slice name 0 1) "Z")))
 
 (sig syms (Fn ((List Form) (List String)) (List String)))
 (defn syms (forms acc)

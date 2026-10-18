@@ -1,0 +1,52 @@
+;;; Slice 1c: deft sums and match (as tst/cdy/sums.cdy, for the Python translator).
+
+(deft Shape
+  (Circle ((r Double)))
+  (Rect ((w Double) (h Double)))
+  (Dot))
+
+(deft (Tree a)
+  (Leaf)
+  (Node ((left (Tree a)) (val a) (right (Tree a)))))
+
+(sig area (Fn (Shape) Double))
+(defn area (s)
+  (match s
+    ((Circle r) (* 3.0 r r))
+    ((Rect w h) (* w h))
+    ((Dot) 0.0)))
+
+(sig insert (Fn ((Tree Int) Int) (Tree Int)))
+(defn insert (t x)
+  (match t
+    ((Leaf) (Node Leaf x Leaf))
+    ((Node l v r)
+      (cond
+        ((< x v) (Node (insert l x) v r))
+        ((> x v) (Node l v (insert r x)))
+        (else t)))))
+
+(sig size (Fn ((Tree Int)) Int))
+(defn size (t)
+  (match t
+    ((Leaf) 0)
+    ((Node l _ r) (+ 1 (size l) (size r)))))
+
+(sig describe (Fn (Shape) String))
+(defn describe (s)
+  (format "{(match s ((Circle _) \"round\") (else \"other\"))}: {(area s)}"))
+
+(sig show-tree (Fn ((Tree Int)) Unit))
+(defn show-tree (t)
+  (match t
+    ((Leaf) nil)
+    ((Node l v r) (do (show-tree l) (put v) (show-tree r)))))
+
+(sig tree (Tree Int))
+(def tree (insert (insert (insert (insert Leaf 5) 2) 8) 1))
+
+(put (area (Circle 1.0)) (area (Rect 2.0 3.0)) (area Dot))
+(put (describe (Circle 2.0)) (describe Dot))
+(put (size tree))
+(show-tree tree)
+(put (match (insert Leaf 3) ((Node _ v _) v) (else -1)))
