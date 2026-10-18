@@ -116,8 +116,8 @@ Its `ignore` parser (whitespace and `;` comments) is in `doc/hl_rqmt/src/ignore_
 | `get`, `assoc` | `(get obj field)`, `(assoc obj field value ...)`, one or more field/value pairs | Generic field access for `deft` records (**decided**; the names are **proposed**). `assoc` returns a copy. |
 | `sig` | `(sig name Type)` | The type of the top-level `def` or `defn` named `name`, modelled on Carp's `register` and `sig`. Required, and anywhere before its definition (**decided**). After the iMVP, a `sig` with no definition in `system.cdy` (or a file it imports) declares a runtime built-in, like Carp's `register`. The type names are **decided**. See "Signature statement" under Types. |
 | `quote` | `(quote form)` | Returns `form` unevaluated. **Skipped for the iMVP** (**decided**): it mainly serves macros, and the iMVP has none. The translator rejects it, like `import`. The `'` shorthand will come later as a Clojure-style reader macro. |
-| `format` | `(format "text {form} ...")` | **Hacked in from smz for the iMVP** (**decided**): `(format "x: {x} sum: {(f1 x y)}")` becomes a Python f-string whose `{...}` holes contain Candy forms. See option A and `doc/leaks.md`. |
-| `tup` | `(tup expr*)` | Builds a tuple, typed `(Tup A B)` (**decided**), as in smz. Not a hack in itself; only its destructuring is a stopgap: a `let` binding can destructure one, `((x y) (mp a b))`, and nothing else can. See option A and `doc/leaks.md`. |
+| `format` | `(format "text {form} ...")` | **Hacked in from smz for the iMVP** (**decided**): `(format "x: {x} sum: {(f1 x y)}")` becomes a Python f-string whose `{...}` holes contain Candy forms. See option A and `doc/archive/leaks_imvp_py_translator.md`. |
+| `tup` | `(tup expr*)` | Builds a tuple, typed `(Tup A B)` (**decided**), as in smz. Not a hack in itself; only its destructuring is a stopgap: a `let` binding can destructure one, `((x y) (mp a b))`, and nothing else can. See option A and `doc/archive/leaks_imvp_py_translator.md`. |
 
 ## Types
 
@@ -181,7 +181,7 @@ every `sig` needs a definition.
   is an error, and so are two `sig`s for one name.
 - **`Any` is the escape hatch.** `(sig f (Fn (Any Any) Any))` turns checking off for `f`,
   and becomes Python's `typing.Any`. Use it where a type can't be written yet. Every use is
-  a leak (see `doc/leaks.md`).
+  a leak (see `doc/archive/leaks_imvp_py_translator.md`).
 
 **Type syntax (decided):** type names start with an uppercase letter, and type variables
 are lowercase (`a`, `b`), as in Carp. A compound type is a list headed by its name:
@@ -240,7 +240,7 @@ The iMVP uses only Candy's names. Each backend maps them to its own types (see
   is what `empty-list` (`[]`) gives today. Option two is `tuple[A, ...]`, which is immutable
   and fits the rest of the iMVP: records are `NamedTuple`s, and `assoc` copies.
   **Decided: `tuple[A, ...]`**, so `empty-list` changes from `[]` to `()` in `table.py`
-  (listed in `TODOS.md` with the table review).
+  (listed in `doc/archive/TODOS_imvp_py_translator.md` with the table review).
 
   **At the Candy level, `List` is one kind of abstract `Collection` (decided direction).**
   `Collection` is an interface, not a concrete type. The collection operations (`len`,
@@ -394,7 +394,7 @@ setuptools' strict mode, which links only `cdy_rt` into `build/` instead of putt
 marks the package as typed for mypy and pyright. The compiler
 imports `cdy_rt.table`, and nothing in `cdy_rt` imports the compiler. Pinning a bootstrap
 release then means tagging or copying only `cdy_rt/`. This replaces smz's copy scripts
-(`cp_py_smz_out`, `update_py_deps`). The drafts are still awaiting the owner's review; see `TODOS.md`.
+(`cp_py_smz_out`, `update_py_deps`). The owner accepted the drafts for now; see `doc/archive/TODOS_imvp_py_translator.md`.
 
 How smz's table works:
 
@@ -872,7 +872,7 @@ exactly one string literal. The translator finds each `{...}` hole with a regex,
 text inside with the parser's `form`, and translates it in `value` mode. The result is
 `ast.JoinedStr`, with an `ast.FormattedValue` for each hole: `f'x: {x} sum: {x + y}'`. A hole
 that needs statements puts them before the f-string, like any call argument. `{{` and `}}`
-are literal braces. The shortcuts are listed in `doc/leaks.md`.
+are literal braces. The shortcuts are listed in `doc/archive/leaks_imvp_py_translator.md`.
 
 **`tup` (decided, as in smz).** `(tup a b)` becomes `ast.Tuple`, `(a, b)`, typed
 `(Tup A B)`. Building a tuple is an ordinary form, not a hack. The stopgap is
@@ -880,7 +880,7 @@ destructuring: in a `let`, a binding whose name is a list destructures, and `ana
 rewrites `((x y) e)` into a fresh binding `t` for `e`, then `(x (at t 0))` and
 `(y (at t 1))`. Core therefore needs no pattern node, and `let` stays an applied lambda.
 Destructuring works only in `let`; real patterns come later with `match`. See
-`doc/leaks.md`.
+`doc/archive/leaks_imvp_py_translator.md`.
 
 **Definitions only at top level (decided for `def` and `deft`).** `def` and `deft` inside
 a function are errors. Use `let` for a local value. Where to catch it (**proposed**):
@@ -953,7 +953,7 @@ same Python name.
 **Error positions (skipped for the iMVP, decided).** The parser's AST nodes don't record
 where they came from, so a translation error can't name a line. Parse errors do have a line
 and column (from parsec). Adding source offsets to `SExpr` nodes would fix the rest later;
-see `doc/leaks.md`.
+see `doc/archive/leaks_imvp_py_translator.md`.
 
 ### Worked comparison with smz (option B)
 
@@ -996,7 +996,7 @@ call.
 - **Checks:** `pyproject.toml` sets line length 100 for ruff and pylint and turns on
   `mypy --strict`. mypy, pyright, ruff, pylint and pytest are installed.
 - **Tests:** pytest tests go in `tst/py_cdy/`, and Candy-language tests in `tst/cdy/`.
-  Adding pytest tests is in `TODOS.md`.
+  Adding pytest tests is in `doc/archive/TODOS_imvp_py_translator.md`.
 
 ## Open items (summary)
 
@@ -1013,7 +1013,7 @@ details.
    Types.
 2. ~~**`format` and `tup`**~~ (**decided**, as in smz). `format` is a hack; `tup` is an
    ordinary form whose `let`-only destructuring is the stopgap. Both are in
-   `doc/leaks.md`.
+   `doc/archive/leaks_imvp_py_translator.md`.
 3. **`deft`:** the form as a whole is still **proposed**: `(deft Vector2 ((x Int) (y
    Int)))`, a `NamedTuple`, with the type name as constructor. Generic field access is
    decided, but the names `get` and `assoc` are proposed. Generics use lowercase type
@@ -1060,7 +1060,7 @@ other targets, integer sizes and float precision (`doc/hl_rqmt/multi_target.md`)
    `test_emit_py.py` runs a program and checks its Python with `mypy --strict`.
 6. In progress: grow toward self-hosting. Write Candy programs that use more of the runtime
    (strings, files, the table) and fix what breaks; record each shortcut in
-   `doc/leaks.md`. So far:
+   `doc/archive/leaks_imvp_py_translator.md`. So far:
    - **Golden tests:** `tst/py_cdy/test_cdy_programs.py` translates each `tst/cdy/NAME.cdy`,
      runs it from the repo root, compares stdout with `NAME.out`, and checks the generated
      Python with `mypy --strict`.
@@ -1081,5 +1081,7 @@ other targets, integer sizes and float precision (`doc/hl_rqmt/multi_target.md`)
      `Loop`, `Rebind`, `Continue`. A function that makes a closure (`fn`) is left alone,
      because Python closures bind late and would see the loop's later values.
      Non-tail recursion (`(+ 1 (f ...))`) and mutual recursion still use the Python stack.
-   - Next: a Candy version of more of the translator (for example `analyse` for a few
-     forms), which needs some way to tell forms apart (see the `Any` leak).
+   - Next (branch `pre-self-host`): sum types and `match`, drafted in
+     `doc/hl_rqmt/sum_types.md`; then a Candy version of more of the translator (for
+     example `analyse` for a few forms), which needs sum types to tell forms apart (see the
+     `Any` leak).
