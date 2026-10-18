@@ -7,7 +7,9 @@ too: that type-checks the Candy translator's own code.
 
 The fixpoint (``doc/hl_rqmt/self_hosting_primo.md``, stage 2): T1 translates the Candy
 translator's source into T2. T2 must pass ``mypy --strict``, translate that source into the
-very same text (T3 = T2), and translate every test program exactly as T1 does.
+very same text (T3 = T2), and translate every test program exactly as T1 does. The
+checked-in translator ``bin/py/cdy_translator.py`` must be that same T2: after changing the
+Candy translator, rebuild it with ``python src/py_cdy/self_host.py``.
 """
 
 import re
@@ -20,7 +22,7 @@ import pytest
 from mypy import api as mypy_api
 
 from cdy_rt.table_defs import CandyFail
-from self_host import build_t1, load, translate_with, translator_source
+from self_host import BIN_PATH, build_t1, load, translate_with, translator_source
 from translate_cdy import translate
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -170,3 +172,9 @@ def test_fixpoint_t2_reproduces_itself(t2: tuple[Path, str]) -> None:
 def test_fixpoint_t1_and_t2_agree(program: Path, t1: ModuleType, t2: tuple[Path, str]) -> None:
     text = program.read_text(encoding="utf-8")
     assert translate_with(load(t2[0]), text) == translate_with(t1, text)
+
+
+def test_bin_is_t2(t2: tuple[Path, str]) -> None:
+    assert BIN_PATH.read_text(encoding="utf-8") == t2[1], (
+        "bin/py/cdy_translator.py is stale: run python src/py_cdy/self_host.py"
+    )

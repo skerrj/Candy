@@ -9,6 +9,11 @@ parser itself, as a function, since ``format`` parses the forms in its holes.
 
 Candy has no ``import`` yet, so the translator's files are joined into one program (a
 stopgap, listed in ``doc/leaks.md``).
+
+The checked-in translator ``bin/py/cdy_translator.py`` is T2, T1's translation of the
+translator's own source (the fixpoint: it translates that source into itself). Running this
+file rebuilds it: ``python src/py_cdy/self_host.py``. ``translate_bin`` translates with it,
+so Candy runs without the Python translator (the parser is still borrowed).
 """
 
 import importlib.util
@@ -36,10 +41,12 @@ from parse_cdy import (
 )
 from translate_cdy import translate
 
-CDY_DIR = Path(__file__).resolve().parents[1] / "cdy"
+ROOT = Path(__file__).resolve().parents[2]
+CDY_DIR = ROOT / "src" / "cdy"
 TRANSLATOR_FILES = ("form", "core", "lower", "emit")
 T1_DIR = Path("output") / "t1"
 T1_MODULE = "cdy_translator"
+BIN_PATH = ROOT / "bin" / "py" / f"{T1_MODULE}.py"
 
 # The translator recurses once per item of each list it walks (only self tail calls loop).
 RECURSION_LIMIT = 20_000
@@ -114,3 +121,18 @@ def translate_with(t1: ModuleType, text: str) -> str:
 def translate_t1(text: str) -> str:
     """The Candy program ``text`` as Python source, translated by a freshly built T1."""
     return translate_with(load(build_t1()), text)
+
+
+def build_bin(path: Path = BIN_PATH) -> Path:
+    """Rebuild the checked-in translator: T1's translation of the translator's source."""
+    path.write_text(translate_with(load(build_t1()), translator_source()), encoding="utf-8")
+    return path
+
+
+def translate_bin(text: str) -> str:
+    """The Candy program ``text`` as Python source, translated by the checked-in translator."""
+    return translate_with(load(BIN_PATH), text)
+
+
+if __name__ == "__main__":
+    print(f"wrote {build_bin()}")

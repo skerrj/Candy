@@ -154,6 +154,6 @@ fixed-size numbers can't.
 
 `bin/` was git-ignored to leave room for per-target build outputs. It is tracked again from
 branch `pre-self-host`, so that a self-hosted translator can be checked in as `bin/py/`
-(see `doc/hl_rqmt/self_hosting_primo.md`). Open: how other targets' outputs fit next to it
+(see `doc/hl_rqmt/self_hosting_primo.md`). It is: `bin/py/cdy_translator.py`. Open: how other targets' outputs fit next to it
 (checked-in bootstrap translators in `bin/<target>/`, with throwaway build output under
 `output/<target>/`?).

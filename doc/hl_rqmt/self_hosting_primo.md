@@ -43,16 +43,10 @@ Candy text ─▶ parse_cdy (Python, parsec v4) ─▶ convert ─▶ translator
 2. **The fixpoint** (**reached** in slice 1d; see "Stage 2 as built" below). T1
    translates the Candy translator's own source, giving T2. Then T1 and
    T2 must produce the same output for the translator's source and for every
-   `tst/cdy/*.cdy` program. This becomes a test, as it was for smz. Two comparisons are
-   possible, and both are done (open question 4, decided):
-   - **What they produce: byte-identical**. T1 and T2 run the same Candy code,
-     the same `emit`, compiled two ways, so on the same input they must print exactly the
-     same text. Formatting can't differ here, and any difference is a real bug.
-   - **The files T1 and T2 themselves: equal up to formatting** (the owner's vote). T1 was
-     written by the Python translator (`ast.unparse`) and T2 by the Candy translator's own
-     text emitter, so their layout differs even when they mean the same thing. Compare
-     them by parsing both with Python's `ast` and comparing `ast.dump`, which ignores
-     layout, comments and parentheses.
+   `tst/cdy/*.cdy` program. This becomes a test, as it was for smz. They run the same
+   Candy code, the same `emit`, compiled two ways, so on the same input they must print
+   exactly the same text; any difference is a real bug. (Comparing the files T1 and T2
+   themselves up to formatting was planned too, then dropped: see open question 4.)
 3. **The parser in Candy.** It replaces `parse_cdy` and the conversion step. It needs a
    closure story (typed nested `fn`s, or a hand-written recursive-descent reader in the
    style of `tst/cdy/read_sexpr.cdy`, which needs no closures), more of the runtime, and
@@ -125,13 +119,20 @@ grows slice by slice, until it can translate its own source (stage 2).
 - **T1 and T2 agree on every test program**, byte for byte (`tst/cdy/t1/*.cdy` and
   `tst/cdy/*.cdy`), and T1's output runs and prints the expected `.out`.
 
-**Not done: comparing the files T1 and T2 up to formatting (`ast.dump`)** (open question
-4). Only 55 of their 146 functions have the same AST, and that is expected: T1 comes from
-the Python translator's emitter and T2 from the Candy one, and they differ on purpose
-(f-strings against concatenation, conditional-expression merging, local renaming). Making
-them equal would mean making the two emitters identical, which is not the point of the
-fixpoint. **Proposed:** drop this check in favour of the three above, which already show
-that T1 and T2 behave the same. Waiting for the owner.
+**Dropped: comparing the files T1 and T2 up to formatting (`ast.dump`)** (open question
+4, decided by the owner). Only 55 of their 146 functions have the same AST, and that is
+expected: T1 comes from the Python translator's emitter and T2 from the Candy one, and they
+differ on purpose (f-strings against concatenation, conditional-expression merging, local
+renaming). Making them equal would mean making the two emitters identical, which is not the
+point of the fixpoint. The three checks above already show that T1 and T2 behave the same.
+
+**The checked-in translator** (open question 2): `bin/py/cdy_translator.py` is T2. A test
+checks that it is still T2 (byte for byte), so it can't go stale silently: after changing
+the Candy translator, rebuild it with `python src/py_cdy/self_host.py`. It is used with
+`main.py FILE.cdy --translator bin`, which needs neither the Python translator nor T1, only
+the borrowed parser and `cdy_rt`. Rebuilding it still goes through T1 (so through the
+Python translator); rebuilding it with itself, as smz did, comes once the Python
+translator is retired.
 
 **Decisions for the Candy translator** (proposed with slice 1a and built that way;
 simplest first):
@@ -204,14 +205,15 @@ These come up in stage 1 and go into the leaks list, or get fixed, as they appea
    `output/` (for example `output/t1/` and `output/t2/`), which is git-ignored, and rebuilt
    whenever they are needed. `bin/` is no longer git-ignored (decided): once the
    translator reaches the fixpoint, a checked-in copy goes in `bin/py/`, as smz had, so
-   Candy can be rebuilt without the Python translator. Other targets get their own
+   Candy can be rebuilt without the Python translator. **Done** (`bin/py/cdy_translator.py`,
+   see "Stage 2 as built"). Other targets get their own
    `bin/<target>/` later (`doc/hl_rqmt/multi_target.md`).
 3. ~~**Driver**~~ (**decided, for now**): a mode of `src/py_cdy/main.py`, not a separate
-   script. The flag name is still to choose (for example `--translator t1`, where the
-   default is the Python translator).
-4. ~~**Fixpoint scope**~~ (**decided**, but see "Stage 2 as built": dropping the
-   `ast.dump` file comparison is proposed): both checks in stage
-   2. The files T1 and T2 are compared up to formatting (`ast.dump`), as the owner voted,
-   because they come from two different emitters. Their output is compared byte for byte,
-   because it comes from the same emitter, so this costs nothing and catches more. (In the
-   usual three-stage bootstrap, T3 = T2(source) would also be byte-identical to T2.)
+   script. As built: `--translator py|t1|bin`, where `py` (the Python translator) is the
+   default.
+4. ~~**Fixpoint scope**~~ (**decided**, then revised): their output is compared byte for
+   byte, because it comes from the same emitter, and T3 = T2(source) must be
+   byte-identical to T2, as in the usual three-stage bootstrap. Comparing the files T1 and
+   T2 up to formatting (`ast.dump`) was the owner's first vote; it was **dropped** once
+   the fixpoint was reached, since the two emitters differ on purpose (see "Stage 2 as
+   built").

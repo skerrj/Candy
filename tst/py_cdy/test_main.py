@@ -52,3 +52,12 @@ def test_main_translator_t1(
     Path("bad.cdy").write_text("(put nope)\n", encoding="utf-8")
     assert main(["bad.cdy", "--translator", "t1"]) == 1
     assert "unknown name nope" in capfd.readouterr().err
+
+
+def test_main_translator_bin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    Path("p.cdy").write_text('(put "via bin")\n', encoding="utf-8")
+    assert main(["p.cdy", "--run", "--translator", "bin"]) == 0
+    assert capfd.readouterr().out == "via bin\n"

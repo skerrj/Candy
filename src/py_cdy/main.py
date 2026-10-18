@@ -1,9 +1,10 @@
-"""Command-line entry point: ``python src/py_cdy/main.py FILE.cdy [--run] [--translator t1]``.
+"""Command-line entry point: ``python src/py_cdy/main.py FILE.cdy [--run] [--translator T]``.
 
 Modelled on schmuz's ``src/py_smz/main.py``: like its ``run_2_out``, it translates a Candy
 file to ``output/<name>.py``; with ``--run`` it then runs that file, like ``run_as_main``.
-With ``--translator t1`` the self-hosted translator (``self_host.py``) does the translating
-instead of the Python one.
+With ``--translator t1`` the self-hosted translator (``self_host.py``), freshly built, does
+the translating instead of the Python one; with ``--translator bin``, its checked-in copy
+``bin/py/cdy_translator.py`` does.
 """
 
 import subprocess
@@ -15,12 +16,12 @@ from parsec import ParseFailure
 from cdy_rt.table_defs import CandyFail
 from core_cdy import CandyError
 from reader import slurp
-from self_host import translate_t1
+from self_host import translate_bin, translate_t1
 from translate_cdy import translate
 
 OUTPUT_DIR = Path("output")
-USAGE = "usage: main.py FILE.cdy [--run] [--translator py|t1]"
-TRANSLATORS = {"py": translate, "t1": translate_t1}
+USAGE = "usage: main.py FILE.cdy [--run] [--translator py|t1|bin]"
+TRANSLATORS = {"py": translate, "t1": translate_t1, "bin": translate_bin}
 
 
 def out_path(name: str) -> Path:
