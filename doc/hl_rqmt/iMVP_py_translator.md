@@ -1058,6 +1058,28 @@ other targets, integer sizes and float precision (`doc/hl_rqmt/multi_target.md`)
 5. ~~Wire up reader → parser → translator → `output/`, run mypy on the generated Python, and
    run a first Candy program end to end.~~ Done: `main.py FILE.cdy --run`, and
    `test_emit_py.py` runs a program and checks its Python with `mypy --strict`.
-6. Next: grow toward self-hosting. Write Candy programs that use more of the runtime
+6. In progress: grow toward self-hosting. Write Candy programs that use more of the runtime
    (strings, files, the table) and fix what breaks; record each shortcut in
-   `doc/leaks.md`.
+   `doc/leaks.md`. So far:
+   - **Golden tests:** `tst/py_cdy/test_cdy_programs.py` translates each `tst/cdy/NAME.cdy`,
+     runs it from the repo root, compares stdout with `NAME.out`, and checks the generated
+     Python with `mypy --strict`.
+   - **`tst/cdy/read_sexpr.cdy`:** an S-expression reader written in Candy (symbols,
+     integers, strings, lists, `;` comments), in smz's `(text pos acc)` style. It reads a
+     sample, then its own source via `slurp`, and agrees with the Python parser on the form
+     count.
+   - **Fixes it needed:** `to_list` returns a tuple (a `List` is a tuple); `at` and `slice`
+     have new table kinds, `index` and `slice`, emitted as `coll[i]` and `coll[i:j]`, so
+     mypy keeps the element type (`str` stays `str`) instead of the helpers' `object`/
+     `Sequence`.
+   - **Self tail calls become loops** (`tst/cdy/loops.cdy`). Candy loops by recursion and
+     Python has no tail calls, so a reader that recurses once per character would hit
+     Python's recursion limit of about 1000. After lowering, `loop_tail_calls` turns a
+     top-level `defn` whose tail position calls itself into `while True:`. The call becomes
+     a simultaneous `Rebind` of the parameters (`n, a, b = n - 1, b, a + b`) and then
+     `Continue`. A `Unit` function's loop ends with `return None`. New IR statements:
+     `Loop`, `Rebind`, `Continue`. A function that makes a closure (`fn`) is left alone,
+     because Python closures bind late and would see the loop's later values.
+     Non-tail recursion (`(+ 1 (f ...))`) and mutual recursion still use the Python stack.
+   - Next: a Candy version of more of the translator (for example `analyse` for a few
+     forms), which needs some way to tell forms apart (see the `Any` leak).

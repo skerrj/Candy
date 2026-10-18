@@ -35,6 +35,7 @@ from lower_cdy import (
     CallE,
     CondE,
     Const,
+    Continue,
     ExprStmt,
     FormatE,
     FuncDef,
@@ -42,7 +43,9 @@ from lower_cdy import (
     IfStmt,
     IrExpr,
     LambdaE,
+    Loop,
     Op,
+    Rebind,
     RecordDef,
     Return,
     Stmt,
@@ -145,6 +148,8 @@ def bound_locals(stmts: Stmts) -> tuple[Local, ...]:
                 out.append(local)
             case IfStmt(_, then, other):
                 out.extend(local for local in bound_locals((*then, *other)) if local not in out)
+            case Loop(body):
+                out.extend(local for local in bound_locals(body) if local not in out)
             case _:
                 pass
     return tuple(out)
@@ -304,7 +309,7 @@ def emit_lambda(params: tuple[Local, ...], body: IrExpr, env: Env) -> ast.expr:
 def emit_prim(name: str, env: Env) -> ast.expr:
     """A built-in used as a value: its Python name or expression."""
     entry = env.table[name]
-    if entry.kind in ("call", "value"):
+    if entry.kind in ("call", "value", "index", "slice"):
         return py_expr(entry.py)
     raise CandyError(f"the operator {name} can't be used as a value yet; wrap it in a fn")
 
@@ -325,6 +330,10 @@ def emit_op(prim: str, args: list[ast.expr], env: Env) -> ast.expr:
             return ast.BoolOp(BOOLOPS[entry.py](), args)
         case "unary":
             return ast.UnaryOp(UNARYOPS[entry.py](), args[0])
+        case "index":
+            return ast.Subscript(args[0], args[1], ast.Load())
+        case "slice":
+            return ast.Subscript(args[0], ast.Slice(args[1], args[2]), ast.Load())
     raise CandyError(f"{prim} is not an operator")
 
 
@@ -365,6 +374,15 @@ def emit_stmt(stmt: Stmt, env: Env) -> ast.stmt:
             return emit_funcdef(name, stmt.params, stmt.body, stmt.sig, env)
         case RecordDef():
             return emit_record(stmt, env)
+        case Loop(body):
+            return ast.While(ast.Constant(True), emit_stmts(body, env), [])
+        case Rebind(targets, values):
+            if len(targets) == 1:
+                return ast.Assign([store(name_of(targets[0], env))], emit_expr(values[0], env))
+            lhs = ast.Tuple([store(name_of(t, env)) for t in targets], ast.Store())
+            return ast.Assign([lhs], ast.Tuple([emit_expr(v, env) for v in values], ast.Load()))
+        case Continue():
+            return ast.Continue()
 
 
 def emit_record(record: RecordDef, env: Env) -> ast.stmt:

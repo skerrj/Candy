@@ -51,9 +51,9 @@ def is_lit(expr: object) -> bool:
     return not is_coll(expr)
 
 
-def to_list[T](val: T) -> list[T]:
-    """A one-item list holding ``val``."""
-    return [val]
+def to_list[T](val: T) -> tuple[T, ...]:
+    """A one-item list holding ``val`` (a Candy ``List`` is a Python tuple)."""
+    return (val,)
 
 
 def in_(item: object, coll: Sequence[object]) -> bool:

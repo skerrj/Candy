@@ -36,7 +36,9 @@ SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 #   unary    - prefix operator, ``not a``
 #   call     - a function call, ``py(args...)``
 #   value    - a Python expression, used as is (``math.pi``, ``None``)
-Kind = Literal["special", "binop", "compare", "boolop", "unary", "call", "value"]
+#   index    - indexing, ``coll[i]`` (``py`` is the runtime helper, for use as a value)
+#   slice    - slicing, ``coll[i:j]``, so a ``String`` slice stays a ``str`` (likewise)
+Kind = Literal["special", "binop", "compare", "boolop", "unary", "call", "value", "index", "slice"]
 
 
 class TableEntry(NamedTuple):
@@ -135,8 +137,10 @@ RE: Table = {
 COLLECTION: Table = {
     "len": call("len", 1),
     "empty-list": value("()"),
-    "at": runtime("at", 2),
-    "slice": runtime("slice_", 3),
+    # Rendered as ``coll[i]``, which mypy types precisely (``t[0]`` of a ``tuple[str, int]``
+    # is a ``str``); ``table_defs.at`` would type it as the join of the element types.
+    "at": TableEntry(f"{RUNTIME_MODULE}.at", "index", 2),
+    "slice": TableEntry(f"{RUNTIME_MODULE}.slice_", "slice", 3),
     "join": runtime("join", 2),
     "is-coll": runtime("is_coll", 1),
     "to-list": runtime("to_list", 1),

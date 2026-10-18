@@ -10,6 +10,9 @@ value, in one of three modes:
 - ``tail``: the last form of a function body, which ``return``s its value;
 - ``effect``: the value is thrown away (top-level forms, all but the last form of a ``do``).
 
+A top-level function that calls itself in tail position becomes a loop (``loop_tail_calls``),
+since Python has no tail calls and Candy loops by recursion.
+
 Temporaries (``Temp``) appear only where Candy nests a statement inside an expression, and
 keep the evaluation order. ``let``, which arrives from Core as applied ``Fn``s, becomes plain
 assignments again. Names are still Core bindings (``Local`` ids, ``Global``, ``Prim``);
@@ -81,7 +84,7 @@ class CallE(NamedTuple):
 
 
 class Op(NamedTuple):
-    """A built-in operator (``binop``, ``compare``, ``boolop`` or ``unary`` table entry)."""
+    """A built-in operator (``binop``, ``compare``, ``boolop``, ``unary`` or ``index`` entry)."""
 
     prim: str
     args: tuple[IrExpr, ...]
@@ -180,10 +183,27 @@ class RecordDef(NamedTuple):
     fields: tuple[tuple[str, CdyType], ...]
 
 
-Stmt = Assign | ExprStmt | Return | IfStmt | FuncDef | RecordDef
+class Loop(NamedTuple):
+    """Run ``body`` over and over; it leaves by ``Return`` (``while True:`` in Python)."""
+
+    body: tuple[Stmt, ...]
+
+
+class Rebind(NamedTuple):
+    """Assign ``values`` to ``targets`` all at once (``a, b = b, a`` in Python)."""
+
+    targets: tuple[Local, ...]
+    values: tuple[IrExpr, ...]
+
+
+class Continue(NamedTuple):
+    """Start the enclosing ``Loop``'s body again."""
+
+
+Stmt = Assign | ExprStmt | Return | IfStmt | FuncDef | RecordDef | Loop | Rebind | Continue
 Stmts = tuple[Stmt, ...]
 
-OPERATOR_KINDS = frozenset({"binop", "compare", "boolop", "unary"})
+OPERATOR_KINDS = frozenset({"binop", "compare", "boolop", "unary", "index", "slice"})
 
 
 class Ctx(NamedTuple):
@@ -422,6 +442,86 @@ def effect_all(exprs: Sequence[Expr], ctx: Ctx, n: int) -> tuple[Stmts, int]:
     return out, n
 
 
+# --- self tail calls ---
+
+
+def self_call(expr: IrExpr, name: Global, arity: int) -> tuple[IrExpr, ...] | None:
+    """The arguments, if ``expr`` is a call of the function ``name`` itself."""
+    match expr:
+        case CallE(Global() as fn, args) if fn == name and len(args) == arity:
+            return args
+        case _:
+            return None
+
+
+def has_self_tail_call(expr: IrExpr, name: Global, arity: int) -> bool:
+    """Whether ``expr``, a returned value, has a self call in tail position."""
+    match expr:
+        case CondE(_, then, other):
+            return has_self_tail_call(then, name, arity) or has_self_tail_call(other, name, arity)
+        case _:
+            return self_call(expr, name, arity) is not None
+
+
+def has_closure(node: object) -> bool:
+    """Whether ``node`` (an IR statement, expression, or tuple of them) makes a function."""
+    if isinstance(node, LambdaE | FuncDef):
+        return True
+    if isinstance(node, tuple):
+        return any(has_closure(item) for item in node)  # NamedTuples are tuples too
+    return False
+
+
+def jump(params: tuple[Local, ...], args: tuple[IrExpr, ...]) -> Stmts:
+    """Instead of calling the function again: new values for its parameters, then go round."""
+    pairs = tuple((p, a) for p, a in zip(params, args, strict=True) if p != a)
+    if not pairs:
+        return (Continue(),)
+    return Rebind(tuple(p for p, _ in pairs), tuple(a for _, a in pairs)), Continue()
+
+
+def retail(stmt: Stmt, name: Global, params: tuple[Local, ...]) -> Stmts:
+    """``stmt`` with its tail-position self calls replaced by jumps."""
+    arity = len(params)
+    match stmt:
+        case Return(CondE(test, then, other)) if has_self_tail_call(stmt.value, name, arity):
+            then_s = retail(Return(then), name, params)
+            other_s = retail(Return(other), name, params)
+            return (IfStmt(test, then_s, other_s),)
+        case Return(result) | ExprStmt(result) if self_call(result, name, arity) is not None:
+            args = self_call(result, name, arity)
+            assert args is not None
+            return jump(params, args)
+        case IfStmt(test, then, other):
+            return (IfStmt(test, retail_all(then, name, params), retail_all(other, name, params)),)
+        case _:
+            return (stmt,)
+
+
+def retail_all(stmts: Stmts, name: Global, params: tuple[Local, ...]) -> Stmts:
+    """``stmts`` with the last one's tail-position self calls replaced by jumps."""
+    if not stmts:
+        return ()
+    return (*stmts[:-1], *retail(stmts[-1], name, params))
+
+
+def loop_tail_calls(func: FuncDef, unit: bool) -> FuncDef:
+    """``func`` as a loop, if it calls itself in tail position.
+
+    A function that makes a closure is left alone: the closure would see the loop's later
+    values of the parameters and locals, not the ones it was made with. A ``Unit`` function
+    (lowered in effect mode) can fall off the end of its body, so its loop ends with a
+    ``Return``.
+    """
+    if not isinstance(func.name, Global) or has_closure(func.body):
+        return func
+    body = retail_all(func.body, func.name, func.params)
+    if body == func.body:
+        return func
+    end: Stmts = (Return(Const(None, "Unit")),) if unit else ()
+    return func._replace(body=(Loop((*body, *end)),))
+
+
 # --- top level ---
 
 
@@ -443,7 +543,8 @@ def lower_program(
                     body_stmts, n = effect(body, ctx, n)
                 else:
                     body_stmts, n = tail(body, ctx, n)
-                out += (FuncDef(Global(name), params, body_stmts, sig),)
+                func = FuncDef(Global(name), params, body_stmts, sig)
+                out += (loop_tail_calls(func, sig.ret == TCon("Unit")),)
             case Deft(name, tvars, fields):
                 out += (RecordDef(name, tvars, fields),)
             case _:

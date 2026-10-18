@@ -24,7 +24,7 @@ def test_collections() -> None:
     assert join(("a", "b"), ", ") == "a, b"
     assert is_coll((1,)) and is_coll([1]) and not is_coll("ab")
     assert is_lit(3) and not is_lit(())
-    assert to_list(5) == [5]
+    assert to_list(5) == (5,)
     assert in_(2, (1, 2)) and in_("b", "abc")
 
 

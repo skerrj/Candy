@@ -14,6 +14,7 @@ from lower_cdy import (
     Caps,
     CondE,
     Const,
+    Continue,
     Ctx,
     ExprStmt,
     FormatE,
@@ -22,7 +23,9 @@ from lower_cdy import (
     IfStmt,
     IrExpr,
     LambdaE,
+    Loop,
     Op,
+    Rebind,
     RecordDef,
     Return,
     Stmts,
@@ -199,3 +202,45 @@ def test_program() -> None:
         Assign(Global("ten"), CallE(Global("sq"), (c(10),)), int_t),
         ExprStmt(CallE(PUT, (Global("ten"),))),
     )
+
+
+def lowered(src: str) -> Stmts:
+    """A whole program lowered."""
+    return lower_program(analyse_program(parse(program, src)))
+
+
+def test_self_tail_call_becomes_loop() -> None:
+    n, acc = Local("n", 0), Local("acc", 1)
+    (func,) = lowered(
+        """
+        (sig f (Fn (Int Int) Int))
+        (defn f (n acc) (if (= n 0) acc (f (- n 1) acc)))
+        """
+    )
+    assert isinstance(func, FuncDef)
+    assert func.body == (
+        Loop(
+            (
+                IfStmt(
+                    Op("=", (n, c(0))),
+                    (Return(acc),),
+                    (Rebind((n,), (Op("-", (n, c(1))),)), Continue()),
+                ),
+            )
+        ),
+    )
+
+
+def test_unit_loop_ends_with_return() -> None:
+    (func,) = lowered("(sig f (Fn (Int) Unit)) (defn f (n) (if (> n 0) (f (- n 1))))")
+    assert isinstance(func, FuncDef) and isinstance(func.body[0], Loop)
+    assert func.body[0].body[-1] == Return(Const(None, "Unit"))
+
+
+def test_no_loop_without_a_tail_call_or_with_a_closure() -> None:
+    (plain,) = lowered("(sig f (Fn (Int) Int)) (defn f (n) (if (= n 0) 0 (+ 1 (f (- n 1)))))")
+    assert isinstance(plain, FuncDef) and not isinstance(plain.body[0], Loop)
+    (closure,) = lowered(
+        "(sig f (Fn (Int) Any)) (defn f (n) (if (= n 0) (fn (x) (+ x n)) (f (- n 1))))"
+    )
+    assert isinstance(closure, FuncDef) and not isinstance(closure.body[0], Loop)

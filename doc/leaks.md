@@ -97,6 +97,15 @@ stopgap is destructuring. A `let` binding can destructure a tuple:
   tuples and lists all pass. Candy has no way to declare the interface itself yet.
 - **`print` for `put` and `display`.** Output formatting is Python's, as for `format`.
 
+- **Forms are `Any`.** Candy has no sum types yet, so a program that handles S-expressions
+  (`tst/cdy/read_sexpr.cdy`) types a form as `Any`, and tells a symbol from a number or a
+  list only through Python's runtime types (`str`, `int`, `tuple`). Python's `str`
+  comparison also lets a `Char` (`(at text pos)`) be compared with a one-character
+  `String`.
+- **Only self tail calls are loops.** Recursion that isn't a self tail call (mutual
+  recursion, `(+ 1 (f ...))`, or any recursion in a function that makes a `fn`) uses the
+  Python stack, so about 1000 levels deep it fails with `RecursionError`.
+
 ## Translator shortcuts
 
 - **Name mangling can collide.** `a-b` and `a_b` both become `a_b`. The translator reports
@@ -108,6 +117,9 @@ stopgap is destructuring. A `let` binding can destructure a tuple:
 - **Using a `Unit` value.** `(put (put 1))` translates, but the Python uses the result of a
   `None`-returning call, which mypy rejects. Candy's own type checker should reject it
   first.
+- **`at` and `slice` are emitted as subscripts** (`coll[i]`, `coll[i:j]`) rather than calls
+  to their `table_defs` helpers, so mypy keeps the element type. Their behaviour, such as
+  negative indexes and out-of-range slices, is Python's.
 - **Every runtime module is imported**, whether the program uses it or not.
 - **The destructuring temporary is named `_tup`**, a plain local; it is renamed like any
   other local if the name is taken.
