@@ -195,6 +195,12 @@ learned them (two rebuilds, as with `import`). Moving `cond` out of `core.cdy` c
    the Candy translator yet" until steps 2 and 3.
 2. **`quo` and `quasi`** in `analyse`, usable in macro code; tests that they build the
    right forms.
+   *Done:* `an-quo` and `an-quasi` in `core.cdy` build `Form`s with `Form`'s constructors
+   (`Sym`, `Lst`, the literals), all at `NOWHERE`; `unq-sp` joins a list's parts with `+`.
+   Until step 3 limits them to macro code, they need the program to have `Form` (from
+   `form.cdy`): `quo: only in macro code (it needs Form, from form.cdy)` otherwise. A
+   `quasi` inside a `quasi` is an error for now. Tests: `tst/cdy/cdyc/quoting.cdy`
+   (imports `form.cdy`, writes the forms back as text) and `test_quoting_errors`.
 3. **`defmacro` and expansion**, with `defmacro` bodies limited to built-ins and `Form`
    helpers; `gensym` and `__` rejected by the reader; binding a macro's name an error;
    position stamping. Tests: `when`/`unless`, argument count errors, an

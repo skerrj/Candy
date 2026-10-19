@@ -1,0 +1,33 @@
+;; quo and quasi build Form values (doc/hl_rqmt/macros.md, step 2). They need Form, from
+;; the translator's form.cdy, as macro code will have it.
+(import ../../../src/cdy/form)
+
+;; A form written back as text.
+(sig show (Fn (Form) String))
+(defn show (form)
+  (match form
+    ((Sym name _) name)
+    ((Lst items _) (format "({(join (show-all items empty-list) \" \")})"))
+    ((Txt val) (py-repr val))
+    ((IntLit val) (format "{val}"))
+    ((LongLit val) (format "{val}l"))
+    ((ByteLit val) (format "{val}b"))
+    ((FloatLit val) (format "{val}f"))
+    ((DoubleLit val) (format "{val}"))
+    ((CharLit val) (format "\\{val}"))
+    ((BoolLit val) (if val "true" "false"))))
+
+(sig show-all (Fn ((List Form) (List String)) (List String)))
+(defn show-all (forms acc)
+  (if (= (len forms) 0) acc (show-all (rest-of forms) (+ acc (to-list (show (at forms 0)))))))
+
+(put (show (quo (if (< x 1) "small" (f x 2.5 3.0f 7l 2b \c true ())))))
+(put (= (form-pos (quo x)) NOWHERE))
+
+(sig test Form)
+(def test (quo (ready)))
+(sig args (List Form))
+(def args (tup (quo a) (quo (b c))))
+(put (show (quasi (when (unq test) (go (unq-sp args)) (unq-sp empty-list) done))))
+(put (show (quasi (unq (Sym "plain" NOWHERE)))))
+(put (show (quasi ((unq-sp args)))))

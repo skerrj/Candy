@@ -16,3 +16,4 @@ Done and earlier items are in `doc/archive/TODOS_self_host_cleanup.md`,
 
 - [x] Review `doc/hl_rqmt/macros.md`: accepted (proposals on 1, 3–6; reader rejects `__`; `cond` first).
 - [x] Macros step 1: `quo`, `quasi`, `unq`, `unq-sp`, `defmacro` as special forms (spec, table, grammar).
+- [x] Macros step 2: `quo` and `quasi` build `Form` values (`tst/cdy/cdyc/quoting.cdy`).

@@ -116,7 +116,9 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(put (cond (else 1) (true 2)))", "must be the last clause"),
         ("(put ())", "empty form"),
         ("(put if)", "special form, not a value"),
-        ("(put (quo x))", "not supported by the Candy translator yet"),
+        ("(put (quo x))", "quo: only in macro code"),
+        ("(put (quasi x))", "quasi: only in macro code"),
+        ("(put (unq x))", "unq: only inside quasi"),
         ("(put (quote x))", "unknown name quote"),
         ("(put (+ 1))", "needs at least 2 arguments"),
         ("(put (len 1 2))", "takes 1 argument(s), got 2"),
@@ -198,6 +200,26 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
     clauses = " ".join(f"((= x {i}) (do (put {i}) (* 2 {i})))" for i in range(LONG))
     done = run(translate_with(t1, src.format(clauses=clauses)), tmp_path, "cond")
     assert (done.returncode, done.stdout) == (0, "140\n280\n"), done.stderr
+
+
+@pytest.mark.parametrize(
+    ("src", "message"),
+    [
+        ("(put (quo))", "column 6: quo: expected (quo form)"),
+        ("(put (quo a b))", "column 6: quo: expected (quo form)"),
+        ("(put (quasi (f (unq))))", "column 16: unq: expected (unq expr)"),
+        ("(put (quasi (unq-sp x)))", "column 13: unq-sp: only inside a list in quasi"),
+        ("(put (quasi (f (quasi x))))", "column 16: quasi: a quasi inside a quasi"),
+        ("(put (quasi (f (unq nope))))", "column 21: unknown name nope"),
+        ("(put (unq-sp x))", "column 6: unq-sp: only inside quasi"),
+    ],
+)
+def test_quoting_errors(
+    src: str, message: str, t1: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(ROOT)  # quoting needs Form, from the translator's form.cdy
+    with pytest.raises(CandyFail, match="^" + re.escape("line 2, " + message)):
+        translate_with(t1, "(import src/cdy/form)\n" + src)
 
 
 SHAPES = """

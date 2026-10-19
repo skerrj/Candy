@@ -167,6 +167,9 @@
     ((= head "get") (an-get rest scope n))
     ((= head "assoc") (an-assoc rest scope n))
     ((= head "match") (an-match rest scope n))
+    ((= head "quo") (an-quo rest scope n))
+    ((= head "quasi") (an-quasi rest scope n))
+    ((in head (tup "unq" "unq-sp")) (fail (located scope (format "{head}: only inside quasi"))))
     ((in head (tup "def" "defn" "deft" "sig" "import"))
       (fail (located scope (format "{head} is only allowed at top level"))))
     (else (fail (located scope (format "{head} is not supported by the Candy translator yet"))))))
@@ -561,6 +564,115 @@
       (match loc
         ((Local other _) (or (= other name) (bound-in name (slice binds 1 (len binds)))))
         (else (bound-in name (slice binds 1 (len binds))))))))
+
+;; --- quoting (doc/hl_rqmt/macros.md) ---
+
+;; (quo form): `form` as a Form value, built with Form's constructors (form.cdy), which
+;; the program must have, as macro code does. Quoted forms are NOWHERE, so that an
+;; expansion takes the position of its call.
+(sig an-quo (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-quo (rest scope n)
+  (let ((checked (needs-form "quo" scope)))
+    (if (!= (len rest) 1)
+      (fail (located scope "quo: expected (quo form)"))
+      (tup (quoted (at rest 0)) n))))
+
+;; (quasi form): like quo, but (unq e) puts in e's value (a Form), and (unq-sp e) in a
+;; list splices in e's items (a (List Form)).
+(sig an-quasi (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-quasi (rest scope n)
+  (let ((checked (needs-form "quasi" scope)))
+    (if (!= (len rest) 1)
+      (fail (located scope "quasi: expected (quasi form)"))
+      (quasi-form (at rest 0) scope n))))
+
+(sig needs-form (Fn (String Scope) Bool))
+(defn needs-form (what scope)
+  (if (and (is-variant "Lst" scope) (map-has (get scope top) "NOWHERE"))
+    true
+    (fail (located scope (format "{what}: only in macro code (it needs Form, from form.cdy)")))))
+
+;; The Expr that builds `form` as a Form value.
+(sig quoted (Fn (Form) Expr))
+(defn quoted (form)
+  (match form
+    ((Sym name _) (Call (Global "Sym") (tup (Lit (Txt name)) (Global "NOWHERE"))))
+    ((Lst items _) (Call (Global "Lst") (tup (form-list (quoted-all items empty-list)) (Global "NOWHERE"))))
+    (else (Call (Global (literal-variant form)) (to-list (Lit form))))))
+
+(sig quoted-all (Fn ((List Form) (List Expr)) (List Expr)))
+(defn quoted-all (forms acc)
+  (if (= (len forms) 0) acc (quoted-all (rest-of forms) (+ acc (to-list (quoted (at forms 0)))))))
+
+;; A (List Form) of `items` (Exprs that make Forms).
+(sig form-list (Fn ((List Expr)) Expr))
+(defn form-list (items) (if (= (len items) 0) (Prim "empty-list") (Tuple items)))
+
+(sig literal-variant (Fn (Form) String))
+(defn literal-variant (form)
+  (match form
+    ((Txt _) "Txt")
+    ((IntLit _) "IntLit")
+    ((LongLit _) "LongLit")
+    ((ByteLit _) "ByteLit")
+    ((FloatLit _) "FloatLit")
+    ((DoubleLit _) "DoubleLit")
+    ((CharLit _) "CharLit")
+    ((BoolLit _) "BoolLit")
+    (else (fail "quo: not a literal"))))
+
+;; The head of `form` if it is a list starting with a symbol, else "".
+(sig head-name (Fn (Form) String))
+(defn head-name (form) (sym-name (first-item form)))
+
+;; A form inside quasi.
+(sig quasi-form (Fn (Form Scope Int) (Tup Expr Int)))
+(defn quasi-form (form scope n)
+  (let ((head (head-name form))
+        (here (at-pos scope (form-pos form))))
+    (cond
+      ((= head "unq") (unq-arg form here n))
+      ((= head "unq-sp") (fail (located here "unq-sp: only inside a list in quasi")))
+      ((= head "quasi") (fail (located here "quasi: a quasi inside a quasi isn't supported yet")))
+      ((is-list-form form) (quasi-list (list-items form) here n))
+      (else (tup (quoted form) n)))))
+
+;; The e of (unq e) or (unq-sp e), analysed.
+(sig unq-arg (Fn (Form Scope Int) (Tup Expr Int)))
+(defn unq-arg (form scope n)
+  (let ((items (list-items form)))
+    (if (!= (len items) 2)
+      (fail (located scope (format "{(head-name form)}: expected ({(head-name form)} expr)")))
+      (analyse-expr (at items 1) scope n))))
+
+;; A list in quasi: its items, with the (unq-sp e) ones spliced in. The parts are runs
+;; of plain items (each a Tuple) and spliced lists, joined with +.
+(sig quasi-list (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn quasi-list (items scope n)
+  (let (((parts n1) (quasi-parts items scope n empty-list empty-list)))
+    (tup (Call (Global "Lst") (tup (join-parts parts) (Global "NOWHERE"))) n1)))
+
+(sig quasi-parts
+  (Fn ((List Form) Scope Int (List Expr) (List Expr)) (Tup (List Expr) Int)))
+(defn quasi-parts (items scope n run parts)
+  (if (= (len items) 0)
+    (tup (close-run run parts) n)
+    (let ((item (at items 0)))
+      (if (= (head-name item) "unq-sp")
+        (let (((e n1) (unq-arg item (at-pos scope (form-pos item)) n)))
+          (quasi-parts (rest-of items) scope n1 empty-list (+ (close-run run parts) (to-list e))))
+        (let (((e n1) (quasi-form item scope n)))
+          (quasi-parts (rest-of items) scope n1 (+ run (to-list e)) parts))))))
+
+(sig close-run (Fn ((List Expr) (List Expr)) (List Expr)))
+(defn close-run (run parts) (if (= (len run) 0) parts (+ parts (to-list (Tuple run)))))
+
+(sig join-parts (Fn ((List Expr)) Expr))
+(defn join-parts (parts)
+  (cond
+    ((= (len parts) 0) (Prim "empty-list"))
+    ((= (len parts) 1) (at parts 0))
+    (else (Call (Prim "+") parts))))
 
 ;; --- types ---
 
