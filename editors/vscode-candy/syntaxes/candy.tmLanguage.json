@@ -236,7 +236,7 @@
         },
         {
           "match": "(?<=\\()(\\+|-|\\*|/|=|!=|<|>|<=|>=|and|or|not)(?=[\\s();}]|$)",
-          "name": "keyword.operator.candy"
+          "name": "keyword.operator.expression.candy"
         },
         {
           "match": "(?<=\\()([a-z_][^\\s()'\\\";\\\\{}]*)(?=[\\s();}]|$)",
