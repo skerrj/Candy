@@ -105,6 +105,7 @@ MATH: Table = {
     "-": TableEntry("-", "binop"),
     "*": TableEntry("*", "binop"),
     "/": TableEntry("/", "binop"),
+    "quot": TableEntry("//", "binop"),  # integer division, rounding down
 }
 
 BOOL: Table = {
@@ -124,9 +125,16 @@ IO: Table = {
     "print": call("print"),
     "display": call("print"),
     "put": call("print"),
+    "put-err": runtime("put_err", 1),
     "file-put-lines": runtime("file_put_lines", 2),
     "slurp": runtime("slurp", 1),
     "spit": runtime("spit", 2),
+    "file-exists": runtime("file_exists", 1),
+    "make-dirs": runtime("make_dirs", 1),
+    "path-stem": runtime("path_stem", 1),
+    "path-dir": runtime("path_dir", 1),
+    "path-join": runtime("path_join", 2),
+    "path-resolve": runtime("path_resolve", 1),
 }
 
 RE: Table = {

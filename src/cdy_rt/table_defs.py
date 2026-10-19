@@ -20,7 +20,7 @@ Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
 import builtins
 import keyword
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import NoReturn
 
@@ -179,6 +179,11 @@ def slurp(name: str) -> str:
     return get_path(name, SEARCH_PATH).read_text(encoding="utf-8")
 
 
+def put_err(text: str) -> None:
+    """Print ``text`` on standard error."""
+    print(text, file=sys.stderr)
+
+
 def spit(path: str, text: str) -> None:
     """Write ``text`` to ``path``, replacing its contents."""
     Path(path).write_text(text, encoding="utf-8")
@@ -187,6 +192,36 @@ def spit(path: str, text: str) -> None:
 def file_put_lines(path: str, lines: Sequence[str]) -> None:
     """Write ``lines`` to ``path`` as they are (they carry their own newlines)."""
     Path(path).write_text("".join(lines), encoding="utf-8")
+
+
+def file_exists(path: str) -> bool:
+    """Whether ``path`` is a file (``slurp`` would otherwise search for it)."""
+    return Path(path).is_file()
+
+
+def make_dirs(path: str) -> None:
+    """Create the directory ``path``, and any missing parents, unless it exists."""
+    Path(path).mkdir(parents=True, exist_ok=True)
+
+
+def path_stem(path: str) -> str:
+    """The file name in ``path`` without its extension: ``src/x/prog.cdy`` -> ``prog``."""
+    return Path(path).stem
+
+
+def path_dir(path: str) -> str:
+    """The directory part of ``path``."""
+    return str(Path(path).parent)
+
+
+def path_join(directory: str, name: str) -> str:
+    """``name`` inside ``directory``."""
+    return str(Path(directory) / name)
+
+
+def path_resolve(path: str) -> str:
+    """``path`` made absolute, with symbolic links and ``..`` resolved."""
+    return str(Path(path).resolve())
 
 
 # --- rendering Python source ---
@@ -237,6 +272,18 @@ def fail(msg: str) -> NoReturn:
     raise CandyFail(msg)
 
 
-def get_args() -> list[str]:
+def get_args() -> tuple[str, ...]:
     """The command-line arguments, without the program name."""
-    return sys.argv[1:]
+    return tuple(sys.argv[1:])
+
+
+def run_main(main: Callable[[tuple[str, ...]], int]) -> NoReturn:
+    """Run a Candy program's ``main`` with the command-line arguments and exit with its
+    result. A ``fail``, or a file that can't be read, prints ``candy: <error>`` and exits
+    with 1."""
+    try:
+        status = main(get_args())
+    except (CandyFail, OSError) as err:
+        print(f"candy: {err}", file=sys.stderr)
+        status = 1
+    sys.exit(status)

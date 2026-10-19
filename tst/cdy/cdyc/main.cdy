@@ -1,0 +1,9 @@
+;; A program that defines `main` runs it after its top-level forms, with the command-line
+;; arguments (none here), and exits with its result.
+(sig main (Fn ((List String)) Int))
+(defn main (args)
+  (do
+    (put (format "main: {(len args)} argument(s)"))
+    0))
+
+(put "top level first")

@@ -1,0 +1,4 @@
+(import util)
+
+(sig greet (Fn (String) String))
+(defn greet (who) (format "hello, {who} ({(twice 1)})"))

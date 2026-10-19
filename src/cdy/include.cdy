@@ -1,0 +1,62 @@
+;;; Include: `import` as inclusion (step A of doc/hl_rqmt/self_host_cleanup.md). At top
+;;; level, `(import name)` is replaced by the forms of `name.cdy`, found in the importing
+;;; file's directory, so a program and everything it imports is still one program. Each file
+;;; is included once: a file imported again, or in a cycle, is skipped.
+
+;; The forms included so far, and the files they came from (absolute paths).
+(deft Incl ((done (List Form)) (seen (Map String Bool))))
+
+;; The forms of the Candy file at `path`, with its imports included.
+(sig read-program (Fn (String) (List Form)))
+(defn read-program (path)
+  (get (include-file path (Incl empty-list empty-map)) done))
+
+;; `forms` with their imports included, found in directory `dir`.
+(sig include-imports (Fn ((List Form) String) (List Form)))
+(defn include-imports (forms dir)
+  (get (include-forms forms dir (Incl empty-list empty-map)) done))
+
+;; `acc` with the forms of the file at `path` added, unless it was included already. The
+;; forms' positions name the file by `path`, as the user would write it (an import's is
+;; joined to its importer's directory); `seen` holds absolute paths, so each file counts
+;; once.
+(sig include-file (Fn (String Incl) Incl))
+(defn include-file (path acc)
+  (let ((key (path-resolve path)))
+    (if (map-has (get acc seen) key)
+      acc
+      (include-forms
+        (read-source path (slurp path))
+        (path-dir path)
+        (assoc acc seen (map-set (get acc seen) key true))))))
+
+;; `forms`, whose imports are found in directory `dir`.
+(sig include-forms (Fn ((List Form) String Incl) Incl))
+(defn include-forms (forms dir acc)
+  (if (= (len forms) 0)
+    acc
+    (let ((form (at forms 0))
+          (name (import-name form)))
+      (include-forms
+        (rest-of forms)
+        dir
+        (if (= name "")
+          (assoc acc done (+ (get acc done) (to-list form)))
+          (include-file (import-path dir name (form-pos form)) acc))))))
+
+;; The name in `(import name)`, or "" if `form` isn't an import.
+(sig import-name (Fn (Form) String))
+(defn import-name (form)
+  (let ((items (list-items form)))
+    (cond
+      ((or (= (len items) 0) (!= (sym-name (at items 0)) "import")) "")
+      ((and (= (len items) 2) (!= (sym-name (at items 1)) "")) (sym-name (at items 1)))
+      (else (fail (+ (pos-text (form-pos form)) "import: expected (import name)"))))))
+
+;; The path of `name.cdy` in directory `dir`, imported at `pos`.
+(sig import-path (Fn (String String Pos) String))
+(defn import-path (dir name pos)
+  (let ((path (path-join dir (+ name ".cdy"))))
+    (if (file-exists path)
+      path
+      (fail (format "{(pos-text pos)}import: can't find {name}.cdy in {dir}")))))

@@ -191,8 +191,54 @@
 
 (sig value-call (Fn (Expr (List Expr) Int) Low))
 (defn value-call (callee args n)
-  (let (((stmts items n1) (value-seq (+ (to-list callee) args) n)))
-    (Low stmts (Call (at items 0) (slice items 1 (len items))) n1)))
+  (if (in (prim-name callee) (tup "and" "or"))
+    (value-boolop callee args n)
+    (let (((stmts items n1) (value-seq (+ (to-list callee) args) n)))
+      (Low stmts (Call (at items 0) (slice items 1 (len items))) n1))))
+
+(sig prim-name (Fn (Expr) String))
+(defn prim-name (e)
+  (match e
+    ((Prim name) name)
+    (else "")))
+
+;; `and`/`or`: one Call, unless a later argument needs statements. They short-circuit, so
+;; those statements can't run first: (and a b) becomes t = a; if t: t = b, and `or` tests
+;; (not t).
+(sig value-boolop (Fn (Expr (List Expr) Int) Low))
+(defn value-boolop (op args n)
+  (let (((lows n1) (low-all args n empty-list))
+        (first (at lows 0))
+        (later (slice lows 1 (len lows))))
+    (if (has-stmts later)
+      (let ((tmp (Temp n1)))
+        (Low
+          (+ (get first stmts)
+             (to-list (SAssign tmp (get first expr)))
+             (to-list (guard op tmp (guarded op later tmp))))
+          tmp
+          (+ n1 1)))
+      (Low (get first stmts) (Call op (low-exprs lows empty-list)) n1))))
+
+;; The rest of `and`/`or`: each argument's statements, then its value into `tmp`, and the
+;; ones after it only if that didn't decide the result.
+(sig guarded (Fn (Expr (List Low) Expr) (List Stmt)))
+(defn guarded (op lows tmp)
+  (let ((low (at lows 0))
+        (assign (+ (get low stmts) (to-list (SAssign tmp (get low expr))))))
+    (if (= (len lows) 1)
+      assign
+      (+ assign (to-list (guard op tmp (guarded op (slice lows 1 (len lows)) tmp)))))))
+
+(sig guard (Fn (Expr Expr (List Stmt)) Stmt))
+(defn guard (op tmp body)
+  (SIf (if (= (prim-name op) "and") tmp (Call (Prim "not") (to-list tmp))) body empty-list))
+
+(sig low-exprs (Fn ((List Low) (List Expr)) (List Expr)))
+(defn low-exprs (lows acc)
+  (if (= (len lows) 0)
+    acc
+    (low-exprs (slice lows 1 (len lows)) (+ acc (to-list (get (at lows 0) expr))))))
 
 ;; Each expression in value mode, keeping left-to-right order: an earlier value that isn't
 ;; simple goes in a Temp if a later one needs statements.
@@ -234,18 +280,46 @@
   (let ((t (value test n))
         (a (value then (get t n)))
         (b (value other (get a n))))
-    (if (and (= (len (get a stmts)) 0) (= (len (get b stmts)) 0))
-      (Low (get t stmts) (If (get t expr) (get a expr) (get b expr)) (get b n))
-      (let ((tmp (Temp (get b n))))
-        (Low
-          (+ (get t stmts)
-             (to-list
-               (SIf
-                 (get t expr)
-                 (+ (get a stmts) (to-list (SAssign tmp (get a expr))))
-                 (+ (get b stmts) (to-list (SAssign tmp (get b expr)))))))
-          tmp
-          (+ (get b n) 1))))))
+    (cond
+      ((and (= (len (get a stmts)) 0) (= (len (get b stmts)) 0))
+        (Low (get t stmts) (If (get t expr) (get a expr) (get b expr)) (get b n)))
+      ;; The else is itself an if that assigns its Temp (as from a cond's next clause): this
+      ;; if assigns the same Temp, so the else holds just that if, which emits as an elif.
+      ((is-if-into (get b stmts) (get b expr))
+        (let ((tmp (get b expr)))
+          (Low
+            (+ (get t stmts)
+               (to-list
+                 (SIf
+                   (get t expr)
+                   (+ (get a stmts) (to-list (SAssign tmp (get a expr))))
+                   (get b stmts))))
+            tmp
+            (get b n))))
+      (else
+        (let ((tmp (Temp (get b n))))
+          (Low
+            (+ (get t stmts)
+               (to-list
+                 (SIf
+                   (get t expr)
+                   (+ (get a stmts) (to-list (SAssign tmp (get a expr))))
+                   (+ (get b stmts) (to-list (SAssign tmp (get b expr)))))))
+            tmp
+            (+ (get b n) 1)))))))
+
+;; Whether `stmts` and `e` are what value-if makes when it needs statements: one SIf, and
+;; the Temp it assigns in every branch. (Nothing else lowers to just an SIf and a Temp: a
+;; match makes an SMatch, and and/or an SAssign first.)
+(sig is-if-into (Fn ((List Stmt) Expr) Bool))
+(defn is-if-into (stmts e)
+  (and (= (len stmts) 1)
+       (match (at stmts 0)
+         ((SIf _ _ _) true)
+         (else false))
+       (match e
+         ((Temp _) true)
+         (else false))))
 
 (sig all-but-last (Fn ((List Expr)) (List Expr)))
 (defn all-but-last (exprs) (slice exprs 0 (- (len exprs) 1)))

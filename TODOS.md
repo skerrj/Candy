@@ -1,20 +1,29 @@
 # TODOS
 
-Done and earlier items are in `doc/archive/TODOS_imvp_py_translator.md`.
+Done and earlier items are in `doc/archive/TODOS_pre_self_host.md` and
+`doc/archive/TODOS_imvp_py_translator.md`.
 
-## Carried over from the iMVP (for owner review)
+## Carried over (for owner review)
 
-- [ ] `doc/archive/leaks_imvp_py_translator.md` (was `doc/leaks.md`): check the list of hacks and Python leaks, including `format` (a hack) and `tup` destructuring (a stopgap), both from smz.
-- [ ] `src/cdy/candy-special.md`: Claude marked `### quote [SKIP]`; `sig`, `deft`, `get`/`assoc` are not in the spec yet. Add them?
+- [ ] `doc/archive/leaks_imvp_py_translator.md` and `doc/archive/leaks_pre_self_host.md`: check the lists of hacks and Python leaks, including `format` (a hack) and `tup` destructuring (a stopgap), both from smz.
+- [x] `src/cdy/candy-special.md`: added `sig`, `deft` (records and sums), `match`, `get` and `assoc` (done on `self-host-cleanup`).
 - [ ] `cdy_rt` packaging in `pyproject.toml` (editable install, strict mode, `py.typed`) and the `.gitignore` change (`lib/` no longer ignored).
 - [ ] Open items summary in the iMVP doc ("Open items (summary)"): `deft` (proposed), literal parser rules, and confirming that `defn` and `sig` are top-level only and that a top-level `do` isn't spliced.
+- [ ] Review `doc/hl_rqmt/self_hosting_primo.md` (stages 0–3 done, as built).
 
-## pre-self-host
+## self-host-cleanup
 
-- [x] `doc/hl_rqmt/sum_types.md`: all seven questions decided (variants in `deft`; nullary variants are values; exhaustive `match`; `Maybe` stays `A | None`; `get` after `match`; global variant names), and implemented (stage 0).
-- [ ] `src/cdy/candy-special.md`: add `deft` (records and sums) and `match` to the spec, with `sig`, `get` and `assoc` (see the carried-over item above).
-- [x] Fixpoint (stage 2, reached in slice 1d): the `ast.dump` comparison of the files T1 and T2 is dropped (decided). The checks: T2 passes `mypy --strict`, T3 = T2 byte for byte, and T1 and T2 agree on every test program.
-- [x] Checked-in translator `bin/py/cdy_translator.py` (= T2; rebuild with `python src/py_cdy/self_host.py`, a test catches it going stale; `main.py --translator bin`).
-- [x] Stage 3: the reader in Candy (`src/cdy/read.cdy`), the same forms as `parse_cdy` on every file and edge case; the checked-in translator rebuilds itself and runs without the Python translator. See "Stage 3 as built" in `doc/hl_rqmt/self_hosting_primo.md`.
-- [ ] Next (owner to choose): retire the Python translator as the way to build (a driver that rebuilds `bin/py/` from itself), `import` instead of joining files, or the next language features.
-- [ ] Review `doc/hl_rqmt/self_hosting_primo.md` (draft staging plan): the translator in Candy with the Python parser borrowed, the T1 = T2 fixpoint, then the parser in Candy. Forms at the boundary: A, `deft` variants plus conversion (decided). Decided: Candy source in `src/cdy/`, T1/T2 generated into git-ignored `output/`. Driver: a `main.py` mode, for now (decided). Fixpoint (decided): T3 = T2 and T1/T2 output byte for byte (the `ast.dump` file comparison was dropped).
+- [x] Review `doc/hl_rqmt/self_host_cleanup.md`: accepted (inclusion first, Python translator frozen, top file `cdyc.cdy`).
+- [x] `import` step A (inclusion) in the Candy translator; `src/cdy/cdyc.cdy`; `bin/py/` rebuilds itself.
+- [ ] Review `import` step A as built (`doc/hl_rqmt/self_host_cleanup.md`, "Step A as built"), and the new leak in `doc/leaks.md`.
+- [x] `and`/`or` short-circuit in the Candy translator (`tst/cdy/short_circuit.cdy`).
+- [x] Review the spec update (`src/cdy/candy-special.md`): approved; `tup` moved out of "weird stuff".
+- [x] A driver in Candy: `main` in `cdyc.cdy` (`python bin/py/cdy_translator.py FILE.cdy [OUT.py]`).
+- [ ] Review the `main` entry-point convention (`doc/hl_rqmt/self_host_cleanup.md`, "The driver as built"; `src/cdy/candy-special.md`, "programs").
+- [ ] Read `doc/hl_rqmt/macros.md` (placeholder): macros proposed as the next branch after this one, once errors carry positions.
+- [x] Parse and `import` errors name their file (`lib/b.cdy: parse error at ...`).
+- [x] Positions on forms: errors say `file:line:col: msg`.
+- [x] Recursion limit: not needed (removed from `self_host.py`); `translate-text` errors now have positions too.
+- [x] Long `cond`s: `elif` chains in the Candy translator (`test_long_cond`).
+- [x] Order decided: an initial macro implementation before modules (`doc/hl_rqmt/macros.md`).
+- [x] Tuple patterns in `match`: `(match e ((tup a b) body))` (Candy translator only).

@@ -61,3 +61,14 @@ def test_main_translator_bin(
     Path("p.cdy").write_text('(put "via bin")\n', encoding="utf-8")
     assert main(["p.cdy", "--run", "--translator", "bin"]) == 0
     assert capfd.readouterr().out == "via bin\n"
+
+
+def test_main_translator_bin_import(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    Path("sub").mkdir()
+    Path("sub/lib.cdy").write_text('(sig who String)\n(def who "lib")\n', encoding="utf-8")
+    Path("sub/p.cdy").write_text("(import lib)\n(put who)\n", encoding="utf-8")
+    assert main(["sub/p.cdy", "--run", "--translator", "bin"]) == 0  # found next to p.cdy
+    assert capfd.readouterr().out == "lib\n"

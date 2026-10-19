@@ -26,16 +26,28 @@ take one, and remove an entry once it is fixed.
   slice by slice (see `doc/hl_rqmt/self_hosting_primo.md`): every operator is
   parenthesised; `if` in tail position stays an `if` statement (no conditional-expression
   merge); a nested scope's locals avoid every outer name, so T1 renames more than the
-  Python translator; `format` is a `str()` concatenation, not an f-string; `and`/`or`
-  whose later arguments need statements don't short-circuit those statements. None of
-  these change what a program does.
-- **Two readers to keep in step:** `parse_cdy.py` (the Python translator's) and
-  `src/cdy/read.cdy` (the Candy translator's). Tests check they agree, so a syntax change
-  must go into both until the Python translator is retired. The Candy reader builds
-  strings and lists by appending one item at a time (quadratic, but fast enough: it reads
-  the whole translator in about 0.02s).
-- **`self_host.py` raises the recursion limit** (to 20,000) while T1 runs, since T1 walks
-  lists by recursion.
+  Python translator; `format` is a `str()` concatenation, not an f-string. None of these
+  change what a program does. (`and`/`or` whose later arguments needed statements used to
+  run those statements regardless, which did; fixed on `self-host-cleanup`.)
+- **Two readers:** `parse_cdy.py` (the frozen Python translator's) and `src/cdy/read.cdy`
+  (the Candy translator's). Tests still check they agree; the first syntax change, which
+  goes into `read.cdy` only, will have to drop or narrow those tests. The Candy reader
+  builds strings and lists by appending one item at a time (quadratic, but fast enough: it
+  reads the whole translator in about 0.02s).
+- **A few errors have no position:** a brace inside a `format` hole, `main`'s type (its
+  `Top` has no position), and the internal errors of `lower` and `emit`. Errors inside a
+  `format` hole point at the `(format ...)` form, since forms read from a hole have no
+  positions of their own (the hole's text is part of a string).
+- **Only symbols and lists carry positions** (`Pos` in `form.cdy`), not literals: an error
+  about a literal points at its enclosing list.
+- **Programs only the Candy translator handles** go in `tst/cdy/cdyc/`, which the frozen
+  Python translator skips; files they import live in subdirectories (`lib/`), so they
+  aren't taken for programs.
+- **A `cond` of about 200 clauses used as a value, with simple arms, doesn't compile:**
+  it becomes nested conditional expressions (`a if t else (b if ...)`), and Python allows
+  200 nested parentheses. The frozen Python translator fails there too (`ast.unparse`
+  runs out of recursion). Written as statements (in a tail, or with arms that need
+  statements) a `cond` of any length is fine: an `if`/`elif` chain.
 
 ## Runtime
 

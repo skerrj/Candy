@@ -4,14 +4,48 @@
 ;;; position, so it needs no closures. An error fails with its line and column.
 
 (sig read-forms (Fn (String) (List Form)))
-(defn read-forms (text) (read-all text (skip text 0) empty-list))
+(defn read-forms (text) (read-all (Source "" empty-list) text (skip text 0) empty-list))
 
-(sig read-all (Fn (String Int (List Form)) (List Form)))
-(defn read-all (text pos acc)
+;; The forms in `text`, from the file `file` ("" for none), with their positions.
+(sig read-source (Fn (String String) (List Form)))
+(defn read-source (file text)
+  (read-all (Source file (line-starts text 0 (to-list 0))) text (skip text 0) empty-list))
+
+;; What the reader knows about its text: the file it came from, and where each line starts
+;; (its offsets, in order), to give each form a Pos. No line starts: forms are NOWHERE (as
+;; for read-forms, which also reads format holes).
+(deft Source ((file String) (starts (List Int))))
+
+(sig line-starts (Fn (String Int (List Int)) (List Int)))
+(defn line-starts (text pos acc)
+  (cond
+    ((>= pos (len text)) acc)
+    ((= (at text pos) "\n") (line-starts text (+ pos 1) (+ acc (to-list (+ pos 1)))))
+    (else (line-starts text (+ pos 1) acc))))
+
+;; The position of offset `pos`.
+(sig pos-at (Fn (Source Int) Pos))
+(defn pos-at (src pos)
+  (let ((starts (get src starts)))
+    (if (= (len starts) 0)
+      NOWHERE
+      (let ((i (line-of starts pos 0 (len starts))))
+        (Pos (get src file) (+ i 1) (+ (- pos (at starts i)) 1))))))
+
+;; The index of the last line start at or before `pos`, between `lo` and `hi` (binary search).
+(sig line-of (Fn ((List Int) Int Int Int) Int))
+(defn line-of (starts pos lo hi)
+  (if (<= (- hi lo) 1)
+    lo
+    (let ((mid (quot (+ lo hi) 2)))
+      (if (<= (at starts mid) pos) (line-of starts pos mid hi) (line-of starts pos lo mid)))))
+
+(sig read-all (Fn (Source String Int (List Form)) (List Form)))
+(defn read-all (src text pos acc)
   (if (>= pos (len text))
     acc
-    (let (((form next) (read-form text pos)))
-      (read-all text (skip text next) (+ acc (to-list form))))))
+    (let (((form next) (read-form src text pos)))
+      (read-all src text (skip text next) (+ acc (to-list form))))))
 
 ;; --- whitespace and comments ---
 
@@ -39,36 +73,36 @@
 ;; --- forms ---
 
 ;; The form at `pos` (not whitespace), and the position after it.
-(sig read-form (Fn (String Int) (Tup Form Int)))
-(defn read-form (text pos)
+(sig read-form (Fn (Source String Int) (Tup Form Int)))
+(defn read-form (src text pos)
   (let ((ch (at text pos)))
     (cond
-      ((= ch "(") (read-list text (skip text (+ pos 1)) empty-list pos))
-      ((= ch ")") (fail (parse-error text pos "unexpected )")))
-      ((= ch "\"") (read-str text (+ pos 1) "" pos))
-      ((= ch "\\") (read-char text pos))
-      (else (read-atom text pos (word-end text pos))))))
+      ((= ch "(") (read-list src text (skip text (+ pos 1)) empty-list pos))
+      ((= ch ")") (fail (parse-error src text pos "unexpected )")))
+      ((= ch "\"") (read-str src text (+ pos 1) "" pos))
+      ((= ch "\\") (read-char src text pos))
+      (else (read-atom src text pos (word-end text pos))))))
 
 ;; The rest of the list whose `(` is at `start`, from `pos`; and the position after its `)`.
-(sig read-list (Fn (String Int (List Form) Int) (Tup Form Int)))
-(defn read-list (text pos acc start)
+(sig read-list (Fn (Source String Int (List Form) Int) (Tup Form Int)))
+(defn read-list (src text pos acc start)
   (cond
-    ((>= pos (len text)) (fail (parse-error text start "( is never closed")))
-    ((= (at text pos) ")") (tup (Lst acc) (+ pos 1)))
+    ((>= pos (len text)) (fail (parse-error src text start "( is never closed")))
+    ((= (at text pos) ")") (tup (Lst acc (pos-at src start)) (+ pos 1)))
     (else
-      (let (((form next) (read-form text pos)))
-        (read-list text (skip text next) (+ acc (to-list form)) start)))))
+      (let (((form next) (read-form src text pos)))
+        (read-list src text (skip text next) (+ acc (to-list form)) start)))))
 
 ;; A char literal: `\` and one character that isn't whitespace, then a delimiter.
-(sig read-char (Fn (String Int) (Tup Form Int)))
-(defn read-char (text pos)
+(sig read-char (Fn (Source String Int) (Tup Form Int)))
+(defn read-char (src text pos)
   (if (and (< (+ pos 1) (len text)) (not (isspace-at text (+ pos 1))) (ends-at text (+ pos 2)))
     (tup (CharLit (at text (+ pos 1))) (+ pos 2))
-    (fail (parse-error text pos "a char is \\ and one character, then a delimiter"))))
+    (fail (parse-error src text pos "a char is \\ and one character, then a delimiter"))))
 
 ;; A number, boolean or symbol; the word (up to the next delimiter) runs to `end`.
-(sig read-atom (Fn (String Int Int) (Tup Form Int)))
-(defn read-atom (text pos end)
+(sig read-atom (Fn (Source String Int Int) (Tup Form Int)))
+(defn read-atom (src text pos end)
   (let ((word (slice text pos end))
         (kind (number-kind word)))
     (cond
@@ -77,8 +111,8 @@
       ((= word "false") (tup (BoolLit false) end))
       ((symbol-start (at text pos))
         (let ((stop (symbol-end text (+ pos 1))))
-          (tup (Sym (slice text pos stop)) stop)))
-      (else (fail (parse-error text pos (format "unexpected {(at text pos)}")))))))
+          (tup (Sym (slice text pos stop) (pos-at src pos)) stop)))
+      (else (fail (parse-error src text pos (format "unexpected {(at text pos)}")))))))
 
 ;; --- symbols ---
 
@@ -135,19 +169,19 @@
 
 ;; The rest of the string whose `"` is at `start`, from `pos`, decoded into `acc`; and the
 ;; position after its closing `"`.
-(sig read-str (Fn (String Int String Int) (Tup Form Int)))
-(defn read-str (text pos acc start)
+(sig read-str (Fn (Source String Int String Int) (Tup Form Int)))
+(defn read-str (src text pos acc start)
   (cond
-    ((>= pos (len text)) (fail (parse-error text start "string is never closed")))
+    ((>= pos (len text)) (fail (parse-error src text start "string is never closed")))
     ((= (at text pos) "\"") (tup (Txt acc) (+ pos 1)))
     ((= (at text pos) "\\")
-      (let (((ch next) (escape text pos)))
-        (read-str text next (+ acc ch) start)))
-    (else (read-str text (+ pos 1) (+ acc (at text pos)) start))))
+      (let (((ch next) (escape src text pos)))
+        (read-str src text next (+ acc ch) start)))
+    (else (read-str src text (+ pos 1) (+ acc (at text pos)) start))))
 
 ;; The escape sequence whose `\` is at `pos`: what it stands for, and the position after it.
-(sig escape (Fn (String Int) (Tup String Int)))
-(defn escape (text pos)
+(sig escape (Fn (Source String Int) (Tup String Int)))
+(defn escape (src text pos)
   (let ((c (if (< (+ pos 1) (len text)) (at text (+ pos 1)) "")))
     (cond
       ((in c (tup "\\" "/" "\"")) (tup c (+ pos 2)))
@@ -158,7 +192,7 @@
       ((= c "t") (tup "\t" (+ pos 2)))
       ((and (= c "u") (<= (+ pos 6) (len text)) (all-hex text (+ pos 2) (+ pos 6)))
         (tup (hex-char (slice text (+ pos 2) (+ pos 6))) (+ pos 6)))
-      (else (fail (parse-error text pos "bad escape sequence"))))))
+      (else (fail (parse-error src text pos "bad escape sequence"))))))
 
 (sig all-hex (Fn (String Int Int) Bool))
 (defn all-hex (text pos end)
@@ -169,10 +203,10 @@
 
 ;; --- errors ---
 
-(sig parse-error (Fn (String Int String) String))
-(defn parse-error (text pos msg)
+(sig parse-error (Fn (Source String Int String) String))
+(defn parse-error (src text pos msg)
   (let (((row col) (row-col text 0 pos 1 1)))
-    (format "parse error at line {row}, column {col}: {msg}")))
+    (format "{(pos-text (Pos (get src file) row col))}parse error: {msg}")))
 
 ;; The line and column of `pos`, counting from character `i` at line `row`, column `col`.
 (sig row-col (Fn (String Int Int Int Int) (Tup Int Int)))

@@ -1,0 +1,444 @@
+{
+  "name": "Candy",
+  "scopeName": "source.candy",
+  "fileTypes": [
+    "cdy"
+  ],
+  "patterns": [
+    {
+      "include": "#forms"
+    },
+    {
+      "include": "#stray-paren"
+    }
+  ],
+  "repository": {
+    "forms": {
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#sexp"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#reserved"
+        },
+        {
+          "include": "#atom"
+        }
+      ]
+    },
+    "comment": {
+      "match": ";.*$",
+      "name": "comment.line.semicolon.candy"
+    },
+    "stray-paren": {
+      "match": "\\)",
+      "name": "invalid.illegal.stray-paren.candy"
+    },
+    "reserved": {
+      "match": "'",
+      "name": "invalid.illegal.reserved.candy"
+    },
+    "sexp": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.begin.candy"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.end.candy"
+        }
+      },
+      "name": "meta.expression.candy",
+      "patterns": [
+        {
+          "include": "#definition"
+        },
+        {
+          "include": "#let"
+        },
+        {
+          "include": "#format"
+        },
+        {
+          "include": "#head"
+        },
+        {
+          "include": "#forms"
+        }
+      ]
+    },
+    "definition": {
+      "patterns": [
+        {
+          "comment": "(defn name (params) body): the parameters, up to the list's ).",
+          "begin": "(?<=\\()(defn)\\s+([^\\s()'\\\";\\\\{}]+)\\s+(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.definition.candy"
+            },
+            "2": {
+              "name": "entity.name.function.candy"
+            },
+            "3": {
+              "name": "punctuation.section.expression.begin.candy"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.expression.end.candy"
+            }
+          },
+          "name": "meta.parameters.candy",
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "match": "[^\\s()'\\\";\\\\{}]+",
+              "name": "variable.parameter.candy"
+            }
+          ]
+        },
+        {
+          "match": "(?<=\\()(defn|sig)\\s+([^\\s()'\\\";\\\\{}]+)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.definition.candy"
+            },
+            "2": {
+              "name": "entity.name.function.candy"
+            }
+          }
+        },
+        {
+          "comment": "(fn (params) body)",
+          "begin": "(?<=\\()(fn)\\s+(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.candy"
+            },
+            "2": {
+              "name": "punctuation.section.expression.begin.candy"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.expression.end.candy"
+            }
+          },
+          "name": "meta.parameters.candy",
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "match": "[^\\s()'\\\";\\\\{}]+",
+              "name": "variable.parameter.candy"
+            }
+          ]
+        },
+        {
+          "match": "(?<=\\()(def)\\s+([^\\s()'\\\";\\\\]+)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.definition.candy"
+            },
+            "2": {
+              "name": "variable.other.definition.candy"
+            }
+          }
+        },
+        {
+          "match": "(?<=\\()(deft)\\s+([^\\s()'\\\";\\\\]+)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.definition.candy"
+            },
+            "2": {
+              "name": "entity.name.type.candy"
+            }
+          }
+        },
+        {
+          "match": "(?<=\\()(deft)(?=\\s+\\()",
+          "captures": {
+            "1": {
+              "name": "keyword.control.definition.candy"
+            }
+          }
+        }
+      ]
+    },
+    "format": {
+      "begin": "(?<=\\()(format)\\s+(\\\")",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.candy"
+        },
+        "2": {
+          "name": "string.quoted.double.candy punctuation.definition.string.begin.candy"
+        }
+      },
+      "end": "\\\"",
+      "endCaptures": {
+        "0": {
+          "name": "string.quoted.double.candy punctuation.definition.string.end.candy"
+        }
+      },
+      "contentName": "string.quoted.double.candy",
+      "patterns": [
+        {
+          "include": "#escape"
+        },
+        {
+          "match": "\\{\\{|\\}\\}",
+          "name": "constant.character.escape.brace.candy"
+        },
+        {
+          "begin": "\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.embedded.begin.candy"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.embedded.end.candy"
+            }
+          },
+          "name": "meta.embedded.hole.candy",
+          "contentName": "source.candy",
+          "patterns": [
+            {
+              "include": "#hole-forms"
+            }
+          ]
+        }
+      ]
+    },
+    "head": {
+      "patterns": [
+        {
+          "match": "(?<=\\()(import|do|if|cond|let|fn|quote|tup|get|assoc|match|else)(?=[\\s();}]|$)",
+          "name": "keyword.control.candy"
+        },
+        {
+          "match": "(?<=\\()(\\+|-|\\*|/|=|!=|<|>|<=|>=|and|or|not)(?=[\\s();}]|$)",
+          "name": "keyword.operator.expression.candy"
+        },
+        {
+          "match": "(?<=\\()([a-z_][^\\s()'\\\";\\\\{}]*)(?=[\\s();}]|$)",
+          "name": "variable.function.candy"
+        }
+      ]
+    },
+    "string": {
+      "begin": "\\\"",
+      "end": "\\\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.candy"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.candy"
+        }
+      },
+      "name": "string.quoted.double.candy",
+      "patterns": [
+        {
+          "include": "#escape"
+        }
+      ]
+    },
+    "escape": {
+      "patterns": [
+        {
+          "match": "\\\\(?:[\\\\/\\\"bfnrt]|u[0-9a-fA-F]{4})",
+          "name": "constant.character.escape.candy"
+        },
+        {
+          "match": "\\\\.",
+          "name": "invalid.illegal.escape.candy"
+        }
+      ]
+    },
+    "atom": {
+      "patterns": [
+        {
+          "match": "(?<![^\\s(){])-?\\d+(?:\\.\\d+f?|[lb])?(?=[\\s();}]|$)",
+          "name": "constant.numeric.candy"
+        },
+        {
+          "match": "(?<![^\\s(){])\\\\\\S(?=[\\s();}]|$)",
+          "name": "constant.character.candy"
+        },
+        {
+          "match": "(?<![^\\s(){])(?:true|false|nil)(?=[\\s();}]|$)",
+          "name": "constant.language.candy"
+        },
+        {
+          "match": "(?<![^\\s(){])[A-Z][A-Z0-9_]+(?=[\\s();}]|$)",
+          "name": "constant.other.candy"
+        },
+        {
+          "match": "(?<![^\\s(){])[A-Z][^\\s()'\\\";\\\\{}]*",
+          "name": "entity.name.type.candy"
+        },
+        {
+          "match": "(?<![^\\s(){])\\d[^\\s()'\\\";\\\\{}]+",
+          "name": "invalid.illegal.number.candy"
+        },
+        {
+          "match": "[^\\s()'\\\";\\\\{}]+",
+          "name": "variable.other.candy"
+        }
+      ],
+      "comment": "A literal ends at a delimiter. `}` counts too, so that a format hole can end right after one; symbols stop at braces for the same reason."
+    },
+    "hole-string": {
+      "comment": "A string inside a format hole: its quotes are escaped in the outer string.",
+      "begin": "\\\\\\\"",
+      "end": "\\\\\\\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.candy"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.candy"
+        }
+      },
+      "name": "string.quoted.double.candy"
+    },
+    "hole-forms": {
+      "comment": "The forms in a format hole: as anywhere, but strings have escaped quotes.",
+      "patterns": [
+        {
+          "include": "#hole-string"
+        },
+        {
+          "include": "#hole-sexp"
+        },
+        {
+          "include": "#atom"
+        }
+      ]
+    },
+    "hole-sexp": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.begin.candy"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.end.candy"
+        }
+      },
+      "name": "meta.expression.candy",
+      "patterns": [
+        {
+          "include": "#head"
+        },
+        {
+          "include": "#hole-forms"
+        }
+      ]
+    },
+    "let": {
+      "comment": "(let (bindings) body): each binding's name, or the names of a tup taken apart, is a parameter, not a call.",
+      "begin": "(?<=\\()(let)\\s+(\\()",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.control.candy"
+        },
+        "2": {
+          "name": "punctuation.section.expression.begin.candy"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.end.candy"
+        }
+      },
+      "name": "meta.bindings.candy",
+      "patterns": [
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#binding"
+        }
+      ]
+    },
+    "binding": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.begin.candy"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.expression.end.candy"
+        }
+      },
+      "name": "meta.binding.candy",
+      "patterns": [
+        {
+          "match": "\\G\\s*([^\\s()'\\\";\\\\{}]+)(?=[\\s();]|$)",
+          "captures": {
+            "1": {
+              "name": "variable.parameter.candy"
+            }
+          }
+        },
+        {
+          "begin": "\\G\\s*(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.expression.begin.candy"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.expression.end.candy"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#comment"
+            },
+            {
+              "match": "[^\\s()'\\\";\\\\{}]+",
+              "name": "variable.parameter.candy"
+            }
+          ]
+        },
+        {
+          "include": "#forms"
+        }
+      ]
+    }
+  }
+}

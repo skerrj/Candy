@@ -2,9 +2,10 @@
 
 Modelled on schmuz's ``src/py_smz/main.py``: like its ``run_2_out``, it translates a Candy
 file to ``output/<name>.py``; with ``--run`` it then runs that file, like ``run_as_main``.
-With ``--translator t1`` the self-hosted translator (``self_host.py``), freshly built, does
-the translating instead of the Python one; with ``--translator bin``, its checked-in copy
-``bin/py/cdy_translator.py`` does.
+With ``--translator t1`` the self-hosted translator (``self_host.py``), freshly built by the
+checked-in one, does the translating instead of the frozen Python one; with
+``--translator bin``, the checked-in copy ``bin/py/cdy_translator.py`` does. Those two
+include the file's imports (``import`` is in the Candy translator only).
 """
 
 import subprocess
@@ -21,7 +22,14 @@ from translate_cdy import translate
 
 OUTPUT_DIR = Path("output")
 USAGE = "usage: main.py FILE.cdy [--run] [--translator py|t1|bin]"
-TRANSLATORS = {"py": translate, "t1": translate_t1, "bin": translate_bin}
+
+
+def translate_py(path: Path) -> str:
+    """The Candy file at ``path`` as Python source, translated by the Python translator."""
+    return translate(slurp(str(path)))
+
+
+TRANSLATORS = {"py": translate_py, "t1": translate_t1, "bin": translate_bin}
 
 
 def out_path(name: str) -> Path:
@@ -32,7 +40,7 @@ def out_path(name: str) -> Path:
 def translate_file(name: str, translator: str = "py") -> Path:
     """Translate the Candy file ``name`` and write the Python; returns where it went."""
     out = out_path(name)
-    source = TRANSLATORS[translator](slurp(name))
+    source = TRANSLATORS[translator](Path(name))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(source, encoding="utf-8")
     return out
