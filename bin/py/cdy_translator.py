@@ -2883,7 +2883,7 @@ def translate(forms: tuple[Form, ...], parse: _cdy_Callable[[str], tuple[Form, .
     return (HEADER + emit_imports(cdy_rt.table.IMPORTS, '') + '\n' + emit_stmts(stmts, 0, env, '') + (emit_main(env) if has_main(tops) else ''))
 
 def translate_text(text: str) -> str:
-    return translate(include_imports(read_forms(text), '.'), read_forms)
+    return translate(include_imports(read_source('', text), '.'), read_forms)
 
 def translate_file(path: str) -> str:
     return translate(read_program(path), read_forms)

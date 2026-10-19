@@ -43,8 +43,11 @@ take one, and remove an entry once it is fixed.
 - **Programs only the Candy translator handles** go in `tst/cdy/cdyc/`, which the frozen
   Python translator skips; files they import live in subdirectories (`lib/`), so they
   aren't taken for programs.
-- **`self_host.py` raises the recursion limit** (to 20,000) while T1 runs, since T1 walks
-  lists by recursion.
+- **A `cond` of 99 clauses or more doesn't compile** when the Candy translator writes it
+  as statements (in a function's tail, say): each clause nests an `if` in the last one's
+  `else`, and Python allows 100 levels of indentation. The Python translator writes
+  `elif` (Python's `ast` does), so it has no such limit. Fix: `emit.cdy` writes `elif`
+  when an `else` holds just one `if`.
 
 ## Runtime
 

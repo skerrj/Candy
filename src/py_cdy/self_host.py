@@ -24,7 +24,6 @@ tests can check that the two readers agree.
 
 import importlib.util
 import shutil
-import sys
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
@@ -55,9 +54,6 @@ T1_DIR = Path("output") / "t1"
 T2_DIR = Path("output") / "t2"
 T1_MODULE = "cdy_translator"
 BIN_PATH = ROOT / "bin" / "py" / f"{T1_MODULE}.py"
-
-# The translator recurses once per item of each list it walks (only self tail calls loop).
-RECURSION_LIMIT = 20_000
 
 
 class FixpointError(Exception):
@@ -109,23 +105,13 @@ def parse_forms(t1: ModuleType, text: str) -> tuple[Any, ...]:
 
 def translate_with(t1: ModuleType, text: str) -> str:
     """The Candy program ``text`` as Python source, read and translated by ``t1``."""
-    limit = sys.getrecursionlimit()
-    sys.setrecursionlimit(max(limit, RECURSION_LIMIT))
-    try:
-        return cast(str, t1.translate_text(text))
-    finally:
-        sys.setrecursionlimit(limit)
+    return cast(str, t1.translate_text(text))
 
 
 def translate_file_with(translator: ModuleType, path: Path) -> str:
     """The Candy file at ``path`` as Python source, translated by ``translator``, which
     includes the file's imports."""
-    limit = sys.getrecursionlimit()
-    sys.setrecursionlimit(max(limit, RECURSION_LIMIT))
-    try:
-        return cast(str, translator.translate_file(str(path)))
-    finally:
-        sys.setrecursionlimit(limit)
+    return cast(str, translator.translate_file(str(path)))
 
 
 def build_with(translator: Path, out_dir: Path) -> Path:

@@ -154,8 +154,15 @@ From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
     of a form they have.
   - Parse errors read `file:line:col: parse error: msg`, `import` errors use the import
     form's position. What's left is in `doc/tech_debt.md`.
-- **Recursion:** the Candy translator walks lists by recursion that isn't a self tail call
-  in places, so `self_host.py` raises Python's recursion limit to 20,000.
+- ~~**Recursion:** the Candy translator walks lists by recursion that isn't a self tail call
+  in places, so `self_host.py` raises Python's recursion limit to 20,000.~~ Not needed
+  any more (removed). Measured with `bin`: lists, top-level forms, `do`s and strings of
+  any length need almost no depth (they are self tail calls, so loops). Depth grows only
+  with nesting, about four frames a level, and with `cond` clauses (nested `If`s). Under
+  the default limit of 1,000, that's about 240 levels of nesting or a 330-clause `cond`,
+  past what Python itself compiles: 200 nested parentheses, 100 levels of indentation
+  (which a long `cond` meets first; see `doc/tech_debt.md`). Translating the translator
+  needs a limit of 60.
 
 ### The driver as built
 
