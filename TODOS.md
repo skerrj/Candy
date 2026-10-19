@@ -20,3 +20,5 @@ Done and earlier items are in `doc/archive/TODOS_pre_self_host.md` and
 - [x] Review the spec update (`src/cdy/candy-special.md`): approved; `tup` moved out of "weird stuff".
 - [x] A driver in Candy: `main` in `cdyc.cdy` (`python bin/py/cdy_translator.py FILE.cdy [OUT.py]`).
 - [ ] Review the `main` entry-point convention (`doc/hl_rqmt/self_host_cleanup.md`, "The driver as built"; `src/cdy/candy-special.md`, "programs").
+- [ ] Read `doc/hl_rqmt/macros.md` (placeholder): macros proposed as the next branch after this one, once errors carry positions.
+- [x] Parse and `import` errors name their file (`lib/b.cdy: parse error at ...`).

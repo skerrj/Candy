@@ -34,9 +34,11 @@ take one, and remove an entry once it is fixed.
   goes into `read.cdy` only, will have to drop or narrow those tests. The Candy reader
   builds strings and lists by appending one item at a time (quadratic, but fast enough: it
   reads the whole translator in about 0.02s).
-- **Errors don't say which file** they're in: a parse error in an imported file gives its
-  line and column, but not its name (`read-forms` only sees the text, and Candy can't catch
-  a `fail` to add it).
+- **Only some errors say which file** they're in: parse errors and `import` errors do
+  (`lib/b.cdy: parse error at line 2, ...`), since the reader and `include.cdy` know the
+  file. Errors from `analyse` (`unknown name x`) don't: the forms of all the files are
+  joined before it runs, and forms don't carry where they came from. That comes with
+  error positions (`doc/hl_rqmt/self_host_cleanup.md`).
 - **Programs only the Candy translator handles** go in `tst/cdy/cdyc/`, which the frozen
   Python translator skips; files they import live in subdirectories (`lib/`), so they
   aren't taken for programs.

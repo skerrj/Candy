@@ -150,6 +150,29 @@ def test_errors(src: str, message: str, t1: ModuleType) -> None:
         translate_with(t1, src)
 
 
+@pytest.mark.parametrize(
+    ("imported", "message"),
+    [
+        ('(def x "open\n', "lib/b.cdy: parse error at line 1, column 8: string is never"),
+        ("(import nope)", "lib/b.cdy: import: can't find nope.cdy in lib"),
+        ("(import)", "lib/b.cdy: import: expected (import name)"),
+    ],
+)
+def test_errors_name_their_file(
+    imported: str, message: str, t1: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    Path("lib").mkdir()
+    Path("main.cdy").write_text("(import lib/a)\n", encoding="utf-8")
+    Path("lib/a.cdy").write_text("(import b)\n", encoding="utf-8")  # next to a.cdy
+    Path("lib/b.cdy").write_text(imported, encoding="utf-8")
+    with pytest.raises(CandyFail, match="^" + re.escape(message)):
+        translate_file_with(t1, Path("main.cdy"))
+    Path("main.cdy").write_text("(put\n", encoding="utf-8")
+    with pytest.raises(CandyFail, match="^main.cdy: parse error at line 1, column 1"):
+        translate_file_with(t1, Path("main.cdy"))
+
+
 SHAPES = """
 (deft Shape (Circle ((r Double))) (Rect ((w Double) (h Double))) (Dot))
 (sig s Shape)

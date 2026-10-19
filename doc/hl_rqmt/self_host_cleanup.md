@@ -54,7 +54,8 @@ result is still one program and one Python module.
 
 - **`src/cdy/include.cdy`** does it, between the reader and `analyse`. `read-program`
   reads a file and replaces each top-level `(import name)` with the forms of `name.cdy`,
-  found in the importing file's directory (resolved to an absolute path), recursively.
+  found in the importing file's directory, recursively (absolute paths tell which files
+  are already in; errors show the path as joined, such as `lib/util.cdy`).
   A file already included (imported twice, or in a cycle, or the main file itself) is
   skipped. The name may hold a relative path: `(import lib/util)`.
 - **Errors:** `import: expected (import name)` for any other shape, `import: can't find
@@ -142,7 +143,9 @@ From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
   Candy program using `SYS_ARGS`, `slurp` and `spit`, so `bin/py/` can be run directly.~~
   Done; see "The driver as built" below.
 - **Error positions:** only parse errors have a line and column. The reader knows
-  positions; the forms don't carry them yet.
+  positions; the forms don't carry them yet. First step done: parse and `import` errors
+  name their file (`read-source` in `read.cdy` takes the file's name; `where` writes the
+  `file: ` prefix). Next: positions (and so the file) on forms, for `analyse`'s errors.
 - **Recursion:** the Candy translator walks lists by recursion that isn't a self tail call
   in places, so `self_host.py` raises Python's recursion limit to 20,000.
 
@@ -163,6 +166,13 @@ From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
   `(List String)` (a tuple, as `List` is everywhere; it was a Python list).
 - **Tests:** `tst/cdy/cdyc/main.cdy`; `bin` run as a program, with `py_cdy` and `parsec`
   blocked, rebuilds itself and translates a program, and its errors and exit codes.
+
+## After this branch
+
+Merge into `master` and tag. Then, in my proposed order: **macros**
+(`doc/hl_rqmt/macros.md`, a placeholder: why they come next, and the decisions they need),
+then modules (`import` step B), a Candy type checker, and `system.cdy`/`prelude.cdy`, each
+on its own branch with its own HLD.
 
 ## Open questions
 
