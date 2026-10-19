@@ -155,6 +155,65 @@ The Python is never written to a file and never checked by mypy. The `exec` is t
 late-bound globals. A translator on another host would need its own way to load
 translated code (or an interpreter).
 
+### Why a macro can't simply be a `defn` of the program (Q&A)
+
+*Question (owner): why can't expanding a macro just be like calling any `defn` that gets
+read in, producing a form?*
+
+Mostly it is. A macro is compiled as an ordinary `defn` (`macro__when`), and the forms it
+returns are treated exactly as if they had been read from the source: they go on to
+`analyse`. The one real difference is **when the code runs**:
+
+- **The translator doesn't run the program; it translates it.** A `defn` in the program
+  becomes Python text in `output/foo.py`, and nothing executes it until someone runs that
+  file, after translation is over. A macro has to run *during* translation: before the
+  translator can analyse `(unless (ready) (go))` it needs the form `unless` returns. So
+  the macro's code must execute inside the translator's own process, mid-translation.
+- **There are two ways to run code inside the translator:** interpret it (an evaluator for
+  Candy in the translator; rejected above, as a second implementation of every form and
+  built-in), or compile it and load it into the running process. `exec` is that load: an
+  `import` of a module that exists only as a string. Writing the Python to a file and
+  importing it with `importlib` would be the same thing with an extra file.
+- **Lisps hide this** because their compiler always runs inside a live image with
+  `eval`/`load`. Clojure compiles and loads each top-level form as it reads it, so a
+  `defmacro` is just a function the compiler also calls. A batch translator has no live
+  image until we make one; `load_macros` is that step.
+
+**Same-file `defn`s as macro helpers are possible too**: the Clojure model, translating
+and loading a file one top-level form at a time, so a macro can call any function defined
+above it. It was not chosen (question 1, "rejected: ... would compile parts of the program
+twice") because:
+
+- **Top-level code would run at translate time:** a top-level `(put ...)`, or any other
+  effect, would run while translating, unless something separates the forms to load.
+- **The translator works on whole files:** `analyse` collects all top-level names and
+  `deft`s first, so definitions can refer to each other in any order. Loading form by form
+  needs everything a form uses defined, and loaded, before it.
+- **The program would be compiled twice:** once to load the parts macros use, once for
+  the output.
+
+So "helpers live in a separate stage" (macro files) is a choice for simplicity, not a
+technical wall. If same-file helpers are wanted later, incremental Clojure-style loading is
+the route; its cost is mostly translate-time effects and ordering, not the `exec`.
+
+*Follow-up (owner): eventually, pull this out of the Python "style" so it isn't reinvented
+for each target?*
+
+Yes, but the boundary is the translator's **host**, not the program's **target**. Macros
+run where the translator runs. A translator on Python that emits, say, JavaScript would
+still run its macros with Python's `exec`: a new target needs no new macro machinery. Only
+a translator that itself runs elsewhere (built for JavaScript or native code) needs a new
+way to run macro code. Most of the machinery is already host-independent Candy:
+`expand.cdy` builds the macro program, the translator translates it, and expansion,
+stamping and errors are all Candy. The host-specific part is two built-ins, `load-macros`
+(load translated code, keep the translator's `Form`s) and `call-macro`. So "pulling it
+out" means making those two a declared host interface (a `sig` in `system.cdy`, with each
+host implementing them: `exec` here, `new Function`/`eval` in JavaScript, loading a shared
+library natively), or else replacing them with an interpreter over Core written in Candy,
+which would run on any host but is the second implementation rejected above. With modules,
+the macro program can also import the translator's `form` module instead of copying
+`form.cdy`, which removes the "put the names back" step, the most Python-specific detail.
+
 ### Staging: what macro code can use (decided, question 1)
 
 Macro code runs before the program exists, so it can't call functions that the program
