@@ -28,6 +28,11 @@ true|false ;; Bool
 - `(Maybe a)` `(Fn (a b) r)` `(List a)` `(Tup a b)` `(Map k v)`
 - a `deft` type, possibly generic: `Shape`, `(Tree a)`
 - `Any` turns checking off: an escape hatch
+## programs
+- a program runs its top-level forms in order
+- if it defines `main`, typed `(Fn ((List String)) Int)`, `main` then runs with the command-line arguments, and the program exits with its result
+- `main` runs only when the program itself is run: not when it's imported, as the translator's own `main` (its driver) isn't when tests load it
+- a `fail` in `main` prints `candy: ` and the message, and exits with 1
 ## special forms
 ### import
 - top level only

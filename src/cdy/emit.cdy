@@ -500,3 +500,9 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len modules) 0)
     acc
     (emit-imports (slice modules 1 (len modules)) (+ acc (format "import {(at modules 0)}\n")))))
+
+;; Run `main` when the module is run, not imported (see has-main in core.cdy).
+(sig emit-main (Fn (Env) String))
+(defn emit-main (env)
+  (let ((name (map-get (get env globals) "main")))
+    (format "\n\nif __name__ == \"__main__\":\n    cdy_rt.table_defs.run_main({name})\n")))

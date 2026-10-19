@@ -15,8 +15,9 @@ The fixpoint: T1 translates the Candy translator into T2. T2 must pass ``mypy --
 translate the translator into the very same text (T3 = T2), and translate every test
 program exactly as T1 does. The checked-in translator ``bin/py/cdy_translator.py`` must be
 that same T2: after changing the Candy translator, rebuild it with
-``python src/py_cdy/self_host.py``. It must rebuild itself, and do so with neither
-``parsec`` nor ``py_cdy`` importable.
+``python src/py_cdy/self_host.py``. Run as a program (its driver, ``main`` in
+``cdyc.cdy``), it must rebuild itself, and translate other files, with neither ``parsec``
+nor ``py_cdy`` importable.
 """
 
 import re
@@ -140,6 +141,8 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(import a b)", "expected (import name)"),
         ("(import nope)", "can't find nope.cdy in ."),
         ("(put (do (import x)))", "only allowed at top level"),
+        ("(sig main Int) (def main 1)", "main must be a defn"),
+        ("(sig main (Fn (Int) Int)) (defn main (n) n)", "main must be typed"),
     ],
 )
 def test_errors(src: str, message: str, t1: ModuleType) -> None:
@@ -206,6 +209,7 @@ def test_bin_is_t2(t2: tuple[Path, str]) -> None:
 
 
 BLOCKED_IMPORTS = """
+import runpy
 import sys
 from importlib.abc import MetaPathFinder
 
@@ -216,25 +220,45 @@ class Block(MetaPathFinder):
         return None
 
 sys.meta_path.insert(0, Block())
-sys.setrecursionlimit(20_000)
-import importlib.util
-spec = importlib.util.spec_from_file_location("cdy_translator", sys.argv[1])
-bin_ = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(bin_)
-print(bin_.translate_file(sys.argv[2]), end="")
+sys.argv = sys.argv[1:]
+runpy.run_path(sys.argv[0], run_name="__main__")
 """
 
 
-def test_bin_rebuilds_itself_without_python_translator(tmp_path: Path) -> None:
-    done = subprocess.run(
-        [sys.executable, "-c", BLOCKED_IMPORTS, str(BIN_PATH), str(TRANSLATOR)],
+def run_bin(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Run the checked-in translator as a program (its driver, ``main`` in ``cdyc.cdy``),
+    with ``parsec`` and ``py_cdy`` blocked."""
+    return subprocess.run(
+        [sys.executable, "-c", BLOCKED_IMPORTS, str(BIN_PATH), *args],
         capture_output=True,
         text=True,
         check=False,
-        cwd=tmp_path,
+        cwd=cwd,
     )
+
+
+def test_bin_rebuilds_itself_without_python_translator(tmp_path: Path) -> None:
+    done = run_bin([str(TRANSLATOR), "bin.py"], tmp_path)
     assert done.returncode == 0, done.stderr
-    assert done.stdout == BIN_PATH.read_text(encoding="utf-8")
+    assert done.stderr == f"candy: {TRANSLATOR} -> bin.py\n"
+    assert (tmp_path / "bin.py").read_text(encoding="utf-8") == BIN_PATH.read_text(encoding="utf-8")
+
+
+def test_bin_driver(tmp_path: Path) -> None:
+    program = ROOT / "tst" / "cdy" / "sums.cdy"
+    done = run_bin([str(program)], tmp_path)
+    assert done.returncode == 0, done.stderr
+    out = tmp_path / "output" / "sums.py"
+    assert run(out.read_text(encoding="utf-8"), tmp_path, "sums").stdout == (
+        program.with_suffix(".out").read_text(encoding="utf-8")
+    )
+    assert run_bin([], tmp_path).returncode == 2
+    assert run_bin(["a.cdy", "b.py", "c"], tmp_path).returncode == 2
+    (tmp_path / "bad.cdy").write_text("(put nope)\n", encoding="utf-8")
+    done = run_bin(["bad.cdy"], tmp_path)
+    assert (done.returncode, done.stderr) == (1, "candy: unknown name nope\n")
+    done = run_bin(["missing.cdy"], tmp_path)
+    assert done.returncode == 1 and done.stderr.startswith("candy: can't find")
 
 
 # --- the reader ---

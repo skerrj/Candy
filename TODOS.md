@@ -18,3 +18,5 @@ Done and earlier items are in `doc/archive/TODOS_pre_self_host.md` and
 - [ ] Review `import` step A as built (`doc/hl_rqmt/self_host_cleanup.md`, "Step A as built"), and the new leak in `doc/leaks.md`.
 - [x] `and`/`or` short-circuit in the Candy translator (`tst/cdy/short_circuit.cdy`).
 - [x] Review the spec update (`src/cdy/candy-special.md`): approved; `tup` moved out of "weird stuff".
+- [x] A driver in Candy: `main` in `cdyc.cdy` (`python bin/py/cdy_translator.py FILE.cdy [OUT.py]`).
+- [ ] Review the `main` entry-point convention (`doc/hl_rqmt/self_host_cleanup.md`, "The driver as built"; `src/cdy/candy-special.md`, "programs").

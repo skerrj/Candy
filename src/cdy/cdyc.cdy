@@ -2,6 +2,8 @@
 ;;; files it imports: form (the forms), read (the reader), include (`import`), core (analyse
 ;;; into the Core AST), lower (the lowered IR) and emit (Python source). The checked-in
 ;;; build is bin/py/cdy_translator.py; it rebuilds itself from this file (see bin/README.md).
+;;; Run it to translate a file: python bin/py/cdy_translator.py FILE.cdy [OUT.py] (`main`,
+;;; at the end).
 
 (import form)
 (import read)
@@ -19,7 +21,11 @@
         (stmts (lower-program tops 0 empty-list))
         (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) initial-table)))
         (env (bind-locals (bound-locals stmts empty-list) globals)))
-    (+ HEADER (emit-imports PY_IMPORTS "") "\n" (emit-stmts stmts 0 env ""))))
+    (+ HEADER
+       (emit-imports PY_IMPORTS "")
+       "\n"
+       (emit-stmts stmts 0 env "")
+       (if (has-main tops) (emit-main env) ""))))
 
 ;; Candy text in, Python source out, read by the Candy reader (read.cdy), which also
 ;; reads the forms in `format` holes. Its imports are found in the current directory.
@@ -29,3 +35,22 @@
 ;; The Candy file at `path` as Python source; its imports are found next to it.
 (sig translate-file (Fn (String) String))
 (defn translate-file (path) (translate (read-program path) read-forms))
+
+;; --- the driver ---
+
+(sig USAGE String)
+(def USAGE "usage: cdy_translator.py FILE.cdy [OUT.py]")
+
+;; Translate FILE.cdy into OUT.py, by default output/FILE.py (as py_cdy/main.py does).
+(sig main (Fn ((List String)) Int))
+(defn main (args)
+  (if (or (= (len args) 0) (> (len args) 2))
+    (do (put-err USAGE) 2)
+    (let ((src (at args 0))
+          (out (if (= (len args) 2) (at args 1) (path-join "output" (+ (path-stem src) ".py"))))
+          (python (translate-file src)))
+      (do
+        (make-dirs (path-dir out))
+        (spit out python)
+        (put-err (format "candy: {src} -> {out}"))
+        0))))

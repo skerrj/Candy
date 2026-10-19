@@ -18,15 +18,19 @@ from cdy_rt.table_defs import (
     is_lit,
     is_neg_int,
     join,
+    make_dirs,
     map_get,
     map_has,
     map_set,
     path_dir,
     path_join,
     path_resolve,
+    path_stem,
+    put_err,
     py_mangle,
     py_repr,
     replace,
+    run_main,
     slice_,
     spit,
     to_float,
@@ -64,6 +68,29 @@ def test_files(tmp_path: Path) -> None:
     assert file_exists(str(out)) and not file_exists(str(tmp_path))
     assert path_dir(path_join(str(tmp_path), "o.txt")) == str(tmp_path)
     assert path_resolve(path_join(str(tmp_path / "x"), "../o.txt")) == str(out.resolve())
+    make_dirs(str(tmp_path / "a" / "b"))
+    make_dirs(str(tmp_path / "a" / "b"))  # already there
+    assert (tmp_path / "a" / "b").is_dir()
+    assert path_stem("src/x/prog.cdy") == "prog"
+
+
+def test_put_err_and_run_main(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    put_err("oops")
+    assert capsys.readouterr().err == "oops\n"
+    monkeypatch.setattr("sys.argv", ["prog", "a", "b"])
+    with pytest.raises(SystemExit) as done:
+        run_main(len)
+    assert done.value.code == 2
+
+    def failing(_: tuple[str, ...]) -> int:
+        fail("no good")
+
+    with pytest.raises(SystemExit) as done:
+        run_main(failing)
+    assert done.value.code == 1
+    assert capsys.readouterr().err == "candy: no good\n"
 
 
 def test_maps() -> None:

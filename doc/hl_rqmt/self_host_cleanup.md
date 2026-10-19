@@ -138,12 +138,31 @@ From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
   (`deft TableEntry ...`) would let `system.cdy` replace `table.py` later.
 - **`get` before `match` is caught by mypy, not by Candy.** Candy has no type checker of
   its own yet; that is a much bigger project and probably its own HLD.
-- **A driver in Candy:** `main.py`'s job (read a file, translate, write `output/`) as a
-  Candy program using `SYS_ARGS`, `slurp` and `spit`, so `bin/py/` can be run directly.
+- ~~**A driver in Candy:** `main.py`'s job (read a file, translate, write `output/`) as a
+  Candy program using `SYS_ARGS`, `slurp` and `spit`, so `bin/py/` can be run directly.~~
+  Done; see "The driver as built" below.
 - **Error positions:** only parse errors have a line and column. The reader knows
   positions; the forms don't carry them yet.
 - **Recursion:** the Candy translator walks lists by recursion that isn't a self tail call
   in places, so `self_host.py` raises Python's recursion limit to 20,000.
+
+### The driver as built
+
+- **`main` is the entry point** (a convention, not a special form): a program that defines
+  `main`, typed `(Fn ((List String)) Int)`, runs it after its top-level forms when the
+  program is run, with the command-line arguments, and exits with its result. `analyse`
+  checks the type (`has-main` in `core.cdy`); `emit-main` adds
+  `if __name__ == "__main__": cdy_rt.table_defs.run_main(main)`, so loading the module
+  (as `self_host.py` and the tests load `bin`) doesn't run it. `run_main` turns a `fail`
+  or an unreadable file into `candy: <error>` on standard error and exit status 1.
+- **The driver** is `main` in `cdyc.cdy`: `python bin/py/cdy_translator.py FILE.cdy
+  [OUT.py]`, `OUT.py` by default `output/FILE.py`, as `main.py` does; usage errors exit
+  with 2. It doesn't run the result (no `--run`: Candy can't start a process yet), so
+  `main.py --translator bin --run` stays for that.
+- **New runtime built-ins:** `put-err`, `make-dirs`, `path-stem`; `SYS_ARGS` is now a
+  `(List String)` (a tuple, as `List` is everywhere; it was a Python list).
+- **Tests:** `tst/cdy/cdyc/main.cdy`; `bin` run as a program, with `py_cdy` and `parsec`
+  blocked, rebuilds itself and translates a program, and its errors and exit codes.
 
 ## Open questions
 

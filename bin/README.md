@@ -5,7 +5,10 @@ targets get their own, see `doc/hl_rqmt/multi_target.md`).
 
 - `py/cdy_translator.py`: the self-hosted translator, generated; don't edit it. It is the
   Candy translator (`src/cdy/cdyc.cdy` and the files it imports) translated by itself.
-  Use it with `python src/py_cdy/main.py FILE.cdy --translator bin`. It needs only the
+  Run it: `python bin/py/cdy_translator.py FILE.cdy [OUT.py]` translates `FILE.cdy` (and
+  its imports) into `OUT.py`, by default `output/FILE.py`; errors print `candy: ...` and
+  exit with 1 (usage: 2). `python src/py_cdy/main.py FILE.cdy --translator bin [--run]`
+  does the same through `main.py`, which can also run the result. It needs only the
   runtime `cdy_rt` (it has its own reader), and it rebuilds itself (both tested).
 
 **Rebuilding.** After changing `src/cdy/`, run `python src/py_cdy/self_host.py`:

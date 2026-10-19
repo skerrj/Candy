@@ -775,3 +775,29 @@
           (assoc scope env (map-set (get scope env) name loc))
           (+ n 1)
           (+ acc (to-list loc)))))))
+
+;; --- main ---
+
+;; A program may define `main`: it takes the command-line arguments and returns the exit
+;; status, and it runs when the program is run (not when its module is imported).
+(sig MAIN_TYPE CType)
+(def MAIN_TYPE (TFn (to-list (TCon "List" (to-list (TCon "String" empty-list)))) (TCon "Int" empty-list)))
+
+;; Whether the program defines `main`; it must be a defn typed (Fn ((List String)) Int).
+(sig has-main (Fn ((List Top)) Bool))
+(defn has-main (tops)
+  (cond
+    ((= (len tops) 0) false)
+    ((is-main (at tops 0)) true)
+    (else (has-main (slice tops 1 (len tops))))))
+
+(sig is-main (Fn (Top) Bool))
+(defn is-main (top)
+  (match top
+    ((TDefn name _ _ t)
+      (cond
+        ((!= name "main") false)
+        ((= t MAIN_TYPE) true)
+        (else (fail "main must be typed (Fn ((List String)) Int)"))))
+    ((TDef name _ _) (if (= name "main") (fail "main must be a defn") false))
+    (else false)))
