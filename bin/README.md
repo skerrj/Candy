@@ -10,6 +10,9 @@ targets get their own, see `doc/hl_rqmt/multi_target.md`).
   exit with 1 (usage: 2). `python src/py_cdy/main.py FILE.cdy --translator bin [--run]`
   does the same through `main.py`, which can also run the result. It needs only the
   runtime `cdy_rt` (it has its own reader), and it rebuilds itself (both tested).
+- `py/form.cdy`: a copy of `src/cdy/form.cdy`, which the translator reads to compile a
+  program's macros (macro code uses `Form` and its helpers). `self_host.py` copies it next
+  to every translator it builds; don't edit it.
 
 **Rebuilding.** After changing `src/cdy/`, run `python src/py_cdy/self_host.py`:
 

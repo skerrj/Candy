@@ -1,0 +1,7 @@
+when: yes
+unless: yes
+negative zero positive
+42
+12
+10
+7

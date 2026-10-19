@@ -17,3 +17,7 @@ Done and earlier items are in `doc/archive/TODOS_self_host_cleanup.md`,
 - [x] Review `doc/hl_rqmt/macros.md`: accepted (proposals on 1, 3–6; reader rejects `__`; `cond` first).
 - [x] Macros step 1: `quo`, `quasi`, `unq`, `unq-sp`, `defmacro` as special forms (spec, table, grammar).
 - [x] Macros step 2: `quo` and `quasi` build `Form` values (`tst/cdy/cdyc/quoting.cdy`).
+- [x] Macros step 3: `defmacro` and expansion (`src/cdy/expand.cdy`), `gensym`, `__` rejected by the reader.
+- [x] Macros step 4: `import-macros`, helpers in macro files.
+- [ ] Review steps 3 and 4 as built (`doc/hl_rqmt/macros.md`, the steps' "Done" notes and "How `load-macros` runs macro code"): `form.cdy` kept next to the translator, expansion skipping binding positions, and the three new leaks in `doc/leaks.md`.
+- [ ] Add the up, down, down*, meta-template side conversation to `doc/brainstorm.md` (owner to supply the gist).

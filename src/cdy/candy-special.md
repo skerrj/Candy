@@ -41,6 +41,12 @@ true|false ;; Bool
 - no namespaces yet: every top-level name is global across all the files
 - only in the Candy translator (the Python translator is frozen)
  > (import *symbol*)
+### import-macros
+- top level only; *symbol*`.cdy` is found as for `import`, but it is a **macro file**: its `defmacro`s become macros of the importing file, and its other definitions are helpers, which run only while translating (the importing file's own `defmacro`s can call them; its program can't)
+- a macro file can `import` ordinary files (their definitions are helpers too) and `import-macros` other macro files, whose macros expand in it; it doesn't pass those macros on
+- each macro file is loaded once per importer; a cycle is an error
+- only in the Candy translator
+ > (import-macros *symbol*)
 #### import-as, import-from [SKIP]
 - will come with modules (step B)
  > (import-as *symbol* *as-symbol*)\
@@ -110,6 +116,9 @@ true|false ;; Bool
 - top level only; every parameter is a `Form`, and no `sig` is needed
 - scheme style: a bare *symbol* instead of the parameter list gets all the arguments as one `(List Form)`
 - binding a macro's name (in `let`, `fn`, a pattern, `def` or `defn`) is an error
+- calling a macro with the wrong number of arguments is an error at the call, and so is an error in the macro or in the code it returns
+- a macro's body can use the built-ins, `Form` with its helpers (`form.cdy`), such as `sym-name`, `list-items`, `rest-of` and `gensym`, and the helpers of macro files (see `import-macros`); not the program's own definitions
+- `(gensym "x")` returns a new symbol, `x__1`, which no program can write: the reader rejects `__` in a name
 - [in progress on branch `macros`]
  > (defmacro *symbol* (*args**) *expr*)\
  > (defmacro *symbol* *args-symbol* *expr*)
@@ -118,7 +127,6 @@ true|false ;; Bool
 - `quo` returns *form* unevaluated, as a `Form` (it replaces `quote`, reserved since the iMVP)
 - `quasi` is like `quo`, but `unq` inside it puts in the value of *expr* (a `Form`), and `unq-sp` inside a list splices in the items of *expr* (a `(List Form)`)
 - the `'` shorthand will be added later as a reader macro... ala clojure
-- [in progress on branch `macros`]
  > (quo *form*)\
  > (quasi *form*)\
  > (unq *expr*)\

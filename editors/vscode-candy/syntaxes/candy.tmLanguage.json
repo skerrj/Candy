@@ -231,7 +231,7 @@
     "head": {
       "patterns": [
         {
-          "match": "(?<=\\()(import|do|if|cond|let|fn|quo|quasi|unq-sp|unq|tup|get|assoc|match|else)(?=[\\s();}]|$)",
+          "match": "(?<=\\()(import-macros|import|do|if|cond|let|fn|quo|quasi|unq-sp|unq|tup|get|assoc|match|else)(?=[\\s();}]|$)",
           "name": "keyword.control.candy"
         },
         {

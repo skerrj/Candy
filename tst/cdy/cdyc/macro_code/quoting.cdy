@@ -1,6 +1,7 @@
-;; quo and quasi build Form values (doc/hl_rqmt/macros.md, step 2). They need Form, from
-;; the translator's form.cdy, as macro code will have it.
-(import ../../../src/cdy/form)
+;; quo and quasi build Form values (doc/hl_rqmt/macros.md, step 2). They are only allowed
+;; in macro code, so test_self_host.py translates this as macro code, with Form from the
+;; translator's form.cdy, as a macro program has it.
+(import ../../../../src/cdy/form)
 
 ;; A form written back as text.
 (sig show (Fn (Form) String))

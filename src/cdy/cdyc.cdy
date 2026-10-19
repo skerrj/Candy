@@ -1,6 +1,7 @@
 ;;; cdyc: the Candy translator, written in Candy. Candy in, Python out. Its steps are in the
-;;; files it imports: form (the forms), read (the reader), include (`import`), core (analyse
-;;; into the Core AST), lower (the lowered IR) and emit (Python source). The checked-in
+;;; files it imports: form (the forms), read (the reader), include (`import`), expand
+;;; (macros), core (analyse into the Core AST), lower (the lowered IR) and emit (Python
+;;; source). The checked-in
 ;;; build is bin/py/cdy_translator.py; it rebuilds itself from this file (see bin/README.md).
 ;;; Run it to translate a file: python bin/py/cdy_translator.py FILE.cdy [OUT.py] (`main`,
 ;;; at the end).
@@ -8,16 +9,28 @@
 (import form)
 (import read)
 (import include)
+(import expand)
 (import core)
 (import lower)
 (import emit)
 
 ;; --- the whole translator: forms in, Python source out ---
 
-;; `parse` reads the forms in `format` holes: read-forms (see translate-text).
+;; `parse` reads the forms in `format` holes: read-forms (see translate-text). Their macro
+;; calls are expanded too.
 (sig translate (Fn ((List Form) (Fn (String) (List Form))) String))
 (defn translate (forms parse)
-  (let ((tops (analyse-program forms initial-table parse))
+  (let (((program macros) (expand-program forms compile-macros)))
+    (translate-expanded program (fn (text) (expand-all (parse text) macros empty-list)) macros false)))
+
+;; A macro program (expand.cdy) as Python. It is macro code, so it can quote.
+(sig compile-macros (Fn ((List Form)) String))
+(defn compile-macros (forms) (translate-expanded forms read-forms empty-map true))
+
+;; `forms`, with no macro calls left, as Python; `macros` are the program's macros.
+(sig translate-expanded (Fn ((List Form) (Fn (String) (List Form)) (Map String Macro) Bool) String))
+(defn translate-expanded (forms parse macros quoting)
+  (let ((tops (analyse-program forms initial-table parse macros quoting))
         (stmts (lower-program tops 0 empty-list))
         (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) initial-table)))
         (env (bind-locals (bound-locals stmts empty-list) globals)))

@@ -64,7 +64,11 @@
    (variants (Map String VInfo))
    (sums (Map String (List String)))
    ;; The innermost form being analysed, for errors (see located).
-   (here Pos)))
+   (here Pos)
+   ;; The program's macros (expand.cdy), whose names can't be bound, and whether this is
+   ;; macro code, where quo and quasi are allowed.
+   (macros (Map String Macro))
+   (quoting Bool)))
 
 ;; `scope` analysing a form at `pos` (unless that's NOWHERE).
 (sig at-pos (Fn (Scope Pos) Scope))
@@ -73,6 +77,14 @@
 ;; An error message `msg`, starting with where the form being analysed is.
 (sig located (Fn (Scope String) String))
 (defn located (scope msg) (+ (pos-text (get scope here)) msg))
+
+;; `scope` with `name` bound to `loc`. A macro's name can't be bound: expansion doesn't see
+;; local names, so it would still expand a call of it.
+(sig bind-local (Fn (Scope String Expr) Scope))
+(defn bind-local (scope name loc)
+  (if (map-has (get scope macros) name)
+    (fail (located scope (format "{name} is a macro, so it can't be bound")))
+    (assoc scope env (map-set (get scope env) name loc))))
 
 (deft VInfo ((sum String) (fields (List String))))
 
@@ -170,7 +182,7 @@
     ((= head "quo") (an-quo rest scope n))
     ((= head "quasi") (an-quasi rest scope n))
     ((in head (tup "unq" "unq-sp")) (fail (located scope (format "{head}: only inside quasi"))))
-    ((in head (tup "def" "defn" "deft" "sig" "import"))
+    ((in head (tup "def" "defn" "deft" "sig" "import" "import-macros" "defmacro"))
       (fail (located scope (format "{head} is only allowed at top level"))))
     (else (fail (located scope (format "{head} is not supported by the Candy translator yet"))))))
 
@@ -258,7 +270,7 @@
                   (fail (located scope "let name must be a name, not a special form"))
                   (let-bindings
                     (rest-of bindings)
-                    (assoc scope env (map-set (get scope env) name loc))
+                    (bind-local scope name loc)
                     (+ n1 1)
                     (+ acc (to-list (tup loc init)))))))))))))
 
@@ -277,7 +289,7 @@
           (rest-of names)
           tmp
           (+ i 1)
-          (assoc scope env (map-set (get scope env) name loc))
+          (bind-local scope name loc)
           (+ n 1)
           (+ acc (to-list (tup loc item))))))))
 
@@ -433,7 +445,7 @@
             (rest-of names)
             tmp
             (+ i 1)
-            (assoc scope env (map-set (get scope env) name loc))
+            (bind-local scope name loc)
             (+ n 1)
             (+ acc (to-list (tup loc item)))))))))
 
@@ -552,7 +564,7 @@
           (pattern-binds
             (slice fields 1 (len fields))
             (rest-of names)
-            (assoc scope env (map-set (get scope env) name loc))
+            (bind-local scope name loc)
             (+ n 1)
             (+ acc (to-list (tup (at fields 0) loc)))))))))
 
@@ -567,9 +579,9 @@
 
 ;; --- quoting (doc/hl_rqmt/macros.md) ---
 
-;; (quo form): `form` as a Form value, built with Form's constructors (form.cdy), which
-;; the program must have, as macro code does. Quoted forms are NOWHERE, so that an
-;; expansion takes the position of its call.
+;; (quo form): `form` as a Form value, built with Form's constructors (form.cdy). Only
+;; macro code (expand.cdy) has Form, so only it can quote. Quoted forms are NOWHERE, so
+;; that an expansion takes the position of its call.
 (sig an-quo (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-quo (rest scope n)
   (let ((checked (needs-form "quo" scope)))
@@ -588,9 +600,7 @@
 
 (sig needs-form (Fn (String Scope) Bool))
 (defn needs-form (what scope)
-  (if (and (is-variant "Lst" scope) (map-has (get scope top) "NOWHERE"))
-    true
-    (fail (located scope (format "{what}: only in macro code (it needs Form, from form.cdy)")))))
+  (if (get scope quoting) true (fail (located scope (format "{what}: only in macro code")))))
 
 ;; The Expr that builds `form` as a Form value.
 (sig quoted (Fn (Form) Expr))
@@ -811,9 +821,9 @@
     ((Lst items _) (if (= (len items) 0) "" (sym-name (at items 0))))
     (else (sym-name form))))
 
-(sig analyse-program (Fn ((List Form) Any (Fn (String) (List Form))) (List Top)))
-(defn analyse-program (forms table parse)
-  (let ((scope (find-variants forms (Scope empty-map (top-names forms empty-map) table parse empty-map empty-map NOWHERE))))
+(sig analyse-program (Fn ((List Form) Any (Fn (String) (List Form)) (Map String Macro) Bool) (List Top)))
+(defn analyse-program (forms table parse macros quoting)
+  (let ((scope (find-variants forms (Scope empty-map (top-names forms empty-map) table parse empty-map empty-map NOWHERE macros quoting))))
     (get (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms empty-map) empty-map)) out)))
 
 (sig def-names (Fn ((List Form) (Map String Bool)) (Map String Bool)))
@@ -844,6 +854,8 @@
         (head (if (> (len items) 0) (sym-name (at items 0)) ""))
         (here (at-pos scope (form-pos form))))
     (cond
+      ((and (in head (tup "def" "defn")) (> (len items) 1) (map-has (get scope macros) (sym-name (at items 1))))
+        (fail (located here (format "{(sym-name (at items 1))} is a macro, so it can't be defined"))))
       ((= head "sig") (top-sig items here prog))
       ((= head "def") (top-def items here prog))
       ((= head "defn") (top-defn items here prog))
@@ -960,7 +972,7 @@
         (fail (located scope "a parameter must be a name"))
         (bind-params
           (rest-of forms)
-          (assoc scope env (map-set (get scope env) name loc))
+          (bind-local scope name loc)
           (+ n 1)
           (+ acc (to-list loc)))))))
 

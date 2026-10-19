@@ -1,7 +1,8 @@
 ;;; Include: `import` as inclusion (step A of doc/hl_rqmt/self_host_cleanup.md). At top
 ;;; level, `(import name)` is replaced by the forms of `name.cdy`, found in the importing
 ;;; file's directory, so a program and everything it imports is still one program. Each file
-;;; is included once: a file imported again, or in a cycle, is skipped.
+;;; is included once: a file imported again, or in a cycle, is skipped. `(import-macros name)`
+;;; stays, with `name.cdy`'s path in place of the name, for expand.cdy to load.
 
 ;; The forms included so far, and the files they came from (absolute paths).
 (deft Incl ((done (List Form)) (seen (Map String Bool))))
@@ -41,8 +42,20 @@
         (rest-of forms)
         dir
         (if (= name "")
-          (assoc acc done (+ (get acc done) (to-list form)))
-          (include-file (import-path dir name (form-pos form)) acc))))))
+          (assoc acc done (+ (get acc done) (to-list (macro-import form dir))))
+          (include-file (import-path "import" dir name (form-pos form)) acc))))))
+
+;; (import-macros name) as (import-macros "path"), with `name.cdy` found in directory
+;; `dir`; any other form as it is.
+(sig macro-import (Fn (Form String) Form))
+(defn macro-import (form dir)
+  (let ((items (list-items form))
+        (pos (form-pos form)))
+    (cond
+      ((or (= (len items) 0) (!= (sym-name (at items 0)) "import-macros")) form)
+      ((and (= (len items) 2) (!= (sym-name (at items 1)) ""))
+        (Lst (tup (at items 0) (Txt (import-path "import-macros" dir (sym-name (at items 1)) pos))) pos))
+      (else (fail (+ (pos-text pos) "import-macros: expected (import-macros name)"))))))
 
 ;; The name in `(import name)`, or "" if `form` isn't an import.
 (sig import-name (Fn (Form) String))
@@ -53,10 +66,11 @@
       ((and (= (len items) 2) (!= (sym-name (at items 1)) "")) (sym-name (at items 1)))
       (else (fail (+ (pos-text (form-pos form)) "import: expected (import name)"))))))
 
-;; The path of `name.cdy` in directory `dir`, imported at `pos`.
-(sig import-path (Fn (String String Pos) String))
-(defn import-path (dir name pos)
+;; The path of `name.cdy` in directory `dir`, imported at `pos` by `what` (import or
+;; import-macros).
+(sig import-path (Fn (String String String Pos) String))
+(defn import-path (what dir name pos)
   (let ((path (path-join dir (+ name ".cdy"))))
     (if (file-exists path)
       path
-      (fail (format "{(pos-text pos)}import: can't find {name}.cdy in {dir}")))))
+      (fail (format "{(pos-text pos)}{what}: can't find {name}.cdy in {dir}")))))

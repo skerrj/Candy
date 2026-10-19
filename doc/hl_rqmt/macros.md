@@ -117,6 +117,44 @@ every form and every built-in (each needs a Python function to call by name), an
 code would run slowly. The translator's host is Python for the foreseeable future
 (`doc/hl_rqmt/multi_target.md` plans other targets for programs, not for the translator).
 
+### How `load-macros` runs macro code (Python `exec`)
+
+The one place the translator runs Candy code it has just translated. In steps:
+
+1. **Translate.** `expand.cdy` builds the macro program as forms: `form.cdy` (read from
+   next to the translator), then the helpers (macro files' other definitions, step 4),
+   then one `sig` and one `defn` per `defmacro`, named `macro__NAME` and taking the
+   arguments as one `(List Form)` called `args__`. `cdyc.cdy`'s `compile-macros`
+   translates it like any program, except that it is macro code (quoting allowed), so the
+   result is an ordinary Python module's source, with its own imports of `cdy_rt`.
+2. **Pick a namespace.** `load-macros` gets one of the translator's functions
+   (`sym-name`) and takes that function's `__globals__`: the dictionary that is the
+   translator's module namespace, however the translator was loaded (run as a script,
+   imported by `self_host.py`, or under another module name). It copies that dictionary.
+3. **`exec`.** It runs `compile(python, "<macros>", "exec")` with the copy as the
+   globals. Every `def`, `class` and assignment in the macro program lands in the copy,
+   and every global name the macro code looks up is looked up there, when it runs. The
+   translator's own namespace is not touched, so a macro can't redefine a translator
+   function, and two programs' macros don't see each other.
+4. **Put the `Form` names back.** The macro program defined its own `Sym`, `Lst`, `Pos`,
+   `NOWHERE`, `sym_name` and so on, from its copy of `form.cdy`: new classes, which the
+   translator's `match` (an `isinstance` chain on its own classes) would not recognise.
+   So after the `exec`, `load-macros` sets each name that `form.cdy` defines back to the
+   translator's value. Python functions look globals up at call time, so from then on the
+   macro code builds and takes apart the translator's own `Form`s. (`form.cdy` was still
+   needed in step 1: `analyse` must know `Form`'s variants and names to translate the
+   macro code.) Only `form.cdy`'s names are put back, so a helper may have the same name
+   as some translator function.
+5. **Take the macros.** It returns the entries named `macro__...` from the copy; `expand`
+   keeps them in `Macro` records. `call-macro` calls one on the argument forms and turns
+   any error in it (a `fail`, or a Python exception from a bug) into a `CandyFail` that
+   starts with the call's position and the macro's name.
+
+The Python is never written to a file and never checked by mypy. The `exec` is the leak
+(`doc/leaks.md`): the translator must run on Python, and macro code relies on Python's
+late-bound globals. A translator on another host would need its own way to load
+translated code (or an interpreter).
+
 ### Staging: what macro code can use (decided, question 1)
 
 Macro code runs before the program exists, so it can't call functions that the program
@@ -145,7 +183,8 @@ in its simplest form. Inclusion makes it workable before modules.
 - the parts of everything else are expanded.
 
 It doesn't know about local names, so a local variable named like a macro would still be
-expanded as the macro when it heads a list. **Binding a macro's name is an error**
+expanded as the macro when it heads a list. (As built, it does skip binding positions, so
+that the error below is the one reported; see step 3.) **Binding a macro's name is an error**
 (decided, question 5): `analyse` rejects a `let`, `fn`, `defn` parameter or pattern name
 that names a macro, and a `def`/`defn` of one.
 
@@ -205,7 +244,61 @@ learned them (two rebuilds, as with `import`). Moving `cond` out of `core.cdy` c
    helpers; `gensym` and `__` rejected by the reader; binding a macro's name an error;
    position stamping. Tests: `when`/`unless`, argument count errors, an
    error inside an expansion pointing at the call.
+   *Done:* `src/cdy/expand.cdy`, between include and analyse (`translate` in `cdyc.cdy`).
+   As built:
+   - **Compiling.** Each `(defmacro name params body)` becomes
+     `(sig macro__name (Fn ((List Form)) Form))` and
+     `(defn macro__name (args__) (let ((p1 (at args__ 0)) ...) body))` (a bare name is
+     bound to all of `args__`). Neither name can clash with the program's, since source
+     can't contain `__`. The macro program is `form.cdy` followed by these, translated as
+     macro code (`compile-macros`: `analyse` allows quoting there and nowhere else).
+   - **Loading.** `load-macros` (runtime) runs the Python in a copy of the translator's
+     module namespace, found from one of its functions (`sym-name`), then puts back every
+     name the translator defines, so the macros build the translator's own `Form`s rather
+     than those of their copy of `form.cdy`. `call-macro` calls one, and turns an error
+     in it (a `fail` or a Python exception) into one at the call: `file:L:C: name: ...`.
+   - **`form.cdy` sits next to the translator** (`bin/py/form.cdy`; `self_host.py` copies
+     it next to every translator it builds), which reads it to compile macros, as a
+     compiler reads its own library files.
+   - **Expansion** follows the plan, plus one thing: it leaves alone what isn't an
+     expression. That is `sig`, `deft`, `import`, `quo` and `quasi` forms, the name and
+     parameters of `defn` and `fn`, `let` names, `match` patterns, and `cond` clauses
+     (only their parts are expanded). So `(defn f (m) ...)` with a macro `m` reaches
+     `analyse`, which says "m is a macro, so it can't be bound", instead of expanding
+     `(m)`. The forms in `format` holes are expanded too.
+   - **`gensym`** is in `form.cdy`, over a runtime counter (`fresh-name`) that restarts
+     whenever a program's macros are loaded, so a translation doesn't depend on what was
+     translated before (T1 and T2 make the same names).
+   - **The reader** rejects `__` in a symbol. No reader-agreement input contains `__`, so
+     that test needed no skip; the new error is in `test_reader_errors`.
+   - **Quoting is only in macro code** now: `tst/cdy/cdyc/quoting.cdy` moved to
+     `tst/cdy/cdyc/macro_code/`, and the tests translate it as macro code.
+   Tests: `tst/cdy/cdyc/macros.cdy` (`when`, `unless`, a bare-name `my-cond`, a macro with
+   no parameters, `gensym`, splicing, a macro in a `format` hole), `test_macro_errors`,
+   `test_bin_driver_expands_macros` (away from the repository, so `form.cdy` can only come
+   from `bin/py/`), and runtime tests for the new built-ins.
 4. **`import-macros`** and helpers in macro files.
+   *Done:* as planned, in `include.cdy` and `expand.cdy`. As built:
+   - **`include`** resolves `(import-macros name)` like `import` (`name.cdy` next to the
+     importing file) but leaves the form, as `(import-macros "path")`, for `expand`.
+   - **Loading a macro file** (`import-file`): its forms (with its ordinary `import`s
+     included) are expanded like a file of their own (`expand-file`), with the macros of
+     its own `import-macros`. Its `defmacro`s are compiled with its helpers (its other
+     forms) and with its imports' helpers. Each file is loaded once per file that imports
+     it; an `import-macros` cycle is an error.
+   - **What an importer gets:** the file's own macros (not the ones it imported, so a file
+     imports every macro file whose macros it calls), and its helpers, with those of the
+     files it imports (each file's once), for the importer's own `defmacro`s to call.
+     Helpers never reach the program: calling one there is "unknown name".
+   - **A helper can't use its own file's macros**, only imported ones: the file's macros
+     are compiled together with its helpers.
+   - **Two macros with one name** (two files, or a file and its import) are an error at
+     the second `defmacro`.
+   - **`load-macros` restores only `form.cdy`'s names** after the `exec` (it is given
+     them, from `top-names`), so a helper can share a name with a translator function
+     (tested with a helper named `guard`, like `lower.cdy`'s).
+   Tests: `tst/cdy/cdyc/macro_files.cdy` (with `lib/control.cdy`, which imports
+   `lib/base_macros.cdy`) and `test_macro_file_errors`.
 5. **A real macro in the translator:** `cond` (or whichever question 6 settles on), then
    remove it from `core.cdy`.
 

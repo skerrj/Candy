@@ -110,8 +110,11 @@
       ((= word "true") (tup (BoolLit true) end))
       ((= word "false") (tup (BoolLit false) end))
       ((symbol-start (at text pos))
-        (let ((stop (symbol-end text (+ pos 1))))
-          (tup (Sym (slice text pos stop) (pos-at src pos)) stop)))
+        (let ((stop (symbol-end text (+ pos 1)))
+              (name (slice text pos stop)))
+          (if (in "__" name)
+            (fail (parse-error src text pos "a name can't contain __ (only gensym makes such names)"))
+            (tup (Sym name (pos-at src pos)) stop))))
       (else (fail (parse-error src text pos (format "unexpected {(at text pos)}")))))))
 
 ;; --- symbols ---

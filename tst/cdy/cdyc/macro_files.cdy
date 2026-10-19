@@ -1,0 +1,11 @@
+;; Macro files (doc/hl_rqmt/macros.md, step 4): import-macros brings a file's macros, and
+;; its helpers for this file's own defmacros.
+(import-macros lib/control)
+(import-macros lib/control) ; loaded once
+
+(defmacro check (e) (quasi (put (unq (guard e)))))
+
+(unless (> 1 2) (put "unless: yes"))
+(unless true (put "never"))
+(check (> 1 2))
+(check true)

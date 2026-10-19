@@ -59,3 +59,8 @@
       ((= line 0) "")
       ((= file "") (format "line {line}, column {col}: "))
       (else (format "{file}:{line}:{col}: ")))))
+
+;; A new symbol, `prefix__N`, for a name a macro introduces. The reader rejects `__` in a
+;; name, so no program can spell it.
+(sig gensym (Fn (String) Form))
+(defn gensym (prefix) (Sym (fresh-name prefix) NOWHERE))

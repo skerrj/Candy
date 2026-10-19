@@ -18,11 +18,12 @@ Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
 """
 
 import builtins
+import itertools
 import keyword
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn, cast
 
 from cdy_rt.table import IMPORTS, SEARCH_PATH
 
@@ -287,3 +288,56 @@ def run_main(main: Callable[[tuple[str, ...]], int]) -> NoReturn:
         print(f"candy: {err}", file=sys.stderr)
         status = 1
     sys.exit(status)
+
+
+# --- macros (doc/hl_rqmt/macros.md) ---
+
+# Counts the names fresh_name makes; load_macros restarts it, so a program's translation
+# doesn't depend on what was translated before it.
+_FRESH = [itertools.count(1)]
+
+
+def fresh_name(prefix: str) -> str:
+    """A new name, ``prefix__N``, for a macro to introduce. The reader rejects ``__`` in a
+    name, so no program can spell it."""
+    return f"{prefix}__{next(_FRESH[0])}"
+
+
+def module_dir(fn: Callable[..., object]) -> str:
+    """The directory of the Python module that defines the function ``fn``."""
+    return str(Path(module_globals(fn)["__file__"]).parent)
+
+
+def module_globals(fn: Callable[..., object]) -> dict[str, Any]:
+    """The namespace of the module that defines the function ``fn``. (Generated code types
+    a Candy function as a ``Callable``, which has no ``__globals__``.)"""
+    return cast(dict[str, Any], getattr(fn, "__globals__"))  # noqa: B009
+
+
+def load_macros(
+    python: str, home: Callable[..., object], keep: Mapping[str, object]
+) -> Mapping[str, Any]:
+    """Run ``python``, a translated macro program, in a copy of the namespace of the module
+    that defines the function ``home`` (the translator), and return its macros: the functions
+    named ``macro__...``. The Candy names in ``keep`` (``form.cdy``'s) are then set back to
+    the translator's, so the macros build the translator's own ``Form``s, not those of the
+    macro program's copy of ``form.cdy``. See "How load-macros runs macro code" in
+    ``doc/hl_rqmt/macros.md``."""
+    home_ns = module_globals(home)
+    namespace = dict(home_ns)
+    exec(compile(python, "<macros>", "exec"), namespace)  # noqa: S102  # pylint: disable=exec-used
+    for name in map(py_mangle, keep):
+        namespace[name] = home_ns[name]
+    _FRESH[0] = itertools.count(1)
+    return {name: val for name, val in namespace.items() if name.startswith("macro__")}
+
+
+def call_macro(macro: Any, args: Sequence[Any], where: str) -> Any:
+    """``macro`` called on the forms ``args``. An error in it, a ``fail`` or a bug, starts
+    with ``where`` (the call's position and the macro's name)."""
+    try:
+        return macro(args)
+    except CandyFail as err:
+        raise CandyFail(f"{where}{err}") from err
+    except Exception as err:  # pylint: disable=broad-exception-caught
+        raise CandyFail(f"{where}{type(err).__name__}: {err}") from err

@@ -1,0 +1,12 @@
+;; A macro file for macro_files.cdy. Its defn is a helper, run while translating: its own
+;; macros and its importers' defmacros can use it. The helper uses base_macros' if-not,
+;; which expands in it, and is named like a translator function (lower.cdy's `guard`).
+(import-macros base_macros)
+
+(sig guard (Fn (Form) Form))
+(defn guard (test)
+  (match test
+    ((BoolLit val) (if-not val (BoolLit true) (BoolLit false)))
+    (else (quasi (not (unq test))))))
+
+(defmacro unless (test body) (quasi (if (unq (guard test)) (unq body) nil)))

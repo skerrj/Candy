@@ -21,10 +21,12 @@ nor ``py_cdy`` importable.
 """
 
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Any, cast
 
 import pytest
 from mypy import api as mypy_api
@@ -34,6 +36,7 @@ from cdy_rt.table_defs import CandyFail
 from self_host import (
     BIN_PATH,
     CDY_DIR,
+    LIBRARY,
     TRANSLATOR,
     build_t1,
     build_with,
@@ -217,9 +220,90 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
 def test_quoting_errors(
     src: str, message: str, t1: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.chdir(ROOT)  # quoting needs Form, from the translator's form.cdy
+    monkeypatch.chdir(ROOT)  # macro code has Form, from the translator's form.cdy
+    forms = t1.include_imports(t1.read_source("", "(import src/cdy/form)\n" + src), ".")
     with pytest.raises(CandyFail, match="^" + re.escape("line 2, " + message)):
-        translate_with(t1, "(import src/cdy/form)\n" + src)
+        translate_macro_code(t1, forms)
+
+
+def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
+    """``forms`` as Python, translated as macro code (where quoting is allowed), as
+    ``expand.cdy`` translates a macro program."""
+    return cast(str, t1.translate_expanded(forms, t1.read_forms, {}, True))
+
+
+def test_quoting_in_macro_code(t1: ModuleType, tmp_path: Path) -> None:
+    program = CDYC_ONLY / "macro_code" / "quoting.cdy"
+    done = run(translate_macro_code(t1, t1.read_program(str(program))), tmp_path, "quoting")
+    assert done.returncode == 0, done.stderr
+    assert done.stdout == program.with_suffix(".out").read_text(encoding="utf-8")
+
+
+def test_quoting_only_in_macro_code(t1: ModuleType) -> None:
+    with pytest.raises(
+        CandyFail, match="^" + re.escape("line 1, column 6: quo: only in macro code")
+    ):
+        translate_with(t1, "(put (quo x))")
+
+
+M = "(defmacro m (a) a)\n"
+
+
+@pytest.mark.parametrize(
+    ("src", "message"),
+    [
+        # Calls: the error is at the call, even when it is in the expansion.
+        (M + "(m 1 2)", "line 2, column 1: m: expected 1 argument(s), got 2"),
+        ("(defmacro bad () (quo (if)))\n(put 1)\n  (bad)", "line 3, column 3: if: expected"),
+        ('(defmacro m (a) (fail "no"))\n(m 1)', "line 2, column 1: m: no"),
+        ("(defmacro m (a) (at (list-items a) 5))\n(m x)", "line 2, column 1: m: IndexError"),
+        ("(defmacro m () (quo (quo x)))\n(m)", "line 2, column 1: quo: only in macro code"),
+        # A macro's name can't be bound or defined.
+        (M + "(sig f (Fn (Int) Int))\n(defn f (m) m)", "line 3, column 1: m is a macro, so"),
+        (M + "(put (let ((m 1)) m))", "line 2, column 6: m is a macro, so it can't be bound"),
+        (M + "(put ((fn (m) 1) 2))", "line 2, column 7: m is a macro, so it can't be bound"),
+        (M + "(deft S (Mm ((x Int))))\n(put (match (Mm 1) ((Mm m) m)))", "line 3, column 6: m is"),
+        (M + "(sig m Int)\n(def m 1)", "line 3, column 1: m is a macro, so it can't be defined"),
+        # defmacro itself.
+        ("(defmacro m)", "line 1, column 1: defmacro: expected (defmacro name (params) body)"),
+        ("(defmacro if (a) a)", "line 1, column 1: defmacro: if is a special form"),
+        ("(defmacro m (1) a)", "line 1, column 1: defmacro: a parameter must be a name"),
+        (M + M, "line 2, column 1: defmacro: m is defined twice"),
+        ("(put (defmacro m (a) a))", "line 1, column 6: defmacro is only allowed at top level"),
+    ],
+)
+def test_macro_errors(src: str, message: str, t1: ModuleType) -> None:
+    with pytest.raises(CandyFail, match="^" + re.escape(message)):
+        translate_with(t1, src)
+
+
+MACRO_FILE = """(defmacro twice (e) (quasi (+ (unq e) (unq e))))
+(sig helper (Fn (Form) Form))
+(defn helper (f) f)
+"""
+
+
+@pytest.mark.parametrize(
+    ("src", "message"),
+    [
+        # A macro file's helpers run only while translating.
+        ("(import-macros mac)\n(put (helper 1))", "p.cdy:2:7: unknown name helper"),
+        ("(import-macros mac)\n(defmacro twice (a) a)", "p.cdy:2:1: defmacro: twice is already a"),
+        ("(import-macros nope)", "p.cdy:1:1: import-macros: can't find nope.cdy in ."),
+        ("(import-macros)", "p.cdy:1:1: import-macros: expected (import-macros name)"),
+        ("(put (import-macros mac))", "p.cdy:1:6: import-macros is only allowed at top level"),
+        ("(import-macros cycle)", "cycle.cdy:1:1: import-macros: cycle.cdy imports itself"),
+    ],
+)
+def test_macro_file_errors(
+    src: str, message: str, t1: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    Path("mac.cdy").write_text(MACRO_FILE, encoding="utf-8")
+    Path("cycle.cdy").write_text("(import-macros cycle)\n", encoding="utf-8")
+    Path("p.cdy").write_text(src, encoding="utf-8")
+    with pytest.raises(CandyFail, match=re.escape(message)):
+        translate_file_with(t1, Path("p.cdy"))
 
 
 SHAPES = """
@@ -284,6 +368,10 @@ def test_bin_is_t2(t2: tuple[Path, str]) -> None:
     assert BIN_PATH.read_text(encoding="utf-8") == t2[1], (
         "bin/py/cdy_translator.py is stale: run python src/py_cdy/self_host.py"
     )
+    for name in LIBRARY:
+        assert (BIN_PATH.parent / name).read_bytes() == (CDY_DIR / name).read_bytes(), (
+            f"bin/py/{name} is stale: run python src/py_cdy/self_host.py"
+        )
 
 
 BLOCKED_IMPORTS = """
@@ -337,6 +425,23 @@ def test_bin_driver(tmp_path: Path) -> None:
     assert (done.returncode, done.stderr) == (1, "candy: bad.cdy:1:6: unknown name nope\n")
     done = run_bin(["missing.cdy"], tmp_path)
     assert done.returncode == 1 and done.stderr.startswith("candy: can't find")
+
+
+def test_bin_driver_expands_macros(tmp_path: Path) -> None:
+    # Run away from the repository, so form.cdy can only come from next to the translator.
+    program = CDYC_ONLY / "macros.cdy"
+    done = run_bin([str(program), "macros.py"], tmp_path)
+    assert done.returncode == 0, done.stderr
+    assert run((tmp_path / "macros.py").read_text(encoding="utf-8"), tmp_path, "m").stdout == (
+        program.with_suffix(".out").read_text(encoding="utf-8")
+    )
+
+
+def test_macros_need_form_next_to_translator(t1_path: Path, tmp_path: Path) -> None:
+    translator = tmp_path / t1_path.name
+    shutil.copyfile(t1_path, translator)  # without form.cdy
+    with pytest.raises(CandyFail, match="^macros need form.cdy next to the translator"):
+        translate_with(load(translator), "(defmacro m (a) a)\n(m 1)")
 
 
 # --- the reader ---
@@ -413,6 +518,7 @@ def test_reader_agrees(text: str, t1: ModuleType) -> None:
         ("(a 12x)", "line 1, column 4: parse error: unexpected 1"),
         ('"\\q"', "line 1, column 2: parse error: bad escape sequence"),
         ("\\ab", "line 1, column 1: parse error: a char is"),
+        ("(a b__c)", "line 1, column 4: parse error: a name can't contain __"),
     ],
 )
 def test_reader_errors(text: str, message: str, t1: ModuleType) -> None:
