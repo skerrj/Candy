@@ -280,18 +280,46 @@
   (let ((t (value test n))
         (a (value then (get t n)))
         (b (value other (get a n))))
-    (if (and (= (len (get a stmts)) 0) (= (len (get b stmts)) 0))
-      (Low (get t stmts) (If (get t expr) (get a expr) (get b expr)) (get b n))
-      (let ((tmp (Temp (get b n))))
-        (Low
-          (+ (get t stmts)
-             (to-list
-               (SIf
-                 (get t expr)
-                 (+ (get a stmts) (to-list (SAssign tmp (get a expr))))
-                 (+ (get b stmts) (to-list (SAssign tmp (get b expr)))))))
-          tmp
-          (+ (get b n) 1))))))
+    (cond
+      ((and (= (len (get a stmts)) 0) (= (len (get b stmts)) 0))
+        (Low (get t stmts) (If (get t expr) (get a expr) (get b expr)) (get b n)))
+      ;; The else is itself an if that assigns its Temp (as from a cond's next clause): this
+      ;; if assigns the same Temp, so the else holds just that if, which emits as an elif.
+      ((is-if-into (get b stmts) (get b expr))
+        (let ((tmp (get b expr)))
+          (Low
+            (+ (get t stmts)
+               (to-list
+                 (SIf
+                   (get t expr)
+                   (+ (get a stmts) (to-list (SAssign tmp (get a expr))))
+                   (get b stmts))))
+            tmp
+            (get b n))))
+      (else
+        (let ((tmp (Temp (get b n))))
+          (Low
+            (+ (get t stmts)
+               (to-list
+                 (SIf
+                   (get t expr)
+                   (+ (get a stmts) (to-list (SAssign tmp (get a expr))))
+                   (+ (get b stmts) (to-list (SAssign tmp (get b expr)))))))
+            tmp
+            (+ (get b n) 1)))))))
+
+;; Whether `stmts` and `e` are what value-if makes when it needs statements: one SIf, and
+;; the Temp it assigns in every branch. (Nothing else lowers to just an SIf and a Temp: a
+;; match makes an SMatch, and and/or an SAssign first.)
+(sig is-if-into (Fn ((List Stmt) Expr) Bool))
+(defn is-if-into (stmts e)
+  (and (= (len stmts) 1)
+       (match (at stmts 0)
+         ((SIf _ _ _) true)
+         (else false))
+       (match e
+         ((Temp _) true)
+         (else false))))
 
 (sig all-but-last (Fn ((List Expr)) (List Expr)))
 (defn all-but-last (exprs) (slice exprs 0 (- (len exprs) 1)))

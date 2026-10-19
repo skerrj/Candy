@@ -24,3 +24,4 @@ Done and earlier items are in `doc/archive/TODOS_pre_self_host.md` and
 - [x] Parse and `import` errors name their file (`lib/b.cdy: parse error at ...`).
 - [x] Positions on forms: errors say `file:line:col: msg`.
 - [x] Recursion limit: not needed (removed from `self_host.py`); `translate-text` errors now have positions too.
+- [x] Long `cond`s: `elif` chains in the Candy translator (`test_long_cond`).

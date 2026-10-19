@@ -180,6 +180,25 @@ def test_errors_say_where(
         translate_file_with(t1, Path("main.cdy"))
 
 
+LONG = 150  # Python allows 100 levels of indentation
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        # As statements: the clauses become if/elif.
+        "(sig f (Fn (Int) Int))\n(defn f (x) (cond {clauses} (else -1)))\n(put (f 140))",
+        # As a value whose clauses need statements: one if/elif chain into one Temp.
+        "(sig x Int) (def x 140)\n(put (cond {clauses} (else -1)))",
+    ],
+    ids=["tail", "value"],
+)
+def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
+    clauses = " ".join(f"((= x {i}) (do (put {i}) (* 2 {i})))" for i in range(LONG))
+    done = run(translate_with(t1, src.format(clauses=clauses)), tmp_path, "cond")
+    assert (done.returncode, done.stdout) == (0, "140\n280\n"), done.stderr
+
+
 SHAPES = """
 (deft Shape (Circle ((r Double))) (Rect ((w Double) (h Double))) (Dot))
 (sig s Shape)

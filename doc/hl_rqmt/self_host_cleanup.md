@@ -161,8 +161,13 @@ From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
   with nesting, about four frames a level, and with `cond` clauses (nested `If`s). Under
   the default limit of 1,000, that's about 240 levels of nesting or a 330-clause `cond`,
   past what Python itself compiles: 200 nested parentheses, 100 levels of indentation
-  (which a long `cond` meets first; see `doc/tech_debt.md`). Translating the translator
-  needs a limit of 60.
+  (which a long `cond` met first). Translating the translator needs a limit of 60.
+- ~~**A long `cond` didn't compile**~~ (99 clauses as statements): each clause nested an
+  `if` in the last one's `else`. Fixed: `emit-if` writes `elif` for an `else` holding just
+  one `if`, and `value-if` in `lower.cdy` lets a value `cond`'s clauses share one Temp, so
+  their `else`s hold just an `if` too. `bin` got about 60 lines shorter. Test:
+  `test_long_cond` (150 clauses). Left: a value `cond` with simple arms nests conditional
+  expressions (about 200 clauses; `doc/tech_debt.md`).
 
 ### The driver as built
 

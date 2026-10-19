@@ -329,16 +329,28 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
         (format "{(map-get (get env globals) name)}: {(emit-type t env)} = {(emit-expr val env)}")))
     ((SExpr e) (line level (emit-expr e env)))
     ((SReturn e) (line level (format "return {(emit-expr e env)}")))
-    ((SIf test then other)
-      (+ (line level (format "if {(emit-expr test env)}:"))
-         (emit-block then (+ level 1) env)
-         (if (= (len other) 0) "" (+ (line level "else:") (emit-block other (+ level 1) env)))))
+    ((SIf test then other) (emit-if "if" test then other level env))
     ((SFunc name params body t) (emit-func name params body t level env))
     ((SLocalFunc target params body)
       (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env))
             (args (comma-join (emit-any-params params inner empty-list))))
         (+ (line level (format "def {(emit-expr target env)}({args}) -> _cdy_Any:"))
            (emit-block body (+ level 1) inner))))))
+
+;; An if statement, or (`keyword` "elif") the rest of one. An else holding just an if
+;; becomes an elif, so that a long cond doesn't nest one level deeper per clause (Python
+;; allows 100).
+(sig emit-if (Fn (String Expr (List Stmt) (List Stmt) Int Env) String))
+(defn emit-if (keyword test then other level env)
+  (+ (line level (format "{keyword} {(emit-expr test env)}:"))
+     (emit-block then (+ level 1) env)
+     (cond
+       ((= (len other) 0) "")
+       ((= (len other) 1)
+         (match (at other 0)
+           ((SIf test2 then2 other2) (emit-if "elif" test2 then2 other2 level env))
+           (else (+ (line level "else:") (emit-block other (+ level 1) env)))))
+       (else (+ (line level "else:") (emit-block other (+ level 1) env))))))
 
 (sig emit-any-params (Fn ((List Expr) Env (List String)) (List String)))
 (defn emit-any-params (params env acc)

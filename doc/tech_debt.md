@@ -43,11 +43,11 @@ take one, and remove an entry once it is fixed.
 - **Programs only the Candy translator handles** go in `tst/cdy/cdyc/`, which the frozen
   Python translator skips; files they import live in subdirectories (`lib/`), so they
   aren't taken for programs.
-- **A `cond` of 99 clauses or more doesn't compile** when the Candy translator writes it
-  as statements (in a function's tail, say): each clause nests an `if` in the last one's
-  `else`, and Python allows 100 levels of indentation. The Python translator writes
-  `elif` (Python's `ast` does), so it has no such limit. Fix: `emit.cdy` writes `elif`
-  when an `else` holds just one `if`.
+- **A `cond` of about 200 clauses used as a value, with simple arms, doesn't compile:**
+  it becomes nested conditional expressions (`a if t else (b if ...)`), and Python allows
+  200 nested parentheses. The frozen Python translator fails there too (`ast.unparse`
+  runs out of recursion). Written as statements (in a tail, or with arms that need
+  statements) a `cond` of any length is fine: an `if`/`elif` chain.
 
 ## Runtime
 
