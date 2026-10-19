@@ -377,12 +377,74 @@
 ;; (match subject ((Variant name*) expr)+ (else expr)?)
 (sig an-match (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-match (rest scope n)
-  (if (< (len rest) 2)
-    (fail (located scope "match: expected (match subject ((Variant name*) expr)+ (else expr)?)"))
-    (let (((subject n1) (analyse-expr (at rest 0) scope n))
+  (cond
+    ((< (len rest) 2)
+      (fail (located scope "match: expected (match subject ((Variant name*) expr)+ (else expr)?)")))
+    ((is-tup-clause (at rest 1)) (an-match-tup rest scope n))
+    (else (an-match-sum rest scope n))))
+
+(sig an-match-sum (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-match-sum (rest scope n)
+  (let (((subject n1) (analyse-expr (at rest 0) scope n))
           ((m n2) (match-clauses (rest-of rest) scope n1 (MatchE subject empty-list empty-list) ""))
           (sum (if (> (len (match-clause-list m)) 0) (match-sum (match-clause-list m) scope) "")))
-      (tup (check-exhaustive m sum scope) n2))))
+      (tup (check-exhaustive m sum scope) n2)))
+
+;; Whether a clause's pattern is (tup ...).
+(sig is-tup-clause (Fn (Form) Bool))
+(defn is-tup-clause (clause) (= (sym-name (first-item (first-item clause))) "tup"))
+
+;; (match e ((tup a b) body)): a tuple has one shape, so its pattern is the only clause.
+;; Like a let binding ((a b) e), it binds a Temp-like Local to e and each name to an item
+;; (`_` binds nothing): ((fn (t) ((fn (a) ((fn (b) body) (at t 1))) (at t 0))) e).
+(sig an-match-tup (Fn ((List Form) Scope Int) (Tup Expr Int)))
+(defn an-match-tup (rest scope n)
+  (let ((items (list-items (at rest 1)))
+        (names (rest-of (list-items (at items 0)))))
+    (cond
+      ((or (!= (len rest) 2) (!= (len items) 2))
+        (fail (located scope "match: a (tup name+) pattern must be the only clause, with no else")))
+      ((= (len names) 0) (fail (located scope "match: a (tup name+) pattern needs at least one name")))
+      (else
+        (let (((subject n1) (analyse-expr (at rest 0) scope n))
+              (tmp (Local "_tup" n1))
+              ((pairs inner n2) (tup-binds names tmp 0 scope (+ n1 1) empty-list))
+              ((body n3) (analyse-expr (at items 1) inner n2)))
+          (tup (nest (+ (to-list (tup tmp subject)) pairs) body) n3))))))
+
+;; The (Local, (at tmp i)) pairs of a tup pattern's names, and the scope with them.
+(sig tup-binds
+  (Fn ((List Form) Expr Int Scope Int (List (Tup Expr Expr))) (Tup (List (Tup Expr Expr)) Scope Int)))
+(defn tup-binds (names tmp i scope n acc)
+  (if (= (len names) 0)
+    (tup acc scope n)
+    (let ((name (sym-name (at names 0)))
+          (loc (Local name n))
+          (item (Call (Prim "at") (tup tmp (Lit (IntLit i))))))
+      (cond
+        ((= name "") (fail (located scope "match name must be a name")))
+        ((= name "_") (tup-binds (rest-of names) tmp (+ i 1) scope n acc))
+        ((bound-in-pairs name acc) (fail (located scope "match: names in a pattern must be different")))
+        (else
+          (tup-binds
+            (rest-of names)
+            tmp
+            (+ i 1)
+            (assoc scope env (map-set (get scope env) name loc))
+            (+ n 1)
+            (+ acc (to-list (tup loc item)))))))))
+
+(sig bound-in-pairs (Fn (String (List (Tup Expr Expr))) Bool))
+(defn bound-in-pairs (name pairs)
+  (if (= (len pairs) 0)
+    false
+    (let (((loc _) (at pairs 0)))
+      (match loc
+        ((Local other _) (or (= other name) (bound-in-pairs name (rest-of-pairs pairs))))
+        (else (bound-in-pairs name (rest-of-pairs pairs)))))))
+
+(sig rest-of-pairs (Fn ((List (Tup Expr Expr))) (List (Tup Expr Expr))))
+(defn rest-of-pairs (pairs) (slice pairs 1 (len pairs)))
 
 ;; The sum that a clause list takes apart (all its clauses are of one sum, checked before).
 (sig match-sum (Fn ((List Clause) Scope) String))
@@ -444,6 +506,7 @@
 (defn check-pattern (variant pattern sum m scope)
   (cond
     ((= variant "") (fail (located scope "match: pattern must be (Variant name*) or else")))
+    ((= variant "tup") (fail (located scope "match: a (tup name+) pattern must be the only clause, with no else")))
     ((not (is-variant variant scope)) (fail (located scope (format "match: {variant} is not a variant of a sum type"))))
     ((has-clause variant (match-clause-list m)) (fail (located scope (format "match: more than one clause for {variant}"))))
     ((and (!= sum "") (!= sum (get (map-get (get scope variants) variant) sum)))

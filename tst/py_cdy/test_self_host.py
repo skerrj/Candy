@@ -221,6 +221,12 @@ SHAPES = """
         ("(put (match s ((Nope x) x)))", "not a variant"),
         ("(put (match s (x 1)))", "pattern must be"),
         ("(put (match s))", "expected (match"),
+        ("(put (match (tup 1 2) ((tup a b) a) (else 0)))", "must be the only clause"),
+        ("(put (match (tup 1 2) ((tup a b) a) ((tup c d) c)))", "must be the only clause"),
+        ("(put (match s ((Circle r) r) ((tup a b) a)))", "must be the only clause"),
+        ("(put (match (tup 1 2) ((tup) 1)))", "needs at least one name"),
+        ("(put (match (tup 1 2) ((tup a a) a)))", "must be different"),
+        ("(put (match (tup 1 2) ((tup a (b)) a)))", "match name must be a name"),
         ("(put (Dot))", "it is a value"),
         ("(put (Rect 1.0))", "takes 2 field"),
         (

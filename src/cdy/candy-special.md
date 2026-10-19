@@ -80,7 +80,9 @@ true|false ;; Bool
 - take a sum value apart; a pattern binds the variant's fields by position, `_` skips one
 - exhaustive: without `else`, every variant needs a clause; one clause per variant
 - flat patterns only (no nesting, literals or guards)
- > (match *expr* ((*Variant* *names**) *expr*)+ (else *expr*)?)
+- a `tup` pattern takes a tuple apart: it is the only clause (a tuple has one shape), with no `else`; `_` skips an item
+ > (match *expr* ((*Variant* *names**) *expr*)+ (else *expr*)?)\
+ > (match *expr* ((tup *names*+) *expr*))
 ### do
 - multiple expressions sequentially and returns the value of the last expression
  > (do *expr**)
@@ -93,7 +95,7 @@ true|false ;; Bool
  > (cond (*test* *expr*)+ (else *expr*)?)
 ### let
 - a binding is (*symbol* *init*); bindings are sequential, like scheme's `let*`
-- a binding can take a `tup` apart: ((*symbol*+) *init*) (a stopgap, until `match` has tuple patterns)
+- a binding can take a `tup` apart: ((*symbol*+) *init*), as `(match init ((tup *symbol*+) ...))` does
  > (let ( (*binding*)* ) *expr*)
 ### fn
 - lambda
@@ -101,7 +103,7 @@ true|false ;; Bool
  > (fn (*args*+) *expr*)
 ### tup
 - a fixed-size tuple, typed `(Tup a b)`; at least one item
-- taken apart only in a `let` binding (see `let`)
+- taken apart with a `tup` pattern in `match`, or in a `let` binding
  > (tup *expr*+)
 ### quote [SKIP]
 - skipped for the iMVP: no macros yet

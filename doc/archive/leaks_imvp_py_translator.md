@@ -53,6 +53,11 @@ stopgap is destructuring. A `let` binding can destructure a tuple:
     otherwise it fails at runtime with an `IndexError`.
 - **Later:** real tuple types in Candy's type checker, and patterns (probably with
   `match`) instead of the `let` special case.
+- **Partly fixed on `self-host-cleanup`:** `(match e ((tup a b) body))` takes a tuple apart
+  anywhere an expression goes (Candy translator only), `_` skips an item. It is rewritten
+  the same way, into `at`s. Still open: the arity isn't checked by Candy (mypy does, with a
+  `sig`), a record (also a Python tuple) can be taken apart as one, and parameters can't
+  be patterns.
 
 ## Types
 

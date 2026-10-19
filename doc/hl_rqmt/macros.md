@@ -28,11 +28,24 @@ and ahead of modules (`import` step B) and a Candy type checker.
   Python module and call them on `Form`s (a leak, but workable).
 - **Modules aren't needed**: inclusion is enough to share macros between files at first.
 
+## Order: macros before modules (decided)
+
+An initial macro implementation comes before modules (`import` step B). The two interact:
+
+- **Hygiene starts with `gensym` only** (Common Lisp style): symbols in a macro's template
+  are plain, so a template that names a helper relies on it being visible where the
+  macro is used. With inclusion every top-level name is global, so this works for now.
+- **Rework point:** once modules exist, a macro's symbols should resolve in the module
+  that defined it, the way Clojure's syntax-quote qualifies them. Expect to revisit
+  quasiquote then.
+- The symbol table work (`system.cdy`, `prelude.cdy`) comes after both.
+
 ## Decisions it needs
 
 1. **Staging:** must a macro be defined before it's used, or in a separate file
    (compiled first)?
-2. **Hygiene:** a `gensym` helper (Common Lisp, Clojure) or full hygiene (Scheme)?
+2. **Hygiene:** `gensym` first (decided above); full hygiene (Scheme) or namespace-qualified
+   quasiquote (Clojure) once there are modules?
 3. **Quasiquote syntax:** probably Clojure's `` ` `` `~` `~@`, plus `'` for `quote`. That
    changes the reader, which ends the check that `parse_cdy` and `read.cdy` agree.
 4. **Which forms become macros**, and when: `defn`, `cond`, maybe `let` (it is already an

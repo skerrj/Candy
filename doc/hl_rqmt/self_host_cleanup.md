@@ -130,7 +130,8 @@ From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
   `value_boolop` does, `(and a b)` becoming `t = a; if t: t = b` (`or` tests `not t`).
   The translator's own code had such cases, so `bin` changed. Test:
   `tst/cdy/short_circuit.cdy`, run under both translators.
-- **Tuple patterns in `match`**, so a `tup` can be taken apart anywhere, not only in a
+- ~~**Tuple patterns in `match`**~~ (done: `an-match-tup` in `core.cdy`, rewritten like
+  `let` destructuring; test `tst/cdy/cdyc/tup_match.cdy`), so a `tup` can be taken apart anywhere, not only in a
   `let` binding (the stopgap that rewrites it into `at` calls, in
   `doc/archive/leaks_imvp_py_translator.md`). Candy translator only; the `let` form could
   then become one more kind of pattern.
@@ -189,7 +190,7 @@ From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
 
 ## After this branch
 
-Merge into `master` and tag. Then, in my proposed order: **macros**
+Merge into `master` and tag. Then **macros** (an initial implementation; first, decided)
 (`doc/hl_rqmt/macros.md`, a placeholder: why they come next, and the decisions they need),
 then modules (`import` step B), a Candy type checker, and `system.cdy`/`prelude.cdy`, each
 on its own branch with its own HLD.
