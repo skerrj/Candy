@@ -1,9 +1,10 @@
 # Candy macros (HLD)
 
-**Status: draft.** Branch `macros`, after tag `self-host-cleanup`. Decided so far: the
-order (below), `defmacro` with Scheme-style parameters, and the quote forms' names
-(`quo`, `quasi`, `unq`, `unq-sp`, with no reader shorthand yet). The open questions are at
-the end.
+**Status: accepted.** Branch `macros`, after tag `self-host-cleanup`. All the questions
+at the end are decided: the order (below), staging by macro files, `defmacro` with
+Scheme-style parameters, the quote forms' names (`quo`, `quasi`, `unq`, `unq-sp`, with no
+reader shorthand yet), quoting only in macro code, `tmp__1` gensyms with `__` rejected in
+source, binding a macro's name an error, and `cond` as the first macro in the translator.
 
 ## Why now
 
@@ -38,8 +39,8 @@ An initial macro implementation comes before modules (`import` step B). The two 
 2. **`quo` and `quasi`** (quote and quasiquote), so a macro can build forms without
    spelling out `(Lst (+ (to-list (Sym "if" NOWHERE)) ...))`.
 3. **`gensym`**, for names a macro introduces.
-4. **A first real macro** that proves the design. Proposed: a `when`/`unless` pair in a
-   test library; then `cond` moved out of `core.cdy` (open question 6).
+4. **A first real macro** that proves the design: a `when`/`unless` pair in a test
+   library; then `cond` moved out of `core.cdy` (decided, question 6).
 
 Not goals: hygiene beyond `gensym`, reader shorthands (`'`, `` ` ``, `~`; later, as reader
 macros), macros in the frozen Python translator.
@@ -89,10 +90,10 @@ macros), macros in the frozen Python translator.
   rejecting `quo` too (step 1).
 - `analyse` rewrites `quo`/`quasi` into calls that build `Form` values (`Sym`, `Lst`,
   literals), so nothing new reaches `lower` or `emit`.
-- **Only in macro code** at first (open question 3): an ordinary program has no use for a
+- **Only in macro code** at first (decided, question 3): an ordinary program has no use for a
   `Form` value yet, and its runtime has no `Form` type.
 
-### Running macros: compile them, load them into the translator (proposed)
+### Running macros: compile them, load them into the translator (accepted)
 
 The translator runs on Python (`bin/py/`), so a macro runs there too, whatever the
 program's target: macros run where the translator runs, not where the program runs.
@@ -116,10 +117,10 @@ every form and every built-in (each needs a Python function to call by name), an
 code would run slowly. The translator's host is Python for the foreseeable future
 (`doc/hl_rqmt/multi_target.md` plans other targets for programs, not for the translator).
 
-### Staging: what macro code can use (open question 1)
+### Staging: what macro code can use (decided, question 1)
 
 Macro code runs before the program exists, so it can't call functions that the program
-defines and expansion hasn't seen yet. Proposed:
+defines and expansion hasn't seen yet. Decided:
 
 - **Macro files:** `(import-macros lib/when)` reads `lib/when.cdy` like `import`, but its
   forms go into the macro program, not into the program: its `defmacro`s become available
@@ -143,8 +144,10 @@ in its simplest form. Inclusion makes it workable before modules.
 - `quo` and `quasi` bodies aren't expanded (except the parts under `unq` and `unq-sp`);
 - the parts of everything else are expanded.
 
-It doesn't know about local names, so a local variable named like a macro is still
-expanded as the macro when it heads a list (open question 5).
+It doesn't know about local names, so a local variable named like a macro would still be
+expanded as the macro when it heads a list. **Binding a macro's name is an error**
+(decided, question 5): `analyse` rejects a `let`, `fn`, `defn` parameter or pattern name
+that names a macro, and a `def`/`defn` of one.
 
 ### Positions
 
@@ -157,9 +160,10 @@ macro call. Forms passed through from the arguments keep their own positions.
 
 `(gensym "tmp")` returns a fresh symbol (`tmp__1`, `tmp__2`, ...) that no source program
 can spell, for a name a macro introduces. The counter is state in the runtime (a leak: the
-only impure built-in besides I/O). `__` is chosen because the reader accepts it but a
-Candy program is unlikely to use it; the reader could reject it in source to make it
-certain (open question 4).
+only impure built-in besides I/O). **The reader rejects `__` in a symbol** (decided,
+question 4), so a gensym can't be forged; only expansion makes such names. That is a
+change to `read.cdy` the frozen `parse_cdy` won't get, so the check that the two readers
+agree skips inputs with `__` (step 3).
 
 ## Through the translator
 
@@ -187,30 +191,26 @@ learned them (two rebuilds, as with `import`). Moving `cond` out of `core.cdy` c
 2. **`quo` and `quasi`** in `analyse`, usable in macro code; tests that they build the
    right forms.
 3. **`defmacro` and expansion**, with `defmacro` bodies limited to built-ins and `Form`
-   helpers; `gensym`; position stamping. Tests: `when`/`unless`, argument count errors, an
+   helpers; `gensym` and `__` rejected by the reader; binding a macro's name an error;
+   position stamping. Tests: `when`/`unless`, argument count errors, an
    error inside an expansion pointing at the call.
 4. **`import-macros`** and helpers in macro files.
 5. **A real macro in the translator:** `cond` (or whichever question 6 settles on), then
    remove it from `core.cdy`.
 
-## Open questions
+## Questions (all decided)
 
 1. **Staging:** macro files via `import-macros`, plus same-file `defmacro`s limited to
-   built-ins and macro-file helpers (proposed)? Or let a `defmacro` use any definition
-   above it in the same file (more convenient, but the translator then compiles parts of
-   the program twice and must order them)?
-2. ~~**Macro parameters.**~~ Decided: Scheme style, fixed `Form` parameters or a bare
-   name for all the arguments as a `(List Form)`.
-3. **Quoting outside macros:** keep `quo`/`quasi` to macro code for now (proposed), or
-   give ordinary programs `Form` values too (the runtime would then need the `Form` type)?
-4. **`gensym` names:** `tmp__1` (proposed), and should the reader reject `__` in source
-   names to make gensyms unforgeable?
-5. **Shadowing:** should a local name hide a macro of the same name (expansion would then
-   need to track `let`, `fn` and pattern bindings), or is it an error to bind a macro's
-   name (proposed: simpler, and it catches the confusing case)?
-6. **First macro in the translator:** `cond` (proposed: it is variadic and the translator
-   uses it everywhere, so it tests the design hard), `defn` (as the spec says; it expands
-   to `def` plus `fn`, but `defn` is also what `sig` attaches to and what tail calls look
-   for), or neither yet?
-7. ~~**Quasiquote characters.**~~ Decided: no shorthand yet; the forms are `quo`, `quasi`,
-   `unq` and `unq-sp`. A shorthand (and its characters) comes later as a reader macro.
+   built-ins and macro-file helpers. (Rejected: a `defmacro` using any definition above it
+   in the same file, which would compile parts of the program twice.)
+2. **Macro parameters:** Scheme style, fixed `Form` parameters or a bare name for all the
+   arguments as a `(List Form)`.
+3. **Quoting outside macros:** not yet; `quo`/`quasi` only in macro code. (Later: `Form`
+   values in ordinary programs, with the `Form` type in the runtime.)
+4. **`gensym` names:** `tmp__1`, and the reader rejects `__` in source names.
+5. **Shadowing:** binding a macro's name is an error. (Rejected: a local hiding a macro,
+   which would need expansion to track `let`, `fn` and pattern bindings.)
+6. **First macro in the translator:** `cond`, after `when`/`unless` in tests. (`defn`
+   later, if at all: `sig` attaches to it and tail-call loops look for it.)
+7. **Quasiquote characters:** no shorthand yet; the forms are `quo`, `quasi`, `unq` and
+   `unq-sp`. A shorthand (and its characters) comes later as a reader macro.

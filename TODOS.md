@@ -14,4 +14,4 @@ Done and earlier items are in `doc/archive/TODOS_self_host_cleanup.md`,
 
 ## macros
 
-- [ ] Review `doc/hl_rqmt/macros.md` (draft HLD) and its open questions.
+- [x] Review `doc/hl_rqmt/macros.md`: accepted (proposals on 1, 3–6; reader rejects `__`; `cond` first).
