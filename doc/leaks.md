@@ -9,18 +9,12 @@ Shortcuts that are too small to matter to Candy's design go in `doc/tech_debt.md
 
 - `doc/archive/leaks_imvp_py_translator.md`: the iMVP Python translator (up to tag
   `imvp-py-translator`);
-- `doc/archive/leaks_pre_self_host.md`: self-hosting (up to tag `self-host-py`).
+- `doc/archive/leaks_pre_self_host.md`: self-hosting (up to tag `self-host-py`);
+- `doc/archive/leaks_self_host_cleanup.md`: `import` and the cleanup (up to tag
+  `self-host-cleanup`).
 
 Those entries stay in effect until they are fixed. When one is fixed, mark it there (strike
 it through and say where it was fixed) rather than copying it here. This file is for leaks
-added from branch `self-host-cleanup` on.
+added from branch `macros` on.
 
-## Hacked-in forms
-
-- **`import` is inclusion, not modules** (step A of `doc/hl_rqmt/self_host_cleanup.md`,
-  `src/cdy/include.cdy`). `(import name)` pastes `name.cdy`'s forms into the program, once
-  per file, so there are no namespaces: every top-level name is global across all the
-  files, two files can't define the same name, and a file sees names from files it
-  doesn't import (whatever else the program includes). The name is a path relative to the
-  importing file, without `.cdy` (`(import lib/util)`). Only the Candy translator has it.
-  `import-as` and `import-from` are still unsupported. Fix: modules (step B).
+(None yet.)
