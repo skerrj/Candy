@@ -1,7 +1,9 @@
 # Candy macros (HLD)
 
-**Status: draft.** Branch `macros`, after tag `self-host-cleanup`. Nothing here is decided
-except the order (below). The open questions are at the end.
+**Status: draft.** Branch `macros`, after tag `self-host-cleanup`. Decided so far: the
+order (below), `defmacro` with Scheme-style parameters, and the quote forms' names
+(`quo`, `quasi`, `unq`, `unq-sp`, with no reader shorthand yet). The open questions are at
+the end.
 
 ## Why now
 
@@ -33,14 +35,14 @@ An initial macro implementation comes before modules (`import` step B). The two 
 
 1. **`defmacro`:** a macro is Candy code that takes forms and returns a form, run by the
    translator while it translates.
-2. **`quote` and quasiquote**, so a macro can build forms without spelling out
-   `(Lst (+ (to-list (Sym "if" NOWHERE)) ...))`.
+2. **`quo` and `quasi`** (quote and quasiquote), so a macro can build forms without
+   spelling out `(Lst (+ (to-list (Sym "if" NOWHERE)) ...))`.
 3. **`gensym`**, for names a macro introduces.
 4. **A first real macro** that proves the design. Proposed: a `when`/`unless` pair in a
    test library; then `cond` moved out of `core.cdy` (open question 6).
 
-Not goals: hygiene beyond `gensym`, reader macros other than the quote family, macros in
-the frozen Python translator.
+Not goals: hygiene beyond `gensym`, reader shorthands (`'`, `` ` ``, `~`; later, as reader
+macros), macros in the frozen Python translator.
 
 ## Proposal
 
@@ -48,37 +50,45 @@ the frozen Python translator.
 
 ```clojure
 (defmacro unless (test body)
-  `(if ~test nil ~body))
+  (quasi (if (unq test) nil (unq body))))
 
-(defmacro my-cond (& clauses)            ; & collects the rest as (List Form)
+(defmacro my-cond clauses                ; a bare name: all the arguments, as a (List Form)
   (if (= (len clauses) 0)
-    `nil
+    (quo nil)
     (let ((c (list-items (at clauses 0))))
-      `(if ~(at c 0) ~(at c 1) (my-cond ~@(rest-of clauses))))))
+      (quasi (if (unq (at c 0)) (unq (at c 1)) (my-cond (unq-sp (rest-of clauses))))))))
 ```
 
-- **`(defmacro name (params) body)`**, top level only. Every parameter is a `Form`; a final
-  `& rest` collects the remaining arguments as a `(List Form)`. The body returns a `Form`.
-  No `sig` is needed (the types are fixed), and `defmacro` is a new special form.
+- **`(defmacro name (params) body)`**, top level only (decided). Every parameter is a
+  `Form`. **Scheme style (decided):** a bare name instead of the parameter list,
+  `(defmacro name args body)`, gets all the arguments as one `(List Form)`, as Scheme's
+  `(lambda args ...)` does; fixed parameters and a rest don't mix (the macro takes the
+  first items off the list itself). The body returns a `Form`. No `sig` is needed (the
+  types are fixed), and `defmacro` is a new special form. The name may change later
+  (`defsyn`, say, if macros become syntax objects); `defmacro` for now.
 - **A call** `(unless (ready) (go))` is a list whose head names a macro. The macro gets the
   argument forms unevaluated and its result replaces the call; expansion repeats until the
   head is no longer a macro, then goes on into the result's parts.
 - **Errors:** too few or too many arguments for the parameters is an error at the call.
 
-### Quote and quasiquote
+### Quoting: `quo`, `quasi`, `unq`, `unq-sp` (decided)
 
-| Reader | Form | Meaning |
+| Form | Meaning | Usual name |
 |---|---|---|
-| `'x` | `(quote x)` | `x` as a form, unevaluated |
-| `` `x `` | `(quasiquote x)` | like quote, but with holes |
-| `~x` | `(unquote x)` | inside a quasiquote: the value of `x` (a `Form`) |
-| `~@xs` | `(unquote-splicing xs)` | inside a quasiquoted list: the items of `xs` (a `(List Form)`) |
+| `(quo x)` | `x` as a form, unevaluated | quote |
+| `(quasi x)` | like `quo`, but with holes | quasiquote |
+| `(unq x)` | inside `quasi`: the value of `x` (a `Form`) | unquote |
+| `(unq-sp xs)` | inside a list in `quasi`: the items of `xs` (a `(List Form)`), spliced in | unquote-splicing |
 
-- These are Clojure's characters. `'` is already reserved for this; `` ` `` and `~` are
-  ordinary symbol characters today and become reserved (the reader rejects them in a
-  symbol). Clojure's `~` is chosen over Scheme's `,` because Candy might want `,` later.
-- `analyse` rewrites `quote`/`quasiquote` into calls that build `Form` values (`Sym`,
-  `Lst`, literals), so nothing new reaches `lower` or `emit`.
+- **Plain special forms, no reader shorthand yet** (decided). The reader doesn't change, so
+  `parse_cdy` and `read.cdy` still agree on every input, and `'` stays reserved for a
+  shorthand later (as a reader macro, as the spec says), with `` ` `` and `~` free.
+- **`quo` replaces `quote`**, which has been reserved (`[SKIP]`) since the iMVP: the spec
+  and `table.py`'s special forms change. The frozen Python translator rejects `quote` by
+  name (`NOT_IN_IMVP` in `core_cdy.py`), so renaming it in the shared table must keep it
+  rejecting `quo` too (step 1).
+- `analyse` rewrites `quo`/`quasi` into calls that build `Form` values (`Sym`, `Lst`,
+  literals), so nothing new reaches `lower` or `emit`.
 - **Only in macro code** at first (open question 3): an ordinary program has no use for a
   `Form` value yet, and its runtime has no `Form` type.
 
@@ -130,7 +140,7 @@ in its simplest form. Inclusion makes it workable before modules.
 `emit`. A new step `src/cdy/expand.cdy` walks the forms:
 
 - a list whose head is a macro is replaced by its expansion (repeatedly);
-- `quote` and quasiquote bodies aren't expanded (except quasiquote's unquoted parts);
+- `quo` and `quasi` bodies aren't expanded (except the parts under `unq` and `unq-sp`);
 - the parts of everything else are expanded.
 
 It doesn't know about local names, so a local variable named like a macro is still
@@ -155,26 +165,27 @@ certain (open question 4).
 
 | Layer | Change |
 |---|---|
-| reader (`read.cdy`) | `'`, `` ` ``, `~`, `~@` read as `quote`, `quasiquote`, `unquote`, `unquote-splicing` lists |
+| reader (`read.cdy`) | nothing (no shorthand yet) |
 | `include.cdy` | `import-macros`: a second form list, the macro program |
 | `expand.cdy` (new) | compile and load the macro program; expand macro calls; stamp positions |
-| `core.cdy` | `defmacro` (only in the macro program), `quote`/`quasiquote` to `Form` constructors |
+| `core.cdy` | `defmacro` (only in the macro program), `quo`/`quasi` to `Form` constructors |
 | runtime | run a translated macro program in the translator's namespace; `gensym` |
 | `lower`, `emit` | nothing new |
 
 The Python translator stays frozen: programs with macros are tested under the Candy
-translator only (`tst/cdy/cdyc/`). Adding `'` and friends to `read.cdy` ends the check
-that `parse_cdy` and `read.cdy` agree on every input; it becomes "agree on inputs without
-the new characters".
+translator only (`tst/cdy/cdyc/`). With no reader change, the check that `parse_cdy` and
+`read.cdy` agree stays as it is.
 
 **Bootstrapping.** The translator can only use macros in its own source after `bin` has
 learned them (two rebuilds, as with `import`). Moving `cond` out of `core.cdy` comes last.
 
 ## Steps
 
-1. **Reader:** the quote characters, and their tests.
-2. **`quote` and quasiquote** in `analyse`, usable in macro code; tests that they build
-   the right forms.
+1. **Names:** `quo`, `quasi`, `unq`, `unq-sp` and `defmacro` as special forms in the table
+   (replacing `quote`), the spec updated, and the frozen Python translator still rejecting
+   them.
+2. **`quo` and `quasi`** in `analyse`, usable in macro code; tests that they build the
+   right forms.
 3. **`defmacro` and expansion**, with `defmacro` bodies limited to built-ins and `Form`
    helpers; `gensym`; position stamping. Tests: `when`/`unless`, argument count errors, an
    error inside an expansion pointing at the call.
@@ -188,9 +199,9 @@ learned them (two rebuilds, as with `import`). Moving `cond` out of `core.cdy` c
    built-ins and macro-file helpers (proposed)? Or let a `defmacro` use any definition
    above it in the same file (more convenient, but the translator then compiles parts of
    the program twice and must order them)?
-2. **Macro parameters:** `Form` parameters with `& rest` (proposed, as in Clojure), or a
-   single `(List Form)` of all the arguments (simpler to implement, clumsier to write)?
-3. **Quote outside macros:** keep `quote`/quasiquote to macro code for now (proposed), or
+2. ~~**Macro parameters.**~~ Decided: Scheme style, fixed `Form` parameters or a bare
+   name for all the arguments as a `(List Form)`.
+3. **Quoting outside macros:** keep `quo`/`quasi` to macro code for now (proposed), or
    give ordinary programs `Form` values too (the runtime would then need the `Form` type)?
 4. **`gensym` names:** `tmp__1` (proposed), and should the reader reject `__` in source
    names to make gensyms unforgeable?
@@ -201,5 +212,5 @@ learned them (two rebuilds, as with `import`). Moving `cond` out of `core.cdy` c
    uses it everywhere, so it tests the design hard), `defn` (as the spec says; it expands
    to `def` plus `fn`, but `defn` is also what `sig` attaches to and what tail calls look
    for), or neither yet?
-7. **Quasiquote characters:** Clojure's `` ` `` `~` `~@` (proposed) or Scheme's
-   `` ` `` `,` `,@`?
+7. ~~**Quasiquote characters.**~~ Decided: no shorthand yet; the forms are `quo`, `quasi`,
+   `unq` and `unq-sp`. A shorthand (and its characters) comes later as a reader macro.
