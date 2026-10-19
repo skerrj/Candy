@@ -75,13 +75,14 @@ def load(path: Path) -> ModuleType:
 
 
 def to_form(node: SExpr, t1: ModuleType) -> Any:
-    """A ``parse_cdy`` node as the matching ``Form`` variant of the translator module ``t1``."""
+    """A ``parse_cdy`` node as the matching ``Form`` variant of the translator module ``t1``,
+    with no position (``NOWHERE``), as ``read_forms`` reads."""
     variant: Callable[..., Any]
     match node:
         case Symbol(name):
-            return t1.Sym(name)
+            return t1.Sym(name, t1.NOWHERE)
         case SList(items):
-            return t1.Lst(tuple(to_form(item, t1) for item in items))
+            return t1.Lst(tuple(to_form(item, t1) for item in items), t1.NOWHERE)
         case Str(val):
             variant = t1.Txt
         case Int(val):

@@ -153,12 +153,19 @@ def test_errors(src: str, message: str, t1: ModuleType) -> None:
 @pytest.mark.parametrize(
     ("imported", "message"),
     [
-        ('(def x "open\n', "lib/b.cdy: parse error at line 1, column 8: string is never"),
-        ("(import nope)", "lib/b.cdy: import: can't find nope.cdy in lib"),
-        ("(import)", "lib/b.cdy: import: expected (import name)"),
+        ('(def x "open\n', "lib/b.cdy:1:8: parse error: string is never closed"),
+        ("(import nope)", "lib/b.cdy:1:1: import: can't find nope.cdy in lib"),
+        ("\n  (import)", "lib/b.cdy:2:3: import: expected (import name)"),
+        ("(put\n  (f 1))", "lib/b.cdy:2:4: unknown name f"),
+        ("(sig x Int)\n(def x (+ 1))", "lib/b.cdy:2:8: (+ ...) needs at least 2 arguments"),
+        ("(def x 1)", "lib/b.cdy:1:1: x needs a (sig x Type)"),
+        ("(sig x Int) (def x 1)\n(sig y Int) (def x 2)", "lib/b.cdy:2:18: defined more than once"),
+        ("(sig f (Fn (Int) Int))\n(defn f (n) (if 1))", "lib/b.cdy:2:13: if: expected"),
+        ("(sig x (Fn Int)) (def x 1)", "lib/b.cdy:1:8: bad function type"),
+        ("(deft T (A) (b))", "lib/b.cdy:1:13: deft: variant names are Capitalised"),
     ],
 )
-def test_errors_name_their_file(
+def test_errors_say_where(
     imported: str, message: str, t1: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -169,7 +176,7 @@ def test_errors_name_their_file(
     with pytest.raises(CandyFail, match="^" + re.escape(message)):
         translate_file_with(t1, Path("main.cdy"))
     Path("main.cdy").write_text("(put\n", encoding="utf-8")
-    with pytest.raises(CandyFail, match="^main.cdy: parse error at line 1, column 1"):
+    with pytest.raises(CandyFail, match=r"^main.cdy:1:1: parse error: \( is never closed"):
         translate_file_with(t1, Path("main.cdy"))
 
 
@@ -279,7 +286,7 @@ def test_bin_driver(tmp_path: Path) -> None:
     assert run_bin(["a.cdy", "b.py", "c"], tmp_path).returncode == 2
     (tmp_path / "bad.cdy").write_text("(put nope)\n", encoding="utf-8")
     done = run_bin(["bad.cdy"], tmp_path)
-    assert (done.returncode, done.stderr) == (1, "candy: unknown name nope\n")
+    assert (done.returncode, done.stderr) == (1, "candy: bad.cdy:1:6: unknown name nope\n")
     done = run_bin(["missing.cdy"], tmp_path)
     assert done.returncode == 1 and done.stderr.startswith("candy: can't find")
 
@@ -352,14 +359,24 @@ def test_reader_agrees(text: str, t1: ModuleType) -> None:
 @pytest.mark.parametrize(
     ("text", "message"),
     [
-        ("(put\n  (a b)", "line 1, column 1: ( is never closed"),
-        ('(put "a\n', "line 1, column 6: string is never closed"),
-        ("x\n  )", "line 2, column 3: unexpected )"),
-        ("(a 12x)", "line 1, column 4: unexpected 1"),
-        ('"\\q"', "line 1, column 2: bad escape sequence"),
-        ("\\ab", "line 1, column 1: a char is"),
+        ("(put\n  (a b)", "line 1, column 1: parse error: ( is never closed"),
+        ('(put "a\n', "line 1, column 6: parse error: string is never closed"),
+        ("x\n  )", "line 2, column 3: parse error: unexpected )"),
+        ("(a 12x)", "line 1, column 4: parse error: unexpected 1"),
+        ('"\\q"', "line 1, column 2: parse error: bad escape sequence"),
+        ("\\ab", "line 1, column 1: parse error: a char is"),
     ],
 )
 def test_reader_errors(text: str, message: str, t1: ModuleType) -> None:
-    with pytest.raises(CandyFail, match="parse error at " + re.escape(message)):
+    with pytest.raises(CandyFail, match="^" + re.escape(message)):
         t1.read_forms(text)
+
+
+def test_reader_positions(t1: ModuleType) -> None:
+    forms = t1.read_source("f.cdy", "(a\n  (b c))\n x")
+    pos = t1.form_pos
+    assert pos(forms[0]) == t1.Pos("f.cdy", 1, 1)
+    assert [pos(f) for f in forms[0].items] == [t1.Pos("f.cdy", 1, 2), t1.Pos("f.cdy", 2, 3)]
+    assert pos(forms[0].items[1].items[1]) == t1.Pos("f.cdy", 2, 6)
+    assert pos(forms[1]) == t1.Pos("f.cdy", 3, 2)
+    assert pos(t1.read_forms("x")[0]) == t1.NOWHERE  # read_forms gives no positions

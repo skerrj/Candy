@@ -105,6 +105,7 @@ MATH: Table = {
     "-": TableEntry("-", "binop"),
     "*": TableEntry("*", "binop"),
     "/": TableEntry("/", "binop"),
+    "quot": TableEntry("//", "binop"),  # integer division, rounding down
 }
 
 BOOL: Table = {

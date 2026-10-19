@@ -20,8 +20,9 @@ and ahead of modules (`import` step B) and a Candy type checker.
 
 ## Why not yet
 
-- **Error positions first.** An error in expanded code needs to point back at the source;
-  today only parse errors have a line and column.
+- **Error positions first.** An error in expanded code needs to point back at the source.
+  Forms carry positions since `self-host-cleanup`; an expansion will need to keep or make
+  them.
 - **Running Candy at translate time** is the hard part: a macro runs while the translator
   runs. On Python, the translator could translate the macro definitions, load them as a
   Python module and call them on `Form`s (a leak, but workable).

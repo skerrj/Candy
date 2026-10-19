@@ -142,10 +142,18 @@ From the leak lists and `doc/tech_debt.md`; to be picked and ordered:
 - ~~**A driver in Candy:** `main.py`'s job (read a file, translate, write `output/`) as a
   Candy program using `SYS_ARGS`, `slurp` and `spit`, so `bin/py/` can be run directly.~~
   Done; see "The driver as built" below.
-- **Error positions:** only parse errors have a line and column. The reader knows
-  positions; the forms don't carry them yet. First step done: parse and `import` errors
-  name their file (`read-source` in `read.cdy` takes the file's name; `where` writes the
-  `file: ` prefix). Next: positions (and so the file) on forms, for `analyse`'s errors.
+- ~~**Error positions:** only parse errors have a line and column.~~ Done: errors say
+  `file:line:col: msg` (`lib/b.cdy:3:9: unknown name g`; `line L, column C: msg` for text
+  that isn't from a file).
+  - `Sym` and `Lst` carry a `Pos` (file, line, column; `NOWHERE` is line 0). The reader
+    (`read-source`) notes where each line starts once and finds a form's line by binary
+    search (new built-in `quot`, integer division). `read-forms` (also used for `format`
+    holes) gives no positions.
+  - `analyse` keeps the innermost form's position in `Scope` (`here`, set by `at-pos`), and
+    its errors use `(fail (located scope msg))`; the few without a scope use the position
+    of a form they have.
+  - Parse errors read `file:line:col: parse error: msg`, `import` errors use the import
+    form's position. What's left is in `doc/tech_debt.md`.
 - **Recursion:** the Candy translator walks lists by recursion that isn't a self tail call
   in places, so `self_host.py` raises Python's recursion limit to 20,000.
 

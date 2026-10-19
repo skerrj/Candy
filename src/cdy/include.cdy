@@ -14,11 +14,12 @@
 ;; `forms` with their imports included, found in directory `dir`.
 (sig include-imports (Fn ((List Form) String) (List Form)))
 (defn include-imports (forms dir)
-  (get (include-forms forms "" dir (Incl empty-list empty-map)) done))
+  (get (include-forms forms dir (Incl empty-list empty-map)) done))
 
-;; `acc` with the forms of the file at `path` added, unless it was included already. Errors
-;; name the file by `path`, as the user would write it (an import's is joined to its
-;; importer's directory); `seen` holds absolute paths, so each file counts once.
+;; `acc` with the forms of the file at `path` added, unless it was included already. The
+;; forms' positions name the file by `path`, as the user would write it (an import's is
+;; joined to its importer's directory); `seen` holds absolute paths, so each file counts
+;; once.
 (sig include-file (Fn (String Incl) Incl))
 (defn include-file (path acc)
   (let ((key (path-resolve path)))
@@ -26,37 +27,36 @@
       acc
       (include-forms
         (read-source path (slurp path))
-        path
         (path-dir path)
         (assoc acc seen (map-set (get acc seen) key true))))))
 
-;; The forms of the file `file` ("" for none), whose imports are found in directory `dir`.
-(sig include-forms (Fn ((List Form) String String Incl) Incl))
-(defn include-forms (forms file dir acc)
+;; `forms`, whose imports are found in directory `dir`.
+(sig include-forms (Fn ((List Form) String Incl) Incl))
+(defn include-forms (forms dir acc)
   (if (= (len forms) 0)
     acc
-    (let ((name (import-name (at forms 0) file)))
+    (let ((form (at forms 0))
+          (name (import-name form)))
       (include-forms
         (rest-of forms)
-        file
         dir
         (if (= name "")
-          (assoc acc done (+ (get acc done) (to-list (at forms 0))))
-          (include-file (import-path dir name file) acc))))))
+          (assoc acc done (+ (get acc done) (to-list form)))
+          (include-file (import-path dir name (form-pos form)) acc))))))
 
 ;; The name in `(import name)`, or "" if `form` isn't an import.
-(sig import-name (Fn (Form String) String))
-(defn import-name (form file)
+(sig import-name (Fn (Form) String))
+(defn import-name (form)
   (let ((items (list-items form)))
     (cond
       ((or (= (len items) 0) (!= (sym-name (at items 0)) "import")) "")
       ((and (= (len items) 2) (!= (sym-name (at items 1)) "")) (sym-name (at items 1)))
-      (else (fail (+ (where file) "import: expected (import name)"))))))
+      (else (fail (+ (pos-text (form-pos form)) "import: expected (import name)"))))))
 
-;; The path of `name.cdy` in directory `dir`.
-(sig import-path (Fn (String String String) String))
-(defn import-path (dir name file)
+;; The path of `name.cdy` in directory `dir`, imported at `pos`.
+(sig import-path (Fn (String String Pos) String))
+(defn import-path (dir name pos)
   (let ((path (path-join dir (+ name ".cdy"))))
     (if (file-exists path)
       path
-      (fail (format "{(where file)}import: can't find {name}.cdy in {dir}")))))
+      (fail (format "{(pos-text pos)}import: can't find {name}.cdy in {dir}")))))

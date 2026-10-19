@@ -22,3 +22,4 @@ Done and earlier items are in `doc/archive/TODOS_pre_self_host.md` and
 - [ ] Review the `main` entry-point convention (`doc/hl_rqmt/self_host_cleanup.md`, "The driver as built"; `src/cdy/candy-special.md`, "programs").
 - [ ] Read `doc/hl_rqmt/macros.md` (placeholder): macros proposed as the next branch after this one, once errors carry positions.
 - [x] Parse and `import` errors name their file (`lib/b.cdy: parse error at ...`).
+- [x] Positions on forms: errors say `file:line:col: msg`.
