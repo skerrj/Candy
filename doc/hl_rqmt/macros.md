@@ -188,6 +188,11 @@ learned them (two rebuilds, as with `import`). Moving `cond` out of `core.cdy` c
 1. **Names:** `quo`, `quasi`, `unq`, `unq-sp` and `defmacro` as special forms in the table
    (replacing `quote`), the spec updated, and the frozen Python translator still rejecting
    them.
+   *Done:* in `table.py` (`quote` removed), `src/cdy/candy-special.md`, the VS Code
+   grammar, and `CLAUDE.md`. The Python translator needed no change: a special form it
+   has no rule for is "a special form, not a value" (`test_macro_forms_rejected`); it
+   still rejects `quote` from its own list. The Candy translator says "not supported by
+   the Candy translator yet" until steps 2 and 3.
 2. **`quo` and `quasi`** in `analyse`, usable in macro code; tests that they build the
    right forms.
 3. **`defmacro` and expansion**, with `defmacro` bodies limited to built-ins and `Form`

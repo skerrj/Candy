@@ -105,11 +105,24 @@ true|false ;; Bool
 - a fixed-size tuple, typed `(Tup a b)`; at least one item
 - taken apart with a `tup` pattern in `match`, or in a `let` binding
  > (tup *expr*+)
-### quote [SKIP]
-- skipped for the iMVP: no macros yet
-- returns *form* unevaluated
+### defmacro
+- define a macro: Candy code that the translator runs on the *forms* of a call, before analysing it; the call is replaced by the form it returns (see `doc/hl_rqmt/macros.md`)
+- top level only; every parameter is a `Form`, and no `sig` is needed
+- scheme style: a bare *symbol* instead of the parameter list gets all the arguments as one `(List Form)`
+- binding a macro's name (in `let`, `fn`, a pattern, `def` or `defn`) is an error
+- [in progress on branch `macros`]
+ > (defmacro *symbol* (*args**) *expr*)\
+ > (defmacro *symbol* *args-symbol* *expr*)
+### quo, quasi, unq, unq-sp
+- quoting, for macros: only in macro code for now
+- `quo` returns *form* unevaluated, as a `Form` (it replaces `quote`, reserved since the iMVP)
+- `quasi` is like `quo`, but `unq` inside it puts in the value of *expr* (a `Form`), and `unq-sp` inside a list splices in the items of *expr* (a `(List Form)`)
 - the `'` shorthand will be added later as a reader macro... ala clojure
- > (quote *form*)
+- [in progress on branch `macros`]
+ > (quo *form*)\
+ > (quasi *form*)\
+ > (unq *expr*)\
+ > (unq-sp *expr*)
 ## weird stuff 
 ### format
 - hacked in from smz: a string with Candy forms in `{...}` holes, one form per hole
