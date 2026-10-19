@@ -53,6 +53,8 @@ take one, and remove an entry once it is fixed.
   `cond`, and the forms with no expressions), to leave binding positions unexpanded. It
   duplicates a little of `analyse`'s syntax, and gets malformed forms past to `analyse`
   only roughly. A deft's variant named like a macro is not rejected.
+- **Every translation compiles the prelude's macros** (with `form.cdy`), and again for
+  each macro file it loads.
 - **A macro file is compiled once per file that imports it** (and its helpers again in
   each importer's macro program), with no cache across a translation.
 - **`form.cdy` is copied next to every translator** (`bin/py/form.cdy`,

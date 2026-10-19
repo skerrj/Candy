@@ -19,5 +19,7 @@ Done and earlier items are in `doc/archive/TODOS_self_host_cleanup.md`,
 - [x] Macros step 2: `quo` and `quasi` build `Form` values (`tst/cdy/cdyc/quoting.cdy`).
 - [x] Macros step 3: `defmacro` and expansion (`src/cdy/expand.cdy`), `gensym`, `__` rejected by the reader.
 - [x] Macros step 4: `import-macros`, helpers in macro files.
+- [x] Macros step 5: `cond` as a macro in `src/cdy/prelude_macros.cdy` (out of `core.cdy` and the table).
+- [ ] Review step 5 as built: the prelude's macros (name, place, implicit import) and the A/B bootstrap.
 - [ ] Review steps 3 and 4 as built (`doc/hl_rqmt/macros.md`, the steps' "Done" notes and "How `load-macros` runs macro code"): `form.cdy` kept next to the translator, expansion skipping binding positions, and the three new leaks in `doc/leaks.md`.
 - [ ] Add the up, down, down*, meta-template side conversation to `doc/brainstorm.md` (owner to supply the gist).

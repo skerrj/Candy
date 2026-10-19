@@ -96,7 +96,8 @@ true|false ;; Bool
 - no *else* and a false *test* gives `nil`
  > (if *test* *then* *else*?)
 ### cond
-- this will be replaced w/ a macro
+- a macro, in the prelude's macros (`src/cdy/prelude_macros.cdy`), which every file gets without `import-macros`; it expands into nested `if`s
+- its name can't be bound, like any macro's
 - the `else` clause is optional; no match gives `nil`
  > (cond (*test* *expr*)+ (else *expr*)?)
 ### let

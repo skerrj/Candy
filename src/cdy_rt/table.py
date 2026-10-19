@@ -84,7 +84,6 @@ SPECIAL_FORMS: Table = {
     "defn": special(),
     "do": special(),
     "if": special(),
-    "cond": special(),
     "let": special(),
     "fn": special(),
     # Macros (doc/hl_rqmt/macros.md): quote, quasiquote, unquote, unquote-splicing.

@@ -170,7 +170,6 @@
 (defn analyse-special (head rest scope n)
   (cond
     ((= head "if") (an-if rest scope n))
-    ((= head "cond") (an-cond rest scope n))
     ((= head "do") (an-do rest scope n))
     ((= head "let") (an-let rest scope n))
     ((= head "fn") (an-fn rest scope n))
@@ -196,30 +195,6 @@
 
 (sig is-else (Fn (Form) Bool))
 (defn is-else (form) (= (sym-name form) "else"))
-
-(sig an-cond (Fn ((List Form) Scope Int) (Tup Expr Int)))
-(defn an-cond (clauses scope n)
-  (if (= (len clauses) 0)
-    (fail (located scope "cond: needs at least one (test expr) clause"))
-    (cond-clauses clauses scope n)))
-
-;; The clauses as nested Ifs, from the first; no clause left is nil.
-(sig cond-clauses (Fn ((List Form) Scope Int) (Tup Expr Int)))
-(defn cond-clauses (clauses scope n)
-  (if (= (len clauses) 0)
-    (tup NIL n)
-    (let ((items (list-items (at clauses 0))))
-      (cond
-        ((!= (len items) 2) (fail (located scope "cond: clause must be (test expr)")))
-        ((is-else (at items 0))
-          (if (= (len clauses) 1)
-            (analyse-expr (at items 1) scope n)
-            (fail (located scope "cond: (else expr) must be the last clause"))))
-        (else
-          (let (((test n1) (analyse-expr (at items 0) scope n))
-                ((expr n2) (analyse-expr (at items 1) scope n1))
-                ((other n3) (cond-clauses (rest-of clauses) scope n2)))
-            (tup (If test expr other) n3)))))))
 
 (sig an-do (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-do (rest scope n)

@@ -1,6 +1,6 @@
 # Candy macros (HLD)
 
-**Status: accepted.** Branch `macros`, after tag `self-host-cleanup`. All the questions
+**Status: accepted; steps 1–5 done.** Branch `macros`, after tag `self-host-cleanup`. All the questions
 at the end are decided: the order (below), staging by macro files, `defmacro` with
 Scheme-style parameters, the quote forms' names (`quo`, `quasi`, `unq`, `unq-sp`, with no
 reader shorthand yet), quoting only in macro code, `tmp__1` gensyms with `__` rejected in
@@ -301,6 +301,27 @@ learned them (two rebuilds, as with `import`). Moving `cond` out of `core.cdy` c
    `lib/base_macros.cdy`) and `test_macro_file_errors`.
 5. **A real macro in the translator:** `cond` (or whichever question 6 settles on), then
    remove it from `core.cdy`.
+   *Done:* `cond` is a macro in `src/cdy/prelude_macros.cdy`, and `core.cdy` and the
+   shared table no longer know it. As built:
+   - **The prelude's macros** (proposed name and place): a macro file that every file
+     imports without saying so, except the prelude itself (`prelude-import` in
+     `expand.cdy`). Like `form.cdy`, it sits next to the translator
+     (`bin/py/prelude_macros.cdy`, in `self_host.py`'s `LIBRARY`). Its code can't use its
+     own macros, so `cond` is written with `if`; and `form.cdy`, which goes into every
+     macro program unexpanded, no longer uses `cond` either.
+   - **Same output:** the macro builds the nested `if`s `an-cond` made (`(if t e)` for a
+     last clause without `else`, which is `If t e nil`), so every program, the translator
+     included, translates to the same Python as before; the errors are the same, at the
+     `cond` form. It builds the chain from the last clause back, in a loop, so a long
+     `cond` (`test_long_cond`, 150 clauses) doesn't recurse in the macro.
+   - **Bootstrapping took two rebuilds, A and B.** The translator reads the runtime's table
+     live, so removing `cond` from it breaks the old `bin`, which has no prelude. A: the
+     prelude mechanism with an empty prelude, `cond` still in the table and `core.cdy`.
+     B: `cond` out of both, the macro in the prelude, and the prelude copied into
+     `bin/py/` before rebuilding, since a translator expands with its own copy.
+   - **The frozen Python translator** dispatches special forms on its own map, so it still
+     handles `cond`; with `cond` gone from the table, `cond` used as a value there says
+     "unknown name" instead of "a special form, not a value".
 
 ## Questions (all decided)
 

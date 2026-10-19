@@ -440,7 +440,7 @@ def test_bin_driver_expands_macros(tmp_path: Path) -> None:
 def test_macros_need_form_next_to_translator(t1_path: Path, tmp_path: Path) -> None:
     translator = tmp_path / t1_path.name
     shutil.copyfile(t1_path, translator)  # without form.cdy
-    with pytest.raises(CandyFail, match="^macros need form.cdy next to the translator"):
+    with pytest.raises(CandyFail, match="^macros need .* next to the translator"):
         translate_with(load(translator), "(defmacro m (a) a)\n(m 1)")
 
 
