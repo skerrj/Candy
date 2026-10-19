@@ -1,6 +1,6 @@
 # Self-host cleanup: `import`, one translator, and paying down the bootstrap
 
-**Status: accepted.** The open questions at the end are decided. Branch `self-host-cleanup`, after tag
+**Status: done.** Merged into `master` and tagged `self-host-cleanup`. The open questions at the end are decided. Branch `self-host-cleanup`, after tag
 `self-host-py` (Candy's translator is written in Candy, has its own reader, and rebuilds
 itself on Python; see `doc/hl_rqmt/self_hosting_primo.md`).
 
