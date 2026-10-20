@@ -158,6 +158,11 @@ COLLECTION: Table = {
     "join": runtime("join", 2),
     "is-coll": runtime("is_coll", 1),
     "to-list": runtime("to_list", 1),
+    # Writable in Candy (the prelude), but built in for speed: Candy adds to a list by
+    # copying it, so its own map would take quadratic time.
+    "map": runtime("list_map", 2),
+    "filter": runtime("list_filter", 2),
+    "fold": runtime("list_fold", 3),
     # Maps: ``map-set`` returns a new map.
     "empty-map": value("{}"),
     "map-get": runtime("map_get", 2),

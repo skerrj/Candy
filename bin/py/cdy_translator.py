@@ -11,39 +11,6 @@ import cdy_rt.table_defs
 def prelude__rest[a](xs: tuple[a, ...]) -> tuple[a, ...]:
     return xs[1:len(xs)]
 
-def prelude__map[a, b](f: _cdy_Callable[[a], b], xs: tuple[a, ...]) -> tuple[b, ...]:
-    return prelude__map_into(f, xs, ())
-
-def prelude__map_into[a, b](f: _cdy_Callable[[a], b], xs: tuple[a, ...], acc: tuple[b, ...]) -> tuple[b, ...]:
-    while True:
-        if (len(xs) == 0):
-            return acc
-        else:
-            xs, acc = (prelude__rest(xs), (acc + cdy_rt.table_defs.to_list(f(xs[0]))))
-            continue
-
-def prelude__filter[a](keep: _cdy_Callable[[a], bool], xs: tuple[a, ...]) -> tuple[a, ...]:
-    return prelude__filter_into(keep, xs, ())
-
-def prelude__filter_into[a](keep: _cdy_Callable[[a], bool], xs: tuple[a, ...], acc: tuple[a, ...]) -> tuple[a, ...]:
-    while True:
-        if (len(xs) == 0):
-            return acc
-        elif keep(xs[0]):
-            xs, acc = (prelude__rest(xs), (acc + cdy_rt.table_defs.to_list(xs[0])))
-            continue
-        else:
-            xs = prelude__rest(xs)
-            continue
-
-def prelude__fold[b, a](f: _cdy_Callable[[b, a], b], acc: b, xs: tuple[a, ...]) -> b:
-    while True:
-        if (len(xs) == 0):
-            return acc
-        else:
-            acc, xs = (f(acc, xs[0]), prelude__rest(xs))
-            continue
-
 class form__Pos(_cdy_NamedTuple):
     file: str
     line: int

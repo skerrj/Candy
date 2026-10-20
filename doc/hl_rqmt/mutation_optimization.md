@@ -52,6 +52,12 @@ belong in Core → Core passes or in `lower`, so every target benefits.
 - **Applied lambdas.** `let` is already defined as an applied lambda and turned back into
   assignments by `lower` (a beta-reduction). The same rule could apply to applied `fn`s
   that the user writes.
+- **Lists that are cheap to add to.** `(List a)` is a Python tuple, so `(+ acc (to-list
+  x))` copies it and a loop that builds a list is quadratic (`map` in Candy took 506 ms
+  for 16000 items; built in, 0.67 ms). Options: a cons list or a persistent vector
+  (Clojure's) as the runtime's list, or in-place appends where the old list can't be
+  reached any more (as for `assoc`, above). Until then, `map`, `filter` and `fold` are
+  built-ins (`doc/hl_rqmt/system_prelude.md`, step 5).
 - **Inlining and constant folding**, for small functions and constant arithmetic.
 - **Fewer temporaries.** `lower` adds temporaries to keep evaluation order. An analysis of
   which expressions have no side effects would let it skip more of them.

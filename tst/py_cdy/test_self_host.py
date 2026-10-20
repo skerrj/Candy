@@ -216,8 +216,8 @@ def test_errors_say_where(
             "main.cdy:2:7: f is not defined here; b defines it, but this file doesn't import b",
         ),
         (
-            {"main.cdy": "(import a)", "a.cdy": "(sig map Int) (def map 1)"},
-            "main.cdy:1:1: import: prelude and a both define map",
+            {"main.cdy": "(import a)", "a.cdy": "(sig rest Int) (def rest 1)"},
+            "main.cdy:1:1: import: prelude and a both define rest",
         ),
     ],
 )
@@ -492,8 +492,17 @@ def test_bin_driver_expands_macros(tmp_path: Path) -> None:
 
 
 def test_own_definitions_win_over_the_prelude(t1: ModuleType, tmp_path: Path) -> None:
-    source = translate_with(t1, "(sig map Int)\n(def map 7)\n(put map (rest (tup 1 2)))")
-    assert run(source, tmp_path, "own").stdout == "7 (2,)\n"
+    # Over the prelude's rest, and over the built-in map.
+    source = translate_with(
+        t1, "(sig rest Int)\n(def rest 7)\n(sig map Int)\n(def map 8)\n(put rest map)"
+    )
+    assert run(source, tmp_path, "own").stdout == "7 8\n"
+
+
+def test_list_functions_are_built_in(t1: ModuleType) -> None:
+    # Fast: the runtime's, not Candy loops that copy the list for each item.
+    source = translate_with(t1, "(put (map (fn (n) n) (tup 1)) (filter (fn (n) true) (tup 1)))")
+    assert "cdy_rt.table_defs.list_map(" in source and "cdy_rt.table_defs.list_filter(" in source
 
 
 def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 # Candy's library: system, translator and prelude (HLD)
 
-**Status: draft.** Drafted on branch `system-prelude`, as the follow-up to its MVP
+**Status: draft; two decisions in.** Drafted on branch `system-prelude`, as the follow-up to its MVP
 (`doc/hl_rqmt/system_prelude.md`). Proposed as its own branch after that one is merged.
 The questions at the end are open.
 
@@ -9,7 +9,7 @@ The questions at the end are open.
 After `system-prelude` there are three library files next to the translator, besides
 `form.cdy`:
 
-- **`system.cdy`:** 66 bodiless `sig`s, one flat set of built-ins that every file sees.
+- **`system.cdy`:** 69 bodiless `sig`s, one flat set of built-ins that every file sees.
   It mixes what programs need (`len`, `put`, `slurp`, `map-get`) with what only the
   translator uses:
   - the symbol table: `initial-table` and the `table-*` functions;
@@ -17,8 +17,9 @@ After `system-prelude` there are three library files next to the translator, bes
   - macros: `load-macros`, `call-macro`, `module-dir`, `fresh-name`.
 
   That is a leak (`doc/leaks.md`, "The translator's built-ins are every program's").
-- **`prelude.cdy`:** a module every file imports: `rest`, `map`, `filter` and `fold`.
-  It is sparse, and it all goes into every program's output (`doc/tech_debt.md`).
+- **`prelude.cdy`:** a module every file imports: only `rest`, since `map`, `filter` and
+  `fold` became built-ins for speed (`system_prelude.md`, step 5). It is sparse, and it all
+  goes into every program's output (`doc/tech_debt.md`).
 - **`prelude_macros.cdy`:** the macros every file gets (`cond`).
 
 Meanwhile the translator writes these functions by hand, over and over:
@@ -58,6 +59,37 @@ translator's built-ins are the host's, and `py-mangle` is one only because the t
 runs on Python. A translator hosted elsewhere would provide its own `translator.cdy`,
 whatever the target; a new target would provide its own `system.cdy`.
 
+### Built-in or prelude (decided)
+
+**Anything that can be written in Candy goes in the prelude**, not in `system.cdy`. A
+built-in is only what Candy can't express: arithmetic and comparison, getting at data
+(`len`, `at`, `slice`, `map-get`, `map-set`), I/O (`put`, `slurp`, files and paths) and a
+few conversions (`to-int`, `hex-char`). So `system.cdy` shrinks to primitives, the prelude
+grows, and each target's runtime has fewer built-ins to provide. Today's built-ins that
+move, for example:
+- `is-empty-str`: `(= s "")`;
+- `isspace-at`: `isspace` of a one-character `slice`;
+- `is-neg-int` and `join`: `slice` and a loop.
+
+Exception, for speed: while lists are tuples that Candy copies to add to, list operations
+that build a list stay built-in. `map`, `filter` and `fold` already are
+(`system_prelude.md`, step 5); the long-term fix is in `mutation_optimization.md`.
+
+### What a program sees (decided: A now, B later)
+
+- **Now (A):** a program sees `system.cdy`'s primitives and the prelude, both implicitly.
+  That needs nothing new.
+- **Later (B):** a program sees only the prelude. `system.cdy` is imported by the prelude,
+  which re-exports the primitives programs need, as they are or wrapped (an `at` that
+  returns a `Maybe`, say), as OCaml's `Stdlib` and Elm's core do. That makes the
+  prelude's names the one interface for every target, while each target's `system.cdy`
+  can differ underneath: the answer to `doc/hl_rqmt/multi_target.md`'s "abstracting
+  `system.cdy` while allowing specifics". It needs re-export, which modules don't have.
+- **Meanwhile,** the prelude's names are designed as if they were that interface, so that
+  moving to B is mostly adding re-exports.
+
+The translator-only layer is separate either way: only the translator imports it.
+
 ### Built-ins that belong to a module
 
 Today built-ins are global: `system.cdy` isn't a module. For `translator.cdy` to be visible
@@ -75,7 +107,7 @@ against the declarations covers both files together.
 ### A fuller prelude (question 3)
 
 Candidates, from what the translator and the test programs write by hand:
-- **lists:** `rest`, `map`, `filter`, `fold`, `any`, `all`, `find` (the first match, as a
+- **lists:** `rest`, `any`, `all`, `find` (the first match, as a
   `Maybe`), `reverse`, `range`, `take`, `drop`, `concat` (a list of lists), `zip`,
   `index-of`, `contains`;
 - **strings:** `starts-with`, `ends-with`, `split`, `repeat`; some of `table_defs.py`'s
@@ -95,8 +127,8 @@ every imported module, later.
 
 ### Private names (question 6)
 
-The prelude's helpers (`map-into`, `filter-into`) are exported, like every top-level name.
-A fuller prelude has more of them. Either names get a way to be private (a convention, such
+A prelude helper is exported, like every top-level name (the old `map-into` and
+`filter-into` were). A fuller prelude has more of them. Either names get a way to be private (a convention, such
 as a leading `-`, or a form), or the helpers get written so they aren't needed.
 
 ## Steps (sketch)
@@ -110,6 +142,13 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 6. **Docs.**
 
 ## Questions (open)
+
+Decided so far: anything that can be written in Candy goes in the prelude ("Built-in or
+prelude"); a program sees the primitives and the prelude now, and only the prelude later
+("What a program sees").
+Leaning (not decided): a small implicit prelude plus opt-in library modules for the rest
+(`(import list)`), so "the prelude" in the rule above means Candy's library; open: how
+imports find library modules, their names (`std/list`?), and what the prelude keeps.
 
 1. **Built-ins in modules:** a declaration file as a module (proposed), or a separate
    mechanism (a list of "translator-only" names, checked by the translator)?

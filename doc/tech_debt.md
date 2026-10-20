@@ -81,8 +81,9 @@ take one, and remove an entry once it is fixed.
 
 - **The whole prelude goes into every program's Python file**, used or not, and it is
   read and expanded again for every translation.
-- **The prelude's helpers are exported** (`map-into`, `filter-into`): there are no private
-  names yet, so every file sees them too.
+- **Building a list is quadratic:** `(+ acc (to-list x))` copies the whole tuple. `map`,
+  `filter` and `fold` are built-ins to avoid it, but the translator's own accumulator
+  loops (about 94 `defn`s) still pay it. Long-term fix: in `mutation_optimization.md`.
 
 ## Runtime
 

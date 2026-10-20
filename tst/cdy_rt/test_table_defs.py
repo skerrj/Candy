@@ -20,6 +20,9 @@ from cdy_rt.table_defs import (
     is_lit,
     is_neg_int,
     join,
+    list_filter,
+    list_fold,
+    list_map,
     load_macros,
     make_dirs,
     map_get,
@@ -123,7 +126,7 @@ def home() -> None:
     """Stands in for a translator function: load_macros runs a program in its module."""
 
 
-form__HOME = "prefixed Form"  # the same, in a translator built with modules
+form__HOME = "prefixed Form"  # pylint: disable=invalid-name  # the same, with modules
 
 
 def form__home() -> None:
@@ -166,3 +169,10 @@ def test_call_macro() -> None:
 
 def test_module_dir() -> None:
     assert module_dir(home) == str(Path(__file__).parent)
+
+
+def test_list_functions() -> None:
+    assert list_map(lambda n: n * 2, (1, 2, 3)) == (2, 4, 6)
+    assert list_filter(lambda n: n % 2 == 1, (1, 2, 3)) == (1, 3)
+    assert list_fold(lambda acc, s: acc + s, "", ("a", "b")) == "ab"
+    assert not list_map(str, ())
