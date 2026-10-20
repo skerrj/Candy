@@ -215,6 +215,10 @@ def test_errors_say_where(
             },
             "main.cdy:2:7: f is not defined here; b defines it, but this file doesn't import b",
         ),
+        (
+            {"main.cdy": "(import a)", "a.cdy": "(sig map Int) (def map 1)"},
+            "main.cdy:1:1: import: prelude and a both define map",
+        ),
     ],
 )
 def test_module_errors(
@@ -485,6 +489,11 @@ def test_bin_driver_expands_macros(tmp_path: Path) -> None:
     assert run((tmp_path / "macros.py").read_text(encoding="utf-8"), tmp_path, "m").stdout == (
         program.with_suffix(".out").read_text(encoding="utf-8")
     )
+
+
+def test_own_definitions_win_over_the_prelude(t1: ModuleType, tmp_path: Path) -> None:
+    source = translate_with(t1, "(sig map Int)\n(def map 7)\n(put map (rest (tup 1 2)))")
+    assert run(source, tmp_path, "own").stdout == "7 (2,)\n"
 
 
 def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:

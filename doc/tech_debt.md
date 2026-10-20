@@ -79,6 +79,11 @@ take one, and remove an entry once it is fixed.
 - **The built-ins' types are read but not used** beyond arity: there is no type checker,
   and mypy still gets the runtime's types from `table_defs.py`'s annotations.
 
+- **The whole prelude goes into every program's Python file**, used or not, and it is
+  read and expanded again for every translation.
+- **The prelude's helpers are exported** (`map-into`, `filter-into`): there are no private
+  names yet, so every file sees them too.
+
 ## Runtime
 
 - **`load-macros` finds the translator's `form.cdy` names from `home`'s Python name:**

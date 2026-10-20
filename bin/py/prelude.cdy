@@ -1,0 +1,32 @@
+;;; Prelude: definitions every program gets (doc/hl_rqmt/system_prelude.md). It is a module
+;;; that every other file imports without saying so, kept next to the translator, like
+;;; system.cdy. A file's own definitions win over the prelude's, as over any import.
+
+;; All of `xs` but the first item.
+(sig rest (Fn ((List a)) (List a)))
+(defn rest (xs) (slice xs 1 (len xs)))
+
+;; `f` of each item of `xs`.
+(sig map (Fn ((Fn (a) b) (List a)) (List b)))
+(defn map (f xs) (map-into f xs empty-list))
+
+(sig map-into (Fn ((Fn (a) b) (List a) (List b)) (List b)))
+(defn map-into (f xs acc)
+  (if (= (len xs) 0) acc (map-into f (rest xs) (+ acc (to-list (f (at xs 0)))))))
+
+;; The items of `xs` for which `keep` is true.
+(sig filter (Fn ((Fn (a) Bool) (List a)) (List a)))
+(defn filter (keep xs) (filter-into keep xs empty-list))
+
+(sig filter-into (Fn ((Fn (a) Bool) (List a) (List a)) (List a)))
+(defn filter-into (keep xs acc)
+  (cond
+    ((= (len xs) 0) acc)
+    ((keep (at xs 0)) (filter-into keep (rest xs) (+ acc (to-list (at xs 0)))))
+    (else (filter-into keep (rest xs) acc))))
+
+;; `f` applied to `acc` and each item of `xs` in turn: (fold f acc (tup x y)) is
+;; (f (f acc x) y).
+(sig fold (Fn ((Fn (b a) b) b (List a)) b))
+(defn fold (f acc xs)
+  (if (= (len xs) 0) acc (fold f (f acc (at xs 0)) (rest xs))))

@@ -1,7 +1,8 @@
 ;;; Include: reading a program's files. A program is modules (doc/hl_rqmt/modules.md):
 ;;; `(import name)` at top level imports `name.cdy`, found in the importing file's
 ;;; directory, and read-modules returns each module after those it imports. A cycle is an
-;;; error. `(import-macros name)` stays, with `name.cdy`'s path in place of the name, for
+;;; error. Every file but the prelude itself also imports the prelude (prelude.cdy, next to
+;;; the translator). `(import-macros name)` stays, with `name.cdy`'s path in place of the name, for
 ;;; expand.cdy to load.
 ;;;
 ;;; Macro files are still read with `import` as inclusion (read-program; step A of
@@ -38,12 +39,29 @@
 ;; the keys of the modules importing it, to catch a cycle.
 (sig add-module (Fn (String String (List Form) String (List String) Mods) Mods))
 (defn add-module (path key forms dir stack acc)
-  (let ((imports (module-imports forms dir empty-list))
+  (let ((imports (+ (prelude-module key) (module-imports forms dir empty-list)))
         (inner
           (load-imports imports (+ stack (to-list key)) (assoc acc seen (map-set (get acc seen) key true)))))
     (assoc inner done
       (+ (get inner done)
          (to-list (Module path key (path-stem path) (other-forms forms dir empty-list) (imp-list imports empty-list)))))))
+
+;; The prelude, as an import of the module `key`, unless it is the prelude.
+(sig prelude-module (Fn (String) (List (Tup String Imp))))
+(defn prelude-module (key)
+  (let ((path (library-path "prelude.cdy"))
+        (prelude (path-resolve path)))
+    (if (= prelude key) empty-list (to-list (tup path (Imp prelude NOWHERE))))))
+
+;; The path of the library file `name` (form.cdy, system.cdy, the prelude and its macros), which
+;; is kept next to the translator (in bin/py/; py_cdy/self_host.py copies the library there).
+(sig library-path (Fn (String) String))
+(defn library-path (name)
+  (let ((dir (module-dir sym-name))
+        (path (path-join dir name)))
+    (if (file-exists path)
+      path
+      (fail (format "the translator needs {name} next to it, in {dir}")))))
 
 ;; The imports among `forms`: each imported file's path, with its Imp.
 (sig module-imports (Fn ((List Form) String (List (Tup String Imp))) (List (Tup String Imp))))

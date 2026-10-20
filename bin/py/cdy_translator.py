@@ -8,6 +8,42 @@ import cdy_rt.table
 import cdy_rt.table_defs
 
 
+def prelude__rest[a](xs: tuple[a, ...]) -> tuple[a, ...]:
+    return xs[1:len(xs)]
+
+def prelude__map[a, b](f: _cdy_Callable[[a], b], xs: tuple[a, ...]) -> tuple[b, ...]:
+    return prelude__map_into(f, xs, ())
+
+def prelude__map_into[a, b](f: _cdy_Callable[[a], b], xs: tuple[a, ...], acc: tuple[b, ...]) -> tuple[b, ...]:
+    while True:
+        if (len(xs) == 0):
+            return acc
+        else:
+            xs, acc = (prelude__rest(xs), (acc + cdy_rt.table_defs.to_list(f(xs[0]))))
+            continue
+
+def prelude__filter[a](keep: _cdy_Callable[[a], bool], xs: tuple[a, ...]) -> tuple[a, ...]:
+    return prelude__filter_into(keep, xs, ())
+
+def prelude__filter_into[a](keep: _cdy_Callable[[a], bool], xs: tuple[a, ...], acc: tuple[a, ...]) -> tuple[a, ...]:
+    while True:
+        if (len(xs) == 0):
+            return acc
+        elif keep(xs[0]):
+            xs, acc = (prelude__rest(xs), (acc + cdy_rt.table_defs.to_list(xs[0])))
+            continue
+        else:
+            xs = prelude__rest(xs)
+            continue
+
+def prelude__fold[b, a](f: _cdy_Callable[[b, a], b], acc: b, xs: tuple[a, ...]) -> b:
+    while True:
+        if (len(xs) == 0):
+            return acc
+        else:
+            acc, xs = (f(acc, xs[0]), prelude__rest(xs))
+            continue
+
 class form__Pos(_cdy_NamedTuple):
     file: str
     line: int
@@ -375,9 +411,25 @@ def include__text_modules(text: str) -> tuple[include__Module, ...]:
     return include__checked_stems(include__add_module('', '', read__read_source('', text), '.', (), include__Mods((), {})))
 
 def include__add_module(path: str, key: str, forms: tuple[form__Form, ...], dir_: str, stack: tuple[str, ...], acc: include__Mods) -> include__Mods:
-    imports = include__module_imports(forms, dir_, ())
+    imports = (include__prelude_module(key) + include__module_imports(forms, dir_, ()))
     inner = include__load_imports(imports, (stack + cdy_rt.table_defs.to_list(key)), acc._replace(seen=cdy_rt.table_defs.map_set(acc.seen, key, True)))
     return inner._replace(done=(inner.done + cdy_rt.table_defs.to_list(include__Module(path, key, cdy_rt.table_defs.path_stem(path), include__other_forms(forms, dir_, ()), include__imp_list(imports, ())))))
+
+def include__prelude_module(key: str) -> tuple[tuple[str, include__Imp], ...]:
+    path = include__library_path('prelude.cdy')
+    prelude = cdy_rt.table_defs.path_resolve(path)
+    if (prelude == key):
+        return ()
+    else:
+        return cdy_rt.table_defs.to_list((path, include__Imp(prelude, form__NOWHERE)))
+
+def include__library_path(name: str) -> str:
+    dir_ = cdy_rt.table_defs.module_dir(form__sym_name)
+    path = cdy_rt.table_defs.path_join(dir_, name)
+    if cdy_rt.table_defs.file_exists(path):
+        return path
+    else:
+        return cdy_rt.table_defs.fail(('the translator needs ' + str(name) + ' next to it, in ' + str(dir_)))
 
 def include__module_imports(forms: tuple[form__Form, ...], dir_: str, acc: tuple[tuple[str, include__Imp], ...]) -> tuple[tuple[str, include__Imp], ...]:
     while True:
@@ -1945,7 +1997,7 @@ def expand__expand_file(forms: tuple[form__Form, ...], macro_file: bool, compile
     return expand__Expanded((helpers if macro_file else expand__expand_all(rest, macros, ())), macros, own, imports.helpers)
 
 def expand__prelude_import(loading: tuple[str, ...]) -> tuple[form__Form, ...]:
-    path = expand__library_path('prelude_macros.cdy')
+    path = include__library_path('prelude_macros.cdy')
     if cdy_rt.table_defs.in_(cdy_rt.table_defs.path_resolve(path), loading):
         return ()
     else:
@@ -2037,16 +2089,8 @@ def expand__load_defs(defs: tuple[form__Form, ...], helpers: tuple[form__Form, .
     return expand__macro_list(defs, loaded, ())
 
 def expand__form_defs(_: None) -> tuple[form__Form, ...]:
-    path = expand__library_path('form.cdy')
+    path = include__library_path('form.cdy')
     return read__read_source(path, cdy_rt.table_defs.slurp(path))
-
-def expand__library_path(name: str) -> str:
-    dir_ = cdy_rt.table_defs.module_dir(form__sym_name)
-    path = cdy_rt.table_defs.path_join(dir_, name)
-    if cdy_rt.table_defs.file_exists(path):
-        return path
-    else:
-        return cdy_rt.table_defs.fail(('the translator needs ' + str(name) + ' next to it, in ' + str(dir_)))
 
 def expand__macro_program(defs: tuple[form__Form, ...], acc: tuple[form__Form, ...]) -> tuple[form__Form, ...]:
     while True:
@@ -2216,8 +2260,8 @@ def expand__stamp(form: form__Form, pos: form__Pos) -> form__Form:
             return form
     elif isinstance(_cdy_t32, form__Lst):
         items = _cdy_t32.items
-        _cdy_p_130 = _cdy_t32.pos
-        return form__Lst(expand__stamp_all(items, pos, ()), (pos if (_cdy_p_130.line == 0) else _cdy_p_130))
+        _cdy_p_127 = _cdy_t32.pos
+        return form__Lst(expand__stamp_all(items, pos, ()), (pos if (_cdy_p_127.line == 0) else _cdy_p_127))
     else:
         return form
 
@@ -3677,7 +3721,7 @@ def translate_modules(modules: tuple[include__Module, ...], parse: _cdy_Callable
     return python_of(analyse_modules(ready, by_key, elsewhere, builtins, parse, ()))
 
 def builtin_sigs(_: None) -> _cdy_Mapping[str, core__CType]:
-    path = expand__library_path('system.cdy')
+    path = include__library_path('system.cdy')
     return core__system_sigs(read__read_source(path, cdy_rt.table_defs.slurp(path)), cdy_rt.table.INITIAL_TABLE)
 
 def expand_modules(modules: tuple[include__Module, ...], top: int, acc: tuple[Ready, ...]) -> tuple[Ready, ...]:

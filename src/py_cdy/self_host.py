@@ -56,7 +56,7 @@ T1_MODULE = "cdy_translator"
 BIN_PATH = ROOT / "bin" / "py" / f"{T1_MODULE}.py"
 # The Candy files a translator reads while it translates, kept next to it: macro code uses
 # Form and its helpers, and every file gets the prelude's macros (expand.cdy).
-LIBRARY = ("form.cdy", "prelude_macros.cdy", "system.cdy")
+LIBRARY = ("form.cdy", "prelude_macros.cdy", "system.cdy", "prelude.cdy")
 
 
 class FixpointError(Exception):

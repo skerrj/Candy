@@ -20,4 +20,6 @@ Done and earlier items are in `doc/archive/TODOS_modules.md`, `doc/archive/TODOS
 - [x] Step 1: `system.cdy`, read and checked against the table; arity from its `sig`s.
 - [ ] Review step 1 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/system.cdy`'s types), and the new leaks and tech debt.
 - [x] ~~Step 2: `table.py` without arities~~ dropped: the frozen Python translator still reads them (kept, as tech debt).
-- [ ] Step 3: `prelude.cdy`.
+- [x] Step 3: `prelude.cdy` (`rest`, `map`, `filter`, `fold`), imported into every file.
+- [ ] Review step 3 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/prelude.cdy`).
+- [ ] Step 4: docs (mostly done with steps 1 and 3; the iMVP doc's "Signature statement" and `multi_target.md` remain).

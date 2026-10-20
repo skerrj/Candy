@@ -276,6 +276,22 @@ The checked-in `bin` reads the live `table.py`, as in macros step 5. So:
    `test_table.py`, and an error test for each half missing.
 3. **`prelude.cdy`:** an implicit import into every file; the four functions; a test
    program; and a test that a program's own `map` wins.
+
+   *Done.* As built:
+   - **`src/cdy/prelude.cdy`:** `rest`, `map`, `filter` and `fold`, generic and tail
+     recursive (so `lower` makes them loops), with `map-into` and `filter-into` as their
+     accumulating helpers.
+   - **`include.cdy`:** `add-module` puts the prelude (`prelude-module`) before a module's
+     own imports, unless the module is the prelude; its import has no position, so a clash
+     points at the other import (`import: prelude and a both define map`). `library-path`
+     moved here from `expand.cdy`, which still uses it.
+   - **The library:** `prelude.cdy` joins `self_host.LIBRARY`.
+   - **The translator** gets the prelude too, so `bin` now holds `prelude__map` and the
+     rest, unused. Its own `expand.cdy` already had a `prelude-import`, which the new clash
+     rule caught.
+   - **Bootstrap:** one rebuild; T2 reproduces itself.
+   - **Tests:** `tst/cdy/cdyc/prelude.cdy`, a clash case in `test_module_errors`, and
+     `test_own_definitions_win_over_the_prelude`.
 4. **Docs:** the spec (`sig` in `system.cdy`, the prelude), CLAUDE.md, the iMVP doc's
    "Signature statement", `multi_target.md`, and new leaks and tech debt.
 

@@ -175,16 +175,6 @@
   (let ((path (library-path "form.cdy")))
     (read-source path (slurp path))))
 
-;; The path of the library file `name` (form.cdy, system.cdy, the prelude's macros), which
-;; is kept next to the translator (in bin/py/; py_cdy/self_host.py copies the library there).
-(sig library-path (Fn (String) String))
-(defn library-path (name)
-  (let ((dir (module-dir sym-name))
-        (path (path-join dir name)))
-    (if (file-exists path)
-      path
-      (fail (format "the translator needs {name} next to it, in {dir}")))))
-
 ;; Each (defmacro name params body) as a function from the arguments to a form:
 ;; (sig macro__name (Fn ((List Form)) Form))
 ;; (defn macro__name (args__) (let ((p1 (at args__ 0)) ...) body))
