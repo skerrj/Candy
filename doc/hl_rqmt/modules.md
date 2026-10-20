@@ -1,7 +1,7 @@
 # Candy modules (HLD)
 
-**Status: done (MVP scope); steps 1–3 built.** Branch `modules`, after tag `macros`. This is `import`
-step B of `doc/hl_rqmt/self_host_cleanup.md`. The owner chose the simplest option on
+**Status: done (MVP scope); merged into `master` and tagged `modules`.** Branch `modules`,
+after tag `macros`. This is `import` step B of `doc/hl_rqmt/self_host_cleanup.md`. The owner chose the simplest option on
 every question for the first pass ("Questions", at the end). Qualified names,
 `import-as` and `import-from` come later ("After the MVP").
 
@@ -30,7 +30,7 @@ every question for the first pass ("Questions", at the end). Qualified names,
    its own files are made to import what they use.
 
 Not goals: qualified names, `import-as` and `import-from` ("After the MVP"); separate
-compilation; one Python module per Candy file; macro hygiene beyond `gensym`; export
+compilation; one target module per Candy file; macro hygiene beyond `gensym`; export
 lists and private names; search paths beyond "relative to the importing file" (plus the
 translator's directory for macros); `system.cdy` and `prelude.cdy`.
 
@@ -185,8 +185,22 @@ same thing. Two steps:
   - The spellings could become prelude macros only once a macro can expand into an
     `import` (`doc/leaks.md`).
 - **"Ambiguous only where used"** in place of the clash-at-import error.
-- **One Python module per Candy file:** separate compilation, caching macro files, and
-  letting the macro program import the translator's `form` module instead of copying it.
+- **Modules all the way to the backend, so each target picks its output unit.** A Candy
+  module is a namespace, which the front end settles the same way for every target; how
+  many files a backend writes is that target's choice (`doc/hl_rqmt/multi_target.md`,
+  "Modules and output units"). Today the module is lost early: a `Global` holds
+  `"util__greet"`, so a backend can't tell it is `greet` from `util`. Proposed:
+  - `Global`, definitions and type names carry the module and the name
+    (`(Global "util" "greet")`);
+  - each module's Tops stay grouped, with its imports;
+  - each backend spells a reference its own way: flat and prefixed (`util__greet`, as
+    now, which suits C), qualified (`util.greet` in Python), or imported (an ES module's
+    `import {greet} from "./util.js"`);
+  - writing one unit per module (one `.py` per module, as a package) is then an option
+    per target, the way to separate compilation.
+- **Macro modules on the host:** caching compiled macro files, and letting the macro
+  program import the translator's `form` module instead of copying it. Macro code runs in
+  the translator, so this concerns the host's modules, whatever the target.
 - **Qualified template symbols** in `quasi` (macro hygiene); export lists or private names;
   a plain `import` bringing a file's `defmacro`s; `system.cdy` and `prelude.cdy`.
 

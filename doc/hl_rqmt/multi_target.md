@@ -118,6 +118,35 @@ None of this is designed yet. Questions to answer:
    `lower`). This is about what its *runtime library* provides. The two may end up in one
    target description.
 
+### Modules and output units
+
+A **Candy module** (a file, `doc/hl_rqmt/modules.md`) is a namespace: what it defines,
+imports and exports. The front end settles that, the same way for every target. An
+**output unit** is what a backend writes, and each target has its own natural one:
+
+| Target | Natural output unit |
+|---|---|
+| Python | one `.py` per module, as a package (or one file for the program, as now) |
+| JavaScript | one ES module per file (`import {greet} from "./util.js"`) |
+| C | a `.c` and `.h` per module, or one file for the whole program |
+| JVM | a class per module |
+| WASM, native (LLVM) | object files linked together, or one module for the program |
+
+So whether a backend writes one unit per module or one for the whole program is a choice
+for each target, not a property of the language. For that, modules have to reach the
+backend:
+
+- **References carry their module.** A `Global` (and a definition, and a type name) holds
+  the module and the name, not a prefixed string: `(Global "util" "greet")`. The modules
+  MVP flattens it to `util__greet` in `analyse`, which only suits a one-unit backend.
+- **Each module's definitions stay grouped**, with its imports, through `lower`.
+- **The backend spells references:** flat and prefixed (`util__greet`), qualified
+  (`util.greet`), or with an import and a bare name.
+
+Separate compilation and caching then come per target. Macros are separate from all of
+this: they run on the translator's **host**, so caching compiled macro files is about the
+host's modules, whatever the target (`doc/hl_rqmt/macros.md`, "Terms: host and target").
+
 ### Is the pseudo-AST worth it?
 
 - **The Core AST is needed in any case.** The type checker, error messages and every
