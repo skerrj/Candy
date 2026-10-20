@@ -3,6 +3,8 @@
 ;;; let (desugared into applied Lambdas, as in Scheme), fn, tup, format, get, assoc,
 ;;; match, sig, def, defn and deft (records and sums).
 
+(import form)
+
 ;; --- types (from sig) ---
 
 (deft CType

@@ -4,6 +4,9 @@
 ;;; is included once: a file imported again, or in a cycle, is skipped. `(import-macros name)`
 ;;; stays, with `name.cdy`'s path in place of the name, for expand.cdy to load.
 
+(import form)
+(import read)
+
 ;; The forms included so far, and the files they came from (absolute paths).
 (deft Incl ((done (List Form)) (seen (Map String Bool))))
 

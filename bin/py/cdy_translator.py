@@ -91,6 +91,12 @@ def pos_text(pos: Pos) -> str:
 def gensym(prefix: str) -> Form:
     return Sym(cdy_rt.table_defs.fresh_name(prefix), NOWHERE)
 
+class Macro(_cdy_NamedTuple):
+    name: str
+    arity: int
+    run: _cdy_Any
+    pos: Pos
+
 def read_forms(text: str) -> tuple[Form, ...]:
     return read_all(Source('', ()), text, skip(text, 0), ())
 
@@ -400,323 +406,6 @@ def import_path(what: str, dir_: str, name: str, pos: Pos) -> str:
     else:
         return cdy_rt.table_defs.fail((str(pos_text(pos)) + str(what) + ": can't find " + str(name) + '.cdy in ' + str(dir_)))
 
-class Macro(_cdy_NamedTuple):
-    name: str
-    arity: int
-    run: _cdy_Any
-    pos: Pos
-
-class Imports(_cdy_NamedTuple):
-    macros: tuple[Macro, ...]
-    helpers: tuple[tuple[str, tuple[Form, ...]], ...]
-    seen: _cdy_Mapping[str, bool]
-
-class Expanded(_cdy_NamedTuple):
-    forms: tuple[Form, ...]
-    macros: _cdy_Mapping[str, Macro]
-    own: tuple[Macro, ...]
-    helpers: tuple[tuple[str, tuple[Form, ...]], ...]
-
-def expand_program(forms: tuple[Form, ...], compile_: _cdy_Callable[[tuple[Form, ...]], str]) -> tuple[tuple[Form, ...], _cdy_Mapping[str, Macro]]:
-    done = expand_file(forms, False, compile_, ())
-    return (done.forms, done.macros)
-MACRO_HEADS: tuple[str, ...] = ('defmacro', 'import-macros')
-
-def expand_file(forms: tuple[Form, ...], macro_file: bool, compile_: _cdy_Callable[[tuple[Form, ...]], str], loading: tuple[str, ...]) -> Expanded:
-    imports = import_all((prelude_import(loading) + pick_forms(forms, ('import-macros',), True, ())), compile_, loading, Imports((), (), {}))
-    imported = macro_map(imports.macros, {})
-    defs = expand_defs(pick_forms(forms, ('defmacro',), True, ()), imported, ())
-    rest = pick_forms(forms, MACRO_HEADS, False, ())
-    helpers = (expand_all(rest, imported, ()) if macro_file else ())
-    own = (() if (len(defs) == 0) else load_defs(defs, (helper_forms(imports.helpers, ()) + helpers), compile_))
-    macros = macro_map(own, imported)
-    return Expanded((helpers if macro_file else expand_all(rest, macros, ())), macros, own, imports.helpers)
-
-def prelude_import(loading: tuple[str, ...]) -> tuple[Form, ...]:
-    path = library_path('prelude_macros.cdy')
-    if cdy_rt.table_defs.in_(cdy_rt.table_defs.path_resolve(path), loading):
-        return ()
-    else:
-        return cdy_rt.table_defs.to_list(Lst((Sym('import-macros', NOWHERE), Txt(path)), NOWHERE))
-
-def pick_forms(forms: tuple[Form, ...], heads: tuple[str, ...], keep: bool, acc: tuple[Form, ...]) -> tuple[Form, ...]:
-    while True:
-        if (len(forms) == 0):
-            return acc
-        else:
-            form = forms[0]
-            items = list_items(form)
-            picked = ((len(items) > 0) and cdy_rt.table_defs.in_(sym_name(items[0]), heads))
-            forms, acc = (rest_of(forms), ((acc + cdy_rt.table_defs.to_list(form)) if (picked == keep) else acc))
-            continue
-
-def expand_defs(defs: tuple[Form, ...], macros: _cdy_Mapping[str, Macro], acc: tuple[Form, ...]) -> tuple[Form, ...]:
-    while True:
-        if (len(defs) == 0):
-            return acc
-        else:
-            defs, acc = (rest_of(defs), (acc + cdy_rt.table_defs.to_list(Lst(expand_after(list_items(defs[0]), 3, macros), form_pos(defs[0])))))
-            continue
-
-def macro_map(macros: tuple[Macro, ...], acc: _cdy_Mapping[str, Macro]) -> _cdy_Mapping[str, Macro]:
-    while True:
-        if (len(macros) == 0):
-            return acc
-        else:
-            macro = macros[0]
-            name = macro.name
-            if cdy_rt.table_defs.map_has(acc, name):
-                return cdy_rt.table_defs.fail((str(pos_text(macro.pos)) + 'defmacro: ' + str(name) + ' is already a macro'))
-            else:
-                macros, acc = (macros[1:len(macros)], cdy_rt.table_defs.map_set(acc, name, macro))
-                continue
-
-def import_all(forms: tuple[Form, ...], compile_: _cdy_Callable[[tuple[Form, ...]], str], loading: tuple[str, ...], acc: Imports) -> Imports:
-    while True:
-        if (len(forms) == 0):
-            return acc
-        else:
-            forms, acc = (rest_of(forms), import_file(forms[0], compile_, loading, acc))
-            continue
-
-def import_file(form: Form, compile_: _cdy_Callable[[tuple[Form, ...]], str], loading: tuple[str, ...], acc: Imports) -> Imports:
-    path = macro_path(form)
-    key = cdy_rt.table_defs.path_resolve(path)
-    if cdy_rt.table_defs.map_has(acc.seen, key):
-        return acc
-    elif cdy_rt.table_defs.in_(key, loading):
-        return cdy_rt.table_defs.fail((str(pos_text(form_pos(form))) + 'import-macros: ' + str(path) + ' imports itself'))
-    else:
-        done = expand_file(read_program(path), True, compile_, (loading + cdy_rt.table_defs.to_list(key)))
-        return Imports((acc.macros + done.own), add_helpers((done.helpers + cdy_rt.table_defs.to_list((key, done.forms))), acc.helpers), cdy_rt.table_defs.map_set(acc.seen, key, True))
-
-def macro_path(form: Form) -> str:
-    _cdy_t3: object = list_items(form)[1]
-    if isinstance(_cdy_t3, Txt):
-        path = _cdy_t3.val
-        return path
-    else:
-        return cdy_rt.table_defs.fail((pos_text(form_pos(form)) + 'import-macros: expected (import-macros name)'))
-
-def add_helpers(groups: tuple[tuple[str, tuple[Form, ...]], ...], acc: tuple[tuple[str, tuple[Form, ...]], ...]) -> tuple[tuple[str, tuple[Form, ...]], ...]:
-    while True:
-        if (len(groups) == 0):
-            return acc
-        else:
-            groups, acc = (groups[1:len(groups)], (acc if has_helpers(groups[0][0], acc) else (acc + cdy_rt.table_defs.to_list(groups[0]))))
-            continue
-
-def has_helpers(key: str, groups: tuple[tuple[str, tuple[Form, ...]], ...]) -> bool:
-    return ((len(groups) > 0) and ((groups[0][0] == key) or has_helpers(key, groups[1:len(groups)])))
-
-def helper_forms(groups: tuple[tuple[str, tuple[Form, ...]], ...], acc: tuple[Form, ...]) -> tuple[Form, ...]:
-    while True:
-        if (len(groups) == 0):
-            return acc
-        else:
-            groups, acc = (groups[1:len(groups)], (acc + groups[0][1]))
-            continue
-
-def load_defs(defs: tuple[Form, ...], helpers: tuple[Form, ...], compile_: _cdy_Callable[[tuple[Form, ...]], str]) -> tuple[Macro, ...]:
-    checked = unique_names(defs, {})
-    form_forms = form_defs(None)
-    python = compile_((form_forms + helpers + macro_program(defs, ())))
-    loaded = cdy_rt.table_defs.load_macros(python, sym_name, top_names(form_forms, {}))
-    return macro_list(defs, loaded, ())
-
-def form_defs(_: None) -> tuple[Form, ...]:
-    path = library_path('form.cdy')
-    return read_source(path, cdy_rt.table_defs.slurp(path))
-
-def library_path(name: str) -> str:
-    dir_ = cdy_rt.table_defs.module_dir(sym_name)
-    path = cdy_rt.table_defs.path_join(dir_, name)
-    if cdy_rt.table_defs.file_exists(path):
-        return path
-    else:
-        return cdy_rt.table_defs.fail(('macros need ' + str(name) + ' next to the translator, in ' + str(dir_)))
-
-def macro_program(defs: tuple[Form, ...], acc: tuple[Form, ...]) -> tuple[Form, ...]:
-    while True:
-        if (len(defs) == 0):
-            return acc
-        else:
-            items = defmacro_items(defs[0])
-            pos = form_pos(defs[0])
-            fname = Sym(macro_fn(sym_name(items[1])), pos)
-            args = Sym('args__', pos)
-            type_ = Lst((Sym('Fn', pos), Lst(cdy_rt.table_defs.to_list(Lst((Sym('List', pos), Sym('Form', pos)), pos)), pos), Sym('Form', pos)), pos)
-            body = Lst((Sym('let', pos), Lst(param_binds(items[2], args, pos), pos), items[3]), pos)
-            defs, acc = (rest_of(defs), (acc + cdy_rt.table_defs.to_list(Lst((Sym('sig', pos), fname, type_), pos)) + cdy_rt.table_defs.to_list(Lst((Sym('defn', pos), fname, Lst(cdy_rt.table_defs.to_list(args), pos), body), pos))))
-            continue
-
-def defmacro_items(form: Form) -> tuple[Form, ...]:
-    items = list_items(form)
-    where = pos_text(form_pos(form))
-    if ((len(items) != 4) or (sym_name(items[1]) == '')):
-        return cdy_rt.table_defs.fail((where + 'defmacro: expected (defmacro name (params) body) or (defmacro name args body)'))
-    elif cdy_rt.table.is_special(cdy_rt.table.INITIAL_TABLE, sym_name(items[1])):
-        return cdy_rt.table_defs.fail((str(where) + 'defmacro: ' + str(sym_name(items[1])) + ' is a special form'))
-    elif (not params_ok(items[2])):
-        return cdy_rt.table_defs.fail((where + 'defmacro: a parameter must be a name'))
-    else:
-        return items
-
-def params_ok(params: Form) -> bool:
-    _cdy_t4: object = params
-    if isinstance(_cdy_t4, Sym):
-        return True
-    elif isinstance(_cdy_t4, Lst):
-        items = _cdy_t4.items
-        return all_names(items)
-    else:
-        return False
-
-def all_names(forms: tuple[Form, ...]) -> bool:
-    return ((len(forms) == 0) or ((sym_name(forms[0]) != '') and all_names(rest_of(forms))))
-
-def param_binds(params: Form, args: Form, pos: Pos) -> tuple[Form, ...]:
-    if (sym_name(params) == ''):
-        return arg_binds(list_items(params), args, 0, pos, ())
-    else:
-        return cdy_rt.table_defs.to_list(Lst((params, args), pos))
-
-def arg_binds(params: tuple[Form, ...], args: Form, i: int, pos: Pos, acc: tuple[Form, ...]) -> tuple[Form, ...]:
-    while True:
-        if (len(params) == 0):
-            return acc
-        else:
-            params, i, acc = (rest_of(params), (i + 1), (acc + cdy_rt.table_defs.to_list(Lst((params[0], Lst((Sym('at', pos), args, IntLit(i)), pos)), pos))))
-            continue
-
-def macro_fn(name: str) -> str:
-    return ('macro__' + name)
-
-def unique_names(defs: tuple[Form, ...], seen: _cdy_Mapping[str, bool]) -> bool:
-    while True:
-        if (len(defs) == 0):
-            return True
-        else:
-            name = sym_name(defmacro_items(defs[0])[1])
-            if cdy_rt.table_defs.map_has(seen, name):
-                return cdy_rt.table_defs.fail((str(pos_text(form_pos(defs[0]))) + 'defmacro: ' + str(name) + ' is defined twice'))
-            else:
-                defs, seen = (rest_of(defs), cdy_rt.table_defs.map_set(seen, name, True))
-                continue
-
-def macro_list(defs: tuple[Form, ...], loaded: _cdy_Mapping[str, _cdy_Any], acc: tuple[Macro, ...]) -> tuple[Macro, ...]:
-    while True:
-        if (len(defs) == 0):
-            return acc
-        else:
-            items = list_items(defs[0])
-            name = sym_name(items[1])
-            params = items[2]
-            arity = (len(list_items(params)) if (sym_name(params) == '') else -1)
-            run = cdy_rt.table_defs.map_get(loaded, cdy_rt.table_defs.py_mangle(macro_fn(name)))
-            defs, acc = (rest_of(defs), (acc + cdy_rt.table_defs.to_list(Macro(name, arity, run, form_pos(defs[0])))))
-            continue
-
-def expand_all(forms: tuple[Form, ...], macros: _cdy_Mapping[str, Macro], acc: tuple[Form, ...]) -> tuple[Form, ...]:
-    while True:
-        if (len(forms) == 0):
-            return acc
-        else:
-            forms, acc = (rest_of(forms), (acc + cdy_rt.table_defs.to_list(expand_form(forms[0], macros))))
-            continue
-
-def expand_form(form: Form, macros: _cdy_Mapping[str, Macro]) -> Form:
-    while True:
-        _cdy_t5: object = form
-        if isinstance(_cdy_t5, Lst):
-            items = _cdy_t5.items
-            pos = _cdy_t5.pos
-            head = ('' if (len(items) == 0) else sym_name(items[0]))
-            if cdy_rt.table_defs.map_has(macros, head):
-                form = expand_call(cdy_rt.table_defs.map_get(macros, head), rest_of(items), pos)
-                continue
-            elif cdy_rt.table_defs.in_(head, ('sig', 'deft', 'import', 'import-macros', 'quo', 'quasi')):
-                return form
-            elif (head == 'defn'):
-                return Lst(expand_after(items, 3, macros), pos)
-            elif (head == 'fn'):
-                return Lst(expand_after(items, 2, macros), pos)
-            elif cdy_rt.table_defs.in_(head, ('let', 'match')):
-                return Lst(expand_clauses(head, items, macros), pos)
-            else:
-                return Lst(expand_all(items, macros, ()), pos)
-        else:
-            return form
-
-def expand_after(items: tuple[Form, ...], n: int, macros: _cdy_Mapping[str, Macro]) -> tuple[Form, ...]:
-    if (len(items) < n):
-        return items
-    else:
-        return (items[0:n] + expand_all(items[n:len(items)], macros, ()))
-
-def expand_clauses(head: str, items: tuple[Form, ...], macros: _cdy_Mapping[str, Macro]) -> tuple[Form, ...]:
-    if ((head == 'let') and (len(items) == 3)):
-        _cdy_t6: object = items[1]
-        if isinstance(_cdy_t6, Lst):
-            binds = _cdy_t6.items
-            p = _cdy_t6.pos
-            return (items[0], Lst(each_clause(binds, 1, macros, ()), p), expand_form(items[2], macros))
-        else:
-            return expand_all(items, macros, ())
-    elif ((head == 'match') and (len(items) > 1)):
-        return ((items[0], expand_form(items[1], macros)) + each_clause(items[2:len(items)], 1, macros, ()))
-    else:
-        return expand_all(items, macros, ())
-
-def each_clause(clauses: tuple[Form, ...], n: int, macros: _cdy_Mapping[str, Macro], acc: tuple[Form, ...]) -> tuple[Form, ...]:
-    while True:
-        if (len(clauses) == 0):
-            return acc
-        else:
-            clauses, acc = (rest_of(clauses), (acc + cdy_rt.table_defs.to_list(expand_clause(clauses[0], n, macros))))
-            continue
-
-def expand_clause(clause: Form, n: int, macros: _cdy_Mapping[str, Macro]) -> Form:
-    _cdy_t7: object = clause
-    if isinstance(_cdy_t7, Lst):
-        items = _cdy_t7.items
-        p = _cdy_t7.pos
-        return Lst(expand_after(items, n, macros), p)
-    else:
-        return expand_form(clause, macros)
-
-def expand_call(macro: Macro, args: tuple[Form, ...], pos: Pos) -> Form:
-    arity = macro.arity
-    where = (str(pos_text(pos)) + str(macro.name) + ': ')
-    if ((arity >= 0) and (arity != len(args))):
-        return cdy_rt.table_defs.fail((str(where) + 'expected ' + str(arity) + ' argument(s), got ' + str(len(args))))
-    else:
-        return stamp(cdy_rt.table_defs.call_macro(macro.run, args, where), pos)
-
-def stamp(form: Form, pos: Pos) -> Form:
-    _cdy_t8: object = form
-    if isinstance(_cdy_t8, Sym):
-        name = _cdy_t8.name
-        p = _cdy_t8.pos
-        if (p.line == 0):
-            return Sym(name, pos)
-        else:
-            return form
-    elif isinstance(_cdy_t8, Lst):
-        items = _cdy_t8.items
-        _cdy_p_259 = _cdy_t8.pos
-        return Lst(stamp_all(items, pos, ()), (pos if (_cdy_p_259.line == 0) else _cdy_p_259))
-    else:
-        return form
-
-def stamp_all(forms: tuple[Form, ...], pos: Pos, acc: tuple[Form, ...]) -> tuple[Form, ...]:
-    while True:
-        if (len(forms) == 0):
-            return acc
-        else:
-            forms, acc = (rest_of(forms), (acc + cdy_rt.table_defs.to_list(stamp(forms[0], pos))))
-            continue
-
 class TCon(_cdy_NamedTuple):
     name: str
     args: tuple[CType, ...]
@@ -860,15 +549,15 @@ def variant_fields(name: str, scope: Scope) -> tuple[str, ...]:
     return cdy_rt.table_defs.map_get(scope.variants, name).fields
 
 def analyse_expr(form: Form, scope: Scope, n: int) -> tuple[Expr, int]:
-    _cdy_t9: object = form
-    if isinstance(_cdy_t9, Sym):
-        name = _cdy_t9.name
-        pos = _cdy_t9.pos
+    _cdy_t3: object = form
+    if isinstance(_cdy_t3, Sym):
+        name = _cdy_t3.name
+        pos = _cdy_t3.pos
         return (resolve(name, at_pos(scope, pos)), n)
-    elif isinstance(_cdy_t9, Lst):
-        items = _cdy_t9.items
-        _cdy_pos_280 = _cdy_t9.pos
-        return analyse_list(items, at_pos(scope, _cdy_pos_280), n)
+    elif isinstance(_cdy_t3, Lst):
+        items = _cdy_t3.items
+        _cdy_pos_146 = _cdy_t3.pos
+        return analyse_list(items, at_pos(scope, _cdy_pos_146), n)
     else:
         return (Lit(form), n)
 
@@ -912,16 +601,16 @@ def analyse_list(items: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, i
             _tup = analyse_expr(items[0], scope, n)
             callee = _tup[0]
             n1 = _tup[1]
-            _cdy__tup_300 = analyse_all(rest_of(items), scope, n1, ())
-            args = _cdy__tup_300[0]
-            n2 = _cdy__tup_300[1]
+            _cdy__tup_166 = analyse_all(rest_of(items), scope, n1, ())
+            args = _cdy__tup_166[0]
+            n2 = _cdy__tup_166[1]
             arity_ok = check_call(callee, len(args), scope)
             return (Call(callee, args), n2)
 
 def check_call(callee: Expr, count: int, scope: Scope) -> bool:
-    _cdy_t10: object = callee
-    if isinstance(_cdy_t10, Prim):
-        name = _cdy_t10.name
+    _cdy_t4: object = callee
+    if isinstance(_cdy_t4, Prim):
+        name = _cdy_t4.name
         kind = cdy_rt.table.get_kind(scope.table, name)
         arity = cdy_rt.table.get_arity(scope.table, name)
         if (cdy_rt.table_defs.in_(kind, ('binop', 'compare', 'boolop')) and (count < 2)):
@@ -1008,14 +697,14 @@ def an_let(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
         pairs = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_337 = analyse_expr(rest[1], inner, n1)
-        body = _cdy__tup_337[0]
-        n2 = _cdy__tup_337[1]
+        _cdy__tup_203 = analyse_expr(rest[1], inner, n1)
+        body = _cdy__tup_203[0]
+        n2 = _cdy__tup_203[1]
         return (nest(pairs, body), n2)
 
 def is_list_form(form: Form) -> bool:
-    _cdy_t11: object = form
-    if isinstance(_cdy_t11, Lst):
+    _cdy_t5: object = form
+    if isinstance(_cdy_t5, Lst):
         return True
     else:
         return False
@@ -1033,14 +722,14 @@ def let_bindings(bindings: tuple[Form, ...], scope: Scope, n: int, acc: tuple[tu
                 init = _tup[0]
                 n1 = _tup[1]
                 target = items[0]
-                _cdy_t12: object = target
-                if isinstance(_cdy_t12, Lst):
-                    names = _cdy_t12.items
+                _cdy_t6: object = target
+                if isinstance(_cdy_t6, Lst):
+                    names = _cdy_t6.items
                     tmp = Local('_tup', n1)
-                    _cdy__tup_352 = destructure(names, tmp, 0, scope, (n1 + 1), ())
-                    more = _cdy__tup_352[0]
-                    inner = _cdy__tup_352[1]
-                    n2 = _cdy__tup_352[2]
+                    _cdy__tup_218 = destructure(names, tmp, 0, scope, (n1 + 1), ())
+                    more = _cdy__tup_218[0]
+                    inner = _cdy__tup_218[1]
+                    n2 = _cdy__tup_218[2]
                     bindings, scope, n, acc = (rest_of(bindings), inner, n2, (acc + cdy_rt.table_defs.to_list((tmp, init)) + more))
                     continue
                 else:
@@ -1083,9 +772,9 @@ def an_fn(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
         params = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_379 = analyse_expr(rest[1], inner, n1)
-        body = _cdy__tup_379[0]
-        n2 = _cdy__tup_379[1]
+        _cdy__tup_245 = analyse_expr(rest[1], inner, n1)
+        body = _cdy__tup_245[0]
+        n2 = _cdy__tup_245[1]
         if (len(params) == 0):
             return cdy_rt.table_defs.fail(located(scope, 'fn arguments: at least one is needed'))
         else:
@@ -1116,9 +805,9 @@ def an_assoc(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
         _tup = analyse_expr(rest[0], scope, n)
         obj = _tup[0]
         n1 = _tup[1]
-        _cdy__tup_400 = assoc_fields(rest_of(rest), scope, n1, ())
-        fields = _cdy__tup_400[0]
-        n2 = _cdy__tup_400[1]
+        _cdy__tup_266 = assoc_fields(rest_of(rest), scope, n1, ())
+        fields = _cdy__tup_266[0]
+        n2 = _cdy__tup_266[1]
         return (Assoc(obj, fields), n2)
 
 def assoc_fields(forms: tuple[Form, ...], scope: Scope, n: int, acc: tuple[tuple[str, Expr], ...]) -> tuple[tuple[tuple[str, Expr], ...], int]:
@@ -1142,9 +831,9 @@ def an_format(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
     if (len(rest) != 1):
         return cdy_rt.table_defs.fail(located(scope, 'format: expected one string literal'))
     else:
-        _cdy_t13: object = rest[0]
-        if isinstance(_cdy_t13, Txt):
-            text = _cdy_t13.val
+        _cdy_t7: object = rest[0]
+        if isinstance(_cdy_t7, Txt):
+            text = _cdy_t7.val
             _tup = format_parts(text, 0, '', scope, n, ())
             parts = _tup[0]
             n1 = _tup[1]
@@ -1211,9 +900,9 @@ def an_match_sum(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, in
     _tup = analyse_expr(rest[0], scope, n)
     subject = _tup[0]
     n1 = _tup[1]
-    _cdy__tup_444 = match_clauses(rest_of(rest), scope, n1, MatchE(subject, (), ()), '')
-    m = _cdy__tup_444[0]
-    n2 = _cdy__tup_444[1]
+    _cdy__tup_310 = match_clauses(rest_of(rest), scope, n1, MatchE(subject, (), ()), '')
+    m = _cdy__tup_310[0]
+    n2 = _cdy__tup_310[1]
     sum_ = (match_sum(match_clause_list(m), scope) if (len(match_clause_list(m)) > 0) else '')
     return (check_exhaustive(m, sum_, scope), n2)
 
@@ -1232,13 +921,13 @@ def an_match_tup(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, in
         subject = _tup[0]
         n1 = _tup[1]
         tmp = Local('_tup', n1)
-        _cdy__tup_458 = tup_binds(names, tmp, 0, scope, (n1 + 1), ())
-        pairs = _cdy__tup_458[0]
-        inner = _cdy__tup_458[1]
-        n2 = _cdy__tup_458[2]
-        _cdy__tup_462 = analyse_expr(items[1], inner, n2)
-        body = _cdy__tup_462[0]
-        n3 = _cdy__tup_462[1]
+        _cdy__tup_324 = tup_binds(names, tmp, 0, scope, (n1 + 1), ())
+        pairs = _cdy__tup_324[0]
+        inner = _cdy__tup_324[1]
+        n2 = _cdy__tup_324[2]
+        _cdy__tup_328 = analyse_expr(items[1], inner, n2)
+        body = _cdy__tup_328[0]
+        n3 = _cdy__tup_328[1]
         return (nest((cdy_rt.table_defs.to_list((tmp, subject)) + pairs), body), n3)
 
 def tup_binds(names: tuple[Form, ...], tmp: Expr, i: int, scope: Scope, n: int, acc: tuple[tuple[Expr, Expr], ...]) -> tuple[tuple[tuple[Expr, Expr], ...], Scope, int]:
@@ -1268,9 +957,9 @@ def bound_in_pairs(name: str, pairs: tuple[tuple[Expr, Expr], ...]) -> bool:
             _tup = pairs[0]
             loc = _tup[0]
             _ = _tup[1]
-            _cdy_t14: object = loc
-            if isinstance(_cdy_t14, Local):
-                other = _cdy_t14.name
+            _cdy_t8: object = loc
+            if isinstance(_cdy_t8, Local):
+                other = _cdy_t8.name
                 return ((other == name) or bound_in_pairs(name, rest_of_pairs(pairs)))
             else:
                 pairs = rest_of_pairs(pairs)
@@ -1283,10 +972,10 @@ def match_sum(clauses: tuple[Clause, ...], scope: Scope) -> str:
     return cdy_rt.table_defs.map_get(scope.variants, clauses[0].variant).sum_
 
 def check_exhaustive(m: Expr, sum_: str, scope: Scope) -> Expr:
-    _cdy_t15: object = m
-    if isinstance(_cdy_t15, MatchE):
-        clauses = _cdy_t15.clauses
-        default = _cdy_t15.default
+    _cdy_t9: object = m
+    if isinstance(_cdy_t9, MatchE):
+        clauses = _cdy_t9.clauses
+        default = _cdy_t9.default
         missing = missing_variants(cdy_rt.table_defs.map_get(scope.sums, sum_), clauses, ())
         if ((len(default) == 0) and (len(missing) > 0)):
             return cdy_rt.table_defs.fail(located(scope, ('match on ' + str(sum_) + ': no clause for ' + str(cdy_rt.table_defs.join(missing, ', ')) + ' (or add else)')))
@@ -1333,13 +1022,13 @@ def match_clauses(forms: tuple[Form, ...], scope: Scope, n: int, m: Expr, sum_: 
                 pattern = list_items(items[0])
                 variant = (sym_name(pattern[0]) if (len(pattern) > 0) else '')
                 checked = check_pattern(variant, pattern, sum_, m, scope)
-                _cdy__tup_506 = pattern_binds(variant_fields(variant, scope), rest_of(pattern), scope, n, ())
-                binds = _cdy__tup_506[0]
-                inner = _cdy__tup_506[1]
-                _cdy_n1_509 = _cdy__tup_506[2]
-                _cdy__tup_510 = analyse_expr(items[1], inner, _cdy_n1_509)
-                body = _cdy__tup_510[0]
-                n2 = _cdy__tup_510[1]
+                _cdy__tup_372 = pattern_binds(variant_fields(variant, scope), rest_of(pattern), scope, n, ())
+                binds = _cdy__tup_372[0]
+                inner = _cdy__tup_372[1]
+                _cdy_n1_375 = _cdy__tup_372[2]
+                _cdy__tup_376 = analyse_expr(items[1], inner, _cdy_n1_375)
+                body = _cdy__tup_376[0]
+                n2 = _cdy__tup_376[1]
                 forms, n, m, sum_ = (rest_of(forms), n2, add_clause(m, Clause(variant, binds, body)), cdy_rt.table_defs.map_get(scope.variants, variant).sum_)
                 continue
 
@@ -1360,28 +1049,28 @@ def check_pattern(variant: str, pattern: tuple[Form, ...], sum_: str, m: Expr, s
         return True
 
 def match_clause_list(m: Expr) -> tuple[Clause, ...]:
-    _cdy_t16: object = m
-    if isinstance(_cdy_t16, MatchE):
-        clauses = _cdy_t16.clauses
+    _cdy_t10: object = m
+    if isinstance(_cdy_t10, MatchE):
+        clauses = _cdy_t10.clauses
         return clauses
     else:
         return ()
 
 def add_clause(m: Expr, clause: Clause) -> Expr:
-    _cdy_t17: object = m
-    if isinstance(_cdy_t17, MatchE):
-        subject = _cdy_t17.subject
-        clauses = _cdy_t17.clauses
-        default = _cdy_t17.default
+    _cdy_t11: object = m
+    if isinstance(_cdy_t11, MatchE):
+        subject = _cdy_t11.subject
+        clauses = _cdy_t11.clauses
+        default = _cdy_t11.default
         return MatchE(subject, (clauses + cdy_rt.table_defs.to_list(clause)), default)
     else:
         return m
 
 def set_default(m: Expr, e: Expr) -> Expr:
-    _cdy_t18: object = m
-    if isinstance(_cdy_t18, MatchE):
-        subject = _cdy_t18.subject
-        clauses = _cdy_t18.clauses
+    _cdy_t12: object = m
+    if isinstance(_cdy_t12, MatchE):
+        subject = _cdy_t12.subject
+        clauses = _cdy_t12.clauses
         return MatchE(subject, clauses, cdy_rt.table_defs.to_list(e))
     else:
         return m
@@ -1412,9 +1101,9 @@ def bound_in(name: str, binds: tuple[tuple[str, Expr], ...]) -> bool:
             _tup = binds[0]
             _ = _tup[0]
             loc = _tup[1]
-            _cdy_t19: object = loc
-            if isinstance(_cdy_t19, Local):
-                other = _cdy_t19.name
+            _cdy_t13: object = loc
+            if isinstance(_cdy_t13, Local):
+                other = _cdy_t13.name
                 return ((other == name) or bound_in(name, binds[1:len(binds)]))
             else:
                 binds = binds[1:len(binds)]
@@ -1441,12 +1130,12 @@ def needs_form(what: str, scope: Scope) -> bool:
         return cdy_rt.table_defs.fail(located(scope, (str(what) + ': only in macro code')))
 
 def quoted(form: Form) -> Expr:
-    _cdy_t20: object = form
-    if isinstance(_cdy_t20, Sym):
-        name = _cdy_t20.name
+    _cdy_t14: object = form
+    if isinstance(_cdy_t14, Sym):
+        name = _cdy_t14.name
         return Call(Global('Sym'), (Lit(Txt(name)), Global('NOWHERE')))
-    elif isinstance(_cdy_t20, Lst):
-        items = _cdy_t20.items
+    elif isinstance(_cdy_t14, Lst):
+        items = _cdy_t14.items
         return Call(Global('Lst'), (form_list(quoted_all(items, ())), Global('NOWHERE')))
     else:
         return Call(Global(literal_variant(form)), cdy_rt.table_defs.to_list(Lit(form)))
@@ -1466,22 +1155,22 @@ def form_list(items: tuple[Expr, ...]) -> Expr:
         return Tuple(items)
 
 def literal_variant(form: Form) -> str:
-    _cdy_t21: object = form
-    if isinstance(_cdy_t21, Txt):
+    _cdy_t15: object = form
+    if isinstance(_cdy_t15, Txt):
         return 'Txt'
-    elif isinstance(_cdy_t21, IntLit):
+    elif isinstance(_cdy_t15, IntLit):
         return 'IntLit'
-    elif isinstance(_cdy_t21, LongLit):
+    elif isinstance(_cdy_t15, LongLit):
         return 'LongLit'
-    elif isinstance(_cdy_t21, ByteLit):
+    elif isinstance(_cdy_t15, ByteLit):
         return 'ByteLit'
-    elif isinstance(_cdy_t21, FloatLit):
+    elif isinstance(_cdy_t15, FloatLit):
         return 'FloatLit'
-    elif isinstance(_cdy_t21, DoubleLit):
+    elif isinstance(_cdy_t15, DoubleLit):
         return 'DoubleLit'
-    elif isinstance(_cdy_t21, CharLit):
+    elif isinstance(_cdy_t15, CharLit):
         return 'CharLit'
-    elif isinstance(_cdy_t21, BoolLit):
+    elif isinstance(_cdy_t15, BoolLit):
         return 'BoolLit'
     else:
         return cdy_rt.table_defs.fail('quo: not a literal')
@@ -1529,10 +1218,10 @@ def quasi_parts(items: tuple[Form, ...], scope: Scope, n: int, run: tuple[Expr, 
                 items, n, run, parts = (rest_of(items), n1, (), (close_run(run, parts) + cdy_rt.table_defs.to_list(e)))
                 continue
             else:
-                _cdy__tup_584 = quasi_form(item, scope, n)
-                _cdy_e_585 = _cdy__tup_584[0]
-                _cdy_n1_586 = _cdy__tup_584[1]
-                items, n, run = (rest_of(items), _cdy_n1_586, (run + cdy_rt.table_defs.to_list(_cdy_e_585)))
+                _cdy__tup_450 = quasi_form(item, scope, n)
+                _cdy_e_451 = _cdy__tup_450[0]
+                _cdy_n1_452 = _cdy__tup_450[1]
+                items, n, run = (rest_of(items), _cdy_n1_452, (run + cdy_rt.table_defs.to_list(_cdy_e_451)))
                 continue
 
 def close_run(run: tuple[Expr, ...], parts: tuple[Expr, ...]) -> tuple[Expr, ...]:
@@ -1553,15 +1242,15 @@ def is_lower(name: str) -> bool:
     return ((len(name) > 0) and (name[0:1] >= 'a') and (name[0:1] <= 'z'))
 
 def analyse_type(form: Form) -> CType:
-    _cdy_t22: object = form
-    if isinstance(_cdy_t22, Sym):
-        name = _cdy_t22.name
+    _cdy_t16: object = form
+    if isinstance(_cdy_t16, Sym):
+        name = _cdy_t16.name
         if is_lower(name):
             return TVar(name)
         else:
             return TCon(name, ())
-    elif isinstance(_cdy_t22, Lst):
-        items = _cdy_t22.items
+    elif isinstance(_cdy_t16, Lst):
+        items = _cdy_t16.items
         if (len(items) == 0):
             return cdy_rt.table_defs.fail((pos_text(form_pos(form)) + 'bad type ()'))
         elif (sym_name(items[0]) == 'Fn'):
@@ -1649,13 +1338,13 @@ def find_variants(forms: tuple[Form, ...], scope: Scope) -> Scope:
             items = list_items(forms[0])
             head = (sym_name(items[0]) if (len(items) > 2) else '')
             body = items[2:len(items)]
-            _cdy_t24 = rest_of(forms)
+            _cdy_t18 = rest_of(forms)
             if ((head == 'deft') and is_sum_body(body)):
                 sum_ = deft_name(items[1])
-                _cdy_t23 = add_variants(sum_, body, scope._replace(sums=cdy_rt.table_defs.map_set(scope.sums, sum_, variant_names(body, ()))))
+                _cdy_t17 = add_variants(sum_, body, scope._replace(sums=cdy_rt.table_defs.map_set(scope.sums, sum_, variant_names(body, ()))))
             else:
-                _cdy_t23 = scope
-            forms, scope = (_cdy_t24, _cdy_t23)
+                _cdy_t17 = scope
+            forms, scope = (_cdy_t18, _cdy_t17)
             continue
 
 def add_variants(sum_: str, body: tuple[Form, ...], scope: Scope) -> Scope:
@@ -1678,9 +1367,9 @@ def field_names(fields: tuple[Form, ...], acc: tuple[str, ...]) -> tuple[str, ..
             continue
 
 def deft_name(form: Form) -> str:
-    _cdy_t25: object = form
-    if isinstance(_cdy_t25, Lst):
-        items = _cdy_t25.items
+    _cdy_t19: object = form
+    if isinstance(_cdy_t19, Lst):
+        items = _cdy_t19.items
         if (len(items) == 0):
             return ''
         else:
@@ -1832,9 +1521,9 @@ def top_defn(items: tuple[Form, ...], scope: Scope, prog: Prog) -> Prog:
         params = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_697 = analyse_expr(items[3], inner, n1)
-        body = _cdy__tup_697[0]
-        n2 = _cdy__tup_697[1]
+        _cdy__tup_563 = analyse_expr(items[3], inner, n1)
+        body = _cdy__tup_563[0]
+        n2 = _cdy__tup_563[1]
         if (len(params) == 0):
             return cdy_rt.table_defs.fail(located(scope, ('defn ' + str(name) + ': at least one argument is needed')))
         elif (len(params) != fn_arity(t)):
@@ -1843,9 +1532,9 @@ def top_defn(items: tuple[Form, ...], scope: Scope, prog: Prog) -> Prog:
             return mark_defined(add_top(prog, TDefn(name, params, body, t), n2), name)
 
 def fn_arity(t: CType) -> int:
-    _cdy_t26: object = t
-    if isinstance(_cdy_t26, TFn):
-        params = _cdy_t26.params
+    _cdy_t20: object = t
+    if isinstance(_cdy_t20, TFn):
+        params = _cdy_t20.params
         return len(params)
     else:
         return -1
@@ -1875,24 +1564,335 @@ def has_main(tops: tuple[Top, ...]) -> bool:
             continue
 
 def is_main(top: Top) -> bool:
-    _cdy_t27: object = top
-    if isinstance(_cdy_t27, TDefn):
-        name = _cdy_t27.name
-        t = _cdy_t27.t
+    _cdy_t21: object = top
+    if isinstance(_cdy_t21, TDefn):
+        name = _cdy_t21.name
+        t = _cdy_t21.t
         if (name != 'main'):
             return False
         elif (t == MAIN_TYPE):
             return True
         else:
             return cdy_rt.table_defs.fail('main must be typed (Fn ((List String)) Int)')
-    elif isinstance(_cdy_t27, TDef):
-        _cdy_name_712 = _cdy_t27.name
-        if (_cdy_name_712 == 'main'):
+    elif isinstance(_cdy_t21, TDef):
+        _cdy_name_578 = _cdy_t21.name
+        if (_cdy_name_578 == 'main'):
             return cdy_rt.table_defs.fail('main must be a defn')
         else:
             return False
     else:
         return False
+
+class Imports(_cdy_NamedTuple):
+    macros: tuple[Macro, ...]
+    helpers: tuple[tuple[str, tuple[Form, ...]], ...]
+    seen: _cdy_Mapping[str, bool]
+
+class Expanded(_cdy_NamedTuple):
+    forms: tuple[Form, ...]
+    macros: _cdy_Mapping[str, Macro]
+    own: tuple[Macro, ...]
+    helpers: tuple[tuple[str, tuple[Form, ...]], ...]
+
+def expand_program(forms: tuple[Form, ...], compile_: _cdy_Callable[[tuple[Form, ...]], str]) -> tuple[tuple[Form, ...], _cdy_Mapping[str, Macro]]:
+    done = expand_file(forms, False, compile_, ())
+    return (done.forms, done.macros)
+MACRO_HEADS: tuple[str, ...] = ('defmacro', 'import-macros')
+
+def expand_file(forms: tuple[Form, ...], macro_file: bool, compile_: _cdy_Callable[[tuple[Form, ...]], str], loading: tuple[str, ...]) -> Expanded:
+    imports = import_all((prelude_import(loading) + pick_forms(forms, ('import-macros',), True, ())), compile_, loading, Imports((), (), {}))
+    imported = macro_map(imports.macros, {})
+    defs = expand_defs(pick_forms(forms, ('defmacro',), True, ()), imported, ())
+    rest = pick_forms(forms, MACRO_HEADS, False, ())
+    helpers = (expand_all(rest, imported, ()) if macro_file else ())
+    own = (() if (len(defs) == 0) else load_defs(defs, (helper_forms(imports.helpers, ()) + helpers), compile_))
+    macros = macro_map(own, imported)
+    return Expanded((helpers if macro_file else expand_all(rest, macros, ())), macros, own, imports.helpers)
+
+def prelude_import(loading: tuple[str, ...]) -> tuple[Form, ...]:
+    path = library_path('prelude_macros.cdy')
+    if cdy_rt.table_defs.in_(cdy_rt.table_defs.path_resolve(path), loading):
+        return ()
+    else:
+        return cdy_rt.table_defs.to_list(Lst((Sym('import-macros', NOWHERE), Txt(path)), NOWHERE))
+
+def pick_forms(forms: tuple[Form, ...], heads: tuple[str, ...], keep: bool, acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            form = forms[0]
+            items = list_items(form)
+            picked = ((len(items) > 0) and cdy_rt.table_defs.in_(sym_name(items[0]), heads))
+            forms, acc = (rest_of(forms), ((acc + cdy_rt.table_defs.to_list(form)) if (picked == keep) else acc))
+            continue
+
+def expand_defs(defs: tuple[Form, ...], macros: _cdy_Mapping[str, Macro], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(defs) == 0):
+            return acc
+        else:
+            defs, acc = (rest_of(defs), (acc + cdy_rt.table_defs.to_list(Lst(expand_after(list_items(defs[0]), 3, macros), form_pos(defs[0])))))
+            continue
+
+def macro_map(macros: tuple[Macro, ...], acc: _cdy_Mapping[str, Macro]) -> _cdy_Mapping[str, Macro]:
+    while True:
+        if (len(macros) == 0):
+            return acc
+        else:
+            macro = macros[0]
+            name = macro.name
+            if cdy_rt.table_defs.map_has(acc, name):
+                return cdy_rt.table_defs.fail((str(pos_text(macro.pos)) + 'defmacro: ' + str(name) + ' is already a macro'))
+            else:
+                macros, acc = (macros[1:len(macros)], cdy_rt.table_defs.map_set(acc, name, macro))
+                continue
+
+def import_all(forms: tuple[Form, ...], compile_: _cdy_Callable[[tuple[Form, ...]], str], loading: tuple[str, ...], acc: Imports) -> Imports:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            forms, acc = (rest_of(forms), import_file(forms[0], compile_, loading, acc))
+            continue
+
+def import_file(form: Form, compile_: _cdy_Callable[[tuple[Form, ...]], str], loading: tuple[str, ...], acc: Imports) -> Imports:
+    path = macro_path(form)
+    key = cdy_rt.table_defs.path_resolve(path)
+    if cdy_rt.table_defs.map_has(acc.seen, key):
+        return acc
+    elif cdy_rt.table_defs.in_(key, loading):
+        return cdy_rt.table_defs.fail((str(pos_text(form_pos(form))) + 'import-macros: ' + str(path) + ' imports itself'))
+    else:
+        done = expand_file(read_program(path), True, compile_, (loading + cdy_rt.table_defs.to_list(key)))
+        return Imports((acc.macros + done.own), add_helpers((done.helpers + cdy_rt.table_defs.to_list((key, done.forms))), acc.helpers), cdy_rt.table_defs.map_set(acc.seen, key, True))
+
+def macro_path(form: Form) -> str:
+    _cdy_t22: object = list_items(form)[1]
+    if isinstance(_cdy_t22, Txt):
+        path = _cdy_t22.val
+        return path
+    else:
+        return cdy_rt.table_defs.fail((pos_text(form_pos(form)) + 'import-macros: expected (import-macros name)'))
+
+def add_helpers(groups: tuple[tuple[str, tuple[Form, ...]], ...], acc: tuple[tuple[str, tuple[Form, ...]], ...]) -> tuple[tuple[str, tuple[Form, ...]], ...]:
+    while True:
+        if (len(groups) == 0):
+            return acc
+        else:
+            groups, acc = (groups[1:len(groups)], (acc if has_helpers(groups[0][0], acc) else (acc + cdy_rt.table_defs.to_list(groups[0]))))
+            continue
+
+def has_helpers(key: str, groups: tuple[tuple[str, tuple[Form, ...]], ...]) -> bool:
+    return ((len(groups) > 0) and ((groups[0][0] == key) or has_helpers(key, groups[1:len(groups)])))
+
+def helper_forms(groups: tuple[tuple[str, tuple[Form, ...]], ...], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(groups) == 0):
+            return acc
+        else:
+            groups, acc = (groups[1:len(groups)], (acc + groups[0][1]))
+            continue
+
+def load_defs(defs: tuple[Form, ...], helpers: tuple[Form, ...], compile_: _cdy_Callable[[tuple[Form, ...]], str]) -> tuple[Macro, ...]:
+    checked = unique_names(defs, {})
+    form_forms = form_defs(None)
+    python = compile_((form_forms + helpers + macro_program(defs, ())))
+    loaded = cdy_rt.table_defs.load_macros(python, sym_name, top_names(form_forms, {}))
+    return macro_list(defs, loaded, ())
+
+def form_defs(_: None) -> tuple[Form, ...]:
+    path = library_path('form.cdy')
+    return read_source(path, cdy_rt.table_defs.slurp(path))
+
+def library_path(name: str) -> str:
+    dir_ = cdy_rt.table_defs.module_dir(sym_name)
+    path = cdy_rt.table_defs.path_join(dir_, name)
+    if cdy_rt.table_defs.file_exists(path):
+        return path
+    else:
+        return cdy_rt.table_defs.fail(('macros need ' + str(name) + ' next to the translator, in ' + str(dir_)))
+
+def macro_program(defs: tuple[Form, ...], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(defs) == 0):
+            return acc
+        else:
+            items = defmacro_items(defs[0])
+            pos = form_pos(defs[0])
+            fname = Sym(macro_fn(sym_name(items[1])), pos)
+            args = Sym('args__', pos)
+            type_ = Lst((Sym('Fn', pos), Lst(cdy_rt.table_defs.to_list(Lst((Sym('List', pos), Sym('Form', pos)), pos)), pos), Sym('Form', pos)), pos)
+            body = Lst((Sym('let', pos), Lst(param_binds(items[2], args, pos), pos), items[3]), pos)
+            defs, acc = (rest_of(defs), (acc + cdy_rt.table_defs.to_list(Lst((Sym('sig', pos), fname, type_), pos)) + cdy_rt.table_defs.to_list(Lst((Sym('defn', pos), fname, Lst(cdy_rt.table_defs.to_list(args), pos), body), pos))))
+            continue
+
+def defmacro_items(form: Form) -> tuple[Form, ...]:
+    items = list_items(form)
+    where = pos_text(form_pos(form))
+    if ((len(items) != 4) or (sym_name(items[1]) == '')):
+        return cdy_rt.table_defs.fail((where + 'defmacro: expected (defmacro name (params) body) or (defmacro name args body)'))
+    elif cdy_rt.table.is_special(cdy_rt.table.INITIAL_TABLE, sym_name(items[1])):
+        return cdy_rt.table_defs.fail((str(where) + 'defmacro: ' + str(sym_name(items[1])) + ' is a special form'))
+    elif (not params_ok(items[2])):
+        return cdy_rt.table_defs.fail((where + 'defmacro: a parameter must be a name'))
+    else:
+        return items
+
+def params_ok(params: Form) -> bool:
+    _cdy_t23: object = params
+    if isinstance(_cdy_t23, Sym):
+        return True
+    elif isinstance(_cdy_t23, Lst):
+        items = _cdy_t23.items
+        return all_names(items)
+    else:
+        return False
+
+def all_names(forms: tuple[Form, ...]) -> bool:
+    return ((len(forms) == 0) or ((sym_name(forms[0]) != '') and all_names(rest_of(forms))))
+
+def param_binds(params: Form, args: Form, pos: Pos) -> tuple[Form, ...]:
+    if (sym_name(params) == ''):
+        return arg_binds(list_items(params), args, 0, pos, ())
+    else:
+        return cdy_rt.table_defs.to_list(Lst((params, args), pos))
+
+def arg_binds(params: tuple[Form, ...], args: Form, i: int, pos: Pos, acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(params) == 0):
+            return acc
+        else:
+            params, i, acc = (rest_of(params), (i + 1), (acc + cdy_rt.table_defs.to_list(Lst((params[0], Lst((Sym('at', pos), args, IntLit(i)), pos)), pos))))
+            continue
+
+def macro_fn(name: str) -> str:
+    return ('macro__' + name)
+
+def unique_names(defs: tuple[Form, ...], seen: _cdy_Mapping[str, bool]) -> bool:
+    while True:
+        if (len(defs) == 0):
+            return True
+        else:
+            name = sym_name(defmacro_items(defs[0])[1])
+            if cdy_rt.table_defs.map_has(seen, name):
+                return cdy_rt.table_defs.fail((str(pos_text(form_pos(defs[0]))) + 'defmacro: ' + str(name) + ' is defined twice'))
+            else:
+                defs, seen = (rest_of(defs), cdy_rt.table_defs.map_set(seen, name, True))
+                continue
+
+def macro_list(defs: tuple[Form, ...], loaded: _cdy_Mapping[str, _cdy_Any], acc: tuple[Macro, ...]) -> tuple[Macro, ...]:
+    while True:
+        if (len(defs) == 0):
+            return acc
+        else:
+            items = list_items(defs[0])
+            name = sym_name(items[1])
+            params = items[2]
+            arity = (len(list_items(params)) if (sym_name(params) == '') else -1)
+            run = cdy_rt.table_defs.map_get(loaded, cdy_rt.table_defs.py_mangle(macro_fn(name)))
+            defs, acc = (rest_of(defs), (acc + cdy_rt.table_defs.to_list(Macro(name, arity, run, form_pos(defs[0])))))
+            continue
+
+def expand_all(forms: tuple[Form, ...], macros: _cdy_Mapping[str, Macro], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            forms, acc = (rest_of(forms), (acc + cdy_rt.table_defs.to_list(expand_form(forms[0], macros))))
+            continue
+
+def expand_form(form: Form, macros: _cdy_Mapping[str, Macro]) -> Form:
+    while True:
+        _cdy_t24: object = form
+        if isinstance(_cdy_t24, Lst):
+            items = _cdy_t24.items
+            pos = _cdy_t24.pos
+            head = ('' if (len(items) == 0) else sym_name(items[0]))
+            if cdy_rt.table_defs.map_has(macros, head):
+                form = expand_call(cdy_rt.table_defs.map_get(macros, head), rest_of(items), pos)
+                continue
+            elif cdy_rt.table_defs.in_(head, ('sig', 'deft', 'import', 'import-macros', 'quo', 'quasi')):
+                return form
+            elif (head == 'defn'):
+                return Lst(expand_after(items, 3, macros), pos)
+            elif (head == 'fn'):
+                return Lst(expand_after(items, 2, macros), pos)
+            elif cdy_rt.table_defs.in_(head, ('let', 'match')):
+                return Lst(expand_clauses(head, items, macros), pos)
+            else:
+                return Lst(expand_all(items, macros, ()), pos)
+        else:
+            return form
+
+def expand_after(items: tuple[Form, ...], n: int, macros: _cdy_Mapping[str, Macro]) -> tuple[Form, ...]:
+    if (len(items) < n):
+        return items
+    else:
+        return (items[0:n] + expand_all(items[n:len(items)], macros, ()))
+
+def expand_clauses(head: str, items: tuple[Form, ...], macros: _cdy_Mapping[str, Macro]) -> tuple[Form, ...]:
+    if ((head == 'let') and (len(items) == 3)):
+        _cdy_t25: object = items[1]
+        if isinstance(_cdy_t25, Lst):
+            binds = _cdy_t25.items
+            p = _cdy_t25.pos
+            return (items[0], Lst(each_clause(binds, 1, macros, ()), p), expand_form(items[2], macros))
+        else:
+            return expand_all(items, macros, ())
+    elif ((head == 'match') and (len(items) > 1)):
+        return ((items[0], expand_form(items[1], macros)) + each_clause(items[2:len(items)], 1, macros, ()))
+    else:
+        return expand_all(items, macros, ())
+
+def each_clause(clauses: tuple[Form, ...], n: int, macros: _cdy_Mapping[str, Macro], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(clauses) == 0):
+            return acc
+        else:
+            clauses, acc = (rest_of(clauses), (acc + cdy_rt.table_defs.to_list(expand_clause(clauses[0], n, macros))))
+            continue
+
+def expand_clause(clause: Form, n: int, macros: _cdy_Mapping[str, Macro]) -> Form:
+    _cdy_t26: object = clause
+    if isinstance(_cdy_t26, Lst):
+        items = _cdy_t26.items
+        p = _cdy_t26.pos
+        return Lst(expand_after(items, n, macros), p)
+    else:
+        return expand_form(clause, macros)
+
+def expand_call(macro: Macro, args: tuple[Form, ...], pos: Pos) -> Form:
+    arity = macro.arity
+    where = (str(pos_text(pos)) + str(macro.name) + ': ')
+    if ((arity >= 0) and (arity != len(args))):
+        return cdy_rt.table_defs.fail((str(where) + 'expected ' + str(arity) + ' argument(s), got ' + str(len(args))))
+    else:
+        return stamp(cdy_rt.table_defs.call_macro(macro.run, args, where), pos)
+
+def stamp(form: Form, pos: Pos) -> Form:
+    _cdy_t27: object = form
+    if isinstance(_cdy_t27, Sym):
+        name = _cdy_t27.name
+        p = _cdy_t27.pos
+        if (p.line == 0):
+            return Sym(name, pos)
+        else:
+            return form
+    elif isinstance(_cdy_t27, Lst):
+        items = _cdy_t27.items
+        _cdy_p_709 = _cdy_t27.pos
+        return Lst(stamp_all(items, pos, ()), (pos if (_cdy_p_709.line == 0) else _cdy_p_709))
+    else:
+        return form
+
+def stamp_all(forms: tuple[Form, ...], pos: Pos, acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            forms, acc = (rest_of(forms), (acc + cdy_rt.table_defs.to_list(stamp(forms[0], pos))))
+            continue
 
 class SRecord(_cdy_NamedTuple):
     name: str

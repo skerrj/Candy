@@ -73,6 +73,8 @@ result is still one program and one Python module.
 
 ### Step B: modules (later)
 
+*Now planned in `doc/hl_rqmt/modules.md`.*
+
 One Python module per Candy file, qualified names (`(import-as emit e)` then `e/line`, or
 another separator), `import-from` for unqualified names, and a rule for what a file
 exports (everything with a `sig`, or an explicit list). This needs decisions on name

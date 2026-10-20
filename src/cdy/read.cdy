@@ -3,6 +3,8 @@
 ;;; accepts (see the grammar there). Like tst/cdy/read_sexpr.cdy it walks the text by
 ;;; position, so it needs no closures. An error fails with its line and column.
 
+(import form)
+
 (sig read-forms (Fn (String) (List Form)))
 (defn read-forms (text) (read-all (Source "" empty-list) text (skip text 0) empty-list))
 

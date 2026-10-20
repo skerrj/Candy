@@ -9,8 +9,8 @@
 (import form)
 (import read)
 (import include)
-(import expand)
 (import core)
+(import expand)
 (import lower)
 (import emit)
 

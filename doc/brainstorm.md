@@ -22,3 +22,4 @@ whenever it comes up; when one turns into real work, move it to a design doc
   - **Who reads it:** a doc generator, the editor (hover), the translator (an inline or
     deprecated flag), macros (a macro could read its argument's metadata), and, with
     modules, what a module exports. Forms already carry one piece of metadata, `Pos`.
+- ** dump **: IO, rust host, interpreter, repl, jit
