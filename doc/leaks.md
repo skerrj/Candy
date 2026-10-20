@@ -41,8 +41,8 @@ added from branch `system-prelude` on.
 
   Every program can call them, and a Python backend's helpers appear as Candy built-ins,
   so a second target would have to provide them too. (A program's own definition of one
-  of those names wins, so they don't get in its way.) Fix: split them off into a
-  translator-only declaration file (say, `system/translator.cdy`) that only the
-  translator's files import, which needs built-ins to belong to modules; with
-  `doc/hl_rqmt/multi_target.md`'s open question on laying out `system.cdy`. Planned in
-  `doc/hl_rqmt/library.md` (draft).
+  of those names wins, so they don't get in its way.) Fix (decided, `doc/hl_rqmt/library.md`,
+  "The translator's built-ins become Candy"): drop the unused ones, and rewrite the table
+  lookups and the Python-writing helpers as Candy in the translator's own modules. That
+  leaves five host built-ins (`initial-table` and the macro four) in `system.cdy`, until a
+  declaration file can be imported by the translator alone.

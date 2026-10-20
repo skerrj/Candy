@@ -1,6 +1,6 @@
 # Candy's library: system, translator and prelude (HLD)
 
-**Status: draft; two decisions in.** Drafted on branch `system-prelude`, as the follow-up to its MVP
+**Status: draft; three decisions in.** Drafted on branch `system-prelude`, as the follow-up to its MVP
 (`doc/hl_rqmt/system_prelude.md`). Proposed as its own branch after that one is merged.
 The questions at the end are open.
 
@@ -32,10 +32,10 @@ Meanwhile the translator writes these functions by hand, over and over:
 
 ## Goals
 
-1. **Three layers, each with a clear audience** (below): built-ins for programs, built-ins
-   for the translator, and Candy definitions for everyone.
-2. **A program sees only the first and third.** The translator's built-ins are imported by
-   the translator's files alone.
+1. **Two layers, each with a clear audience** (below): built-ins (`system.cdy`) and Candy
+   definitions for everyone (`prelude.cdy`).
+2. **A program doesn't see the translator's helpers.** Most of them become ordinary Candy
+   in the translator's own modules; only the few that need the host stay built-ins.
 3. **A fuller prelude**, enough that Candy code (the translator first) stops writing list
    loops by hand.
 4. **A program's output holds only the prelude it uses.**
@@ -46,18 +46,48 @@ Not goals: other targets' `system` files (the layout questions in
 
 ## Proposal
 
-### Three layers
+### Two layers
 
 | File | What it holds | Who imports it | Runs on |
 |---|---|---|---|
-| `system.cdy` | built-ins for programs: `len`, `put`, `slurp`, `map-get`, ... | every file, implicitly | the **target** (its runtime provides them) |
-| `translator.cdy` | built-ins for the translator: the symbol table, writing Python, macros | only the translator's own files, explicitly | the **host** (where the translator runs) |
+| `system.cdy` | built-ins: `len`, `put`, `slurp`, `map-get`, ... | every file, implicitly | the **target** (its runtime provides them) |
 | `prelude.cdy` | Candy definitions built on `system.cdy` | every file, implicitly | anywhere: plain Candy |
 
-The second row ties into host vs target (`doc/hl_rqmt/macros.md`, "Terms"): the
-translator's built-ins are the host's, and `py-mangle` is one only because the translator
-runs on Python. A translator hosted elsewhere would provide its own `translator.cdy`,
-whatever the target; a new target would provide its own `system.cdy`.
+An earlier draft had a third file, `translator.cdy`, declaring the translator's own
+built-ins for its files alone. It was dropped (below): the rule "anything that can be
+written in Candy is Candy" applies to the translator's helpers too.
+
+### The translator's built-ins become Candy (decided)
+
+`system.cdy` declares 17 built-ins that only the translator calls. Each goes where the rule
+puts it:
+
+| Built-in | Used in | Becomes |
+|---|---|---|
+| `table-add-fun`, `table-is-bin-op`, `table-get-arity`, `is-lit` | nothing | **dropped** |
+| `table-is-special`, `table-is-op`, `table-get-py`, `table-get-kind` | `core`, `expand`, `emit` | **Candy**: lookups in a map |
+| `initial-table` | `cdyc`, `expand` | **one built-in** (the data), or Candy (question 1) |
+| `py-mangle` | `emit`, `expand` | **Candy** in `emit.cdy`, with its reserved names as a Candy list |
+| `get-indent`, `PY_IMPORTS` | `emit`, `cdyc` | **Candy** in `emit.cdy` |
+| `py-repr` | `emit` | **Candy** in `emit.cdy` (string escapes), or kept (question 2) |
+| `load-macros`, `call-macro`, `module-dir` | `expand`, `include` | **built-ins**: they load and run generated Python |
+| `fresh-name` | `form` | **built-in**: it keeps a counter, and Candy has no mutation |
+
+- **The symbol table's data** is the hard part. `table.py` holds it, and the frozen
+  Python translator and the generated code's imports still need `table.py`. The simplest
+  step: `initial-table` stays the one built-in, typed as a Candy map of records (a
+  `deft TableEntry`), and every lookup is Candy. Later the data itself can move into
+  Candy (`doc/hl_rqmt/multi_target.md`'s target-neutral table plus a mapping per target),
+  and `table.py` checks against it, or is generated from it.
+- **What stays built-in** is four functions for macros (plus `initial-table`). They are
+  host built-ins: they exist because the translator runs on Python, not because a program
+  targets it (`doc/hl_rqmt/macros.md`, "Terms"). They stay in `system.cdy`, marked as the
+  translator's, so the leak ("The translator's built-ins are every program's") shrinks
+  from 17 names to 5. A separate declaration file that only the translator imports can
+  come later, if it is still wanted (question 3).
+- **Cost:** none in speed (lookups in a map, string work), and the translator's own
+  `emit.cdy` gets the Python-specific code, which is where it belongs: Python is the
+  target there, not the host.
 
 ### Built-in or prelude (decided)
 
@@ -88,23 +118,10 @@ that build a list stay built-in. `map`, `filter` and `fold` already are
 - **Meanwhile,** the prelude's names are designed as if they were that interface, so that
   moving to B is mostly adding re-exports.
 
-The translator-only layer is separate either way: only the translator imports it.
+The few built-ins left for the translator (above) are visible to programs either way,
+until a declaration file can be imported (question 3).
 
-### Built-ins that belong to a module
-
-Today built-ins are global: `system.cdy` isn't a module. For `translator.cdy` to be visible
-only where it is imported, a file of bodiless `sig`s has to become something a file can
-import (question 1). Proposed:
-- a **declaration file** is a module whose `sig`s have no definitions;
-- importing it makes its built-ins visible, as importing a module makes its definitions
-  visible;
-- `system.cdy` stays implicitly imported, and `translator.cdy` is imported with
-  `(import translator)` like any module (found next to the translator, as a library file).
-
-The table (`table.py`) is unchanged: it still maps every built-in to Python, and the check
-against the declarations covers both files together.
-
-### A fuller prelude (question 3)
+### A fuller prelude (question 5)
 
 Candidates, from what the translator and the test programs write by hand:
 - **lists:** `rest`, `any`, `all`, `find` (the first match, as a
@@ -115,17 +132,17 @@ Candidates, from what the translator and the test programs write by hand:
 - **maps:** `map-update`, `map-from` (a list of pairs);
 - **`Maybe`:** `with-default`.
 
-Whether the translator moves onto them is a separate step (question 4): it would rewrite
+Whether the translator moves onto them is a separate step (question 6): it would rewrite
 dozens of functions, but not change what the translator does, which the fixpoint checks.
 
-### Only the prelude a program uses (question 5)
+### Only the prelude a program uses (question 7)
 
 With dozens of functions, putting the whole prelude into every output is no longer small.
 Proposed: emit a prelude definition only if the program uses it, directly or through other
 prelude definitions (tree shaking over the `Top`s, before `lower`). The same could apply to
 every imported module, later.
 
-### Private names (question 6)
+### Private names (question 8)
 
 A prelude helper is exported, like every top-level name (the old `map-into` and
 `filter-into` were). A fuller prelude has more of them. Either names get a way to be private (a convention, such
@@ -133,8 +150,11 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 
 ## Steps (sketch)
 
-1. **Declaration files as modules,** and `translator.cdy` split off from `system.cdy`;
-   the translator's files import it. Tests that a program can't see `py-mangle`.
+1. **The translator's helpers into Candy:** drop the four unused built-ins; the table
+   lookups, `py-mangle`, `get-indent` and `PY_IMPORTS` (and maybe `py-repr`) become Candy
+   in the translator's modules, with `initial-table` typed as a map of records. Tests that
+   a program can't see `py-mangle`, and that the fixpoint holds (the output shouldn't
+   change).
 2. **Private names** (if decided).
 3. **Tree shaking** of the prelude (and maybe of every module).
 4. **The fuller prelude**, with a test program per group.
@@ -145,20 +165,24 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 
 Decided so far: anything that can be written in Candy goes in the prelude ("Built-in or
 prelude"); a program sees the primitives and the prelude now, and only the prelude later
-("What a program sees").
+("What a program sees"); the translator's helpers become Candy, with no `translator.cdy`
+("The translator's built-ins become Candy").
 Leaning (not decided): a small implicit prelude plus opt-in library modules for the rest
 (`(import list)`), so "the prelude" in the rule above means Candy's library; open: how
 imports find library modules, their names (`std/list`?), and what the prelude keeps.
 
-1. **Built-ins in modules:** a declaration file as a module (proposed), or a separate
-   mechanism (a list of "translator-only" names, checked by the translator)?
-2. **Names:** `system.cdy`, `translator.cdy`, `prelude.cdy`? Or `host.cdy` for the
-   second, after host vs target? A `lib/` directory for all of them?
-3. **Prelude contents:** which of the candidates, and in what order?
-4. **The translator on the prelude:** rewrite its loops with `map`, `filter` and the rest,
+1. **The symbol table's data:** `initial-table` stays one built-in, typed as a Candy map
+   (proposed), or the table moves into Candy now (the multi-target split)?
+2. **`py-repr`:** rewrite in Candy (string escapes, a few lines), or keep the built-in?
+3. **The five host built-ins:** stay in `system.cdy`, marked as the translator's
+   (proposed), or a declaration file only the translator imports?
+4. **Names and place:** `system.cdy` and `prelude.cdy` next to the translator, or a `lib/`
+   directory?
+5. **Prelude contents:** which of the candidates, and in what order?
+6. **The translator on the prelude:** rewrite its loops with `map`, `filter` and the rest,
    or leave it alone?
-5. **Tree shaking:** only what a program uses (proposed), or the whole prelude?
-6. **Private names:** how, and whether this branch needs them?
-7. **Where `form.cdy` and `prelude_macros.cdy` fit:** `form.cdy` is the macro layer's
-   library, used on the host only. Is it part of `translator.cdy`'s world, or a fourth
-   layer (macro code's library)?
+7. **Tree shaking:** only what a program uses (proposed), or the whole prelude?
+8. **Private names:** how, and whether this branch needs them?
+9. **Where `form.cdy` and `prelude_macros.cdy` fit:** `form.cdy` is the macro layer's
+   library, used on the host only (with `fresh-name`). Is it part of the translator, or
+   its own layer (macro code's library)?
