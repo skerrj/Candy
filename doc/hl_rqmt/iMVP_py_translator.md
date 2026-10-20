@@ -171,6 +171,13 @@ separate `register` form. Candy will have two kinds of library files:
 In the iMVP there are no `system` or `prelude` files: built-ins come from `table.py`, and
 every `sig` needs a definition.
 
+*Built on branch `system-prelude`* (`doc/hl_rqmt/system_prelude.md`): `src/cdy/system.cdy`
+declares the built-ins that aren't special forms or operators, and `src/cdy/prelude.cdy`
+is a module every file imports, in the Candy translator only. As built, `system.cdy`
+imports nothing, so "every file it imports" doesn't arise yet; it is read on its own,
+next to the translator, and checked against `table.py`, which still says how Python spells
+each built-in.
+
 **Rules (decided):**
 
 - **Required.** Every top-level `def` and `defn` needs a `sig`. A definition without one
@@ -267,7 +274,8 @@ The iMVP uses only Candy's names. Each backend maps them to its own types (see
 
 Built-ins need no `sig`s in the iMVP. mypy reads their types from `table_defs.py`'s
 annotations directly. Candy's own type checker will need them later, and will get them from
-the bodiless `sig`s in `system.cdy` (see above).
+the bodiless `sig`s in `system.cdy` (see above; built on branch `system-prelude`, where
+so far they give the Candy translator each built-in's arity).
 
 **How the translator uses it:**
 
@@ -377,7 +385,10 @@ the translator.
 - `table_defs.py` starts from `~/dev/smz/smz-core/src/py_smz/smztils.py`. It holds the
   Python runtime helpers that table entries point to.
 - Later, `system.cdy` (bodiless `sig`s, acting like Carp's `register`) and `prelude.cdy`
-  (Candy definitions) take this role over. See "Signature statement" under Types.
+  (Candy definitions) take this role over. See "Signature statement" under Types. Branch
+  `system-prelude` started that: `system.cdy` gives the built-ins their Candy types, and
+  `table.py` keeps their Python names and kinds (and arities, for the frozen Python
+  translator).
 
 **Runtime boundary (decided).** Generated Python code may depend only on `table.py` and
 `table_defs.py`, not on the rest of `py_cdy` (parser, translator). The two modules import

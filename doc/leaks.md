@@ -32,3 +32,16 @@ added from branch `system-prelude` on.
 - **Operators have no Candy type:** `+`, `=`, `and`, `not` and the rest are left out of
   `system.cdy`, so only the table describes them (two or more arguments; `not` one). Fix: a
   way to type a function that takes two or more arguments.
+- **The translator's built-ins are every program's built-ins.** `system.cdy` (like
+  `table.py` before it) is one flat set. Besides what programs need (`len`, `put`,
+  `slurp`, ...), it has what only the translator uses:
+  - the symbol table: `initial-table`, `table-is-special`, `table-get-kind` and the rest;
+  - writing Python: `py-mangle`, `py-repr`, `get-indent`, `PY_IMPORTS`;
+  - macros: `load-macros`, `call-macro`, `module-dir`, `fresh-name`.
+
+  Every program can call them, and a Python backend's helpers appear as Candy built-ins,
+  so a second target would have to provide them too. (A program's own definition of one
+  of those names wins, so they don't get in its way.) Fix: split them off into a
+  translator-only declaration file (say, `system/translator.cdy`) that only the
+  translator's files import, which needs built-ins to belong to modules; with
+  `doc/hl_rqmt/multi_target.md`'s open question on laying out `system.cdy`.

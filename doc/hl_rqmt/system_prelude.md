@@ -1,8 +1,8 @@
 # `system.cdy` and `prelude.cdy` (HLD)
 
-**Status: accepted, MVP scope.** Branch `system-prelude`, after tag `modules`. The owner
-chose the simplest option on every question ("Questions", at the end); the proposal
-below is the first pass.
+**Status: done (MVP scope); steps 1, 3 and 4 built, step 2 dropped.** Branch
+`system-prelude`, after tag `modules`. The owner chose the simplest option on every
+question ("Questions", at the end); the proposal below is the first pass.
 
 ## Where things stand
 
@@ -294,6 +294,11 @@ The checked-in `bin` reads the live `table.py`, as in macros step 5. So:
      `test_own_definitions_win_over_the_prelude`.
 4. **Docs:** the spec (`sig` in `system.cdy`, the prelude), CLAUDE.md, the iMVP doc's
    "Signature statement", `multi_target.md`, and new leaks and tech debt.
+
+   *Done.* The spec, `bin/README.md`, CLAUDE.md, leaks and tech debt went in with steps 1
+   and 3; then the iMVP doc ("Signature statement", "Symbol table" and the note on
+   built-ins' types), `multi_target.md` ("The symbol table across targets") and the
+   macros HLD's pointer.
 
 ## Questions (decided: the simplest option for the MVP)
 
