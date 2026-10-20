@@ -23,3 +23,4 @@ Done and earlier items are in `doc/archive/TODOS_modules.md`, `doc/archive/TODOS
 - [x] Step 3: `prelude.cdy` (`rest`, `map`, `filter`, `fold`), imported into every file.
 - [ ] Review step 3 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/prelude.cdy`).
 - [x] Step 4: docs (the iMVP doc, `multi_target.md`, the macros HLD's pointer).
+- [ ] Review `doc/hl_rqmt/library.md` (draft HLD, the follow-up branch): system, translator-only and prelude layers, and its questions.

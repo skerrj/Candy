@@ -44,4 +44,5 @@ added from branch `system-prelude` on.
   of those names wins, so they don't get in its way.) Fix: split them off into a
   translator-only declaration file (say, `system/translator.cdy`) that only the
   translator's files import, which needs built-ins to belong to modules; with
-  `doc/hl_rqmt/multi_target.md`'s open question on laying out `system.cdy`.
+  `doc/hl_rqmt/multi_target.md`'s open question on laying out `system.cdy`. Planned in
+  `doc/hl_rqmt/library.md` (draft).
