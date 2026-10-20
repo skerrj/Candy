@@ -1,6 +1,6 @@
 # TODOS
 
-Done and earlier items are in `doc/archive/TODOS_macros.md`,
+Done and earlier items are in `doc/archive/TODOS_modules.md`, `doc/archive/TODOS_macros.md`,
 `doc/archive/TODOS_self_host_cleanup.md`, `doc/archive/TODOS_pre_self_host.md` and
 `doc/archive/TODOS_imvp_py_translator.md`.
 
@@ -14,10 +14,7 @@ Done and earlier items are in `doc/archive/TODOS_macros.md`,
 - [ ] Review the `main` entry-point convention (`doc/hl_rqmt/self_host_cleanup.md`, "The driver as built"; `src/cdy/candy-special.md`, "programs").
 - [ ] Add the up, down, down*, meta-template side conversation to `doc/brainstorm.md` (owner to supply the gist).
 
-## modules
+## system-prelude
 
-- [x] Review `doc/hl_rqmt/modules.md`: accepted, MVP scope (only `(import m)`, everything exported, clash at import, cycles an error, `stem__name` in Python).
-- [x] Modules step 1: the translator imports what it uses (still inclusion), `Macro` into `form.cdy`.
-- [x] Modules step 2: per-module scopes, `stem__name` Python names, errors (clash, cycle, repeated stem, not imported).
-- [x] Review step 2 as built (accepted) (`doc/hl_rqmt/modules.md`, step 2's "Done" note), and the new leaks and tech debt.
-- [x] Modules step 3: docs (the spec's `import`, CLAUDE.md, leaks and tech debt; done with step 2).
+- [x] Review `doc/hl_rqmt/system_prelude.md`: accepted, MVP scope (operators left out, variadic built-ins `Any`, prelude an ordinary import, emitted whole).
+- [ ] Step 1: `system.cdy`, read and checked against the table; arity from its `sig`s.

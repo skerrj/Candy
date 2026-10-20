@@ -25,3 +25,4 @@ whenever it comes up; when one turns into real work, move it to a design doc
 - **up, down, down-splice, meta-template**: (`up`, `dwn`, `dwn*`, `mt`); replacements for quote, unquote, quasiquote, and quasi-splice (low pri)
 - **dump** (i.e. needs expansion): IO, rust host, interpreter, proper reader, repl, jit
 - **Map, reduce, fold, etc**: optimized target implementations
+- **Joy like recursive macros**: optimized target implementations
