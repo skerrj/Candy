@@ -1,0 +1,66 @@
+;;; Form: a parsed Candy form, as the self-hosted translator sees it. The reader
+;;; (read.cdy) makes these; py_cdy/self_host.py can also convert py_cdy/parse_cdy.py's nodes
+;;; into them, to check that the two readers agree. See doc/hl_rqmt/self_hosting_primo.md.
+
+;; Where a form starts: its file ("" for text that isn't from one), line and column.
+;; Line 0 means nowhere: a form made by the translator, or read without positions.
+(deft Pos ((file String) (line Int) (col Int)))
+
+(sig NOWHERE Pos)
+(def NOWHERE (Pos "" 0 0))
+
+;; Only symbols and lists carry a position: errors point at the innermost one.
+(deft Form
+  (Sym ((name String) (pos Pos)))
+  (Lst ((items (List Form)) (pos Pos)))
+  (Txt ((val String)))
+  (IntLit ((val Int)))
+  (LongLit ((val Int)))
+  (ByteLit ((val Int)))
+  (FloatLit ((val Double)))
+  (DoubleLit ((val Double)))
+  (CharLit ((val Char)))
+  (BoolLit ((val Bool))))
+
+;; The name of a symbol form, or "" for any other form.
+(sig sym-name (Fn (Form) String))
+(defn sym-name (form)
+  (match form
+    ((Sym name _) name)
+    (else "")))
+
+;; The items of a list form, or an empty list for any other form.
+(sig list-items (Fn (Form) (List Form)))
+(defn list-items (form)
+  (match form
+    ((Lst items _) items)
+    (else empty-list)))
+
+;; Everything after the first item of a list.
+(sig rest-of (Fn ((List Form)) (List Form)))
+(defn rest-of (forms) (slice forms 1 (len forms)))
+
+;; Where `form` starts (NOWHERE for a literal).
+(sig form-pos (Fn (Form) Pos))
+(defn form-pos (form)
+  (match form
+    ((Sym _ pos) pos)
+    ((Lst _ pos) pos)
+    (else NOWHERE)))
+
+;; "file:line:col: " to start an error message at `pos` ("line L, column C: " without a
+;; file, "" for NOWHERE).
+(sig pos-text (Fn (Pos) String))
+(defn pos-text (pos)
+  (let ((line (get pos line))
+        (col (get pos col))
+        (file (get pos file)))
+    ;; No cond: form.cdy goes into every macro program unexpanded (expand.cdy).
+    (if (= line 0)
+      ""
+      (if (= file "") (format "line {line}, column {col}: ") (format "{file}:{line}:{col}: ")))))
+
+;; A new symbol, `prefix__N`, for a name a macro introduces. The reader rejects `__` in a
+;; name, so no program can spell it.
+(sig gensym (Fn (String) Form))
+(defn gensym (prefix) (Sym (fresh-name prefix) NOWHERE))

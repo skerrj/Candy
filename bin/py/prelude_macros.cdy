@@ -1,0 +1,24 @@
+;;; The prelude's macros: every file can use them without import-macros (expand.cdy).
+;;; Like any macro file, this one can't use its own macros, so it is written without cond.
+
+;; (cond (test expr)* (else expr)?): the expr of the first test that is true, or nil.
+;; The clauses become nested ifs: (if test1 expr1 (if test2 expr2 ...)).
+(defmacro cond clauses
+  (if (= (len clauses) 0)
+    (fail "needs at least one (test expr) clause")
+    (cond-from clauses (- (len clauses) 1) (quo nil))))
+
+;; The clauses up to `i` as nested ifs around `other`, the form for the clauses after it
+;; (built from the last clause back, as a loop).
+(sig cond-from (Fn ((List Form) Int Form) Form))
+(defn cond-from (clauses i other)
+  (if (< i 0)
+    other
+    (let ((items (list-items (at clauses i))))
+      (if (!= (len items) 2)
+        (fail "clause must be (test expr)")
+        (if (= (sym-name (at items 0)) "else")
+          (if (= i (- (len clauses) 1))
+            (cond-from clauses (- i 1) (at items 1))
+            (fail "(else expr) must be the last clause"))
+          (cond-from clauses (- i 1) (quasi (if (unq (at items 0)) (unq (at items 1)) (unq other)))))))))

@@ -79,8 +79,8 @@
     "definition": {
       "patterns": [
         {
-          "comment": "(defn name (params) body): the parameters, up to the list's ).",
-          "begin": "(?<=\\()(defn)\\s+([^\\s()'\\\";\\\\{}]+)\\s+(\\()",
+          "comment": "(defn name (params) body), and defmacro: the parameters, up to the list's ).",
+          "begin": "(?<=\\()(defn|defmacro)\\s+([^\\s()'\\\";\\\\{}]+)\\s+(\\()",
           "beginCaptures": {
             "1": {
               "name": "keyword.control.definition.candy"
@@ -110,7 +110,7 @@
           ]
         },
         {
-          "match": "(?<=\\()(defn|sig)\\s+([^\\s()'\\\";\\\\{}]+)",
+          "match": "(?<=\\()(defmacro|defn|sig)\\s+([^\\s()'\\\";\\\\{}]+)",
           "captures": {
             "1": {
               "name": "keyword.control.definition.candy"
@@ -231,7 +231,7 @@
     "head": {
       "patterns": [
         {
-          "match": "(?<=\\()(import|do|if|cond|let|fn|quote|tup|get|assoc|match|else)(?=[\\s();}]|$)",
+          "match": "(?<=\\()(import-macros|import|do|if|cond|let|fn|quo|quasi|unq-sp|unq|tup|get|assoc|match|else)(?=[\\s();}]|$)",
           "name": "keyword.control.candy"
         },
         {

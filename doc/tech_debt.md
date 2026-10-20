@@ -49,7 +49,24 @@ take one, and remove an entry once it is fixed.
   runs out of recursion). Written as statements (in a tail, or with arms that need
   statements) a `cond` of any length is fine: an `if`/`elif` chain.
 
+- **`expand.cdy` knows the shape of some special forms** (`defn`, `fn`, `let`, `match`,
+  `cond`, and the forms with no expressions), to leave binding positions unexpanded. It
+  duplicates a little of `analyse`'s syntax, and gets malformed forms past to `analyse`
+  only roughly. A deft's variant named like a macro is not rejected.
+- **Every translation compiles the prelude's macros** (with `form.cdy`), and again for
+  each macro file it loads.
+- **A macro file is compiled once per file that imports it** (and its helpers again in
+  each importer's macro program), with no cache across a translation.
+- **`form.cdy` is copied next to every translator** (`bin/py/form.cdy`,
+  `self_host.copy_library`) for macros to compile with; a translator copied elsewhere on
+  its own can't expand macros (it says so).
+
 ## Runtime
+
+- **`slurp` falls back to searching `src/`, `tst/` and `lib/` by file stem** (from smz's
+  `get_path`), relative to the current directory. That can hide a wrong path: it found
+  `form.cdy` for a translator that had none next to it, until `expand.cdy` checked with
+  `file-exists` first.
 
 - **`mangle` lives in the runtime** (`py_mangle`, with `PY_RESERVED`) so the self-hosted
   translator can use it; `emit_py.mangle` now calls it.

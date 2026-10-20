@@ -55,7 +55,12 @@
   (let ((line (get pos line))
         (col (get pos col))
         (file (get pos file)))
-    (cond
-      ((= line 0) "")
-      ((= file "") (format "line {line}, column {col}: "))
-      (else (format "{file}:{line}:{col}: ")))))
+    ;; No cond: form.cdy goes into every macro program unexpanded (expand.cdy).
+    (if (= line 0)
+      ""
+      (if (= file "") (format "line {line}, column {col}: ") (format "{file}:{line}:{col}: ")))))
+
+;; A new symbol, `prefix__N`, for a name a macro introduces. The reader rejects `__` in a
+;; name, so no program can spell it.
+(sig gensym (Fn (String) Form))
+(defn gensym (prefix) (Sym (fresh-name prefix) NOWHERE))

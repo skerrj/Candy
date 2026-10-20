@@ -79,14 +79,19 @@ def value(py: str) -> TableEntry:
 
 SPECIAL_FORMS: Table = {
     "import": special(),
+    "import-macros": special(),
     "def": special(),
     "defn": special(),
     "do": special(),
     "if": special(),
-    "cond": special(),
     "let": special(),
     "fn": special(),
-    "quote": special(),
+    # Macros (doc/hl_rqmt/macros.md): quote, quasiquote, unquote, unquote-splicing.
+    "quo": special(),
+    "quasi": special(),
+    "unq": special(),
+    "unq-sp": special(),
+    "defmacro": special(),
     "format": special(),
     "tup": special(),
     "sig": special(),
@@ -198,6 +203,15 @@ PY_RENDER: Table = {
     "py-repr": runtime("py_repr", 1),
 }
 
+# Macros (doc/hl_rqmt/macros.md): the translator loads a translated macro program and calls
+# its macros; ``fresh-name`` is behind ``gensym`` (form.cdy).
+MACRO: Table = {
+    "load-macros": runtime("load_macros", 3),
+    "call-macro": runtime("call_macro", 3),
+    "module-dir": runtime("module_dir", 1),
+    "fresh-name": runtime("fresh_name", 1),
+}
+
 INFRA: Table = {
     "PY_IMPORTS": value(f"{TABLE_MODULE}.IMPORTS"),
     "SYS_ARGS": value(f"{RUNTIME_MODULE}.get_args()"),
@@ -215,6 +229,7 @@ INITIAL_TABLE: Table = MappingProxyType(
         **STRING,
         **META_TABLE,
         **PY_RENDER,
+        **MACRO,
         **INFRA,
     }
 )

@@ -7,9 +7,11 @@ import pytest
 from cdy_rt.table_defs import (
     CandyFail,
     at,
+    call_macro,
     fail,
     file_exists,
     file_put_lines,
+    fresh_name,
     get_indent,
     hex_char,
     in_,
@@ -18,10 +20,12 @@ from cdy_rt.table_defs import (
     is_lit,
     is_neg_int,
     join,
+    load_macros,
     make_dirs,
     map_get,
     map_has,
     map_set,
+    module_dir,
     path_dir,
     path_join,
     path_resolve,
@@ -107,3 +111,46 @@ def test_py_render_and_fail() -> None:
     assert py_repr(2.0) == "2.0"
     with pytest.raises(CandyFail, match="boom"):
         fail("boom")
+
+
+HOME = "Form"  # a name the "translator" defines, which load_macros is asked to put back
+OTHER = "mine"  # one it isn't
+
+
+def home() -> None:
+    """Stands in for a translator function: load_macros runs a program in its module."""
+
+
+def test_load_macros() -> None:
+    program = (
+        "HOME = 'theirs'\nOTHER = 'theirs'\n"
+        "def macro__m(args):\n    return (HOME, OTHER, args)\nmacro__n = 1\n"
+    )
+    macros = load_macros(program, home, {"HOME": True})
+    assert set(macros) == {"macro__m", "macro__n"}
+    # HOME is the home module's again; OTHER stays the program's.
+    assert macros["macro__m"](("a",)) == ("Form", "theirs", ("a",))
+    assert "macro__m" not in globals() and OTHER == "mine"  # it ran in a copy
+
+
+def test_fresh_name() -> None:
+    load_macros("", home, {})  # restarts the count
+    assert (fresh_name("x"), fresh_name("tmp")) == ("x__1", "tmp__2")
+    load_macros("", home, {})
+    assert fresh_name("x") == "x__1"
+
+
+def test_call_macro() -> None:
+    assert call_macro(len, ("a", "b"), "here: ") == 2
+
+    def failing(_: object) -> None:
+        fail("no")
+
+    with pytest.raises(CandyFail, match="^here: no$"):
+        call_macro(failing, (), "here: ")
+    with pytest.raises(CandyFail, match="^here: IndexError: "):
+        call_macro(lambda args: args[3], (), "here: ")
+
+
+def test_module_dir() -> None:
+    assert module_dir(home) == str(Path(__file__).parent)

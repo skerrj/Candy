@@ -88,6 +88,9 @@ def pos_text(pos: Pos) -> str:
     else:
         return (str(file) + ':' + str(_cdy_line_9) + ':' + str(col) + ': ')
 
+def gensym(prefix: str) -> Form:
+    return Sym(cdy_rt.table_defs.fresh_name(prefix), NOWHERE)
+
 def read_forms(text: str) -> tuple[Form, ...]:
     return read_all(Source('', ()), text, skip(text, 0), ())
 
@@ -216,7 +219,11 @@ def read_atom(src: Source, text: str, pos: int, end: int) -> tuple[Form, int]:
         return (BoolLit(False), end)
     elif symbol_start(text[pos]):
         stop = symbol_end(text, (pos + 1))
-        return (Sym(text[pos:stop], pos_at(src, pos)), stop)
+        name = text[pos:stop]
+        if cdy_rt.table_defs.in_('__', name):
+            return cdy_rt.table_defs.fail(parse_error(src, text, pos, "a name can't contain __ (only gensym makes such names)"))
+        else:
+            return (Sym(name, pos_at(src, pos)), stop)
     else:
         return cdy_rt.table_defs.fail(parse_error(src, text, pos, ('unexpected ' + str(text[pos]))))
 
@@ -253,12 +260,12 @@ def number_kind(word: str) -> str:
         return 'byte'
     elif (rest[0] == '.'):
         j = digits_end(word, (i + 1))
-        _cdy_tail_74 = word[j:len(word)]
+        _cdy_tail_76 = word[j:len(word)]
         if (j == (i + 1)):
             return ''
-        elif (_cdy_tail_74 == ''):
+        elif (_cdy_tail_76 == ''):
             return 'double'
-        elif (_cdy_tail_74 == 'f'):
+        elif (_cdy_tail_76 == 'f'):
             return 'float'
         else:
             return ''
@@ -364,8 +371,18 @@ def include_forms(forms: tuple[Form, ...], dir_: str, acc: Incl) -> Incl:
         else:
             form = forms[0]
             name = import_name(form)
-            forms, acc = (rest_of(forms), (acc._replace(done=(acc.done + cdy_rt.table_defs.to_list(form))) if (name == '') else include_file(import_path(dir_, name, form_pos(form)), acc)))
+            forms, acc = (rest_of(forms), (acc._replace(done=(acc.done + cdy_rt.table_defs.to_list(macro_import(form, dir_)))) if (name == '') else include_file(import_path('import', dir_, name, form_pos(form)), acc)))
             continue
+
+def macro_import(form: Form, dir_: str) -> Form:
+    items = list_items(form)
+    pos = form_pos(form)
+    if ((len(items) == 0) or (sym_name(items[0]) != 'import-macros')):
+        return form
+    elif ((len(items) == 2) and (sym_name(items[1]) != '')):
+        return Lst((items[0], Txt(import_path('import-macros', dir_, sym_name(items[1]), pos))), pos)
+    else:
+        return cdy_rt.table_defs.fail((pos_text(pos) + 'import-macros: expected (import-macros name)'))
 
 def import_name(form: Form) -> str:
     items = list_items(form)
@@ -376,12 +393,329 @@ def import_name(form: Form) -> str:
     else:
         return cdy_rt.table_defs.fail((pos_text(form_pos(form)) + 'import: expected (import name)'))
 
-def import_path(dir_: str, name: str, pos: Pos) -> str:
+def import_path(what: str, dir_: str, name: str, pos: Pos) -> str:
     path = cdy_rt.table_defs.path_join(dir_, (name + '.cdy'))
     if cdy_rt.table_defs.file_exists(path):
         return path
     else:
-        return cdy_rt.table_defs.fail((str(pos_text(pos)) + "import: can't find " + str(name) + '.cdy in ' + str(dir_)))
+        return cdy_rt.table_defs.fail((str(pos_text(pos)) + str(what) + ": can't find " + str(name) + '.cdy in ' + str(dir_)))
+
+class Macro(_cdy_NamedTuple):
+    name: str
+    arity: int
+    run: _cdy_Any
+    pos: Pos
+
+class Imports(_cdy_NamedTuple):
+    macros: tuple[Macro, ...]
+    helpers: tuple[tuple[str, tuple[Form, ...]], ...]
+    seen: _cdy_Mapping[str, bool]
+
+class Expanded(_cdy_NamedTuple):
+    forms: tuple[Form, ...]
+    macros: _cdy_Mapping[str, Macro]
+    own: tuple[Macro, ...]
+    helpers: tuple[tuple[str, tuple[Form, ...]], ...]
+
+def expand_program(forms: tuple[Form, ...], compile_: _cdy_Callable[[tuple[Form, ...]], str]) -> tuple[tuple[Form, ...], _cdy_Mapping[str, Macro]]:
+    done = expand_file(forms, False, compile_, ())
+    return (done.forms, done.macros)
+MACRO_HEADS: tuple[str, ...] = ('defmacro', 'import-macros')
+
+def expand_file(forms: tuple[Form, ...], macro_file: bool, compile_: _cdy_Callable[[tuple[Form, ...]], str], loading: tuple[str, ...]) -> Expanded:
+    imports = import_all((prelude_import(loading) + pick_forms(forms, ('import-macros',), True, ())), compile_, loading, Imports((), (), {}))
+    imported = macro_map(imports.macros, {})
+    defs = expand_defs(pick_forms(forms, ('defmacro',), True, ()), imported, ())
+    rest = pick_forms(forms, MACRO_HEADS, False, ())
+    helpers = (expand_all(rest, imported, ()) if macro_file else ())
+    own = (() if (len(defs) == 0) else load_defs(defs, (helper_forms(imports.helpers, ()) + helpers), compile_))
+    macros = macro_map(own, imported)
+    return Expanded((helpers if macro_file else expand_all(rest, macros, ())), macros, own, imports.helpers)
+
+def prelude_import(loading: tuple[str, ...]) -> tuple[Form, ...]:
+    path = library_path('prelude_macros.cdy')
+    if cdy_rt.table_defs.in_(cdy_rt.table_defs.path_resolve(path), loading):
+        return ()
+    else:
+        return cdy_rt.table_defs.to_list(Lst((Sym('import-macros', NOWHERE), Txt(path)), NOWHERE))
+
+def pick_forms(forms: tuple[Form, ...], heads: tuple[str, ...], keep: bool, acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            form = forms[0]
+            items = list_items(form)
+            picked = ((len(items) > 0) and cdy_rt.table_defs.in_(sym_name(items[0]), heads))
+            forms, acc = (rest_of(forms), ((acc + cdy_rt.table_defs.to_list(form)) if (picked == keep) else acc))
+            continue
+
+def expand_defs(defs: tuple[Form, ...], macros: _cdy_Mapping[str, Macro], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(defs) == 0):
+            return acc
+        else:
+            defs, acc = (rest_of(defs), (acc + cdy_rt.table_defs.to_list(Lst(expand_after(list_items(defs[0]), 3, macros), form_pos(defs[0])))))
+            continue
+
+def macro_map(macros: tuple[Macro, ...], acc: _cdy_Mapping[str, Macro]) -> _cdy_Mapping[str, Macro]:
+    while True:
+        if (len(macros) == 0):
+            return acc
+        else:
+            macro = macros[0]
+            name = macro.name
+            if cdy_rt.table_defs.map_has(acc, name):
+                return cdy_rt.table_defs.fail((str(pos_text(macro.pos)) + 'defmacro: ' + str(name) + ' is already a macro'))
+            else:
+                macros, acc = (macros[1:len(macros)], cdy_rt.table_defs.map_set(acc, name, macro))
+                continue
+
+def import_all(forms: tuple[Form, ...], compile_: _cdy_Callable[[tuple[Form, ...]], str], loading: tuple[str, ...], acc: Imports) -> Imports:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            forms, acc = (rest_of(forms), import_file(forms[0], compile_, loading, acc))
+            continue
+
+def import_file(form: Form, compile_: _cdy_Callable[[tuple[Form, ...]], str], loading: tuple[str, ...], acc: Imports) -> Imports:
+    path = macro_path(form)
+    key = cdy_rt.table_defs.path_resolve(path)
+    if cdy_rt.table_defs.map_has(acc.seen, key):
+        return acc
+    elif cdy_rt.table_defs.in_(key, loading):
+        return cdy_rt.table_defs.fail((str(pos_text(form_pos(form))) + 'import-macros: ' + str(path) + ' imports itself'))
+    else:
+        done = expand_file(read_program(path), True, compile_, (loading + cdy_rt.table_defs.to_list(key)))
+        return Imports((acc.macros + done.own), add_helpers((done.helpers + cdy_rt.table_defs.to_list((key, done.forms))), acc.helpers), cdy_rt.table_defs.map_set(acc.seen, key, True))
+
+def macro_path(form: Form) -> str:
+    _cdy_t3: object = list_items(form)[1]
+    if isinstance(_cdy_t3, Txt):
+        path = _cdy_t3.val
+        return path
+    else:
+        return cdy_rt.table_defs.fail((pos_text(form_pos(form)) + 'import-macros: expected (import-macros name)'))
+
+def add_helpers(groups: tuple[tuple[str, tuple[Form, ...]], ...], acc: tuple[tuple[str, tuple[Form, ...]], ...]) -> tuple[tuple[str, tuple[Form, ...]], ...]:
+    while True:
+        if (len(groups) == 0):
+            return acc
+        else:
+            groups, acc = (groups[1:len(groups)], (acc if has_helpers(groups[0][0], acc) else (acc + cdy_rt.table_defs.to_list(groups[0]))))
+            continue
+
+def has_helpers(key: str, groups: tuple[tuple[str, tuple[Form, ...]], ...]) -> bool:
+    return ((len(groups) > 0) and ((groups[0][0] == key) or has_helpers(key, groups[1:len(groups)])))
+
+def helper_forms(groups: tuple[tuple[str, tuple[Form, ...]], ...], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(groups) == 0):
+            return acc
+        else:
+            groups, acc = (groups[1:len(groups)], (acc + groups[0][1]))
+            continue
+
+def load_defs(defs: tuple[Form, ...], helpers: tuple[Form, ...], compile_: _cdy_Callable[[tuple[Form, ...]], str]) -> tuple[Macro, ...]:
+    checked = unique_names(defs, {})
+    form_forms = form_defs(None)
+    python = compile_((form_forms + helpers + macro_program(defs, ())))
+    loaded = cdy_rt.table_defs.load_macros(python, sym_name, top_names(form_forms, {}))
+    return macro_list(defs, loaded, ())
+
+def form_defs(_: None) -> tuple[Form, ...]:
+    path = library_path('form.cdy')
+    return read_source(path, cdy_rt.table_defs.slurp(path))
+
+def library_path(name: str) -> str:
+    dir_ = cdy_rt.table_defs.module_dir(sym_name)
+    path = cdy_rt.table_defs.path_join(dir_, name)
+    if cdy_rt.table_defs.file_exists(path):
+        return path
+    else:
+        return cdy_rt.table_defs.fail(('macros need ' + str(name) + ' next to the translator, in ' + str(dir_)))
+
+def macro_program(defs: tuple[Form, ...], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(defs) == 0):
+            return acc
+        else:
+            items = defmacro_items(defs[0])
+            pos = form_pos(defs[0])
+            fname = Sym(macro_fn(sym_name(items[1])), pos)
+            args = Sym('args__', pos)
+            type_ = Lst((Sym('Fn', pos), Lst(cdy_rt.table_defs.to_list(Lst((Sym('List', pos), Sym('Form', pos)), pos)), pos), Sym('Form', pos)), pos)
+            body = Lst((Sym('let', pos), Lst(param_binds(items[2], args, pos), pos), items[3]), pos)
+            defs, acc = (rest_of(defs), (acc + cdy_rt.table_defs.to_list(Lst((Sym('sig', pos), fname, type_), pos)) + cdy_rt.table_defs.to_list(Lst((Sym('defn', pos), fname, Lst(cdy_rt.table_defs.to_list(args), pos), body), pos))))
+            continue
+
+def defmacro_items(form: Form) -> tuple[Form, ...]:
+    items = list_items(form)
+    where = pos_text(form_pos(form))
+    if ((len(items) != 4) or (sym_name(items[1]) == '')):
+        return cdy_rt.table_defs.fail((where + 'defmacro: expected (defmacro name (params) body) or (defmacro name args body)'))
+    elif cdy_rt.table.is_special(cdy_rt.table.INITIAL_TABLE, sym_name(items[1])):
+        return cdy_rt.table_defs.fail((str(where) + 'defmacro: ' + str(sym_name(items[1])) + ' is a special form'))
+    elif (not params_ok(items[2])):
+        return cdy_rt.table_defs.fail((where + 'defmacro: a parameter must be a name'))
+    else:
+        return items
+
+def params_ok(params: Form) -> bool:
+    _cdy_t4: object = params
+    if isinstance(_cdy_t4, Sym):
+        return True
+    elif isinstance(_cdy_t4, Lst):
+        items = _cdy_t4.items
+        return all_names(items)
+    else:
+        return False
+
+def all_names(forms: tuple[Form, ...]) -> bool:
+    return ((len(forms) == 0) or ((sym_name(forms[0]) != '') and all_names(rest_of(forms))))
+
+def param_binds(params: Form, args: Form, pos: Pos) -> tuple[Form, ...]:
+    if (sym_name(params) == ''):
+        return arg_binds(list_items(params), args, 0, pos, ())
+    else:
+        return cdy_rt.table_defs.to_list(Lst((params, args), pos))
+
+def arg_binds(params: tuple[Form, ...], args: Form, i: int, pos: Pos, acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(params) == 0):
+            return acc
+        else:
+            params, i, acc = (rest_of(params), (i + 1), (acc + cdy_rt.table_defs.to_list(Lst((params[0], Lst((Sym('at', pos), args, IntLit(i)), pos)), pos))))
+            continue
+
+def macro_fn(name: str) -> str:
+    return ('macro__' + name)
+
+def unique_names(defs: tuple[Form, ...], seen: _cdy_Mapping[str, bool]) -> bool:
+    while True:
+        if (len(defs) == 0):
+            return True
+        else:
+            name = sym_name(defmacro_items(defs[0])[1])
+            if cdy_rt.table_defs.map_has(seen, name):
+                return cdy_rt.table_defs.fail((str(pos_text(form_pos(defs[0]))) + 'defmacro: ' + str(name) + ' is defined twice'))
+            else:
+                defs, seen = (rest_of(defs), cdy_rt.table_defs.map_set(seen, name, True))
+                continue
+
+def macro_list(defs: tuple[Form, ...], loaded: _cdy_Mapping[str, _cdy_Any], acc: tuple[Macro, ...]) -> tuple[Macro, ...]:
+    while True:
+        if (len(defs) == 0):
+            return acc
+        else:
+            items = list_items(defs[0])
+            name = sym_name(items[1])
+            params = items[2]
+            arity = (len(list_items(params)) if (sym_name(params) == '') else -1)
+            run = cdy_rt.table_defs.map_get(loaded, cdy_rt.table_defs.py_mangle(macro_fn(name)))
+            defs, acc = (rest_of(defs), (acc + cdy_rt.table_defs.to_list(Macro(name, arity, run, form_pos(defs[0])))))
+            continue
+
+def expand_all(forms: tuple[Form, ...], macros: _cdy_Mapping[str, Macro], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            forms, acc = (rest_of(forms), (acc + cdy_rt.table_defs.to_list(expand_form(forms[0], macros))))
+            continue
+
+def expand_form(form: Form, macros: _cdy_Mapping[str, Macro]) -> Form:
+    while True:
+        _cdy_t5: object = form
+        if isinstance(_cdy_t5, Lst):
+            items = _cdy_t5.items
+            pos = _cdy_t5.pos
+            head = ('' if (len(items) == 0) else sym_name(items[0]))
+            if cdy_rt.table_defs.map_has(macros, head):
+                form = expand_call(cdy_rt.table_defs.map_get(macros, head), rest_of(items), pos)
+                continue
+            elif cdy_rt.table_defs.in_(head, ('sig', 'deft', 'import', 'import-macros', 'quo', 'quasi')):
+                return form
+            elif (head == 'defn'):
+                return Lst(expand_after(items, 3, macros), pos)
+            elif (head == 'fn'):
+                return Lst(expand_after(items, 2, macros), pos)
+            elif cdy_rt.table_defs.in_(head, ('let', 'match')):
+                return Lst(expand_clauses(head, items, macros), pos)
+            else:
+                return Lst(expand_all(items, macros, ()), pos)
+        else:
+            return form
+
+def expand_after(items: tuple[Form, ...], n: int, macros: _cdy_Mapping[str, Macro]) -> tuple[Form, ...]:
+    if (len(items) < n):
+        return items
+    else:
+        return (items[0:n] + expand_all(items[n:len(items)], macros, ()))
+
+def expand_clauses(head: str, items: tuple[Form, ...], macros: _cdy_Mapping[str, Macro]) -> tuple[Form, ...]:
+    if ((head == 'let') and (len(items) == 3)):
+        _cdy_t6: object = items[1]
+        if isinstance(_cdy_t6, Lst):
+            binds = _cdy_t6.items
+            p = _cdy_t6.pos
+            return (items[0], Lst(each_clause(binds, 1, macros, ()), p), expand_form(items[2], macros))
+        else:
+            return expand_all(items, macros, ())
+    elif ((head == 'match') and (len(items) > 1)):
+        return ((items[0], expand_form(items[1], macros)) + each_clause(items[2:len(items)], 1, macros, ()))
+    else:
+        return expand_all(items, macros, ())
+
+def each_clause(clauses: tuple[Form, ...], n: int, macros: _cdy_Mapping[str, Macro], acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(clauses) == 0):
+            return acc
+        else:
+            clauses, acc = (rest_of(clauses), (acc + cdy_rt.table_defs.to_list(expand_clause(clauses[0], n, macros))))
+            continue
+
+def expand_clause(clause: Form, n: int, macros: _cdy_Mapping[str, Macro]) -> Form:
+    _cdy_t7: object = clause
+    if isinstance(_cdy_t7, Lst):
+        items = _cdy_t7.items
+        p = _cdy_t7.pos
+        return Lst(expand_after(items, n, macros), p)
+    else:
+        return expand_form(clause, macros)
+
+def expand_call(macro: Macro, args: tuple[Form, ...], pos: Pos) -> Form:
+    arity = macro.arity
+    where = (str(pos_text(pos)) + str(macro.name) + ': ')
+    if ((arity >= 0) and (arity != len(args))):
+        return cdy_rt.table_defs.fail((str(where) + 'expected ' + str(arity) + ' argument(s), got ' + str(len(args))))
+    else:
+        return stamp(cdy_rt.table_defs.call_macro(macro.run, args, where), pos)
+
+def stamp(form: Form, pos: Pos) -> Form:
+    _cdy_t8: object = form
+    if isinstance(_cdy_t8, Sym):
+        name = _cdy_t8.name
+        p = _cdy_t8.pos
+        if (p.line == 0):
+            return Sym(name, pos)
+        else:
+            return form
+    elif isinstance(_cdy_t8, Lst):
+        items = _cdy_t8.items
+        _cdy_p_259 = _cdy_t8.pos
+        return Lst(stamp_all(items, pos, ()), (pos if (_cdy_p_259.line == 0) else _cdy_p_259))
+    else:
+        return form
+
+def stamp_all(forms: tuple[Form, ...], pos: Pos, acc: tuple[Form, ...]) -> tuple[Form, ...]:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            forms, acc = (rest_of(forms), (acc + cdy_rt.table_defs.to_list(stamp(forms[0], pos))))
+            continue
 
 class TCon(_cdy_NamedTuple):
     name: str
@@ -497,6 +831,8 @@ class Scope(_cdy_NamedTuple):
     variants: _cdy_Mapping[str, VInfo]
     sums: _cdy_Mapping[str, tuple[str, ...]]
     here: Pos
+    macros: _cdy_Mapping[str, Macro]
+    quoting: bool
 
 def at_pos(scope: Scope, pos: Pos) -> Scope:
     if (pos.line == 0):
@@ -506,6 +842,12 @@ def at_pos(scope: Scope, pos: Pos) -> Scope:
 
 def located(scope: Scope, msg: str) -> str:
     return (pos_text(scope.here) + msg)
+
+def bind_local(scope: Scope, name: str, loc: Expr) -> Scope:
+    if cdy_rt.table_defs.map_has(scope.macros, name):
+        return cdy_rt.table_defs.fail(located(scope, (str(name) + " is a macro, so it can't be bound")))
+    else:
+        return scope._replace(env=cdy_rt.table_defs.map_set(scope.env, name, loc))
 
 class VInfo(_cdy_NamedTuple):
     sum_: str
@@ -518,15 +860,15 @@ def variant_fields(name: str, scope: Scope) -> tuple[str, ...]:
     return cdy_rt.table_defs.map_get(scope.variants, name).fields
 
 def analyse_expr(form: Form, scope: Scope, n: int) -> tuple[Expr, int]:
-    _cdy_t3: object = form
-    if isinstance(_cdy_t3, Sym):
-        name = _cdy_t3.name
-        pos = _cdy_t3.pos
+    _cdy_t9: object = form
+    if isinstance(_cdy_t9, Sym):
+        name = _cdy_t9.name
+        pos = _cdy_t9.pos
         return (resolve(name, at_pos(scope, pos)), n)
-    elif isinstance(_cdy_t3, Lst):
-        items = _cdy_t3.items
-        _cdy_pos_136 = _cdy_t3.pos
-        return analyse_list(items, at_pos(scope, _cdy_pos_136), n)
+    elif isinstance(_cdy_t9, Lst):
+        items = _cdy_t9.items
+        _cdy_pos_280 = _cdy_t9.pos
+        return analyse_list(items, at_pos(scope, _cdy_pos_280), n)
     else:
         return (Lit(form), n)
 
@@ -570,16 +912,16 @@ def analyse_list(items: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, i
             _tup = analyse_expr(items[0], scope, n)
             callee = _tup[0]
             n1 = _tup[1]
-            _cdy__tup_156 = analyse_all(rest_of(items), scope, n1, ())
-            args = _cdy__tup_156[0]
-            n2 = _cdy__tup_156[1]
+            _cdy__tup_300 = analyse_all(rest_of(items), scope, n1, ())
+            args = _cdy__tup_300[0]
+            n2 = _cdy__tup_300[1]
             arity_ok = check_call(callee, len(args), scope)
             return (Call(callee, args), n2)
 
 def check_call(callee: Expr, count: int, scope: Scope) -> bool:
-    _cdy_t4: object = callee
-    if isinstance(_cdy_t4, Prim):
-        name = _cdy_t4.name
+    _cdy_t10: object = callee
+    if isinstance(_cdy_t10, Prim):
+        name = _cdy_t10.name
         kind = cdy_rt.table.get_kind(scope.table, name)
         arity = cdy_rt.table.get_arity(scope.table, name)
         if (cdy_rt.table_defs.in_(kind, ('binop', 'compare', 'boolop')) and (count < 2)):
@@ -604,8 +946,6 @@ def check_variant_call(name: str, count: int, scope: Scope) -> bool:
 def analyse_special(head: str, rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
     if (head == 'if'):
         return an_if(rest, scope, n)
-    elif (head == 'cond'):
-        return an_cond(rest, scope, n)
     elif (head == 'do'):
         return an_do(rest, scope, n)
     elif (head == 'let'):
@@ -622,7 +962,13 @@ def analyse_special(head: str, rest: tuple[Form, ...], scope: Scope, n: int) -> 
         return an_assoc(rest, scope, n)
     elif (head == 'match'):
         return an_match(rest, scope, n)
-    elif cdy_rt.table_defs.in_(head, ('def', 'defn', 'deft', 'sig', 'import')):
+    elif (head == 'quo'):
+        return an_quo(rest, scope, n)
+    elif (head == 'quasi'):
+        return an_quasi(rest, scope, n)
+    elif cdy_rt.table_defs.in_(head, ('unq', 'unq-sp')):
+        return cdy_rt.table_defs.fail(located(scope, (str(head) + ': only inside quasi')))
+    elif cdy_rt.table_defs.in_(head, ('def', 'defn', 'deft', 'sig', 'import', 'import-macros', 'defmacro')):
         return cdy_rt.table_defs.fail(located(scope, (str(head) + ' is only allowed at top level')))
     else:
         return cdy_rt.table_defs.fail(located(scope, (str(head) + ' is not supported by the Candy translator yet')))
@@ -640,36 +986,6 @@ def an_if(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
 
 def is_else(form: Form) -> bool:
     return (sym_name(form) == 'else')
-
-def an_cond(clauses: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
-    if (len(clauses) == 0):
-        return cdy_rt.table_defs.fail(located(scope, 'cond: needs at least one (test expr) clause'))
-    else:
-        return cond_clauses(clauses, scope, n)
-
-def cond_clauses(clauses: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
-    if (len(clauses) == 0):
-        return (NIL, n)
-    else:
-        items = list_items(clauses[0])
-        if (len(items) != 2):
-            return cdy_rt.table_defs.fail(located(scope, 'cond: clause must be (test expr)'))
-        elif is_else(items[0]):
-            if (len(clauses) == 1):
-                return analyse_expr(items[1], scope, n)
-            else:
-                return cdy_rt.table_defs.fail(located(scope, 'cond: (else expr) must be the last clause'))
-        else:
-            _tup = analyse_expr(items[0], scope, n)
-            test = _tup[0]
-            n1 = _tup[1]
-            _cdy__tup_190 = analyse_expr(items[1], scope, n1)
-            expr = _cdy__tup_190[0]
-            n2 = _cdy__tup_190[1]
-            _cdy__tup_193 = cond_clauses(rest_of(clauses), scope, n2)
-            other = _cdy__tup_193[0]
-            n3 = _cdy__tup_193[1]
-            return (If(test, expr, other), n3)
 
 def an_do(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
     _tup = analyse_all(rest, scope, n, ())
@@ -692,14 +1008,14 @@ def an_let(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
         pairs = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_209 = analyse_expr(rest[1], inner, n1)
-        body = _cdy__tup_209[0]
-        n2 = _cdy__tup_209[1]
+        _cdy__tup_337 = analyse_expr(rest[1], inner, n1)
+        body = _cdy__tup_337[0]
+        n2 = _cdy__tup_337[1]
         return (nest(pairs, body), n2)
 
 def is_list_form(form: Form) -> bool:
-    _cdy_t5: object = form
-    if isinstance(_cdy_t5, Lst):
+    _cdy_t11: object = form
+    if isinstance(_cdy_t11, Lst):
         return True
     else:
         return False
@@ -717,14 +1033,14 @@ def let_bindings(bindings: tuple[Form, ...], scope: Scope, n: int, acc: tuple[tu
                 init = _tup[0]
                 n1 = _tup[1]
                 target = items[0]
-                _cdy_t6: object = target
-                if isinstance(_cdy_t6, Lst):
-                    names = _cdy_t6.items
+                _cdy_t12: object = target
+                if isinstance(_cdy_t12, Lst):
+                    names = _cdy_t12.items
                     tmp = Local('_tup', n1)
-                    _cdy__tup_224 = destructure(names, tmp, 0, scope, (n1 + 1), ())
-                    more = _cdy__tup_224[0]
-                    inner = _cdy__tup_224[1]
-                    n2 = _cdy__tup_224[2]
+                    _cdy__tup_352 = destructure(names, tmp, 0, scope, (n1 + 1), ())
+                    more = _cdy__tup_352[0]
+                    inner = _cdy__tup_352[1]
+                    n2 = _cdy__tup_352[2]
                     bindings, scope, n, acc = (rest_of(bindings), inner, n2, (acc + cdy_rt.table_defs.to_list((tmp, init)) + more))
                     continue
                 else:
@@ -733,7 +1049,7 @@ def let_bindings(bindings: tuple[Form, ...], scope: Scope, n: int, acc: tuple[tu
                     if ((name == '') or cdy_rt.table.is_special(scope.table, name)):
                         return cdy_rt.table_defs.fail(located(scope, 'let name must be a name, not a special form'))
                     else:
-                        bindings, scope, n, acc = (rest_of(bindings), scope._replace(env=cdy_rt.table_defs.map_set(scope.env, name, loc)), (n1 + 1), (acc + cdy_rt.table_defs.to_list((loc, init))))
+                        bindings, scope, n, acc = (rest_of(bindings), bind_local(scope, name, loc), (n1 + 1), (acc + cdy_rt.table_defs.to_list((loc, init))))
                         continue
 
 def destructure(names: tuple[Form, ...], tmp: Expr, i: int, scope: Scope, n: int, acc: tuple[tuple[Expr, Expr], ...]) -> tuple[tuple[tuple[Expr, Expr], ...], Scope, int]:
@@ -747,7 +1063,7 @@ def destructure(names: tuple[Form, ...], tmp: Expr, i: int, scope: Scope, n: int
             if (name == ''):
                 return cdy_rt.table_defs.fail(located(scope, 'let name must be a name'))
             else:
-                names, i, scope, n, acc = (rest_of(names), (i + 1), scope._replace(env=cdy_rt.table_defs.map_set(scope.env, name, loc)), (n + 1), (acc + cdy_rt.table_defs.to_list((loc, item))))
+                names, i, scope, n, acc = (rest_of(names), (i + 1), bind_local(scope, name, loc), (n + 1), (acc + cdy_rt.table_defs.to_list((loc, item))))
                 continue
 
 def nest(pairs: tuple[tuple[Expr, Expr], ...], body: Expr) -> Expr:
@@ -767,9 +1083,9 @@ def an_fn(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
         params = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_251 = analyse_expr(rest[1], inner, n1)
-        body = _cdy__tup_251[0]
-        n2 = _cdy__tup_251[1]
+        _cdy__tup_379 = analyse_expr(rest[1], inner, n1)
+        body = _cdy__tup_379[0]
+        n2 = _cdy__tup_379[1]
         if (len(params) == 0):
             return cdy_rt.table_defs.fail(located(scope, 'fn arguments: at least one is needed'))
         else:
@@ -800,9 +1116,9 @@ def an_assoc(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
         _tup = analyse_expr(rest[0], scope, n)
         obj = _tup[0]
         n1 = _tup[1]
-        _cdy__tup_272 = assoc_fields(rest_of(rest), scope, n1, ())
-        fields = _cdy__tup_272[0]
-        n2 = _cdy__tup_272[1]
+        _cdy__tup_400 = assoc_fields(rest_of(rest), scope, n1, ())
+        fields = _cdy__tup_400[0]
+        n2 = _cdy__tup_400[1]
         return (Assoc(obj, fields), n2)
 
 def assoc_fields(forms: tuple[Form, ...], scope: Scope, n: int, acc: tuple[tuple[str, Expr], ...]) -> tuple[tuple[tuple[str, Expr], ...], int]:
@@ -826,9 +1142,9 @@ def an_format(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
     if (len(rest) != 1):
         return cdy_rt.table_defs.fail(located(scope, 'format: expected one string literal'))
     else:
-        _cdy_t7: object = rest[0]
-        if isinstance(_cdy_t7, Txt):
-            text = _cdy_t7.val
+        _cdy_t13: object = rest[0]
+        if isinstance(_cdy_t13, Txt):
+            text = _cdy_t13.val
             _tup = format_parts(text, 0, '', scope, n, ())
             parts = _tup[0]
             n1 = _tup[1]
@@ -895,9 +1211,9 @@ def an_match_sum(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, in
     _tup = analyse_expr(rest[0], scope, n)
     subject = _tup[0]
     n1 = _tup[1]
-    _cdy__tup_316 = match_clauses(rest_of(rest), scope, n1, MatchE(subject, (), ()), '')
-    m = _cdy__tup_316[0]
-    n2 = _cdy__tup_316[1]
+    _cdy__tup_444 = match_clauses(rest_of(rest), scope, n1, MatchE(subject, (), ()), '')
+    m = _cdy__tup_444[0]
+    n2 = _cdy__tup_444[1]
     sum_ = (match_sum(match_clause_list(m), scope) if (len(match_clause_list(m)) > 0) else '')
     return (check_exhaustive(m, sum_, scope), n2)
 
@@ -916,13 +1232,13 @@ def an_match_tup(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, in
         subject = _tup[0]
         n1 = _tup[1]
         tmp = Local('_tup', n1)
-        _cdy__tup_330 = tup_binds(names, tmp, 0, scope, (n1 + 1), ())
-        pairs = _cdy__tup_330[0]
-        inner = _cdy__tup_330[1]
-        n2 = _cdy__tup_330[2]
-        _cdy__tup_334 = analyse_expr(items[1], inner, n2)
-        body = _cdy__tup_334[0]
-        n3 = _cdy__tup_334[1]
+        _cdy__tup_458 = tup_binds(names, tmp, 0, scope, (n1 + 1), ())
+        pairs = _cdy__tup_458[0]
+        inner = _cdy__tup_458[1]
+        n2 = _cdy__tup_458[2]
+        _cdy__tup_462 = analyse_expr(items[1], inner, n2)
+        body = _cdy__tup_462[0]
+        n3 = _cdy__tup_462[1]
         return (nest((cdy_rt.table_defs.to_list((tmp, subject)) + pairs), body), n3)
 
 def tup_binds(names: tuple[Form, ...], tmp: Expr, i: int, scope: Scope, n: int, acc: tuple[tuple[Expr, Expr], ...]) -> tuple[tuple[tuple[Expr, Expr], ...], Scope, int]:
@@ -941,7 +1257,7 @@ def tup_binds(names: tuple[Form, ...], tmp: Expr, i: int, scope: Scope, n: int, 
             elif bound_in_pairs(name, acc):
                 return cdy_rt.table_defs.fail(located(scope, 'match: names in a pattern must be different'))
             else:
-                names, i, scope, n, acc = (rest_of(names), (i + 1), scope._replace(env=cdy_rt.table_defs.map_set(scope.env, name, loc)), (n + 1), (acc + cdy_rt.table_defs.to_list((loc, item))))
+                names, i, scope, n, acc = (rest_of(names), (i + 1), bind_local(scope, name, loc), (n + 1), (acc + cdy_rt.table_defs.to_list((loc, item))))
                 continue
 
 def bound_in_pairs(name: str, pairs: tuple[tuple[Expr, Expr], ...]) -> bool:
@@ -952,9 +1268,9 @@ def bound_in_pairs(name: str, pairs: tuple[tuple[Expr, Expr], ...]) -> bool:
             _tup = pairs[0]
             loc = _tup[0]
             _ = _tup[1]
-            _cdy_t8: object = loc
-            if isinstance(_cdy_t8, Local):
-                other = _cdy_t8.name
+            _cdy_t14: object = loc
+            if isinstance(_cdy_t14, Local):
+                other = _cdy_t14.name
                 return ((other == name) or bound_in_pairs(name, rest_of_pairs(pairs)))
             else:
                 pairs = rest_of_pairs(pairs)
@@ -967,10 +1283,10 @@ def match_sum(clauses: tuple[Clause, ...], scope: Scope) -> str:
     return cdy_rt.table_defs.map_get(scope.variants, clauses[0].variant).sum_
 
 def check_exhaustive(m: Expr, sum_: str, scope: Scope) -> Expr:
-    _cdy_t9: object = m
-    if isinstance(_cdy_t9, MatchE):
-        clauses = _cdy_t9.clauses
-        default = _cdy_t9.default
+    _cdy_t15: object = m
+    if isinstance(_cdy_t15, MatchE):
+        clauses = _cdy_t15.clauses
+        default = _cdy_t15.default
         missing = missing_variants(cdy_rt.table_defs.map_get(scope.sums, sum_), clauses, ())
         if ((len(default) == 0) and (len(missing) > 0)):
             return cdy_rt.table_defs.fail(located(scope, ('match on ' + str(sum_) + ': no clause for ' + str(cdy_rt.table_defs.join(missing, ', ')) + ' (or add else)')))
@@ -1017,13 +1333,13 @@ def match_clauses(forms: tuple[Form, ...], scope: Scope, n: int, m: Expr, sum_: 
                 pattern = list_items(items[0])
                 variant = (sym_name(pattern[0]) if (len(pattern) > 0) else '')
                 checked = check_pattern(variant, pattern, sum_, m, scope)
-                _cdy__tup_378 = pattern_binds(variant_fields(variant, scope), rest_of(pattern), scope, n, ())
-                binds = _cdy__tup_378[0]
-                inner = _cdy__tup_378[1]
-                _cdy_n1_381 = _cdy__tup_378[2]
-                _cdy__tup_382 = analyse_expr(items[1], inner, _cdy_n1_381)
-                body = _cdy__tup_382[0]
-                n2 = _cdy__tup_382[1]
+                _cdy__tup_506 = pattern_binds(variant_fields(variant, scope), rest_of(pattern), scope, n, ())
+                binds = _cdy__tup_506[0]
+                inner = _cdy__tup_506[1]
+                _cdy_n1_509 = _cdy__tup_506[2]
+                _cdy__tup_510 = analyse_expr(items[1], inner, _cdy_n1_509)
+                body = _cdy__tup_510[0]
+                n2 = _cdy__tup_510[1]
                 forms, n, m, sum_ = (rest_of(forms), n2, add_clause(m, Clause(variant, binds, body)), cdy_rt.table_defs.map_get(scope.variants, variant).sum_)
                 continue
 
@@ -1044,28 +1360,28 @@ def check_pattern(variant: str, pattern: tuple[Form, ...], sum_: str, m: Expr, s
         return True
 
 def match_clause_list(m: Expr) -> tuple[Clause, ...]:
-    _cdy_t10: object = m
-    if isinstance(_cdy_t10, MatchE):
-        clauses = _cdy_t10.clauses
+    _cdy_t16: object = m
+    if isinstance(_cdy_t16, MatchE):
+        clauses = _cdy_t16.clauses
         return clauses
     else:
         return ()
 
 def add_clause(m: Expr, clause: Clause) -> Expr:
-    _cdy_t11: object = m
-    if isinstance(_cdy_t11, MatchE):
-        subject = _cdy_t11.subject
-        clauses = _cdy_t11.clauses
-        default = _cdy_t11.default
+    _cdy_t17: object = m
+    if isinstance(_cdy_t17, MatchE):
+        subject = _cdy_t17.subject
+        clauses = _cdy_t17.clauses
+        default = _cdy_t17.default
         return MatchE(subject, (clauses + cdy_rt.table_defs.to_list(clause)), default)
     else:
         return m
 
 def set_default(m: Expr, e: Expr) -> Expr:
-    _cdy_t12: object = m
-    if isinstance(_cdy_t12, MatchE):
-        subject = _cdy_t12.subject
-        clauses = _cdy_t12.clauses
+    _cdy_t18: object = m
+    if isinstance(_cdy_t18, MatchE):
+        subject = _cdy_t18.subject
+        clauses = _cdy_t18.clauses
         return MatchE(subject, clauses, cdy_rt.table_defs.to_list(e))
     else:
         return m
@@ -1085,7 +1401,7 @@ def pattern_binds(fields: tuple[str, ...], names: tuple[Form, ...], scope: Scope
             elif bound_in(name, acc):
                 return cdy_rt.table_defs.fail(located(scope, 'match: names in a pattern must be different'))
             else:
-                fields, names, scope, n, acc = (fields[1:len(fields)], rest_of(names), scope._replace(env=cdy_rt.table_defs.map_set(scope.env, name, loc)), (n + 1), (acc + cdy_rt.table_defs.to_list((fields[0], loc))))
+                fields, names, scope, n, acc = (fields[1:len(fields)], rest_of(names), bind_local(scope, name, loc), (n + 1), (acc + cdy_rt.table_defs.to_list((fields[0], loc))))
                 continue
 
 def bound_in(name: str, binds: tuple[tuple[str, Expr], ...]) -> bool:
@@ -1096,27 +1412,156 @@ def bound_in(name: str, binds: tuple[tuple[str, Expr], ...]) -> bool:
             _tup = binds[0]
             _ = _tup[0]
             loc = _tup[1]
-            _cdy_t13: object = loc
-            if isinstance(_cdy_t13, Local):
-                other = _cdy_t13.name
+            _cdy_t19: object = loc
+            if isinstance(_cdy_t19, Local):
+                other = _cdy_t19.name
                 return ((other == name) or bound_in(name, binds[1:len(binds)]))
             else:
                 binds = binds[1:len(binds)]
                 continue
 
+def an_quo(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
+    checked = needs_form('quo', scope)
+    if (len(rest) != 1):
+        return cdy_rt.table_defs.fail(located(scope, 'quo: expected (quo form)'))
+    else:
+        return (quoted(rest[0]), n)
+
+def an_quasi(rest: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
+    checked = needs_form('quasi', scope)
+    if (len(rest) != 1):
+        return cdy_rt.table_defs.fail(located(scope, 'quasi: expected (quasi form)'))
+    else:
+        return quasi_form(rest[0], scope, n)
+
+def needs_form(what: str, scope: Scope) -> bool:
+    if scope.quoting:
+        return True
+    else:
+        return cdy_rt.table_defs.fail(located(scope, (str(what) + ': only in macro code')))
+
+def quoted(form: Form) -> Expr:
+    _cdy_t20: object = form
+    if isinstance(_cdy_t20, Sym):
+        name = _cdy_t20.name
+        return Call(Global('Sym'), (Lit(Txt(name)), Global('NOWHERE')))
+    elif isinstance(_cdy_t20, Lst):
+        items = _cdy_t20.items
+        return Call(Global('Lst'), (form_list(quoted_all(items, ())), Global('NOWHERE')))
+    else:
+        return Call(Global(literal_variant(form)), cdy_rt.table_defs.to_list(Lit(form)))
+
+def quoted_all(forms: tuple[Form, ...], acc: tuple[Expr, ...]) -> tuple[Expr, ...]:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            forms, acc = (rest_of(forms), (acc + cdy_rt.table_defs.to_list(quoted(forms[0]))))
+            continue
+
+def form_list(items: tuple[Expr, ...]) -> Expr:
+    if (len(items) == 0):
+        return Prim('empty-list')
+    else:
+        return Tuple(items)
+
+def literal_variant(form: Form) -> str:
+    _cdy_t21: object = form
+    if isinstance(_cdy_t21, Txt):
+        return 'Txt'
+    elif isinstance(_cdy_t21, IntLit):
+        return 'IntLit'
+    elif isinstance(_cdy_t21, LongLit):
+        return 'LongLit'
+    elif isinstance(_cdy_t21, ByteLit):
+        return 'ByteLit'
+    elif isinstance(_cdy_t21, FloatLit):
+        return 'FloatLit'
+    elif isinstance(_cdy_t21, DoubleLit):
+        return 'DoubleLit'
+    elif isinstance(_cdy_t21, CharLit):
+        return 'CharLit'
+    elif isinstance(_cdy_t21, BoolLit):
+        return 'BoolLit'
+    else:
+        return cdy_rt.table_defs.fail('quo: not a literal')
+
+def head_name(form: Form) -> str:
+    return sym_name(first_item(form))
+
+def quasi_form(form: Form, scope: Scope, n: int) -> tuple[Expr, int]:
+    head = head_name(form)
+    here = at_pos(scope, form_pos(form))
+    if (head == 'unq'):
+        return unq_arg(form, here, n)
+    elif (head == 'unq-sp'):
+        return cdy_rt.table_defs.fail(located(here, 'unq-sp: only inside a list in quasi'))
+    elif (head == 'quasi'):
+        return cdy_rt.table_defs.fail(located(here, "quasi: a quasi inside a quasi isn't supported yet"))
+    elif is_list_form(form):
+        return quasi_list(list_items(form), here, n)
+    else:
+        return (quoted(form), n)
+
+def unq_arg(form: Form, scope: Scope, n: int) -> tuple[Expr, int]:
+    items = list_items(form)
+    if (len(items) != 2):
+        return cdy_rt.table_defs.fail(located(scope, (str(head_name(form)) + ': expected (' + str(head_name(form)) + ' expr)')))
+    else:
+        return analyse_expr(items[1], scope, n)
+
+def quasi_list(items: tuple[Form, ...], scope: Scope, n: int) -> tuple[Expr, int]:
+    _tup = quasi_parts(items, scope, n, (), ())
+    parts = _tup[0]
+    n1 = _tup[1]
+    return (Call(Global('Lst'), (join_parts(parts), Global('NOWHERE'))), n1)
+
+def quasi_parts(items: tuple[Form, ...], scope: Scope, n: int, run: tuple[Expr, ...], parts: tuple[Expr, ...]) -> tuple[tuple[Expr, ...], int]:
+    while True:
+        if (len(items) == 0):
+            return (close_run(run, parts), n)
+        else:
+            item = items[0]
+            if (head_name(item) == 'unq-sp'):
+                _tup = unq_arg(item, at_pos(scope, form_pos(item)), n)
+                e = _tup[0]
+                n1 = _tup[1]
+                items, n, run, parts = (rest_of(items), n1, (), (close_run(run, parts) + cdy_rt.table_defs.to_list(e)))
+                continue
+            else:
+                _cdy__tup_584 = quasi_form(item, scope, n)
+                _cdy_e_585 = _cdy__tup_584[0]
+                _cdy_n1_586 = _cdy__tup_584[1]
+                items, n, run = (rest_of(items), _cdy_n1_586, (run + cdy_rt.table_defs.to_list(_cdy_e_585)))
+                continue
+
+def close_run(run: tuple[Expr, ...], parts: tuple[Expr, ...]) -> tuple[Expr, ...]:
+    if (len(run) == 0):
+        return parts
+    else:
+        return (parts + cdy_rt.table_defs.to_list(Tuple(run)))
+
+def join_parts(parts: tuple[Expr, ...]) -> Expr:
+    if (len(parts) == 0):
+        return Prim('empty-list')
+    elif (len(parts) == 1):
+        return parts[0]
+    else:
+        return Call(Prim('+'), parts)
+
 def is_lower(name: str) -> bool:
     return ((len(name) > 0) and (name[0:1] >= 'a') and (name[0:1] <= 'z'))
 
 def analyse_type(form: Form) -> CType:
-    _cdy_t14: object = form
-    if isinstance(_cdy_t14, Sym):
-        name = _cdy_t14.name
+    _cdy_t22: object = form
+    if isinstance(_cdy_t22, Sym):
+        name = _cdy_t22.name
         if is_lower(name):
             return TVar(name)
         else:
             return TCon(name, ())
-    elif isinstance(_cdy_t14, Lst):
-        items = _cdy_t14.items
+    elif isinstance(_cdy_t22, Lst):
+        items = _cdy_t22.items
         if (len(items) == 0):
             return cdy_rt.table_defs.fail((pos_text(form_pos(form)) + 'bad type ()'))
         elif (sym_name(items[0]) == 'Fn'):
@@ -1204,13 +1649,13 @@ def find_variants(forms: tuple[Form, ...], scope: Scope) -> Scope:
             items = list_items(forms[0])
             head = (sym_name(items[0]) if (len(items) > 2) else '')
             body = items[2:len(items)]
-            _cdy_t16 = rest_of(forms)
+            _cdy_t24 = rest_of(forms)
             if ((head == 'deft') and is_sum_body(body)):
                 sum_ = deft_name(items[1])
-                _cdy_t15 = add_variants(sum_, body, scope._replace(sums=cdy_rt.table_defs.map_set(scope.sums, sum_, variant_names(body, ()))))
+                _cdy_t23 = add_variants(sum_, body, scope._replace(sums=cdy_rt.table_defs.map_set(scope.sums, sum_, variant_names(body, ()))))
             else:
-                _cdy_t15 = scope
-            forms, scope = (_cdy_t16, _cdy_t15)
+                _cdy_t23 = scope
+            forms, scope = (_cdy_t24, _cdy_t23)
             continue
 
 def add_variants(sum_: str, body: tuple[Form, ...], scope: Scope) -> Scope:
@@ -1233,9 +1678,9 @@ def field_names(fields: tuple[Form, ...], acc: tuple[str, ...]) -> tuple[str, ..
             continue
 
 def deft_name(form: Form) -> str:
-    _cdy_t17: object = form
-    if isinstance(_cdy_t17, Lst):
-        items = _cdy_t17.items
+    _cdy_t25: object = form
+    if isinstance(_cdy_t25, Lst):
+        items = _cdy_t25.items
         if (len(items) == 0):
             return ''
         else:
@@ -1243,8 +1688,8 @@ def deft_name(form: Form) -> str:
     else:
         return sym_name(form)
 
-def analyse_program(forms: tuple[Form, ...], table: _cdy_Any, parse: _cdy_Callable[[str], tuple[Form, ...]]) -> tuple[Top, ...]:
-    scope = find_variants(forms, Scope({}, top_names(forms, {}), table, parse, {}, {}, NOWHERE))
+def analyse_program(forms: tuple[Form, ...], table: _cdy_Any, parse: _cdy_Callable[[str], tuple[Form, ...]], macros: _cdy_Mapping[str, Macro], quoting: bool) -> tuple[Top, ...]:
+    scope = find_variants(forms, Scope({}, top_names(forms, {}), table, parse, {}, {}, NOWHERE, macros, quoting))
     return analyse_tops(forms, scope, Prog((), {}, 0, def_names(forms, {}), {})).out
 
 def def_names(forms: tuple[Form, ...], acc: _cdy_Mapping[str, bool]) -> _cdy_Mapping[str, bool]:
@@ -1275,7 +1720,9 @@ def analyse_top(form: Form, scope: Scope, prog: Prog) -> Prog:
     items = list_items(form)
     head = (sym_name(items[0]) if (len(items) > 0) else '')
     here = at_pos(scope, form_pos(form))
-    if (head == 'sig'):
+    if (cdy_rt.table_defs.in_(head, ('def', 'defn')) and (len(items) > 1) and cdy_rt.table_defs.map_has(scope.macros, sym_name(items[1]))):
+        return cdy_rt.table_defs.fail(located(here, (str(sym_name(items[1])) + " is a macro, so it can't be defined")))
+    elif (head == 'sig'):
         return top_sig(items, here, prog)
     elif (head == 'def'):
         return top_def(items, here, prog)
@@ -1385,9 +1832,9 @@ def top_defn(items: tuple[Form, ...], scope: Scope, prog: Prog) -> Prog:
         params = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_519 = analyse_expr(items[3], inner, n1)
-        body = _cdy__tup_519[0]
-        n2 = _cdy__tup_519[1]
+        _cdy__tup_697 = analyse_expr(items[3], inner, n1)
+        body = _cdy__tup_697[0]
+        n2 = _cdy__tup_697[1]
         if (len(params) == 0):
             return cdy_rt.table_defs.fail(located(scope, ('defn ' + str(name) + ': at least one argument is needed')))
         elif (len(params) != fn_arity(t)):
@@ -1396,9 +1843,9 @@ def top_defn(items: tuple[Form, ...], scope: Scope, prog: Prog) -> Prog:
             return mark_defined(add_top(prog, TDefn(name, params, body, t), n2), name)
 
 def fn_arity(t: CType) -> int:
-    _cdy_t18: object = t
-    if isinstance(_cdy_t18, TFn):
-        params = _cdy_t18.params
+    _cdy_t26: object = t
+    if isinstance(_cdy_t26, TFn):
+        params = _cdy_t26.params
         return len(params)
     else:
         return -1
@@ -1413,7 +1860,7 @@ def bind_params(forms: tuple[Form, ...], scope: Scope, n: int, acc: tuple[Expr, 
             if (name == ''):
                 return cdy_rt.table_defs.fail(located(scope, 'a parameter must be a name'))
             else:
-                forms, scope, n, acc = (rest_of(forms), scope._replace(env=cdy_rt.table_defs.map_set(scope.env, name, loc)), (n + 1), (acc + cdy_rt.table_defs.to_list(loc)))
+                forms, scope, n, acc = (rest_of(forms), bind_local(scope, name, loc), (n + 1), (acc + cdy_rt.table_defs.to_list(loc)))
                 continue
 MAIN_TYPE: CType = TFn(cdy_rt.table_defs.to_list(TCon('List', cdy_rt.table_defs.to_list(TCon('String', ())))), TCon('Int', ()))
 
@@ -1428,19 +1875,19 @@ def has_main(tops: tuple[Top, ...]) -> bool:
             continue
 
 def is_main(top: Top) -> bool:
-    _cdy_t19: object = top
-    if isinstance(_cdy_t19, TDefn):
-        name = _cdy_t19.name
-        t = _cdy_t19.t
+    _cdy_t27: object = top
+    if isinstance(_cdy_t27, TDefn):
+        name = _cdy_t27.name
+        t = _cdy_t27.t
         if (name != 'main'):
             return False
         elif (t == MAIN_TYPE):
             return True
         else:
             return cdy_rt.table_defs.fail('main must be typed (Fn ((List String)) Int)')
-    elif isinstance(_cdy_t19, TDef):
-        _cdy_name_534 = _cdy_t19.name
-        if (_cdy_name_534 == 'main'):
+    elif isinstance(_cdy_t27, TDef):
+        _cdy_name_712 = _cdy_t27.name
+        if (_cdy_name_712 == 'main'):
             return cdy_rt.table_defs.fail('main must be a defn')
         else:
             return False
@@ -1516,28 +1963,28 @@ class Low(_cdy_NamedTuple):
     n: int
 
 def is_simple(e: Expr) -> bool:
-    _cdy_t20: object = e
-    if isinstance(_cdy_t20, Lit):
+    _cdy_t28: object = e
+    if isinstance(_cdy_t28, Lit):
         return True
-    elif isinstance(_cdy_t20, Local):
+    elif isinstance(_cdy_t28, Local):
         return True
-    elif isinstance(_cdy_t20, Global):
+    elif isinstance(_cdy_t28, Global):
         return True
-    elif isinstance(_cdy_t20, Prim):
+    elif isinstance(_cdy_t28, Prim):
         return True
-    elif isinstance(_cdy_t20, Temp):
+    elif isinstance(_cdy_t28, Temp):
         return True
     else:
         return False
 
 def is_applied(e: Expr) -> bool:
-    _cdy_t21: object = e
-    if isinstance(_cdy_t21, Call):
-        callee = _cdy_t21.callee
-        args = _cdy_t21.args
-        _cdy_t22: object = callee
-        if isinstance(_cdy_t22, Lambda):
-            params = _cdy_t22.params
+    _cdy_t29: object = e
+    if isinstance(_cdy_t29, Call):
+        callee = _cdy_t29.callee
+        args = _cdy_t29.args
+        _cdy_t30: object = callee
+        if isinstance(_cdy_t30, Lambda):
+            params = _cdy_t30.params
             return (len(params) == len(args))
         else:
             return False
@@ -1545,14 +1992,14 @@ def is_applied(e: Expr) -> bool:
         return False
 
 def bind_applied(e: Expr, n: int) -> tuple[tuple[Stmt, ...], Expr, int]:
-    _cdy_t23: object = e
-    if isinstance(_cdy_t23, Call):
-        callee = _cdy_t23.callee
-        args = _cdy_t23.args
-        _cdy_t24: object = callee
-        if isinstance(_cdy_t24, Lambda):
-            params = _cdy_t24.params
-            body = _cdy_t24.body
+    _cdy_t31: object = e
+    if isinstance(_cdy_t31, Call):
+        callee = _cdy_t31.callee
+        args = _cdy_t31.args
+        _cdy_t32: object = callee
+        if isinstance(_cdy_t32, Lambda):
+            params = _cdy_t32.params
+            body = _cdy_t32.body
             _tup = value_seq(args, n)
             stmts = _tup[0]
             vals = _tup[1]
@@ -1580,73 +2027,73 @@ def value(e: Expr, n: int) -> Low:
         low = value(body, n1)
         return Low((stmts + low.stmts), low.expr, low.n)
     else:
-        _cdy_t25: object = e
-        if isinstance(_cdy_t25, Call):
-            callee = _cdy_t25.callee
-            args = _cdy_t25.args
+        _cdy_t33: object = e
+        if isinstance(_cdy_t33, Call):
+            callee = _cdy_t33.callee
+            args = _cdy_t33.args
             return value_call(callee, args, n)
-        elif isinstance(_cdy_t25, If):
-            test = _cdy_t25.test
-            then = _cdy_t25.then
-            other = _cdy_t25.other
+        elif isinstance(_cdy_t33, If):
+            test = _cdy_t33.test
+            then = _cdy_t33.then
+            other = _cdy_t33.other
             return value_if(test, then, other, n)
-        elif isinstance(_cdy_t25, Do):
-            _cdy_body_565 = _cdy_t25.body
-            return value_do(_cdy_body_565, n)
-        elif isinstance(_cdy_t25, Lambda):
-            params = _cdy_t25.params
-            _cdy_body_567 = _cdy_t25.body
-            return value_fn(params, _cdy_body_567, n)
-        elif isinstance(_cdy_t25, Tuple):
-            items = _cdy_t25.items
-            _cdy__tup_569 = value_seq(items, n)
-            _cdy_stmts_570 = _cdy__tup_569[0]
-            vals = _cdy__tup_569[1]
-            _cdy_n1_572 = _cdy__tup_569[2]
-            return Low(_cdy_stmts_570, Tuple(vals), _cdy_n1_572)
-        elif isinstance(_cdy_t25, Fmt):
-            parts = _cdy_t25.parts
-            _cdy__tup_574 = value_seq(holes(parts, ()), n)
-            _cdy_stmts_575 = _cdy__tup_574[0]
-            _cdy_vals_576 = _cdy__tup_574[1]
-            _cdy_n1_577 = _cdy__tup_574[2]
-            return Low(_cdy_stmts_575, Fmt(fill_holes(parts, _cdy_vals_576, ())), _cdy_n1_577)
-        elif isinstance(_cdy_t25, Field):
-            obj = _cdy_t25.obj
-            field = _cdy_t25.field
-            _cdy_low_580 = value(obj, n)
-            return Low(_cdy_low_580.stmts, Field(_cdy_low_580.expr, field), _cdy_low_580.n)
-        elif isinstance(_cdy_t25, Assoc):
-            _cdy_obj_581 = _cdy_t25.obj
-            fields = _cdy_t25.fields
-            _cdy__tup_583 = value_seq((cdy_rt.table_defs.to_list(_cdy_obj_581) + field_vals(fields, ())), n)
-            _cdy_stmts_584 = _cdy__tup_583[0]
-            _cdy_vals_585 = _cdy__tup_583[1]
-            _cdy_n1_586 = _cdy__tup_583[2]
-            return Low(_cdy_stmts_584, Assoc(_cdy_vals_585[0], refill(fields, _cdy_vals_585[1:len(_cdy_vals_585)], ())), _cdy_n1_586)
-        elif isinstance(_cdy_t25, MatchE):
+        elif isinstance(_cdy_t33, Do):
+            _cdy_body_743 = _cdy_t33.body
+            return value_do(_cdy_body_743, n)
+        elif isinstance(_cdy_t33, Lambda):
+            params = _cdy_t33.params
+            _cdy_body_745 = _cdy_t33.body
+            return value_fn(params, _cdy_body_745, n)
+        elif isinstance(_cdy_t33, Tuple):
+            items = _cdy_t33.items
+            _cdy__tup_747 = value_seq(items, n)
+            _cdy_stmts_748 = _cdy__tup_747[0]
+            vals = _cdy__tup_747[1]
+            _cdy_n1_750 = _cdy__tup_747[2]
+            return Low(_cdy_stmts_748, Tuple(vals), _cdy_n1_750)
+        elif isinstance(_cdy_t33, Fmt):
+            parts = _cdy_t33.parts
+            _cdy__tup_752 = value_seq(holes(parts, ()), n)
+            _cdy_stmts_753 = _cdy__tup_752[0]
+            _cdy_vals_754 = _cdy__tup_752[1]
+            _cdy_n1_755 = _cdy__tup_752[2]
+            return Low(_cdy_stmts_753, Fmt(fill_holes(parts, _cdy_vals_754, ())), _cdy_n1_755)
+        elif isinstance(_cdy_t33, Field):
+            obj = _cdy_t33.obj
+            field = _cdy_t33.field
+            _cdy_low_758 = value(obj, n)
+            return Low(_cdy_low_758.stmts, Field(_cdy_low_758.expr, field), _cdy_low_758.n)
+        elif isinstance(_cdy_t33, Assoc):
+            _cdy_obj_759 = _cdy_t33.obj
+            fields = _cdy_t33.fields
+            _cdy__tup_761 = value_seq((cdy_rt.table_defs.to_list(_cdy_obj_759) + field_vals(fields, ())), n)
+            _cdy_stmts_762 = _cdy__tup_761[0]
+            _cdy_vals_763 = _cdy__tup_761[1]
+            _cdy_n1_764 = _cdy__tup_761[2]
+            return Low(_cdy_stmts_762, Assoc(_cdy_vals_763[0], refill(fields, _cdy_vals_763[1:len(_cdy_vals_763)], ())), _cdy_n1_764)
+        elif isinstance(_cdy_t33, MatchE):
             tmp = Temp(n)
-            _cdy__tup_588 = lower_match(e, 'value', tmp, (n + 1))
-            _cdy_stmts_589 = _cdy__tup_588[0]
-            _cdy_n1_590 = _cdy__tup_588[1]
-            return Low(_cdy_stmts_589, tmp, _cdy_n1_590)
+            _cdy__tup_766 = lower_match(e, 'value', tmp, (n + 1))
+            _cdy_stmts_767 = _cdy__tup_766[0]
+            _cdy_n1_768 = _cdy__tup_766[1]
+            return Low(_cdy_stmts_767, tmp, _cdy_n1_768)
         else:
             return Low((), e, n)
 
 def lower_match(e: Expr, mode: str, tmp: Expr, n: int) -> tuple[tuple[Stmt, ...], int]:
-    _cdy_t26: object = e
-    if isinstance(_cdy_t26, MatchE):
-        subject = _cdy_t26.subject
-        clauses = _cdy_t26.clauses
-        default = _cdy_t26.default
+    _cdy_t34: object = e
+    if isinstance(_cdy_t34, MatchE):
+        subject = _cdy_t34.subject
+        clauses = _cdy_t34.clauses
+        default = _cdy_t34.default
         low = value(subject, n)
         temp = Temp(low.n)
         _tup = lower_cases(clauses, mode, tmp, (low.n + 1), ())
         cases = _tup[0]
         n2 = _tup[1]
-        _cdy__tup_603 = lower_default(default, mode, tmp, n2)
-        default_stmts = _cdy__tup_603[0]
-        n3 = _cdy__tup_603[1]
+        _cdy__tup_781 = lower_default(default, mode, tmp, n2)
+        default_stmts = _cdy__tup_781[0]
+        n3 = _cdy__tup_781[1]
         return ((low.stmts + cdy_rt.table_defs.to_list(SMatch(temp, low.expr, cases, default_stmts))), n3)
     else:
         return cdy_rt.table_defs.fail('lower: not a match')
@@ -1685,9 +2132,9 @@ def value_fn(params: tuple[Expr, ...], body: Expr, n: int) -> Low:
     _tup = tail(body, n)
     stmts = _tup[0]
     n1 = _tup[1]
-    _cdy_t27: object = (stmts[0] if (len(stmts) == 1) else SExpr(NIL))
-    if isinstance(_cdy_t27, SReturn):
-        result = _cdy_t27.val
+    _cdy_t35: object = (stmts[0] if (len(stmts) == 1) else SExpr(NIL))
+    if isinstance(_cdy_t35, SReturn):
+        result = _cdy_t35.val
         return Low((), Lambda(params, result), n1)
     else:
         return Low(cdy_rt.table_defs.to_list(SLocalFunc(Temp(n1), params, stmts)), Temp(n1), (n1 + 1))
@@ -1697,15 +2144,15 @@ def holes(parts: tuple[FPart, ...], acc: tuple[Expr, ...]) -> tuple[Expr, ...]:
         if (len(parts) == 0):
             return acc
         else:
-            _cdy_t30 = parts[1:len(parts)]
-            _cdy_t29: object = parts[0]
-            if isinstance(_cdy_t29, FHole):
-                e = _cdy_t29.expr
-                _cdy_t28 = (acc + cdy_rt.table_defs.to_list(e))
+            _cdy_t38 = parts[1:len(parts)]
+            _cdy_t37: object = parts[0]
+            if isinstance(_cdy_t37, FHole):
+                e = _cdy_t37.expr
+                _cdy_t36 = (acc + cdy_rt.table_defs.to_list(e))
             else:
-                assert isinstance(_cdy_t29, FText)
-                _cdy_t28 = acc
-            parts, acc = (_cdy_t30, _cdy_t28)
+                assert isinstance(_cdy_t37, FText)
+                _cdy_t36 = acc
+            parts, acc = (_cdy_t38, _cdy_t36)
             continue
 
 def fill_holes(parts: tuple[FPart, ...], vals: tuple[Expr, ...], acc: tuple[FPart, ...]) -> tuple[FPart, ...]:
@@ -1713,13 +2160,13 @@ def fill_holes(parts: tuple[FPart, ...], vals: tuple[Expr, ...], acc: tuple[FPar
         if (len(parts) == 0):
             return acc
         else:
-            _cdy_t31: object = parts[0]
-            if isinstance(_cdy_t31, FHole):
+            _cdy_t39: object = parts[0]
+            if isinstance(_cdy_t39, FHole):
                 parts, vals, acc = (parts[1:len(parts)], vals[1:len(vals)], (acc + cdy_rt.table_defs.to_list(FHole(vals[0]))))
                 continue
             else:
-                assert isinstance(_cdy_t31, FText)
-                text = _cdy_t31.text
+                assert isinstance(_cdy_t39, FText)
+                text = _cdy_t39.text
                 parts, acc = (parts[1:len(parts)], (acc + cdy_rt.table_defs.to_list(FText(text))))
                 continue
 
@@ -1756,9 +2203,9 @@ def value_call(callee: Expr, args: tuple[Expr, ...], n: int) -> Low:
         return Low(stmts, Call(items[0], items[1:len(items)]), n1)
 
 def prim_name(e: Expr) -> str:
-    _cdy_t32: object = e
-    if isinstance(_cdy_t32, Prim):
-        name = _cdy_t32.name
+    _cdy_t40: object = e
+    if isinstance(_cdy_t40, Prim):
+        name = _cdy_t40.name
         return name
     else:
         return ''
@@ -1843,26 +2290,26 @@ def value_if(test: Expr, then: Expr, other: Expr, n: int) -> Low:
         tmp = b.expr
         return Low((t.stmts + cdy_rt.table_defs.to_list(SIf(t.expr, (a.stmts + cdy_rt.table_defs.to_list(SAssign(tmp, a.expr))), b.stmts))), tmp, b.n)
     else:
-        _cdy_tmp_704 = Temp(b.n)
-        return Low((t.stmts + cdy_rt.table_defs.to_list(SIf(t.expr, (a.stmts + cdy_rt.table_defs.to_list(SAssign(_cdy_tmp_704, a.expr))), (b.stmts + cdy_rt.table_defs.to_list(SAssign(_cdy_tmp_704, b.expr)))))), _cdy_tmp_704, (b.n + 1))
+        _cdy_tmp_882 = Temp(b.n)
+        return Low((t.stmts + cdy_rt.table_defs.to_list(SIf(t.expr, (a.stmts + cdy_rt.table_defs.to_list(SAssign(_cdy_tmp_882, a.expr))), (b.stmts + cdy_rt.table_defs.to_list(SAssign(_cdy_tmp_882, b.expr)))))), _cdy_tmp_882, (b.n + 1))
 
 def is_if_into(stmts: tuple[Stmt, ...], e: Expr) -> bool:
-    _cdy_t37 = (len(stmts) == 1)
-    if _cdy_t37:
-        _cdy_t34: object = stmts[0]
-        if isinstance(_cdy_t34, SIf):
-            _cdy_t33 = True
+    _cdy_t45 = (len(stmts) == 1)
+    if _cdy_t45:
+        _cdy_t42: object = stmts[0]
+        if isinstance(_cdy_t42, SIf):
+            _cdy_t41 = True
         else:
-            _cdy_t33 = False
-        _cdy_t37 = _cdy_t33
-        if _cdy_t37:
-            _cdy_t36: object = e
-            if isinstance(_cdy_t36, Temp):
-                _cdy_t35 = True
+            _cdy_t41 = False
+        _cdy_t45 = _cdy_t41
+        if _cdy_t45:
+            _cdy_t44: object = e
+            if isinstance(_cdy_t44, Temp):
+                _cdy_t43 = True
             else:
-                _cdy_t35 = False
-            _cdy_t37 = _cdy_t35
-    return _cdy_t37
+                _cdy_t43 = False
+            _cdy_t45 = _cdy_t43
+    return _cdy_t45
 
 def all_but_last(exprs: tuple[Expr, ...]) -> tuple[Expr, ...]:
     return exprs[0:(len(exprs) - 1)]
@@ -1883,37 +2330,37 @@ def tail(e: Expr, n: int) -> tuple[tuple[Stmt, ...], int]:
         stmts = _tup[0]
         body = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_721 = tail(body, n1)
-        more = _cdy__tup_721[0]
-        n2 = _cdy__tup_721[1]
+        _cdy__tup_899 = tail(body, n1)
+        more = _cdy__tup_899[0]
+        n2 = _cdy__tup_899[1]
         return ((stmts + more), n2)
     else:
         return tail_plain(e, n)
 
 def tail_plain(e: Expr, n: int) -> tuple[tuple[Stmt, ...], int]:
-    _cdy_t38: object = e
-    if isinstance(_cdy_t38, If):
-        test = _cdy_t38.test
-        then = _cdy_t38.then
-        other = _cdy_t38.other
+    _cdy_t46: object = e
+    if isinstance(_cdy_t46, If):
+        test = _cdy_t46.test
+        then = _cdy_t46.then
+        other = _cdy_t46.other
         t = value(test, n)
         _tup = tail(then, t.n)
         a = _tup[0]
         n1 = _tup[1]
-        _cdy__tup_733 = tail(other, n1)
-        b = _cdy__tup_733[0]
-        n2 = _cdy__tup_733[1]
+        _cdy__tup_911 = tail(other, n1)
+        b = _cdy__tup_911[0]
+        n2 = _cdy__tup_911[1]
         return ((t.stmts + cdy_rt.table_defs.to_list(SIf(t.expr, a, b))), n2)
-    elif isinstance(_cdy_t38, Do):
-        body = _cdy_t38.body
-        _cdy__tup_737 = effect_all(all_but_last(body), n, ())
-        stmts = _cdy__tup_737[0]
-        _cdy_n1_739 = _cdy__tup_737[1]
-        _cdy__tup_740 = tail(last_of(body), _cdy_n1_739)
-        last = _cdy__tup_740[0]
-        _cdy_n2_742 = _cdy__tup_740[1]
-        return ((stmts + last), _cdy_n2_742)
-    elif isinstance(_cdy_t38, MatchE):
+    elif isinstance(_cdy_t46, Do):
+        body = _cdy_t46.body
+        _cdy__tup_915 = effect_all(all_but_last(body), n, ())
+        stmts = _cdy__tup_915[0]
+        _cdy_n1_917 = _cdy__tup_915[1]
+        _cdy__tup_918 = tail(last_of(body), _cdy_n1_917)
+        last = _cdy__tup_918[0]
+        _cdy_n2_920 = _cdy__tup_918[1]
+        return ((stmts + last), _cdy_n2_920)
+    elif isinstance(_cdy_t46, MatchE):
         return lower_match(e, 'tail', NIL, n)
     else:
         low = value(e, n)
@@ -1925,31 +2372,31 @@ def effect(e: Expr, n: int) -> tuple[tuple[Stmt, ...], int]:
         stmts = _tup[0]
         body = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_750 = effect(body, n1)
-        more = _cdy__tup_750[0]
-        n2 = _cdy__tup_750[1]
+        _cdy__tup_928 = effect(body, n1)
+        more = _cdy__tup_928[0]
+        n2 = _cdy__tup_928[1]
         return ((stmts + more), n2)
     else:
         return effect_plain(e, n)
 
 def effect_plain(e: Expr, n: int) -> tuple[tuple[Stmt, ...], int]:
-    _cdy_t39: object = e
-    if isinstance(_cdy_t39, If):
-        test = _cdy_t39.test
-        then = _cdy_t39.then
-        other = _cdy_t39.other
+    _cdy_t47: object = e
+    if isinstance(_cdy_t47, If):
+        test = _cdy_t47.test
+        then = _cdy_t47.then
+        other = _cdy_t47.other
         t = value(test, n)
         _tup = effect(then, t.n)
         a = _tup[0]
         n1 = _tup[1]
-        _cdy__tup_762 = effect(other, n1)
-        b = _cdy__tup_762[0]
-        n2 = _cdy__tup_762[1]
+        _cdy__tup_940 = effect(other, n1)
+        b = _cdy__tup_940[0]
+        n2 = _cdy__tup_940[1]
         return ((t.stmts + cdy_rt.table_defs.to_list(SIf(t.expr, a, b))), n2)
-    elif isinstance(_cdy_t39, Do):
-        body = _cdy_t39.body
+    elif isinstance(_cdy_t47, Do):
+        body = _cdy_t47.body
         return effect_all(body, n, ())
-    elif isinstance(_cdy_t39, MatchE):
+    elif isinstance(_cdy_t47, MatchE):
         return lower_match(e, 'effect', NIL, n)
     else:
         if is_simple(e):
@@ -1970,12 +2417,12 @@ def effect_all(exprs: tuple[Expr, ...], n: int, acc: tuple[Stmt, ...]) -> tuple[
             continue
 
 def returns_unit(t: CType) -> bool:
-    _cdy_t40: object = t
-    if isinstance(_cdy_t40, TFn):
-        ret = _cdy_t40.ret
-        _cdy_t41: object = ret
-        if isinstance(_cdy_t41, TCon):
-            name = _cdy_t41.name
+    _cdy_t48: object = t
+    if isinstance(_cdy_t48, TFn):
+        ret = _cdy_t48.ret
+        _cdy_t49: object = ret
+        if isinstance(_cdy_t49, TCon):
+            name = _cdy_t49.name
             return (name == 'Unit')
         else:
             return False
@@ -1983,35 +2430,35 @@ def returns_unit(t: CType) -> bool:
         return False
 
 def lower_top(top: Top, n: int) -> tuple[tuple[Stmt, ...], int]:
-    _cdy_t42: object = top
-    if isinstance(_cdy_t42, TDeft):
-        name = _cdy_t42.name
-        tvars = _cdy_t42.tvars
-        fields = _cdy_t42.fields
+    _cdy_t50: object = top
+    if isinstance(_cdy_t50, TDeft):
+        name = _cdy_t50.name
+        tvars = _cdy_t50.tvars
+        fields = _cdy_t50.fields
         return (cdy_rt.table_defs.to_list(SRecord(name, tvars, fields)), n)
-    elif isinstance(_cdy_t42, TDeftSum):
-        _cdy_name_781 = _cdy_t42.name
-        _cdy_tvars_782 = _cdy_t42.tvars
-        variants = _cdy_t42.variants
-        return (cdy_rt.table_defs.to_list(SSum(_cdy_name_781, _cdy_tvars_782, variants)), n)
-    elif isinstance(_cdy_t42, TDef):
-        _cdy_name_784 = _cdy_t42.name
-        init = _cdy_t42.init
-        t = _cdy_t42.t
+    elif isinstance(_cdy_t50, TDeftSum):
+        _cdy_name_959 = _cdy_t50.name
+        _cdy_tvars_960 = _cdy_t50.tvars
+        variants = _cdy_t50.variants
+        return (cdy_rt.table_defs.to_list(SSum(_cdy_name_959, _cdy_tvars_960, variants)), n)
+    elif isinstance(_cdy_t50, TDef):
+        _cdy_name_962 = _cdy_t50.name
+        init = _cdy_t50.init
+        t = _cdy_t50.t
         low = value(init, n)
-        return ((low.stmts + cdy_rt.table_defs.to_list(SDefAssign(_cdy_name_784, low.expr, t))), low.n)
-    elif isinstance(_cdy_t42, TDefn):
-        _cdy_name_788 = _cdy_t42.name
-        params = _cdy_t42.params
-        body = _cdy_t42.body
-        _cdy_t_791 = _cdy_t42.t
-        _tup = (effect(body, n) if returns_unit(_cdy_t_791) else tail(body, n))
+        return ((low.stmts + cdy_rt.table_defs.to_list(SDefAssign(_cdy_name_962, low.expr, t))), low.n)
+    elif isinstance(_cdy_t50, TDefn):
+        _cdy_name_966 = _cdy_t50.name
+        params = _cdy_t50.params
+        body = _cdy_t50.body
+        _cdy_t_969 = _cdy_t50.t
+        _tup = (effect(body, n) if returns_unit(_cdy_t_969) else tail(body, n))
         stmts = _tup[0]
         n1 = _tup[1]
-        return (cdy_rt.table_defs.to_list(SFunc(_cdy_name_788, params, loop_tail_calls(_cdy_name_788, params, stmts, returns_unit(_cdy_t_791)), _cdy_t_791)), n1)
+        return (cdy_rt.table_defs.to_list(SFunc(_cdy_name_966, params, loop_tail_calls(_cdy_name_966, params, stmts, returns_unit(_cdy_t_969)), _cdy_t_969)), n1)
     else:
-        assert isinstance(_cdy_t42, TExpr)
-        e = _cdy_t42.expr
+        assert isinstance(_cdy_t50, TExpr)
+        e = _cdy_t50.expr
         return effect(e, n)
 
 def loop_tail_calls(name: str, params: tuple[Expr, ...], body: tuple[Stmt, ...], unit: bool) -> tuple[Stmt, ...]:
@@ -2031,29 +2478,29 @@ def retail_all(stmts: tuple[Stmt, ...], name: str, params: tuple[Expr, ...]) -> 
         return (stmts[0:(len(stmts) - 1)] + retail(stmts[(len(stmts) - 1)], name, params))
 
 def retail(s: Stmt, name: str, params: tuple[Expr, ...]) -> tuple[Stmt, ...]:
-    _cdy_t43: object = s
-    if isinstance(_cdy_t43, SReturn):
-        val = _cdy_t43.val
+    _cdy_t51: object = s
+    if isinstance(_cdy_t51, SReturn):
+        val = _cdy_t51.val
         if is_self_call(val, name, params):
             return jump(params, call_args(val))
         else:
             return cdy_rt.table_defs.to_list(s)
-    elif isinstance(_cdy_t43, SExpr):
-        e = _cdy_t43.expr
+    elif isinstance(_cdy_t51, SExpr):
+        e = _cdy_t51.expr
         if is_self_call(e, name, params):
             return jump(params, call_args(e))
         else:
             return cdy_rt.table_defs.to_list(s)
-    elif isinstance(_cdy_t43, SIf):
-        test = _cdy_t43.test
-        then = _cdy_t43.then
-        other = _cdy_t43.other
+    elif isinstance(_cdy_t51, SIf):
+        test = _cdy_t51.test
+        then = _cdy_t51.then
+        other = _cdy_t51.other
         return cdy_rt.table_defs.to_list(SIf(test, retail_all(then, name, params), retail_all(other, name, params)))
-    elif isinstance(_cdy_t43, SMatch):
-        temp = _cdy_t43.temp
-        subject = _cdy_t43.subject
-        cases = _cdy_t43.cases
-        default = _cdy_t43.default
+    elif isinstance(_cdy_t51, SMatch):
+        temp = _cdy_t51.temp
+        subject = _cdy_t51.subject
+        cases = _cdy_t51.cases
+        default = _cdy_t51.default
         return cdy_rt.table_defs.to_list(SMatch(temp, subject, retail_cases(cases, name, params, ()), retail_lists(default, name, params, ())))
     else:
         return cdy_rt.table_defs.to_list(s)
@@ -2076,13 +2523,13 @@ def retail_lists(lists: tuple[tuple[Stmt, ...], ...], name: str, params: tuple[E
             continue
 
 def is_self_call(e: Expr, name: str, params: tuple[Expr, ...]) -> bool:
-    _cdy_t44: object = e
-    if isinstance(_cdy_t44, Call):
-        callee = _cdy_t44.callee
-        args = _cdy_t44.args
-        _cdy_t45: object = callee
-        if isinstance(_cdy_t45, Global):
-            g = _cdy_t45.name
+    _cdy_t52: object = e
+    if isinstance(_cdy_t52, Call):
+        callee = _cdy_t52.callee
+        args = _cdy_t52.args
+        _cdy_t53: object = callee
+        if isinstance(_cdy_t53, Global):
+            g = _cdy_t53.name
             return ((g == name) and (len(args) == len(params)))
         else:
             return False
@@ -2090,9 +2537,9 @@ def is_self_call(e: Expr, name: str, params: tuple[Expr, ...]) -> bool:
         return False
 
 def call_args(e: Expr) -> tuple[Expr, ...]:
-    _cdy_t46: object = e
-    if isinstance(_cdy_t46, Call):
-        args = _cdy_t46.args
+    _cdy_t54: object = e
+    if isinstance(_cdy_t54, Call):
+        args = _cdy_t54.args
         return args
     else:
         return ()
@@ -2128,37 +2575,37 @@ def stmts_have_closure(stmts: tuple[Stmt, ...]) -> bool:
             continue
 
 def stmt_has_closure(s: Stmt) -> bool:
-    _cdy_t47: object = s
-    if isinstance(_cdy_t47, SLocalFunc):
+    _cdy_t55: object = s
+    if isinstance(_cdy_t55, SLocalFunc):
         return True
-    elif isinstance(_cdy_t47, SAssign):
-        target = _cdy_t47.target
-        val = _cdy_t47.val
+    elif isinstance(_cdy_t55, SAssign):
+        target = _cdy_t55.target
+        val = _cdy_t55.val
         return (has_lambda(target) or has_lambda(val))
-    elif isinstance(_cdy_t47, SDefAssign):
-        _cdy_val_846 = _cdy_t47.val
-        return has_lambda(_cdy_val_846)
-    elif isinstance(_cdy_t47, SExpr):
-        e = _cdy_t47.expr
+    elif isinstance(_cdy_t55, SDefAssign):
+        _cdy_val_1024 = _cdy_t55.val
+        return has_lambda(_cdy_val_1024)
+    elif isinstance(_cdy_t55, SExpr):
+        e = _cdy_t55.expr
         return has_lambda(e)
-    elif isinstance(_cdy_t47, SReturn):
-        _cdy_val_848 = _cdy_t47.val
-        return has_lambda(_cdy_val_848)
-    elif isinstance(_cdy_t47, SIf):
-        test = _cdy_t47.test
-        then = _cdy_t47.then
-        other = _cdy_t47.other
+    elif isinstance(_cdy_t55, SReturn):
+        _cdy_val_1026 = _cdy_t55.val
+        return has_lambda(_cdy_val_1026)
+    elif isinstance(_cdy_t55, SIf):
+        test = _cdy_t55.test
+        then = _cdy_t55.then
+        other = _cdy_t55.other
         return (has_lambda(test) or stmts_have_closure(then) or stmts_have_closure(other))
-    elif isinstance(_cdy_t47, SMatch):
-        subject = _cdy_t47.subject
-        cases = _cdy_t47.cases
-        default = _cdy_t47.default
+    elif isinstance(_cdy_t55, SMatch):
+        subject = _cdy_t55.subject
+        cases = _cdy_t55.cases
+        default = _cdy_t55.default
         return (has_lambda(subject) or cases_have_closure(cases) or lists_have_closure(default))
-    elif isinstance(_cdy_t47, SLoop):
-        body = _cdy_t47.body
+    elif isinstance(_cdy_t55, SLoop):
+        body = _cdy_t55.body
         return stmts_have_closure(body)
-    elif isinstance(_cdy_t47, SRebind):
-        vals = _cdy_t47.vals
+    elif isinstance(_cdy_t55, SRebind):
+        vals = _cdy_t55.vals
         return any_lambda(vals)
     else:
         return False
@@ -2195,37 +2642,37 @@ def any_lambda(exprs: tuple[Expr, ...]) -> bool:
 
 def has_lambda(e: Expr) -> bool:
     while True:
-        _cdy_t48: object = e
-        if isinstance(_cdy_t48, Lambda):
+        _cdy_t56: object = e
+        if isinstance(_cdy_t56, Lambda):
             return True
-        elif isinstance(_cdy_t48, Call):
-            callee = _cdy_t48.callee
-            args = _cdy_t48.args
+        elif isinstance(_cdy_t56, Call):
+            callee = _cdy_t56.callee
+            args = _cdy_t56.args
             return (has_lambda(callee) or any_lambda(args))
-        elif isinstance(_cdy_t48, If):
-            test = _cdy_t48.test
-            then = _cdy_t48.then
-            other = _cdy_t48.other
+        elif isinstance(_cdy_t56, If):
+            test = _cdy_t56.test
+            then = _cdy_t56.then
+            other = _cdy_t56.other
             return (has_lambda(test) or has_lambda(then) or has_lambda(other))
-        elif isinstance(_cdy_t48, Do):
-            body = _cdy_t48.body
+        elif isinstance(_cdy_t56, Do):
+            body = _cdy_t56.body
             return any_lambda(body)
-        elif isinstance(_cdy_t48, Tuple):
-            items = _cdy_t48.items
+        elif isinstance(_cdy_t56, Tuple):
+            items = _cdy_t56.items
             return any_lambda(items)
-        elif isinstance(_cdy_t48, Fmt):
-            parts = _cdy_t48.parts
+        elif isinstance(_cdy_t56, Fmt):
+            parts = _cdy_t56.parts
             return any_lambda(holes(parts, ()))
-        elif isinstance(_cdy_t48, Field):
-            obj = _cdy_t48.obj
+        elif isinstance(_cdy_t56, Field):
+            obj = _cdy_t56.obj
             e = obj
             continue
-        elif isinstance(_cdy_t48, Assoc):
-            _cdy_obj_870 = _cdy_t48.obj
-            fields = _cdy_t48.fields
-            return (has_lambda(_cdy_obj_870) or any_lambda(field_vals(fields, ())))
-        elif isinstance(_cdy_t48, MatchE):
-            subject = _cdy_t48.subject
+        elif isinstance(_cdy_t56, Assoc):
+            _cdy_obj_1048 = _cdy_t56.obj
+            fields = _cdy_t56.fields
+            return (has_lambda(_cdy_obj_1048) or any_lambda(field_vals(fields, ())))
+        elif isinstance(_cdy_t56, MatchE):
+            subject = _cdy_t56.subject
             e = subject
             continue
         else:
@@ -2275,10 +2722,10 @@ def add_globals(names: tuple[str, ...], env: Env) -> Env:
             continue
 
 def top_names_of(top: Top) -> tuple[str, ...]:
-    _cdy_t49: object = top
-    if isinstance(_cdy_t49, TDeftSum):
-        name = _cdy_t49.name
-        variants = _cdy_t49.variants
+    _cdy_t57: object = top
+    if isinstance(_cdy_t57, TDeftSum):
+        name = _cdy_t57.name
+        variants = _cdy_t57.variants
         return (cdy_rt.table_defs.to_list(name) + variant_list_names(variants, ()))
     else:
         if (top_name(top) == ''):
@@ -2295,16 +2742,16 @@ def variant_list_names(variants: tuple[Variant, ...], acc: tuple[str, ...]) -> t
             continue
 
 def top_name(top: Top) -> str:
-    _cdy_t50: object = top
-    if isinstance(_cdy_t50, TDeft):
-        name = _cdy_t50.name
+    _cdy_t58: object = top
+    if isinstance(_cdy_t58, TDeft):
+        name = _cdy_t58.name
         return name
-    elif isinstance(_cdy_t50, TDef):
-        _cdy_name_895 = _cdy_t50.name
-        return _cdy_name_895
-    elif isinstance(_cdy_t50, TDefn):
-        _cdy_name_896 = _cdy_t50.name
-        return _cdy_name_896
+    elif isinstance(_cdy_t58, TDef):
+        _cdy_name_1073 = _cdy_t58.name
+        return _cdy_name_1073
+    elif isinstance(_cdy_t58, TDefn):
+        _cdy_name_1074 = _cdy_t58.name
+        return _cdy_name_1074
     else:
         return ''
 
@@ -2313,15 +2760,15 @@ def generic_variants(tops: tuple[Top, ...], acc: _cdy_Mapping[str, bool]) -> _cd
         if (len(tops) == 0):
             return acc
         else:
-            _cdy_t53 = tops[1:len(tops)]
-            _cdy_t52: object = tops[0]
-            if isinstance(_cdy_t52, TDeftSum):
-                tvars = _cdy_t52.tvars
-                variants = _cdy_t52.variants
-                _cdy_t51 = (acc if (len(tvars) == 0) else mark_all(variant_list_names(variants, ()), acc))
+            _cdy_t61 = tops[1:len(tops)]
+            _cdy_t60: object = tops[0]
+            if isinstance(_cdy_t60, TDeftSum):
+                tvars = _cdy_t60.tvars
+                variants = _cdy_t60.variants
+                _cdy_t59 = (acc if (len(tvars) == 0) else mark_all(variant_list_names(variants, ()), acc))
             else:
-                _cdy_t51 = acc
-            tops, acc = (_cdy_t53, _cdy_t51)
+                _cdy_t59 = acc
+            tops, acc = (_cdy_t61, _cdy_t59)
             continue
 
 def mark_all(names: tuple[str, ...], acc: _cdy_Mapping[str, bool]) -> _cdy_Mapping[str, bool]:
@@ -2343,21 +2790,21 @@ def bind_locals(locs: tuple[Expr, ...], env: Env) -> Env:
         if (len(locs) == 0):
             return env
         else:
-            _cdy_t57 = locs[1:len(locs)]
-            _cdy_t55: object = locs[0]
-            if isinstance(_cdy_t55, Local):
-                name = _cdy_t55.name
-                id_ = _cdy_t55.id_
+            _cdy_t65 = locs[1:len(locs)]
+            _cdy_t63: object = locs[0]
+            if isinstance(_cdy_t63, Local):
+                name = _cdy_t63.name
+                id_ = _cdy_t63.id_
                 if cdy_rt.table_defs.map_has(env.locals_, id_):
-                    _cdy_t56 = env
+                    _cdy_t64 = env
                 else:
                     base = cdy_rt.table_defs.py_mangle(name)
                     py = (('_cdy_' + str(base) + '_' + str(id_)) if cdy_rt.table_defs.map_has(env.taken, base) else base)
-                    _cdy_t56 = env._replace(locals_=cdy_rt.table_defs.map_set(env.locals_, id_, py), taken=cdy_rt.table_defs.map_set(env.taken, py, True))
-                _cdy_t54 = _cdy_t56
+                    _cdy_t64 = env._replace(locals_=cdy_rt.table_defs.map_set(env.locals_, id_, py), taken=cdy_rt.table_defs.map_set(env.taken, py, True))
+                _cdy_t62 = _cdy_t64
             else:
-                _cdy_t54 = env
-            locs, env = (_cdy_t57, _cdy_t54)
+                _cdy_t62 = env
+            locs, env = (_cdy_t65, _cdy_t62)
             continue
 
 def bound_locals(stmts: tuple[Stmt, ...], acc: tuple[Expr, ...]) -> tuple[Expr, ...]:
@@ -2365,30 +2812,30 @@ def bound_locals(stmts: tuple[Stmt, ...], acc: tuple[Expr, ...]) -> tuple[Expr, 
         if (len(stmts) == 0):
             return acc
         else:
-            _cdy_t62 = stmts[1:len(stmts)]
-            _cdy_t59: object = stmts[0]
-            if isinstance(_cdy_t59, SAssign):
-                target = _cdy_t59.target
-                _cdy_t61: object = target
-                if isinstance(_cdy_t61, Local):
-                    _cdy_t60 = (acc + cdy_rt.table_defs.to_list(target))
+            _cdy_t70 = stmts[1:len(stmts)]
+            _cdy_t67: object = stmts[0]
+            if isinstance(_cdy_t67, SAssign):
+                target = _cdy_t67.target
+                _cdy_t69: object = target
+                if isinstance(_cdy_t69, Local):
+                    _cdy_t68 = (acc + cdy_rt.table_defs.to_list(target))
                 else:
-                    _cdy_t60 = acc
-                _cdy_t58 = _cdy_t60
-            elif isinstance(_cdy_t59, SIf):
-                then = _cdy_t59.then
-                other = _cdy_t59.other
-                _cdy_t58 = bound_locals(other, bound_locals(then, acc))
-            elif isinstance(_cdy_t59, SMatch):
-                cases = _cdy_t59.cases
-                default = _cdy_t59.default
-                _cdy_t58 = bound_in_cases(cases, bound_in_lists(default, acc))
-            elif isinstance(_cdy_t59, SLoop):
-                body = _cdy_t59.body
-                _cdy_t58 = bound_locals(body, acc)
+                    _cdy_t68 = acc
+                _cdy_t66 = _cdy_t68
+            elif isinstance(_cdy_t67, SIf):
+                then = _cdy_t67.then
+                other = _cdy_t67.other
+                _cdy_t66 = bound_locals(other, bound_locals(then, acc))
+            elif isinstance(_cdy_t67, SMatch):
+                cases = _cdy_t67.cases
+                default = _cdy_t67.default
+                _cdy_t66 = bound_in_cases(cases, bound_in_lists(default, acc))
+            elif isinstance(_cdy_t67, SLoop):
+                body = _cdy_t67.body
+                _cdy_t66 = bound_locals(body, acc)
             else:
-                _cdy_t58 = acc
-            stmts, acc = (_cdy_t62, _cdy_t58)
+                _cdy_t66 = acc
+            stmts, acc = (_cdy_t70, _cdy_t66)
             continue
 
 def bound_in_cases(cases: tuple[Case, ...], acc: tuple[Expr, ...]) -> tuple[Expr, ...]:
@@ -2420,60 +2867,60 @@ def bound_in_lists(lists: tuple[tuple[Stmt, ...], ...], acc: tuple[Expr, ...]) -
             continue
 
 def emit_expr(e: Expr, env: Env) -> str:
-    _cdy_t63: object = e
-    if isinstance(_cdy_t63, Lit):
-        form = _cdy_t63.form
+    _cdy_t71: object = e
+    if isinstance(_cdy_t71, Lit):
+        form = _cdy_t71.form
         return emit_lit(form)
-    elif isinstance(_cdy_t63, Local):
-        name = _cdy_t63.name
-        id_ = _cdy_t63.id_
+    elif isinstance(_cdy_t71, Local):
+        name = _cdy_t71.name
+        id_ = _cdy_t71.id_
         return local_py(name, id_, env)
-    elif isinstance(_cdy_t63, Global):
-        _cdy_name_935 = _cdy_t63.name
-        return cdy_rt.table_defs.map_get(env.globals_, _cdy_name_935)
-    elif isinstance(_cdy_t63, Prim):
-        _cdy_name_936 = _cdy_t63.name
-        return emit_prim(_cdy_name_936, env)
-    elif isinstance(_cdy_t63, Call):
-        callee = _cdy_t63.callee
-        args = _cdy_t63.args
+    elif isinstance(_cdy_t71, Global):
+        _cdy_name_1113 = _cdy_t71.name
+        return cdy_rt.table_defs.map_get(env.globals_, _cdy_name_1113)
+    elif isinstance(_cdy_t71, Prim):
+        _cdy_name_1114 = _cdy_t71.name
+        return emit_prim(_cdy_name_1114, env)
+    elif isinstance(_cdy_t71, Call):
+        callee = _cdy_t71.callee
+        args = _cdy_t71.args
         return emit_call(callee, args, env)
-    elif isinstance(_cdy_t63, If):
-        test = _cdy_t63.test
-        then = _cdy_t63.then
-        other = _cdy_t63.other
+    elif isinstance(_cdy_t71, If):
+        test = _cdy_t71.test
+        then = _cdy_t71.then
+        other = _cdy_t71.other
         return ('(' + str(emit_expr(then, env)) + ' if ' + str(emit_expr(test, env)) + ' else ' + str(emit_expr(other, env)) + ')')
-    elif isinstance(_cdy_t63, Do):
+    elif isinstance(_cdy_t71, Do):
         return cdy_rt.table_defs.fail('emit: a do inside an expression (lower should have removed it)')
-    elif isinstance(_cdy_t63, MatchE):
+    elif isinstance(_cdy_t71, MatchE):
         return cdy_rt.table_defs.fail('emit: a match inside an expression (lower should have removed it)')
-    elif isinstance(_cdy_t63, Lambda):
-        params = _cdy_t63.params
-        body = _cdy_t63.body
+    elif isinstance(_cdy_t71, Lambda):
+        params = _cdy_t71.params
+        body = _cdy_t71.body
         inner = bind_locals(params, env)
         return ('(lambda ' + str(comma_join(emit_exprs(params, inner, ()))) + ': ' + str(emit_expr(body, inner)) + ')')
-    elif isinstance(_cdy_t63, Tuple):
-        items = _cdy_t63.items
+    elif isinstance(_cdy_t71, Tuple):
+        items = _cdy_t71.items
         strs = emit_exprs(items, env, ())
         if (len(strs) == 1):
             return ('(' + str(strs[0]) + ',)')
         else:
             return ('(' + str(comma_join(strs)) + ')')
-    elif isinstance(_cdy_t63, Fmt):
-        parts = _cdy_t63.parts
+    elif isinstance(_cdy_t71, Fmt):
+        parts = _cdy_t71.parts
         return emit_format(parts, env)
-    elif isinstance(_cdy_t63, Field):
-        obj = _cdy_t63.obj
-        field = _cdy_t63.field
+    elif isinstance(_cdy_t71, Field):
+        obj = _cdy_t71.obj
+        field = _cdy_t71.field
         return (str(emit_expr(obj, env)) + '.' + str(cdy_rt.table_defs.py_mangle(field)))
-    elif isinstance(_cdy_t63, Assoc):
-        _cdy_obj_950 = _cdy_t63.obj
-        fields = _cdy_t63.fields
-        return (str(emit_expr(_cdy_obj_950, env)) + '._replace(' + str(comma_join(emit_fields(fields, env, ()))) + ')')
+    elif isinstance(_cdy_t71, Assoc):
+        _cdy_obj_1128 = _cdy_t71.obj
+        fields = _cdy_t71.fields
+        return (str(emit_expr(_cdy_obj_1128, env)) + '._replace(' + str(comma_join(emit_fields(fields, env, ()))) + ')')
     else:
-        assert isinstance(_cdy_t63, Temp)
-        _cdy_id__952 = _cdy_t63.id_
-        return ('_cdy_t' + str(_cdy_id__952))
+        assert isinstance(_cdy_t71, Temp)
+        _cdy_id__1130 = _cdy_t71.id_
+        return ('_cdy_t' + str(_cdy_id__1130))
 
 def emit_format(parts: tuple[FPart, ...], env: Env) -> str:
     if (len(parts) == 0):
@@ -2486,16 +2933,16 @@ def emit_parts(parts: tuple[FPart, ...], env: Env, acc: tuple[str, ...]) -> tupl
         if (len(parts) == 0):
             return acc
         else:
-            _cdy_t66 = parts[1:len(parts)]
-            _cdy_t65: object = parts[0]
-            if isinstance(_cdy_t65, FText):
-                text = _cdy_t65.text
-                _cdy_t64 = cdy_rt.table_defs.py_repr(text)
+            _cdy_t74 = parts[1:len(parts)]
+            _cdy_t73: object = parts[0]
+            if isinstance(_cdy_t73, FText):
+                text = _cdy_t73.text
+                _cdy_t72 = cdy_rt.table_defs.py_repr(text)
             else:
-                assert isinstance(_cdy_t65, FHole)
-                e = _cdy_t65.expr
-                _cdy_t64 = ('str(' + str(emit_expr(e, env)) + ')')
-            parts, acc = (_cdy_t66, (acc + cdy_rt.table_defs.to_list(_cdy_t64)))
+                assert isinstance(_cdy_t73, FHole)
+                e = _cdy_t73.expr
+                _cdy_t72 = ('str(' + str(emit_expr(e, env)) + ')')
+            parts, acc = (_cdy_t74, (acc + cdy_rt.table_defs.to_list(_cdy_t72)))
             continue
 
 def emit_fields(fields: tuple[tuple[str, Expr], ...], env: Env, acc: tuple[str, ...]) -> tuple[str, ...]:
@@ -2518,31 +2965,31 @@ def emit_exprs(exprs: tuple[Expr, ...], env: Env, acc: tuple[str, ...]) -> tuple
             continue
 
 def emit_lit(form: Form) -> str:
-    _cdy_t67: object = form
-    if isinstance(_cdy_t67, Txt):
-        v = _cdy_t67.val
+    _cdy_t75: object = form
+    if isinstance(_cdy_t75, Txt):
+        v = _cdy_t75.val
         return cdy_rt.table_defs.py_repr(v)
-    elif isinstance(_cdy_t67, CharLit):
-        _cdy_v_971 = _cdy_t67.val
-        return cdy_rt.table_defs.py_repr(_cdy_v_971)
-    elif isinstance(_cdy_t67, IntLit):
-        _cdy_v_972 = _cdy_t67.val
-        return cdy_rt.table_defs.py_repr(_cdy_v_972)
-    elif isinstance(_cdy_t67, LongLit):
-        _cdy_v_973 = _cdy_t67.val
-        return cdy_rt.table_defs.py_repr(_cdy_v_973)
-    elif isinstance(_cdy_t67, ByteLit):
-        _cdy_v_974 = _cdy_t67.val
-        return cdy_rt.table_defs.py_repr(_cdy_v_974)
-    elif isinstance(_cdy_t67, FloatLit):
-        _cdy_v_975 = _cdy_t67.val
-        return cdy_rt.table_defs.py_repr(_cdy_v_975)
-    elif isinstance(_cdy_t67, DoubleLit):
-        _cdy_v_976 = _cdy_t67.val
-        return cdy_rt.table_defs.py_repr(_cdy_v_976)
-    elif isinstance(_cdy_t67, BoolLit):
-        _cdy_v_977 = _cdy_t67.val
-        return cdy_rt.table_defs.py_repr(_cdy_v_977)
+    elif isinstance(_cdy_t75, CharLit):
+        _cdy_v_1149 = _cdy_t75.val
+        return cdy_rt.table_defs.py_repr(_cdy_v_1149)
+    elif isinstance(_cdy_t75, IntLit):
+        _cdy_v_1150 = _cdy_t75.val
+        return cdy_rt.table_defs.py_repr(_cdy_v_1150)
+    elif isinstance(_cdy_t75, LongLit):
+        _cdy_v_1151 = _cdy_t75.val
+        return cdy_rt.table_defs.py_repr(_cdy_v_1151)
+    elif isinstance(_cdy_t75, ByteLit):
+        _cdy_v_1152 = _cdy_t75.val
+        return cdy_rt.table_defs.py_repr(_cdy_v_1152)
+    elif isinstance(_cdy_t75, FloatLit):
+        _cdy_v_1153 = _cdy_t75.val
+        return cdy_rt.table_defs.py_repr(_cdy_v_1153)
+    elif isinstance(_cdy_t75, DoubleLit):
+        _cdy_v_1154 = _cdy_t75.val
+        return cdy_rt.table_defs.py_repr(_cdy_v_1154)
+    elif isinstance(_cdy_t75, BoolLit):
+        _cdy_v_1155 = _cdy_t75.val
+        return cdy_rt.table_defs.py_repr(_cdy_v_1155)
     else:
         return cdy_rt.table_defs.fail('emit: not a literal')
 
@@ -2554,9 +3001,9 @@ def emit_prim(name: str, env: Env) -> str:
 
 def emit_call(callee: Expr, args: tuple[Expr, ...], env: Env) -> str:
     strs = emit_exprs(args, env, ())
-    _cdy_t68: object = callee
-    if isinstance(_cdy_t68, Prim):
-        name = _cdy_t68.name
+    _cdy_t76: object = callee
+    if isinstance(_cdy_t76, Prim):
+        name = _cdy_t76.name
         return emit_prim_call(name, strs, env)
     else:
         return (str(emit_expr(callee, env)) + '(' + str(comma_join(strs)) + ')')
@@ -2577,19 +3024,19 @@ def emit_prim_call(name: str, strs: tuple[str, ...], env: Env) -> str:
         return (str(py) + '(' + str(comma_join(strs)) + ')')
 
 def emit_type(t: CType, env: Env) -> str:
-    _cdy_t69: object = t
-    if isinstance(_cdy_t69, TVar):
-        name = _cdy_t69.name
+    _cdy_t77: object = t
+    if isinstance(_cdy_t77, TVar):
+        name = _cdy_t77.name
         return cdy_rt.table_defs.py_mangle(name)
-    elif isinstance(_cdy_t69, TFn):
-        params = _cdy_t69.params
-        ret = _cdy_t69.ret
+    elif isinstance(_cdy_t77, TFn):
+        params = _cdy_t77.params
+        ret = _cdy_t77.ret
         return ('_cdy_Callable[[' + str(comma_join(emit_types(params, env, ()))) + '], ' + str(emit_type(ret, env)) + ']')
     else:
-        assert isinstance(_cdy_t69, TCon)
-        _cdy_name_996 = _cdy_t69.name
-        args = _cdy_t69.args
-        return emit_tcon(_cdy_name_996, emit_types(args, env, ()))
+        assert isinstance(_cdy_t77, TCon)
+        _cdy_name_1174 = _cdy_t77.name
+        args = _cdy_t77.args
+        return emit_tcon(_cdy_name_1174, emit_types(args, env, ()))
 
 def emit_types(types: tuple[CType, ...], env: Env, acc: tuple[str, ...]) -> tuple[str, ...]:
     while True:
@@ -2630,105 +3077,105 @@ def type_vars(types: tuple[CType, ...], acc: tuple[str, ...]) -> tuple[str, ...]
         if (len(types) == 0):
             return acc
         else:
-            _cdy_t72 = types[1:len(types)]
-            _cdy_t71: object = types[0]
-            if isinstance(_cdy_t71, TVar):
-                name = _cdy_t71.name
-                _cdy_t70 = (acc if cdy_rt.table_defs.in_(name, acc) else (acc + cdy_rt.table_defs.to_list(name)))
-            elif isinstance(_cdy_t71, TCon):
-                args = _cdy_t71.args
-                _cdy_t70 = type_vars(args, acc)
+            _cdy_t80 = types[1:len(types)]
+            _cdy_t79: object = types[0]
+            if isinstance(_cdy_t79, TVar):
+                name = _cdy_t79.name
+                _cdy_t78 = (acc if cdy_rt.table_defs.in_(name, acc) else (acc + cdy_rt.table_defs.to_list(name)))
+            elif isinstance(_cdy_t79, TCon):
+                args = _cdy_t79.args
+                _cdy_t78 = type_vars(args, acc)
             else:
-                assert isinstance(_cdy_t71, TFn)
-                params = _cdy_t71.params
-                ret = _cdy_t71.ret
-                _cdy_t70 = type_vars((params + cdy_rt.table_defs.to_list(ret)), acc)
-            types, acc = (_cdy_t72, _cdy_t70)
+                assert isinstance(_cdy_t79, TFn)
+                params = _cdy_t79.params
+                ret = _cdy_t79.ret
+                _cdy_t78 = type_vars((params + cdy_rt.table_defs.to_list(ret)), acc)
+            types, acc = (_cdy_t80, _cdy_t78)
             continue
 
 def emit_stmt(s: Stmt, level: int, env: Env) -> str:
-    _cdy_t73: object = s
-    if isinstance(_cdy_t73, SRecord):
-        name = _cdy_t73.name
-        tvars = _cdy_t73.tvars
-        fields = _cdy_t73.fields
+    _cdy_t81: object = s
+    if isinstance(_cdy_t81, SRecord):
+        name = _cdy_t81.name
+        tvars = _cdy_t81.tvars
+        fields = _cdy_t81.fields
         return ('\n' + line(level, ('class ' + str(cdy_rt.table_defs.map_get(env.globals_, name)) + str(type_params(tvars)) + '(_cdy_NamedTuple):')) + emit_record_fields(fields, (level + 1), env, ''))
-    elif isinstance(_cdy_t73, SSum):
-        _cdy_name_1015 = _cdy_t73.name
-        _cdy_tvars_1016 = _cdy_t73.tvars
-        variants = _cdy_t73.variants
-        return (emit_variants(variants, _cdy_tvars_1016, level, env, '') + line(level, ('type ' + str(cdy_rt.table_defs.map_get(env.globals_, _cdy_name_1015)) + str(type_params(_cdy_tvars_1016)) + ' = ' + str(cdy_rt.table_defs.join(variant_refs(variants, _cdy_tvars_1016, env, ()), ' | ')))))
-    elif isinstance(_cdy_t73, SMatch):
-        temp = _cdy_t73.temp
-        subject = _cdy_t73.subject
-        cases = _cdy_t73.cases
-        default = _cdy_t73.default
+    elif isinstance(_cdy_t81, SSum):
+        _cdy_name_1193 = _cdy_t81.name
+        _cdy_tvars_1194 = _cdy_t81.tvars
+        variants = _cdy_t81.variants
+        return (emit_variants(variants, _cdy_tvars_1194, level, env, '') + line(level, ('type ' + str(cdy_rt.table_defs.map_get(env.globals_, _cdy_name_1193)) + str(type_params(_cdy_tvars_1194)) + ' = ' + str(cdy_rt.table_defs.join(variant_refs(variants, _cdy_tvars_1194, env, ()), ' | ')))))
+    elif isinstance(_cdy_t81, SMatch):
+        temp = _cdy_t81.temp
+        subject = _cdy_t81.subject
+        cases = _cdy_t81.cases
+        default = _cdy_t81.default
         t = emit_expr(temp, env)
         val = emit_expr(subject, env)
         generic = cdy_rt.table_defs.map_has(env.generic, cases[0].variant)
         return (line(level, ((str(t) + ' = ' + str(val)) if generic else (str(t) + ': object = ' + str(val)))) + emit_match(t, cases, default, ((not generic) and (len(default) == 0)), 'if', level, env))
-    elif isinstance(_cdy_t73, SLoop):
-        body = _cdy_t73.body
+    elif isinstance(_cdy_t81, SLoop):
+        body = _cdy_t81.body
         return (line(level, 'while True:') + emit_block(body, (level + 1), env))
-    elif isinstance(_cdy_t73, SRebind):
-        targets = _cdy_t73.targets
-        vals = _cdy_t73.vals
+    elif isinstance(_cdy_t81, SRebind):
+        targets = _cdy_t81.targets
+        vals = _cdy_t81.vals
         return line(level, ((str(emit_expr(targets[0], env)) + ' = ' + str(emit_expr(vals[0], env))) if (len(targets) == 1) else (str(comma_join(emit_exprs(targets, env, ()))) + ' = (' + str(comma_join(emit_exprs(vals, env, ()))) + ')')))
-    elif isinstance(_cdy_t73, SContinue):
+    elif isinstance(_cdy_t81, SContinue):
         return line(level, 'continue')
-    elif isinstance(_cdy_t73, SAssign):
-        target = _cdy_t73.target
-        _cdy_val_1029 = _cdy_t73.val
-        return line(level, (str(emit_expr(target, env)) + ' = ' + str(emit_expr(_cdy_val_1029, env))))
-    elif isinstance(_cdy_t73, SDefAssign):
-        _cdy_name_1030 = _cdy_t73.name
-        _cdy_val_1031 = _cdy_t73.val
-        _cdy_t_1032 = _cdy_t73.t
-        return line(level, (str(cdy_rt.table_defs.map_get(env.globals_, _cdy_name_1030)) + ': ' + str(emit_type(_cdy_t_1032, env)) + ' = ' + str(emit_expr(_cdy_val_1031, env))))
-    elif isinstance(_cdy_t73, SExpr):
-        e = _cdy_t73.expr
+    elif isinstance(_cdy_t81, SAssign):
+        target = _cdy_t81.target
+        _cdy_val_1207 = _cdy_t81.val
+        return line(level, (str(emit_expr(target, env)) + ' = ' + str(emit_expr(_cdy_val_1207, env))))
+    elif isinstance(_cdy_t81, SDefAssign):
+        _cdy_name_1208 = _cdy_t81.name
+        _cdy_val_1209 = _cdy_t81.val
+        _cdy_t_1210 = _cdy_t81.t
+        return line(level, (str(cdy_rt.table_defs.map_get(env.globals_, _cdy_name_1208)) + ': ' + str(emit_type(_cdy_t_1210, env)) + ' = ' + str(emit_expr(_cdy_val_1209, env))))
+    elif isinstance(_cdy_t81, SExpr):
+        e = _cdy_t81.expr
         return line(level, emit_expr(e, env))
-    elif isinstance(_cdy_t73, SReturn):
-        _cdy_e_1034 = _cdy_t73.val
-        return line(level, ('return ' + str(emit_expr(_cdy_e_1034, env))))
-    elif isinstance(_cdy_t73, SIf):
-        test = _cdy_t73.test
-        then = _cdy_t73.then
-        other = _cdy_t73.other
+    elif isinstance(_cdy_t81, SReturn):
+        _cdy_e_1212 = _cdy_t81.val
+        return line(level, ('return ' + str(emit_expr(_cdy_e_1212, env))))
+    elif isinstance(_cdy_t81, SIf):
+        test = _cdy_t81.test
+        then = _cdy_t81.then
+        other = _cdy_t81.other
         return emit_if('if', test, then, other, level, env)
-    elif isinstance(_cdy_t73, SFunc):
-        _cdy_name_1038 = _cdy_t73.name
-        params = _cdy_t73.params
-        _cdy_body_1040 = _cdy_t73.body
-        _cdy_t_1041 = _cdy_t73.t
-        return emit_func(_cdy_name_1038, params, _cdy_body_1040, _cdy_t_1041, level, env)
+    elif isinstance(_cdy_t81, SFunc):
+        _cdy_name_1216 = _cdy_t81.name
+        params = _cdy_t81.params
+        _cdy_body_1218 = _cdy_t81.body
+        _cdy_t_1219 = _cdy_t81.t
+        return emit_func(_cdy_name_1216, params, _cdy_body_1218, _cdy_t_1219, level, env)
     else:
-        assert isinstance(_cdy_t73, SLocalFunc)
-        _cdy_target_1042 = _cdy_t73.target
-        _cdy_params_1043 = _cdy_t73.params
-        _cdy_body_1044 = _cdy_t73.body
-        inner = bind_locals((_cdy_params_1043 + bound_locals(_cdy_body_1044, ())), env)
-        args = comma_join(emit_any_params(_cdy_params_1043, inner, ()))
-        return (line(level, ('def ' + str(emit_expr(_cdy_target_1042, env)) + '(' + str(args) + ') -> _cdy_Any:')) + emit_block(_cdy_body_1044, (level + 1), inner))
+        assert isinstance(_cdy_t81, SLocalFunc)
+        _cdy_target_1220 = _cdy_t81.target
+        _cdy_params_1221 = _cdy_t81.params
+        _cdy_body_1222 = _cdy_t81.body
+        inner = bind_locals((_cdy_params_1221 + bound_locals(_cdy_body_1222, ())), env)
+        args = comma_join(emit_any_params(_cdy_params_1221, inner, ()))
+        return (line(level, ('def ' + str(emit_expr(_cdy_target_1220, env)) + '(' + str(args) + ') -> _cdy_Any:')) + emit_block(_cdy_body_1222, (level + 1), inner))
 
 def emit_if(keyword: str, test: Expr, then: tuple[Stmt, ...], other: tuple[Stmt, ...], level: int, env: Env) -> str:
-    _cdy_t77 = line(level, (str(keyword) + ' ' + str(emit_expr(test, env)) + ':'))
-    _cdy_t78 = emit_block(then, (level + 1), env)
+    _cdy_t85 = line(level, (str(keyword) + ' ' + str(emit_expr(test, env)) + ':'))
+    _cdy_t86 = emit_block(then, (level + 1), env)
     if (len(other) == 0):
-        _cdy_t76 = ''
+        _cdy_t84 = ''
     elif (len(other) == 1):
-        _cdy_t75: object = other[0]
-        if isinstance(_cdy_t75, SIf):
-            test2 = _cdy_t75.test
-            then2 = _cdy_t75.then
-            other2 = _cdy_t75.other
-            _cdy_t74 = emit_if('elif', test2, then2, other2, level, env)
+        _cdy_t83: object = other[0]
+        if isinstance(_cdy_t83, SIf):
+            test2 = _cdy_t83.test
+            then2 = _cdy_t83.then
+            other2 = _cdy_t83.other
+            _cdy_t82 = emit_if('elif', test2, then2, other2, level, env)
         else:
-            _cdy_t74 = (line(level, 'else:') + emit_block(other, (level + 1), env))
-        _cdy_t76 = _cdy_t74
+            _cdy_t82 = (line(level, 'else:') + emit_block(other, (level + 1), env))
+        _cdy_t84 = _cdy_t82
     else:
-        _cdy_t76 = (line(level, 'else:') + emit_block(other, (level + 1), env))
-    return (_cdy_t77 + _cdy_t78 + _cdy_t76)
+        _cdy_t84 = (line(level, 'else:') + emit_block(other, (level + 1), env))
+    return (_cdy_t85 + _cdy_t86 + _cdy_t84)
 
 def emit_any_params(params: tuple[Expr, ...], env: Env, acc: tuple[str, ...]) -> tuple[str, ...]:
     while True:
@@ -2817,10 +3264,10 @@ def emit_match(subj: str, cases: tuple[Case, ...], default: tuple[tuple[Stmt, ..
         inner = (level if (keyword == 'if') else (level + 1))
         return (('' if (keyword == 'if') else line(level, 'else:')) + line(inner, ('assert isinstance(' + str(subj) + ', ' + str(cdy_rt.table_defs.map_get(env.globals_, c.variant)) + ')')) + emit_binds(c.binds, subj, inner, env, '') + emit_stmts(c.body, inner, env, ''))
     else:
-        _cdy_c_1102 = cases[0]
-        test = (str(keyword) + ' isinstance(' + str(subj) + ', ' + str(cdy_rt.table_defs.map_get(env.globals_, _cdy_c_1102.variant)) + '):')
-        binds = emit_binds(_cdy_c_1102.binds, subj, (level + 1), env, '')
-        body = ((line((level + 1), 'pass') if (binds == '') else '') if (len(_cdy_c_1102.body) == 0) else emit_stmts(_cdy_c_1102.body, (level + 1), env, ''))
+        _cdy_c_1280 = cases[0]
+        test = (str(keyword) + ' isinstance(' + str(subj) + ', ' + str(cdy_rt.table_defs.map_get(env.globals_, _cdy_c_1280.variant)) + '):')
+        binds = emit_binds(_cdy_c_1280.binds, subj, (level + 1), env, '')
+        body = ((line((level + 1), 'pass') if (binds == '') else '') if (len(_cdy_c_1280.body) == 0) else emit_stmts(_cdy_c_1280.body, (level + 1), env, ''))
         return (line(level, test) + binds + body + emit_match(subj, cases[1:len(cases)], default, assert_last, 'elif', level, env))
 
 def emit_binds(binds: tuple[tuple[str, Expr], ...], subj: str, level: int, env: Env, acc: str) -> str:
@@ -2857,10 +3304,10 @@ def emit_params(params: tuple[Expr, ...], types: tuple[CType, ...], env: Env, ac
             continue
 
 def emit_func(name: str, params: tuple[Expr, ...], body: tuple[Stmt, ...], t: CType, level: int, env: Env) -> str:
-    _cdy_t79: object = t
-    if isinstance(_cdy_t79, TFn):
-        types = _cdy_t79.params
-        ret = _cdy_t79.ret
+    _cdy_t87: object = t
+    if isinstance(_cdy_t87, TFn):
+        types = _cdy_t87.params
+        ret = _cdy_t87.ret
         inner = bind_locals((params + bound_locals(body, ())), env)
         tvars = type_vars((types + cdy_rt.table_defs.to_list(ret)), ())
         tparams = type_params(tvars)
@@ -2882,7 +3329,16 @@ def emit_main(env: Env) -> str:
     return ('\n\nif __name__ == "__main__":\n    cdy_rt.table_defs.run_main(' + str(name) + ')\n')
 
 def translate(forms: tuple[Form, ...], parse: _cdy_Callable[[str], tuple[Form, ...]]) -> str:
-    tops = analyse_program(forms, cdy_rt.table.INITIAL_TABLE, parse)
+    _tup = expand_program(forms, compile_macros)
+    program = _tup[0]
+    macros = _tup[1]
+    return translate_expanded(program, (lambda text: expand_all(parse(text), macros, ())), macros, False)
+
+def compile_macros(forms: tuple[Form, ...]) -> str:
+    return translate_expanded(forms, read_forms, {}, True)
+
+def translate_expanded(forms: tuple[Form, ...], parse: _cdy_Callable[[str], tuple[Form, ...]], macros: _cdy_Mapping[str, Macro], quoting: bool) -> str:
+    tops = analyse_program(forms, cdy_rt.table.INITIAL_TABLE, parse, macros, quoting)
     stmts = lower_program(tops, 0, ())
     globals_ = global_names(tops, Env({}, {}, {}, generic_variants(tops, {}), cdy_rt.table.INITIAL_TABLE))
     env = bind_locals(bound_locals(stmts, ()), globals_)

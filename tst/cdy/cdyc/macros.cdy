@@ -1,0 +1,43 @@
+;; defmacro and expansion (doc/hl_rqmt/macros.md, step 3).
+
+(defmacro when (test body)
+  (quasi (if (unq test) (unq body) nil)))
+
+(defmacro unless (test body)
+  (quasi (if (unq test) nil (unq body))))
+
+;; A bare parameter name gets all the arguments.
+(defmacro my-cond clauses
+  (if (= (len clauses) 0)
+    (quo (fail "my-cond: no clause matched"))
+    (let ((c (list-items (at clauses 0))))
+      (quasi (if (unq (at c 0)) (unq (at c 1)) (my-cond (unq-sp (rest-of clauses))))))))
+
+;; No parameters; quoted literals.
+(defmacro answer () (quo (+ 40 2)))
+
+;; A name the macro introduces, which can't clash with the program's.
+(defmacro twice (e)
+  (let ((x (gensym "x")))
+    (quasi (let (((unq x) (unq e))) (+ (unq x) (unq x))))))
+
+;; Splicing into a call.
+(defmacro add-all xs (quasi (+ 0 (unq-sp xs))))
+
+(sig sign (Fn (Int) String))
+(defn sign (n)
+  (my-cond
+    ((< n 0) "negative")
+    ((= n 0) "zero")
+    (true "positive")))
+
+(when (> 2 1) (put "when: yes"))
+(when (> 1 2) (put "when: no"))
+(unless (> 1 2) (put "unless: yes"))
+(put (sign -3) (sign 0) (sign 5))
+(put (answer))
+(sig x Int)
+(def x 5)
+(put (twice (+ x 1)))
+(put (add-all 1 2 3 4))
+(put (format "{(when true 7)}"))

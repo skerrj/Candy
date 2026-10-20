@@ -174,6 +174,14 @@ def test_skipped_forms() -> None:
             expr(src)
 
 
+def test_macro_forms_rejected() -> None:
+    # The Python translator is frozen: the macro forms (only in the Candy translator) are
+    # special forms in the shared table, with no rule here.
+    for src in ("(quo x)", "(quasi x)", "(unq x)", "(unq-sp x)", "(defmacro m (a) a)"):
+        with pytest.raises(CandyError, match="is a special form, not a value"):
+            expr(src)
+
+
 def test_def_and_defn_with_sigs() -> None:
     int_t = TCon("Int")
     x = Local("x", 0)

@@ -1,0 +1,2 @@
+;; A macro file for macro_files.cdy, imported by lib/control.cdy.
+(defmacro if-not (test then other) (quasi (if (unq test) (unq other) (unq then))))

@@ -54,6 +54,9 @@ T1_DIR = Path("output") / "t1"
 T2_DIR = Path("output") / "t2"
 T1_MODULE = "cdy_translator"
 BIN_PATH = ROOT / "bin" / "py" / f"{T1_MODULE}.py"
+# The Candy files a translator reads while it translates, kept next to it: macro code uses
+# Form and its helpers, and every file gets the prelude's macros (expand.cdy).
+LIBRARY = ("form.cdy", "prelude_macros.cdy")
 
 
 class FixpointError(Exception):
@@ -116,12 +119,19 @@ def translate_file_with(translator: ModuleType, path: Path) -> str:
 
 def build_with(translator: Path, out_dir: Path) -> Path:
     """Translate the Candy translator with the translator module at ``translator`` into
-    ``out_dir``; returns the new module's path."""
+    ``out_dir``, with its ``LIBRARY``; returns the new module's path."""
     out = out_dir / f"{T1_MODULE}.py"
     source = translate_file_with(load(translator), TRANSLATOR)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(source, encoding="utf-8")
+    copy_library(out_dir)
     return out
+
+
+def copy_library(out_dir: Path) -> None:
+    """Put the files of ``LIBRARY`` in ``out_dir``, next to a translator."""
+    for name in LIBRARY:
+        shutil.copyfile(CDY_DIR / name, out_dir / name)
 
 
 def build_t1(out_dir: Path = T1_DIR) -> Path:
@@ -149,6 +159,7 @@ def build_bin(path: Path = BIN_PATH) -> Path:
     if status != 0:
         raise FixpointError(f"{t2} fails mypy --strict:\n{stdout}")
     shutil.copyfile(t2, path)
+    copy_library(path.parent)
     return path
 
 

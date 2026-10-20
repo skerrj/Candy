@@ -1,0 +1,362 @@
+;;; Expand: macros (doc/hl_rqmt/macros.md), between include and analyse. A file's macros
+;;; are its top-level `defmacro`s and those of the macro files it imports with
+;;; `(import-macros name)`. The defmacros become a macro program, which the translator
+;;; translates and loads into itself (load-macros); then every call of a macro is replaced
+;;; by what the macro returns, until no macro calls are left.
+;;;
+;;; A macro file's other forms are helpers: they run while translating, as part of the
+;;; macro programs of its own defmacros and of the files that import it, and never in the
+;;; program.
+;;;
+;;; Every file but the prelude itself also imports the prelude's macros (`cond`, from
+;;; prelude_macros.cdy, which is kept next to the translator, like form.cdy).
+
+;; A macro: how many arguments it takes (-1 for a bare parameter name, which gets them
+;; all), its loaded function, from the arguments (a (List Form)) to a Form, and where its
+;; defmacro is.
+(deft Macro ((name String) (arity Int) (run Any) (pos Pos)))
+
+;; What a file's macro imports bring it: their macros, their helpers by file (each file's
+;; once, and before the files that use them), and the files loaded so far.
+(deft Imports ((macros (List Macro)) (helpers (List (Tup String (List Form)))) (seen (Map String Bool))))
+
+;; A file with its macros expanded: its other forms, the macros it can use (its imports'
+;; and its own), its own macros, and its imports' helpers.
+(deft Expanded
+  ((forms (List Form))
+   (macros (Map String Macro))
+   (own (List Macro))
+   (helpers (List (Tup String (List Form))))))
+
+;; The program's forms with its defmacros and macro imports taken out and its macro calls
+;; expanded, and its macros. `compile` translates a macro program into Python.
+(sig expand-program
+  (Fn ((List Form) (Fn ((List Form)) String)) (Tup (List Form) (Map String Macro))))
+(defn expand-program (forms compile)
+  (let ((done (expand-file forms false compile empty-list)))
+    (tup (get done forms) (get done macros))))
+
+(sig MACRO_HEADS (List String))
+(def MACRO_HEADS (tup "defmacro" "import-macros"))
+
+;; `forms` expanded. In a macro file (`macro-file`), the other forms are helpers, which can
+;; use only the imported macros (the file's own are compiled with them). `loading` holds the
+;; macro files being loaded, to catch a cycle.
+(sig expand-file (Fn ((List Form) Bool (Fn ((List Form)) String) (List String)) Expanded))
+(defn expand-file (forms macro-file compile loading)
+  (let ((imports
+          (import-all
+            (+ (prelude-import loading) (pick-forms forms (tup "import-macros") true empty-list))
+            compile
+            loading
+            (Imports empty-list empty-list empty-map)))
+        (imported (macro-map (get imports macros) empty-map))
+        (defs (expand-defs (pick-forms forms (tup "defmacro") true empty-list) imported empty-list))
+        (rest (pick-forms forms MACRO_HEADS false empty-list))
+        (helpers (if macro-file (expand-all rest imported empty-list) empty-list))
+        (own
+          (if (= (len defs) 0)
+            empty-list
+            (load-defs defs (+ (helper-forms (get imports helpers) empty-list) helpers) compile)))
+        (macros (macro-map own imported)))
+    (Expanded
+      (if macro-file helpers (expand-all rest macros empty-list))
+      macros
+      own
+      (get imports helpers))))
+
+;; (import-macros "path") for the prelude's macros, unless it is the prelude being loaded.
+(sig prelude-import (Fn ((List String)) (List Form)))
+(defn prelude-import (loading)
+  (let ((path (library-path "prelude_macros.cdy")))
+    (if (in (path-resolve path) loading)
+      empty-list
+      (to-list (Lst (tup (Sym "import-macros" NOWHERE) (Txt path)) NOWHERE)))))
+
+;; The forms whose heads are in `heads` (or, if `keep` is false, the others).
+(sig pick-forms (Fn ((List Form) (List String) Bool (List Form)) (List Form)))
+(defn pick-forms (forms heads keep acc)
+  (if (= (len forms) 0)
+    acc
+    (let ((form (at forms 0))
+          (items (list-items form))
+          (picked (and (> (len items) 0) (in (sym-name (at items 0)) heads))))
+      (pick-forms (rest-of forms) heads keep (if (= picked keep) (+ acc (to-list form)) acc)))))
+
+;; Each defmacro in `defs` with the macro calls in its body expanded.
+(sig expand-defs (Fn ((List Form) (Map String Macro) (List Form)) (List Form)))
+(defn expand-defs (defs macros acc)
+  (if (= (len defs) 0)
+    acc
+    (expand-defs
+      (rest-of defs)
+      macros
+      (+ acc (to-list (Lst (expand-after (list-items (at defs 0)) 3 macros) (form-pos (at defs 0))))))))
+
+;; `macros` added to the map `acc`; two macros with one name are an error.
+(sig macro-map (Fn ((List Macro) (Map String Macro)) (Map String Macro)))
+(defn macro-map (macros acc)
+  (if (= (len macros) 0)
+    acc
+    (let ((macro (at macros 0))
+          (name (get macro name)))
+      (if (map-has acc name)
+        (fail (format "{(pos-text (get macro pos))}defmacro: {name} is already a macro"))
+        (macro-map (slice macros 1 (len macros)) (map-set acc name macro))))))
+
+;; --- macro files ---
+
+;; `acc` with the macro files of the (import-macros "path") forms `forms` loaded.
+(sig import-all (Fn ((List Form) (Fn ((List Form)) String) (List String) Imports) Imports))
+(defn import-all (forms compile loading acc)
+  (if (= (len forms) 0)
+    acc
+    (import-all (rest-of forms) compile loading (import-file (at forms 0) compile loading acc))))
+
+;; `acc` with the macro file of `form` loaded, unless it was already.
+(sig import-file (Fn (Form (Fn ((List Form)) String) (List String) Imports) Imports))
+(defn import-file (form compile loading acc)
+  (let ((path (macro-path form))
+        (key (path-resolve path)))
+    (cond
+      ((map-has (get acc seen) key) acc)
+      ((in key loading)
+        (fail (format "{(pos-text (form-pos form))}import-macros: {path} imports itself")))
+      (else
+        (let ((done (expand-file (read-program path) true compile (+ loading (to-list key)))))
+          (Imports
+            (+ (get acc macros) (get done own))
+            (add-helpers (+ (get done helpers) (to-list (tup key (get done forms)))) (get acc helpers))
+            (map-set (get acc seen) key true)))))))
+
+;; The path in (import-macros "path"), which include.cdy put there.
+(sig macro-path (Fn (Form) String))
+(defn macro-path (form)
+  (match (at (list-items form) 1)
+    ((Txt path) path)
+    (else (fail (+ (pos-text (form-pos form)) "import-macros: expected (import-macros name)")))))
+
+;; `acc` with the helper groups `groups` added, except files it has already.
+(sig add-helpers
+  (Fn ((List (Tup String (List Form))) (List (Tup String (List Form)))) (List (Tup String (List Form)))))
+(defn add-helpers (groups acc)
+  (if (= (len groups) 0)
+    acc
+    (add-helpers
+      (slice groups 1 (len groups))
+      (if (has-helpers (at (at groups 0) 0) acc) acc (+ acc (to-list (at groups 0)))))))
+
+(sig has-helpers (Fn (String (List (Tup String (List Form)))) Bool))
+(defn has-helpers (key groups)
+  (and (> (len groups) 0) (or (= (at (at groups 0) 0) key) (has-helpers key (slice groups 1 (len groups))))))
+
+;; The forms of all the helper groups.
+(sig helper-forms (Fn ((List (Tup String (List Form))) (List Form)) (List Form)))
+(defn helper-forms (groups acc)
+  (if (= (len groups) 0)
+    acc
+    (helper-forms (slice groups 1 (len groups)) (+ acc (at (at groups 0) 1)))))
+
+;; --- compiling and loading macros ---
+
+;; The macros `defs` define, compiled with the helper forms `helpers` and loaded.
+(sig load-defs (Fn ((List Form) (List Form) (Fn ((List Form)) String)) (List Macro)))
+(defn load-defs (defs helpers compile)
+  (let ((checked (unique-names defs empty-map))
+        (form-forms (form-defs nil))
+        (python (compile (+ form-forms helpers (macro-program defs empty-list))))
+        (loaded (load-macros python sym-name (top-names form-forms empty-map))))
+    (macro-list defs loaded empty-list)))
+
+;; Form and its helpers, which macro code may use: form.cdy, read as it is (so it can't
+;; use macros).
+(sig form-defs (Fn (Unit) (List Form)))
+(defn form-defs (_)
+  (let ((path (library-path "form.cdy")))
+    (read-source path (slurp path))))
+
+;; The path of the library file `name`, which is kept next to the translator (in bin/py/;
+;; py_cdy/self_host.py copies the library there).
+(sig library-path (Fn (String) String))
+(defn library-path (name)
+  (let ((dir (module-dir sym-name))
+        (path (path-join dir name)))
+    (if (file-exists path)
+      path
+      (fail (format "macros need {name} next to the translator, in {dir}")))))
+
+;; Each (defmacro name params body) as a function from the arguments to a form:
+;; (sig macro__name (Fn ((List Form)) Form))
+;; (defn macro__name (args__) (let ((p1 (at args__ 0)) ...) body))
+(sig macro-program (Fn ((List Form) (List Form)) (List Form)))
+(defn macro-program (defs acc)
+  (if (= (len defs) 0)
+    acc
+    (let ((items (defmacro-items (at defs 0)))
+          (pos (form-pos (at defs 0)))
+          (fname (Sym (macro-fn (sym-name (at items 1))) pos))
+          (args (Sym "args__" pos))
+          (type (Lst (tup (Sym "Fn" pos) (Lst (to-list (Lst (tup (Sym "List" pos) (Sym "Form" pos)) pos)) pos) (Sym "Form" pos)) pos))
+          (body (Lst (tup (Sym "let" pos) (Lst (param-binds (at items 2) args pos) pos) (at items 3)) pos)))
+      (macro-program
+        (rest-of defs)
+        (+ acc
+           (to-list (Lst (tup (Sym "sig" pos) fname type) pos))
+           (to-list (Lst (tup (Sym "defn" pos) fname (Lst (to-list args) pos) body) pos)))))))
+
+;; The items of (defmacro name params body), checked.
+(sig defmacro-items (Fn (Form) (List Form)))
+(defn defmacro-items (form)
+  (let ((items (list-items form))
+        (where (pos-text (form-pos form))))
+    (cond
+      ((or (!= (len items) 4) (= (sym-name (at items 1)) ""))
+        (fail (+ where "defmacro: expected (defmacro name (params) body) or (defmacro name args body)")))
+      ((table-is-special initial-table (sym-name (at items 1)))
+        (fail (format "{where}defmacro: {(sym-name (at items 1))} is a special form")))
+      ((not (params-ok (at items 2))) (fail (+ where "defmacro: a parameter must be a name")))
+      (else items))))
+
+;; Whether `params` is a bare name or a list of names.
+(sig params-ok (Fn (Form) Bool))
+(defn params-ok (params)
+  (match params
+    ((Sym _ _) true)
+    ((Lst items _) (all-names items))
+    (else false)))
+
+;; Whether every form in `forms` is a symbol.
+(sig all-names (Fn ((List Form)) Bool))
+(defn all-names (forms)
+  (or (= (len forms) 0) (and (!= (sym-name (at forms 0)) "") (all-names (rest-of forms)))))
+
+;; The let bindings for a macro's parameters: (p args) for a bare name, (p1 (at args 0))
+;; ... for a parameter list.
+(sig param-binds (Fn (Form Form Pos) (List Form)))
+(defn param-binds (params args pos)
+  (if (= (sym-name params) "")
+    (arg-binds (list-items params) args 0 pos empty-list)
+    (to-list (Lst (tup params args) pos))))
+
+(sig arg-binds (Fn ((List Form) Form Int Pos (List Form)) (List Form)))
+(defn arg-binds (params args i pos acc)
+  (if (= (len params) 0)
+    acc
+    (arg-binds
+      (rest-of params)
+      args
+      (+ i 1)
+      pos
+      (+ acc (to-list (Lst (tup (at params 0) (Lst (tup (Sym "at" pos) args (IntLit i)) pos)) pos))))))
+
+;; The name of the function a macro is compiled into.
+(sig macro-fn (Fn (String) String))
+(defn macro-fn (name) (+ "macro__" name))
+
+;; True, unless two of `defs` define the same macro.
+(sig unique-names (Fn ((List Form) (Map String Bool)) Bool))
+(defn unique-names (defs seen)
+  (if (= (len defs) 0)
+    true
+    (let ((name (sym-name (at (defmacro-items (at defs 0)) 1))))
+      (if (map-has seen name)
+        (fail (format "{(pos-text (form-pos (at defs 0)))}defmacro: {name} is defined twice"))
+        (unique-names (rest-of defs) (map-set seen name true))))))
+
+;; The macro each of `defs` defines, with its function from `loaded` (by Python name).
+(sig macro-list (Fn ((List Form) (Map String Any) (List Macro)) (List Macro)))
+(defn macro-list (defs loaded acc)
+  (if (= (len defs) 0)
+    acc
+    (let ((items (list-items (at defs 0)))
+          (name (sym-name (at items 1)))
+          (params (at items 2))
+          (arity (if (= (sym-name params) "") (len (list-items params)) -1))
+          (run (map-get loaded (py-mangle (macro-fn name)))))
+      (macro-list (rest-of defs) loaded (+ acc (to-list (Macro name arity run (form-pos (at defs 0)))))))))
+
+;; --- expanding ---
+
+(sig expand-all (Fn ((List Form) (Map String Macro) (List Form)) (List Form)))
+(defn expand-all (forms macros acc)
+  (if (= (len forms) 0)
+    acc
+    (expand-all (rest-of forms) macros (+ acc (to-list (expand-form (at forms 0) macros))))))
+
+;; `form` with its macro calls expanded: a call is replaced by its expansion, again until
+;; the head isn't a macro; then the parts are expanded. Names being bound (parameters, let
+;; names, patterns) aren't calls, nor are types and quoted forms, so they are left alone:
+;; analyse rejects binding a macro's name.
+(sig expand-form (Fn (Form (Map String Macro)) Form))
+(defn expand-form (form macros)
+  (match form
+    ((Lst items pos)
+      (let ((head (if (= (len items) 0) "" (sym-name (at items 0)))))
+        (cond
+          ((map-has macros head)
+            (expand-form (expand-call (map-get macros head) (rest-of items) pos) macros))
+          ((in head (tup "sig" "deft" "import" "import-macros" "quo" "quasi")) form)
+          ((= head "defn") (Lst (expand-after items 3 macros) pos))
+          ((= head "fn") (Lst (expand-after items 2 macros) pos))
+          ((in head (tup "let" "match")) (Lst (expand-clauses head items macros) pos))
+          (else (Lst (expand-all items macros empty-list) pos)))))
+    (else form)))
+
+;; `items` with the first `n` left as they are and the rest expanded.
+(sig expand-after (Fn ((List Form) Int (Map String Macro)) (List Form)))
+(defn expand-after (items n macros)
+  (if (< (len items) n)
+    items
+    (+ (slice items 0 n) (expand-all (slice items n (len items)) macros empty-list))))
+
+;; The items of (let ((name init)*) body) or (match e (pattern body)*): in a let binding
+;; or a match clause the first item is a name or pattern.
+(sig expand-clauses (Fn (String (List Form) (Map String Macro)) (List Form)))
+(defn expand-clauses (head items macros)
+  (cond
+    ((and (= head "let") (= (len items) 3))
+      (match (at items 1)
+        ((Lst binds p)
+          (tup (at items 0) (Lst (each-clause binds 1 macros empty-list) p) (expand-form (at items 2) macros)))
+        (else (expand-all items macros empty-list))))
+    ((and (= head "match") (> (len items) 1))
+      (+ (tup (at items 0) (expand-form (at items 1) macros))
+         (each-clause (slice items 2 (len items)) 1 macros empty-list)))
+    (else (expand-all items macros empty-list))))
+
+;; Each clause in `clauses` with its items after the first `n` expanded.
+(sig each-clause (Fn ((List Form) Int (Map String Macro) (List Form)) (List Form)))
+(defn each-clause (clauses n macros acc)
+  (if (= (len clauses) 0)
+    acc
+    (each-clause (rest-of clauses) n macros (+ acc (to-list (expand-clause (at clauses 0) n macros))))))
+
+(sig expand-clause (Fn (Form Int (Map String Macro)) Form))
+(defn expand-clause (clause n macros)
+  (match clause
+    ((Lst items p) (Lst (expand-after items n macros) p))
+    (else (expand-form clause macros))))
+
+;; What `macro` returns for the arguments `args` of a call at `pos`.
+(sig expand-call (Fn (Macro (List Form) Pos) Form))
+(defn expand-call (macro args pos)
+  (let ((arity (get macro arity))
+        (where (format "{(pos-text pos)}{(get macro name)}: ")))
+    (if (and (>= arity 0) (!= arity (len args)))
+      (fail (format "{where}expected {arity} argument(s), got {(len args)}"))
+      (stamp (call-macro (get macro run) args where) pos))))
+
+;; `form` with `pos` on every symbol and list that is NOWHERE: an expansion's forms point
+;; at the call, and those from its arguments keep their own positions.
+(sig stamp (Fn (Form Pos) Form))
+(defn stamp (form pos)
+  (match form
+    ((Sym name p) (if (= (get p line) 0) (Sym name pos) form))
+    ((Lst items p) (Lst (stamp-all items pos empty-list) (if (= (get p line) 0) pos p)))
+    (else form)))
+
+(sig stamp-all (Fn ((List Form) Pos (List Form)) (List Form)))
+(defn stamp-all (forms pos acc)
+  (if (= (len forms) 0)
+    acc
+    (stamp-all (rest-of forms) pos (+ acc (to-list (stamp (at forms 0) pos))))))
