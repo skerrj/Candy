@@ -25,5 +25,5 @@ Done and earlier items are in `doc/archive/TODOS_modules.md`, `doc/archive/TODOS
 - [x] Step 4: docs (the iMVP doc, `multi_target.md`, the macros HLD's pointer).
 - [x] Step 5: `map`, `filter` and `fold` built in, for speed (the prelude keeps `rest`).
 - [ ] Review step 5 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note).
-- [ ] Review `doc/hl_rqmt/bootstrap_repo.md` (proposal): the frozen Python translator in its own repo, with a checked bootstrap chain.
+- [ ] Review `doc/hl_rqmt/bootstrap.md` (proposal; B decided): the frozen Python translator off `master`, with a checked bootstrap chain through the history.
 - [ ] Review `doc/hl_rqmt/library.md` (draft HLD, the follow-up branch): system, translator-only and prelude layers, and its questions.
