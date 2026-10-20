@@ -72,6 +72,10 @@ take one, and remove an entry once it is fixed.
 - **`system.cdy` is read for every translation, and again for every macro program**
   (`builtin-sigs` in `cdyc.cdy`), and checked against the table each time. Nothing
   caches it.
+- **`table.py` still has every built-in's arity**, which only the frozen Python
+  translator reads (`core_cdy.py`); the Candy translator takes arity from `system.cdy`.
+  The two can disagree without a test noticing. Fix: drop the field if the Python
+  translator is ever retired.
 - **The built-ins' types are read but not used** beyond arity: there is no type checker,
   and mypy still gets the runtime's types from `table_defs.py`'s annotations.
 
