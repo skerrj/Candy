@@ -69,6 +69,12 @@ take one, and remove an entry once it is fixed.
   `t1.read__read_forms`; `self_host.to_form`, `test_self_host.py`), so moving a function
   to another file changes its Python name.
 
+- **`system.cdy` is read for every translation, and again for every macro program**
+  (`builtin-sigs` in `cdyc.cdy`), and checked against the table each time. Nothing
+  caches it.
+- **The built-ins' types are read but not used** beyond arity: there is no type checker,
+  and mypy still gets the runtime's types from `table_defs.py`'s annotations.
+
 ## Runtime
 
 - **`load-macros` finds the translator's `form.cdy` names from `home`'s Python name:**

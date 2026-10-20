@@ -19,4 +19,16 @@ Those entries stay in effect until they are fixed. When one is fixed, mark it th
 it through and say where it was fixed) rather than copying it here. This file is for leaks
 added from branch `system-prelude` on.
 
-(None yet.)
+- **Built-ins typed `Any`** (`src/cdy/system.cdy`), where Candy can't write the type yet:
+  - `print`, `display` and `put` take any number of arguments, which a `Fn` type can't
+    say, so they are `Any` and get no arity check;
+  - `len`, `at`, `slice` and `in` work on lists, tuples and strings (and `len` on maps):
+    their collection parameter is `Any` until Candy has `Collection` (iMVP doc);
+  - the regular expressions return Python's match and pattern objects, the symbol table
+    is a Python `Mapping`, and macros are Python functions: `Any`, until they get opaque
+    Candy types.
+
+  Fix: variadic types, interfaces, and opaque types.
+- **Operators have no Candy type:** `+`, `=`, `and`, `not` and the rest are left out of
+  `system.cdy`, so only the table describes them (two or more arguments; `not` one). Fix: a
+  way to type a function that takes two or more arguments.

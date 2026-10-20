@@ -17,4 +17,6 @@ Done and earlier items are in `doc/archive/TODOS_modules.md`, `doc/archive/TODOS
 ## system-prelude
 
 - [x] Review `doc/hl_rqmt/system_prelude.md`: accepted, MVP scope (operators left out, variadic built-ins `Any`, prelude an ordinary import, emitted whole).
-- [ ] Step 1: `system.cdy`, read and checked against the table; arity from its `sig`s.
+- [x] Step 1: `system.cdy`, read and checked against the table; arity from its `sig`s.
+- [ ] Review step 1 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/system.cdy`'s types), and the new leaks and tech debt.
+- [ ] Step 2: `table.py` without arities.

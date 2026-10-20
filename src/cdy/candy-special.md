@@ -56,7 +56,8 @@ true|false ;; Bool
 ### sig
 - the type of a top-level `def` or `defn`
 - top level only, required for every `def` and `defn`, anywhere before its definition, one per name
-- later: a `sig` with no definition in `system.cdy` declares a runtime built-in
+- in `src/cdy/system.cdy`, which the translator reads, a `sig` has no definition: it declares a built-in that the runtime provides, with its type; anywhere else that is an error
+- a built-in's arity is its type's, so a built-in typed `Any` (`put`) takes any number of arguments
  > (sig *symbol* *type*)
 ### def
 - not immutable... for now... 

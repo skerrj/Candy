@@ -123,7 +123,34 @@ The checked-in `bin` reads the live `table.py`, as in macros step 5. So:
 
 1. **`system.cdy`:** a `sig` for each of the 66 entries that aren't special forms or
    operators; read and check it (both ways); arity from the `sig`; bodiless `sig`s only
-   there. Copy it next to the translator (`self_host.LIBRARY`). Rebuild `bin`.
+   there.
+
+   *Done.* As built:
+   - **`src/cdy/system.cdy`** has 66 bodiless `sig`s, grouped as `table.py` is. `Any` marks
+     the variadic, overloaded and Python-object built-ins (the leaks in `doc/leaks.md`).
+   - **`core.cdy`:** `system-sigs` reads them into a map from name to type, and checks them
+     against the table, both ways:
+     - `built-in x has no sig in system.cdy`;
+     - `system.cdy: x has no Python mapping in table.py` (which also catches a `sig` for an
+       operator or a special form);
+     - `system.cdy: more than one sig for x`;
+     - `system.cdy: expected (sig name Type)` for anything else in the file.
+
+     `Scope` holds the types (`builtins`). `check-call` takes a built-in's arity from its
+     type (its number of parameters; none for `Any` or a constant), and an operator's from
+     its kind (`not` takes one, the others two or more). It no longer reads the table's
+     arities.
+   - **`cdyc.cdy`:** `builtin-sigs` reads `system.cdy` from next to the translator, for each
+     translation and each macro program.
+   - **Bodiless `sig`s are only in `system.cdy`:** it is read on its own and never analysed
+     as a program, so everywhere else the old error stands.
+   - **The library:** `system.cdy` joins `self_host.LIBRARY`. A translator without its
+     library now fails on any program (`the translator needs system.cdy next to it, in
+     DIR`, which replaces `macros need ...`).
+   - **Bootstrap:** one rebuild, as planned (the table still has its arities for the old
+     `bin`).
+   - **Tests:** `test_system_errors` (each check, on an edited copy of `system.cdy`),
+     `test_builtin_arity_comes_from_system`, and `test_translator_needs_its_library`. Copy it next to the translator (`self_host.LIBRARY`). Rebuild `bin`.
 2. **`table.py` without arities:** rebuild `bin` first, then drop the field. Tests:
    `test_table.py`, and an error test for each half missing.
 3. **`prelude.cdy`:** an implicit import into every file; the four functions; a test

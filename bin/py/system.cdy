@@ -1,0 +1,100 @@
+;;; System: the built-ins, declared (doc/hl_rqmt/system_prelude.md). Each bodiless sig
+;;; gives a built-in its Candy type; the target's runtime provides it, and src/cdy_rt/table.py
+;;; says how Python spells it. The translator checks the two against each other, and a
+;;; built-in's arity is its type's. Only here may a sig have no definition.
+;;;
+;;; Not here: the special forms, and the operators (+, =, and, not, ...), which take two or
+;;; more arguments, as the table says. `Any` marks a type Candy can't write yet: built-ins
+;;; that take any number of arguments, or work on lists, strings and maps alike (Collection,
+;;; later), or return Python objects with no Candy type. Each is a leak (doc/leaks.md).
+;;; This file is read as it is, so it can't use macros.
+
+;; --- math ---
+(sig PI Double)
+(sig sin (Fn (Double) Double))
+(sig cos (Fn (Double) Double))
+(sig tan (Fn (Double) Double))
+
+;; --- values ---
+(sig nil Unit)
+
+;; --- output (any number of arguments) ---
+(sig print Any)
+(sig display Any)
+(sig put Any)
+
+;; --- files ---
+(sig put-err (Fn (String) Unit))
+(sig file-put-lines (Fn (String (List String)) Unit))
+(sig slurp (Fn (String) String))
+(sig spit (Fn (String String) Unit))
+(sig file-exists (Fn (String) Bool))
+(sig make-dirs (Fn (String) Unit))
+(sig path-stem (Fn (String) String))
+(sig path-dir (Fn (String) String))
+(sig path-join (Fn (String String) String))
+(sig path-resolve (Fn (String) String))
+
+;; --- regular expressions (Python's match and pattern objects) ---
+(sig re-search (Fn (String String) Any))
+(sig re-findall (Fn (String String) (List Any)))
+(sig re-compile (Fn (String) Any))
+
+;; --- collections (`len`, `at`, `slice` and `in` take a list, a tuple or a string) ---
+(sig len (Fn (Any) Int))
+(sig empty-list (List a))
+(sig at (Fn (Any Int) Any))
+(sig slice (Fn (Any Int Int) Any))
+(sig join (Fn ((List String) String) String))
+(sig is-coll (Fn (Any) Bool))
+(sig to-list (Fn (a) (List a)))
+(sig in (Fn (Any Any) Bool))
+
+;; --- maps ---
+(sig empty-map (Map k v))
+(sig map-get (Fn ((Map k v) k) v))
+(sig map-has (Fn ((Map k v) k) Bool))
+(sig map-set (Fn ((Map k v) k v) (Map k v)))
+(sig map-keys (Fn ((Map k v)) (List k)))
+
+;; --- strings ---
+(sig is-empty-str (Fn (String) Bool))
+(sig to-int (Fn (String) Int))
+(sig to-float (Fn (String) Double))
+(sig is-decimal (Fn (String) Bool))
+(sig hex-char (Fn (String) String))
+(sig is-str (Fn (Any) Bool))
+(sig is-digit (Fn (String) Bool))
+(sig is-alpha (Fn (String) Bool))
+(sig is-neg-int (Fn (String Int) Bool))
+(sig strip (Fn (String String) String))
+(sig replace (Fn (String String String) String))
+(sig isspace-at (Fn (String Int) Bool))
+(sig isspace (Fn (String) Bool))
+
+;; --- the symbol table, for the translator (a Python Mapping) ---
+(sig initial-table Any)
+(sig table-add-fun (Fn (Any String String (Maybe Int)) Any))
+(sig table-is-special (Fn (Any String) Bool))
+(sig table-is-op (Fn (Any String) Bool))
+(sig table-is-bin-op (Fn (Any String) Bool))
+(sig table-get-arity (Fn (Any String) (Maybe Int)))
+(sig table-get-py (Fn (Any String) String))
+(sig table-get-kind (Fn (Any String) String))
+(sig is-lit (Fn (Any) Bool))
+
+;; --- writing Python, for the translator ---
+(sig get-indent (Fn (Int) String))
+(sig py-mangle (Fn (String) String))
+(sig py-repr (Fn (Any) String))
+(sig PY_IMPORTS (List String))
+
+;; --- macros, for the translator (the macros are Python functions on Forms) ---
+(sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))
+(sig call-macro (Fn (Any (List Any) String) Any))
+(sig module-dir (Fn (Any) String))
+(sig fresh-name (Fn (String) String))
+
+;; --- the program ---
+(sig SYS_ARGS (List String))
+(sig fail (Fn (String) a))
