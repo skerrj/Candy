@@ -1,10 +1,31 @@
 # Candy macros (HLD)
 
-**Status: accepted; steps 1–5 done.** Branch `macros`, after tag `self-host-cleanup`. All the questions
+**Status: done; merged into `master` and tagged `macros`.** Branch `macros`, after tag `self-host-cleanup`. All the questions
 at the end are decided: the order (below), staging by macro files, `defmacro` with
 Scheme-style parameters, the quote forms' names (`quo`, `quasi`, `unq`, `unq-sp`, with no
 reader shorthand yet), quoting only in macro code, `tmp__1` gensyms with `__` rejected in
 source, binding a macro's name an error, and `cond` as the first macro in the translator.
+
+## Terms: host and target
+
+| | What it is | Today |
+|---|---|---|
+| **Host** | where the translator itself runs | Python (`bin/py/cdy_translator.py`) |
+| **Target** | what the translator writes the program into | Python (`output/foo.py`) |
+
+These are a cross-compiler's terms: GCC running on an x86 laptop and producing ARM code has
+an x86 host and an ARM target. Today both are Python, which makes them easy to mix up. There
+are three kinds of code to keep apart:
+
+1. **The translator** (`src/cdy/*.cdy`) is written in Candy. Once built, it runs on the **host**.
+2. **The program** is written in Candy too. It is translated into the **target** and runs
+   later, after translation is done.
+3. **Macros** are also written in Candy and sit in the program's files, but they run
+   *during* translation, inside the translator. So they run on the **host**, not the target.
+
+The third point is the one that confuses: macro code is part of the program's source but
+behaves like part of the translator. A Candy translator hosted on Python and targeting
+JavaScript would still run its macros in Python.
 
 ## Why now
 
