@@ -69,6 +69,11 @@ take one, and remove an entry once it is fixed.
   `t1.read__read_forms`; `self_host.to_form`, `test_self_host.py`), so moving a function
   to another file changes its Python name.
 
+- **Macro code doesn't get the prelude:** a macro program (a file's `defmacro`s and the
+  macro files it loads) isn't given `prelude.cdy`, so macro code can't call `rest` and
+  the rest; it has `form.cdy`'s `rest-of`. Fix: give macro programs the prelude, or let
+  them import it, with the host's modules (`doc/hl_rqmt/modules.md`, "Macro modules on
+  the host").
 - **`system.cdy` is read for every translation, and again for every macro program**
   (`builtin-sigs` in `cdyc.cdy`), and checked against the table each time. Nothing
   caches it.

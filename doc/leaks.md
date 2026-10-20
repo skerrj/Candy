@@ -32,6 +32,11 @@ added from branch `system-prelude` on.
 - **Operators have no Candy type:** `+`, `=`, `and`, `not` and the rest are left out of
   `system.cdy`, so only the table describes them (two or more arguments; `not` one). Fix: a
   way to type a function that takes two or more arguments.
+- **Special forms are described by the Python table:** `def`, `if`, `match` and the rest
+  are entries in `table.py`, which the Candy translator asks whether a name is special
+  (`table-is-special`). What the language's own forms are is a front-end fact, the same
+  for every target. Fix: a target-neutral table in Candy (`doc/hl_rqmt/multi_target.md`,
+  "The symbol table across targets"), or the translator's own list of special forms.
 - **The translator's built-ins are every program's built-ins.** `system.cdy` (like
   `table.py` before it) is one flat set. Besides what programs need (`len`, `put`,
   `slurp`, ...), it has what only the translator uses:

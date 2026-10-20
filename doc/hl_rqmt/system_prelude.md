@@ -202,16 +202,29 @@ The checked-in `bin` reads the live `table.py`, as in macros step 5. So:
 
 ## Questions (decided: the simplest option for the MVP)
 
+*For now* marks an answer meant to change, with where its follow-up is tracked; *lasting*
+marks one meant to stay.
+
 1. **Names and place:** `system.cdy` and `prelude.cdy` next to the translator in
-   `src/cdy/`, with `form.cdy` and `prelude_macros.cdy`.
-2. **Operators:** left out of `system.cdy`; the table describes them.
-3. **Variadic built-ins:** typed `Any`, so no arity check.
-4. **Overloaded built-ins:** type variables where they fit, `Any` elsewhere; leaks.
+   `src/cdy/`, with `form.cdy` and `prelude_macros.cdy`. *For now:*
+   `doc/hl_rqmt/library.md`, question 4 (a `lib/` directory?).
+2. **Operators:** left out of `system.cdy`; the table describes them. *For now:*
+   `doc/leaks.md`, "Operators have no Candy type".
+3. **Variadic built-ins:** typed `Any`, so no arity check. *For now:* `doc/leaks.md`,
+   "Built-ins typed `Any`".
+4. **Overloaded built-ins:** type variables where they fit, `Any` elsewhere. *For now:*
+   `doc/leaks.md`, "Built-ins typed `Any`" (until `Collection`).
 5. **Prelude priority:** an ordinary import (own definitions win; a clash with an explicit
-   import is an error).
+   import is an error). *Lasting;* how a program sees the prelude changes later
+   (`doc/hl_rqmt/library.md`, "What a program sees", B).
 6. **Prelude contents:** `rest`, `map`, `filter`, `fold`; the translator doesn't use them
-   yet. (Step 5 made the last three built-ins.)
-7. **Prelude output:** all of it, in every program.
-8. **Macro programs:** don't get the prelude.
-9. **Special forms:** stay in `table.py` for now.
-10. **One prelude or two:** two; `prelude_macros.cdy` stays apart.
+   yet. (Step 5 made the last three built-ins.) *For now:* `doc/hl_rqmt/library.md`,
+   questions 5 and 6.
+7. **Prelude output:** all of it, in every program. *For now:* `doc/tech_debt.md`, "The
+   whole prelude goes into every program's Python file"; `doc/hl_rqmt/library.md`,
+   question 7 (tree shaking).
+8. **Macro programs:** don't get the prelude. *For now:* `doc/tech_debt.md`, "Macro code
+   doesn't get the prelude".
+9. **Special forms:** stay in `table.py`. *For now:* `doc/leaks.md`, "Special forms are
+   described by the Python table".
+10. **One prelude or two:** two; `prelude_macros.cdy` stays apart. *Lasting.*
