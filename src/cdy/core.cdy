@@ -55,9 +55,10 @@
 (sig NIL Expr)
 (def NIL (Prim "nil"))
 
-;; What a symbol can refer to: locals, top-level names of this file, and the table. `parse`
-;; is the reader (read-forms), which format needs for the forms in its holes.
-;; `variants` maps each variant to its sum and field names; `sums` each sum to its variants.
+;; What a symbol can refer to: locals, the top-level names this module defines or imports,
+;; and the table. `parse` is the reader (read-forms), which format needs for the forms in
+;; its holes. `variants` maps each variant to its sum and field names; `sums` each sum to
+;; its variants.
 (deft Scope
   ((env (Map String Expr))
    (top (Map String Bool))
@@ -70,7 +71,12 @@
    ;; The program's macros (expand.cdy), whose names can't be bound, and whether this is
    ;; macro code, where quo and quasi are allowed.
    (macros (Map String Macro))
-   (quoting Bool)))
+   (quoting Bool)
+   ;; Each top-level name's global name (prefixed outside the top module; see Exports),
+   ;; and the names other modules define, by module stem, for the error when one isn't
+   ;; imported.
+   (names (Map String String))
+   (elsewhere (Map String String))))
 
 ;; `scope` analysing a form at `pos` (unless that's NOWHERE).
 (sig at-pos (Fn (Scope Pos) Scope))
@@ -118,12 +124,20 @@
   (cond
     ((map-has (get scope env) name) (map-get (get scope env) name))
     ((and (is-variant name scope) (= (len (variant-fields name scope)) 0))
-      (Call (Global name) empty-list))
-    ((and (map-has (get scope top) name) (map-get (get scope top) name)) (Global name))
+      (Call (Global (global-name name (get scope names))) empty-list))
+    ((and (map-has (get scope top) name) (map-get (get scope top) name))
+      (Global (global-name name (get scope names))))
     ((table-is-special (get scope table) name)
       (fail (located scope (format "{name} is a special form, not a value"))))
     ((table-is-op (get scope table) name) (Prim name))
+    ((map-has (get scope elsewhere) name)
+      (let ((stem (map-get (get scope elsewhere) name)))
+        (fail (located scope (format "{name} is not defined here; {stem} defines it, but this file doesn't import {stem}")))))
     (else (fail (located scope (format "unknown name {name}"))))))
+
+;; The global name of the top-level name `name` (itself if `names` doesn't have it).
+(sig global-name (Fn (String (Map String String)) String))
+(defn global-name (name names) (if (map-has names name) (map-get names name) name))
 
 (sig is-special-head (Fn (String Scope) Bool))
 (defn is-special-head (name scope)
@@ -380,7 +394,24 @@
   (let (((subject n1) (analyse-expr (at rest 0) scope n))
           ((m n2) (match-clauses (rest-of rest) scope n1 (MatchE subject empty-list empty-list) ""))
           (sum (if (> (len (match-clause-list m)) 0) (match-sum (match-clause-list m) scope) "")))
-      (tup (check-exhaustive m sum scope) n2)))
+      (tup (global-clauses (check-exhaustive m sum scope) (get scope names)) n2)))
+
+;; `m` (a MatchE) with its clauses' variants by their global names.
+(sig global-clauses (Fn (Expr (Map String String)) Expr))
+(defn global-clauses (m names)
+  (match m
+    ((MatchE subject clauses default) (MatchE subject (rename-clauses clauses names empty-list) default))
+    (else m)))
+
+(sig rename-clauses (Fn ((List Clause) (Map String String) (List Clause)) (List Clause)))
+(defn rename-clauses (clauses names acc)
+  (if (= (len clauses) 0)
+    acc
+    (let ((c (at clauses 0)))
+      (rename-clauses
+        (slice clauses 1 (len clauses))
+        names
+        (+ acc (to-list (assoc c variant (global-name (get c variant) names))))))))
 
 ;; Whether a clause's pattern is (tup ...).
 (sig is-tup-clause (Fn (Form) Bool))
@@ -798,10 +829,168 @@
     ((Lst items _) (if (= (len items) 0) "" (sym-name (at items 0))))
     (else (sym-name form))))
 
+;; --- modules (doc/hl_rqmt/modules.md) ---
+
+;; What a module defines at top level, which the modules importing it see: its names (true
+;; for values, false for a sum's type name), variants and sums, and each name's global
+;; name. Outside the top module, a global name has the module's stem as a prefix
+;; (util__greet), so two modules can define the same name; no Candy name contains __.
+(deft Exports
+  ((stem String)
+   (top (Map String Bool))
+   (variants (Map String VInfo))
+   (sums (Map String (List String)))
+   (names (Map String String))))
+
+;; What `forms` define, as the module `stem`, whose global names start with `prefix`.
+(sig module-exports (Fn ((List Form) String String) Exports))
+(defn module-exports (forms stem prefix)
+  (let ((top (top-names forms empty-map))
+        (found (find-variants forms (blank-scope top))))
+    (Exports stem top (get found variants) (get found sums) (prefixed (map-keys top) prefix empty-map))))
+
+(sig prefixed (Fn ((List String) String (Map String String)) (Map String String)))
+(defn prefixed (names prefix acc)
+  (if (= (len names) 0)
+    acc
+    (prefixed (slice names 1 (len names)) prefix (map-set acc (at names 0) (+ prefix (at names 0))))))
+
+;; A scope with only `top`, for finding variants.
+(sig blank-scope (Fn ((Map String Bool)) Scope))
+(defn blank-scope (top)
+  (Scope empty-map top nil (fn (text) empty-list) empty-map empty-map NOWHERE empty-map false empty-map empty-map))
+
+;; `forms`, one program on its own (a macro program), with no imports and no prefix.
 (sig analyse-program (Fn ((List Form) Any (Fn (String) (List Form)) (Map String Macro) Bool) (List Top)))
 (defn analyse-program (forms table parse macros quoting)
-  (let ((scope (find-variants forms (Scope empty-map (top-names forms empty-map) table parse empty-map empty-map NOWHERE macros quoting))))
-    (get (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms empty-map) empty-map)) out)))
+  (analyse-module forms (module-exports forms "" "") empty-list empty-map table parse macros quoting))
+
+;; The module `forms`, which exports `own`. It imports `imports` (each module's exports,
+;; and where the import is); `elsewhere` has the names the program's other modules define.
+(sig analyse-module
+  (Fn ((List Form) Exports (List (Tup Exports Pos)) (Map String String) Any (Fn (String) (List Form)) (Map String Macro) Bool)
+      (List Top)))
+(defn analyse-module (forms own imports elsewhere table parse macros quoting)
+  (let ((seen (with-own (with-imports imports (Seen (Exports "" empty-map empty-map empty-map empty-map) empty-map)) own))
+        (vis (get seen vis))
+        (scope (Scope empty-map (get vis top) table parse (get vis variants) (get vis sums) NOWHERE macros quoting (get vis names) elsewhere))
+        (prog (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms empty-map) empty-map))))
+    (rename-tops (get prog out) (get vis names) empty-list)))
+
+;; What a module sees: its imports' exports and its own, merged; and which module each
+;; imported name comes from (by stem).
+(deft Seen ((vis Exports) (from (Map String String))))
+
+;; `seen` with `imports` added. Two imports that define the same name are an error.
+(sig with-imports (Fn ((List (Tup Exports Pos)) Seen) Seen))
+(defn with-imports (imports seen)
+  (if (= (len imports) 0)
+    seen
+    (let (((ex pos) (at imports 0)))
+      (with-imports (slice imports 1 (len imports)) (import-names (map-keys (get ex top)) ex pos seen)))))
+
+(sig import-names (Fn ((List String) Exports Pos Seen) Seen))
+(defn import-names (names ex pos seen)
+  (if (= (len names) 0)
+    (assoc seen vis
+      (assoc (get seen vis)
+        variants (put-all (get ex variants) (map-keys (get ex variants)) (get (get seen vis) variants))
+        sums (put-all (get ex sums) (map-keys (get ex sums)) (get (get seen vis) sums))))
+    (let ((name (at names 0))
+          (stem (get ex stem))
+          (from (get seen from))
+          (vis (get seen vis)))
+      (if (and (map-has from name) (!= (map-get from name) stem))
+        (fail (format "{(pos-text pos)}import: {(map-get from name)} and {stem} both define {name}"))
+        (import-names
+          (slice names 1 (len names))
+          ex
+          pos
+          (Seen
+            (assoc vis
+              top (map-set (get vis top) name (map-get (get ex top) name))
+              names (map-set (get vis names) name (map-get (get ex names) name)))
+            (map-set from name stem)))))))
+
+;; `seen` with the module's own names, which win over imported ones.
+(sig with-own (Fn (Seen Exports) Seen))
+(defn with-own (seen own)
+  (let ((vis (get seen vis)))
+    (assoc seen vis
+      (assoc vis
+        top (put-all (get own top) (map-keys (get own top)) (get vis top))
+        variants (put-all (get own variants) (map-keys (get own variants)) (get vis variants))
+        sums (put-all (get own sums) (map-keys (get own sums)) (get vis sums))
+        names (put-all (get own names) (map-keys (get own names)) (get vis names))))))
+
+;; `acc` with the entries of `m` for `keys`.
+(sig put-all (Fn ((Map String a) (List String) (Map String a)) (Map String a)))
+(defn put-all (m keys acc)
+  (if (= (len keys) 0)
+    acc
+    (put-all m (slice keys 1 (len keys)) (map-set acc (at keys 0) (map-get m (at keys 0))))))
+
+;; The names other modules define, each with its module's stem.
+(sig elsewhere-names (Fn ((List Exports) (Map String String)) (Map String String)))
+(defn elsewhere-names (exports acc)
+  (if (= (len exports) 0)
+    acc
+    (let ((ex (at exports 0)))
+      (elsewhere-names
+        (slice exports 1 (len exports))
+        (put-all (stems-for (map-keys (get ex top)) (get ex stem) empty-map) (map-keys (get ex top)) acc)))))
+
+(sig stems-for (Fn ((List String) String (Map String String)) (Map String String)))
+(defn stems-for (names stem acc)
+  (if (= (len names) 0) acc (stems-for (slice names 1 (len names)) stem (map-set acc (at names 0) stem))))
+
+;; `tops` with the names they define, and the types they use, by global name.
+(sig rename-tops (Fn ((List Top) (Map String String) (List Top)) (List Top)))
+(defn rename-tops (tops names acc)
+  (if (= (len tops) 0)
+    acc
+    (rename-tops (slice tops 1 (len tops)) names (+ acc (to-list (rename-top (at tops 0) names))))))
+
+(sig rename-top (Fn (Top (Map String String)) Top))
+(defn rename-top (top names)
+  (match top
+    ((TDeft name tvars fields) (TDeft (global-name name names) tvars (rename-fields fields names empty-list)))
+    ((TDeftSum name tvars variants)
+      (TDeftSum (global-name name names) tvars (rename-variants variants names empty-list)))
+    ((TDef name init t) (TDef (global-name name names) init (rename-type t names)))
+    ((TDefn name params body t) (TDefn (global-name name names) params body (rename-type t names)))
+    ((TExpr _) top)))
+
+(sig rename-variants (Fn ((List Variant) (Map String String) (List Variant)) (List Variant)))
+(defn rename-variants (variants names acc)
+  (if (= (len variants) 0)
+    acc
+    (let ((v (at variants 0)))
+      (rename-variants
+        (slice variants 1 (len variants))
+        names
+        (+ acc (to-list (Variant (global-name (get v name) names) (rename-fields (get v fields) names empty-list))))))))
+
+(sig rename-fields
+  (Fn ((List (Tup String CType)) (Map String String) (List (Tup String CType))) (List (Tup String CType))))
+(defn rename-fields (fields names acc)
+  (if (= (len fields) 0)
+    acc
+    (let (((field t) (at fields 0)))
+      (rename-fields (slice fields 1 (len fields)) names (+ acc (to-list (tup field (rename-type t names))))))))
+
+(sig rename-type (Fn (CType (Map String String)) CType))
+(defn rename-type (t names)
+  (match t
+    ((TCon name args) (TCon (global-name name names) (rename-types args names empty-list)))
+    ((TVar _) t)
+    ((TFn params ret) (TFn (rename-types params names empty-list) (rename-type ret names)))))
+
+(sig rename-types (Fn ((List CType) (Map String String) (List CType)) (List CType)))
+(defn rename-types (types names acc)
+  (if (= (len types) 0)
+    acc
+    (rename-types (slice types 1 (len types)) names (+ acc (to-list (rename-type (at types 0) names))))))
 
 (sig def-names (Fn ((List Form) (Map String Bool)) (Map String Bool)))
 (defn def-names (forms acc)

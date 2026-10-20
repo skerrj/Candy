@@ -1,0 +1,14 @@
+(deft Shape (Circle ((r Double))) (Square ((s Double))))
+(deft Pt ((x Int) (y Int)))
+
+(sig label String)
+(def label "shapes")
+
+(sig area (Fn (Shape) Double))
+(defn area (sh)
+  (match sh
+    ((Circle r) (* 3.0 r r))
+    ((Square s) (* s s))))
+
+(sig origin (Fn (Unit) Pt))
+(defn origin (_) (Pt 0 7))

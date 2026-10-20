@@ -75,6 +75,11 @@ def map_set[K, V](m: Mapping[K, V], key: K, val: V) -> Mapping[K, V]:
     return {**m, key: val}
 
 
+def map_keys[K, V](m: Mapping[K, V]) -> tuple[K, ...]:
+    """The keys of ``m``, in the order they were first set."""
+    return tuple(m)
+
+
 def in_(item: object, coll: Sequence[object]) -> bool:
     """Whether ``item`` is in ``coll`` (a string is a sequence too)."""
     return item in coll
@@ -321,13 +326,16 @@ def load_macros(
     that defines the function ``home`` (the translator), and return its macros: the functions
     named ``macro__...``. The Candy names in ``keep`` (``form.cdy``'s) are then set back to
     the translator's, so the macros build the translator's own ``Form``s, not those of the
-    macro program's copy of ``form.cdy``. See "How load-macros runs macro code" in
-    ``doc/hl_rqmt/macros.md``."""
+    macro program's copy of ``form.cdy`` (``home`` is one of ``form.cdy``'s functions).
+    See "How load-macros runs macro code" in ``doc/hl_rqmt/macros.md``."""
     home_ns = module_globals(home)
     namespace = dict(home_ns)
     exec(compile(python, "<macros>", "exec"), namespace)  # noqa: S102  # pylint: disable=exec-used
+    # In a translator built with modules, form.cdy's names have its prefix (``form__Sym``),
+    # which ``home``'s own Python name shows; a translator built before modules has none.
+    head, sep, _ = home.__name__.rpartition("__")
     for name in map(py_mangle, keep):
-        namespace[name] = home_ns[name]
+        namespace[name] = home_ns[head + sep + name]
     _FRESH[0] = itertools.count(1)
     return {name: val for name, val in namespace.items() if name.startswith("macro__")}
 

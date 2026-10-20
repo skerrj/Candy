@@ -16,22 +16,86 @@
 
 ;; --- the whole translator: forms in, Python source out ---
 
-;; `parse` reads the forms in `format` holes: read-forms (see translate-text). Their macro
-;; calls are expanded too.
-(sig translate (Fn ((List Form) (Fn (String) (List Form))) String))
-(defn translate (forms parse)
-  (let (((program macros) (expand-program forms compile-macros)))
-    (translate-expanded program (fn (text) (expand-all (parse text) macros empty-list)) macros false)))
+;; A module with its macros expanded: its forms, its macros (format holes are expanded with
+;; them), and what it exports.
+(deft Ready ((module Module) (forms (List Form)) (macros (Map String Macro)) (exports Exports)))
+
+;; The program `modules` (doc/hl_rqmt/modules.md), the top module last, as one Python
+;; module. Each module is expanded and analysed on its own, seeing what it imports; then
+;; their definitions are lowered and emitted together. `parse` reads the forms in `format`
+;; holes: read-forms (see translate-text).
+(sig translate-modules (Fn ((List Module) (Fn (String) (List Form))) String))
+(defn translate-modules (modules parse)
+  (let ((ready (expand-modules modules (- (len modules) 1) empty-list))
+        (by-key (exports-by-key ready empty-map))
+        (elsewhere (elsewhere-names (exports-of ready empty-list) empty-map)))
+    (python-of (analyse-modules ready by-key elsewhere parse empty-list))))
+
+;; Each of `modules` with its macros expanded; `top` is the top module's index.
+(sig expand-modules (Fn ((List Module) Int (List Ready)) (List Ready)))
+(defn expand-modules (modules top acc)
+  (if (= (len acc) (len modules))
+    acc
+    (let ((m (at modules (len acc)))
+          ((forms macros) (expand-program (get m forms) compile-macros))
+          (prefix (if (= (len acc) top) "" (+ (get m stem) "__"))))
+      (expand-modules modules top (+ acc (to-list (Ready m forms macros (module-exports forms (get m stem) prefix))))))))
+
+(sig exports-by-key (Fn ((List Ready) (Map String Exports)) (Map String Exports)))
+(defn exports-by-key (ready acc)
+  (if (= (len ready) 0)
+    acc
+    (let ((r (at ready 0)))
+      (exports-by-key (slice ready 1 (len ready)) (map-set acc (get (get r module) key) (get r exports))))))
+
+(sig exports-of (Fn ((List Ready) (List Exports)) (List Exports)))
+(defn exports-of (ready acc)
+  (if (= (len ready) 0)
+    acc
+    (exports-of (slice ready 1 (len ready)) (+ acc (to-list (get (at ready 0) exports))))))
+
+;; The definitions of all the modules, in order.
+(sig analyse-modules
+  (Fn ((List Ready) (Map String Exports) (Map String String) (Fn (String) (List Form)) (List Top)) (List Top)))
+(defn analyse-modules (ready by-key elsewhere parse acc)
+  (if (= (len ready) 0)
+    acc
+    (let ((r (at ready 0))
+          (macros (get r macros))
+          (tops
+            (analyse-module
+              (get r forms)
+              (get r exports)
+              (imported (get (get r module) imports) by-key empty-list)
+              elsewhere
+              initial-table
+              (fn (text) (expand-all (parse text) macros empty-list))
+              macros
+              false)))
+      (analyse-modules (slice ready 1 (len ready)) by-key elsewhere parse (+ acc tops)))))
+
+;; The exports of each import, with where it is.
+(sig imported (Fn ((List Imp) (Map String Exports) (List (Tup Exports Pos))) (List (Tup Exports Pos))))
+(defn imported (imps by-key acc)
+  (if (= (len imps) 0)
+    acc
+    (let ((imp (at imps 0)))
+      (imported (slice imps 1 (len imps)) by-key (+ acc (to-list (tup (map-get by-key (get imp key)) (get imp pos))))))))
 
 ;; A macro program (expand.cdy) as Python. It is macro code, so it can quote.
 (sig compile-macros (Fn ((List Form)) String))
 (defn compile-macros (forms) (translate-expanded forms read-forms empty-map true))
 
-;; `forms`, with no macro calls left, as Python; `macros` are the program's macros.
+;; `forms`, one program with no imports and no macro calls left, as Python; `macros` are
+;; the program's macros.
 (sig translate-expanded (Fn ((List Form) (Fn (String) (List Form)) (Map String Macro) Bool) String))
 (defn translate-expanded (forms parse macros quoting)
-  (let ((tops (analyse-program forms initial-table parse macros quoting))
-        (stmts (lower-program tops 0 empty-list))
+  (python-of (analyse-program forms initial-table parse macros quoting)))
+
+;; The definitions `tops` as a Python module.
+(sig python-of (Fn ((List Top)) String))
+(defn python-of (tops)
+  (let ((stmts (lower-program tops 0 empty-list))
         (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) initial-table)))
         (env (bind-locals (bound-locals stmts empty-list) globals)))
     (+ HEADER
@@ -43,11 +107,11 @@
 ;; Candy text in, Python source out, read by the Candy reader (read.cdy), which also
 ;; reads the forms in `format` holes. Its imports are found in the current directory.
 (sig translate-text (Fn (String) String))
-(defn translate-text (text) (translate (include-imports (read-source "" text) ".") read-forms))
+(defn translate-text (text) (translate-modules (text-modules text) read-forms))
 
 ;; The Candy file at `path` as Python source; its imports are found next to it.
 (sig translate-file (Fn (String) String))
-(defn translate-file (path) (translate (read-program path) read-forms))
+(defn translate-file (path) (translate-modules (read-modules path) read-forms))
 
 ;; --- the driver ---
 

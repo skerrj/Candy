@@ -138,6 +138,31 @@ same thing. Two steps:
    - tests: `tst/cdy/cdyc/modules.cdy`, with `lib/` files that define the same name and
      are imported by different files; rework `imports.cdy`, which has a cycle;
    - rebuild `bin`, and strike the inclusion leak through.
+
+   *Done.* As built:
+   - **`include.cdy`:** `read-modules` (a file) and `text-modules` (text, imports from
+     the current directory) return `Module`s (path, key, stem, forms without their
+     imports, and `Imp`s), each after those it imports, the top module last. A cycle is
+     an error at the import that closes it (`b.cdy:1:1: import: cycle a -> b -> a`), and
+     so are two imported modules with one stem. Macro files still use inclusion
+     (`read-program`).
+   - **`cdyc.cdy`:** `translate-modules` expands each module on its own (with its own
+     macro imports and the prelude's macros), works out each module's `Exports`, analyses
+     each module, and lowers and emits all their definitions together (`python-of`).
+     `translate-expanded` (a macro program) is unchanged: one program, no prefixes.
+   - **`core.cdy`:** `Exports` (a module's names, variants, sums and global names) and
+     `analyse-module`. `Scope` has `names` (each visible name's global name) and
+     `elsewhere` (for the "not imported" error). Names are analysed as Candy names, and
+     the global names go in where they reach the output: `Global`s, match clauses
+     (`global-clauses`), and the definitions and types of each `Top` (`rename-tops`).
+     `lower` and `emit` didn't change.
+   - **Runtime:** `map-keys` (new), and `load-macros` finds the translator's `form.cdy`
+     names under the prefix of `home`'s Python name (`form__sym_name`). That covered the
+     bootstrap too: T1, built with inclusion, has no prefixes; T2 has.
+   - **Bootstrap:** one rebuild, as planned; T2 reproduces itself.
+   - **Tests:** `tst/cdy/cdyc/modules.cdy` (with `lib/shapes`, `lib/tags` and
+     `lib/report`), `imports.cdy` without its cycle, `test_module_errors`, and the tests'
+     uses of the translator's internals now use prefixed names (`t1.form__Pos`).
 3. **Docs:** the spec (`candy-special.md`, `import`), CLAUDE.md, and any new leaks and
    tech debt.
 

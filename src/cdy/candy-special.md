@@ -36,9 +36,11 @@ true|false ;; Bool
 ## special forms
 ### import
 - top level only
-- step A (inclusion): pastes in the forms of *symbol*`.cdy`, found in the importing file's directory; *symbol* may be a relative path (`lib/util`)
-- each file is included once, so importing twice or in a cycle is fine
-- no namespaces yet: every top-level name is global across all the files
+- imports the module *symbol*`.cdy`, found in the importing file's directory; *symbol* may be a relative path (`lib/util`)
+- every name the module defines at top level (`def`, `defn`, `deft` with its variants) becomes visible here, unqualified; names the module imports don't
+- two imports that define the same name are an error; the file's own definition of a name wins over an import's
+- importing a module twice is fine; an import cycle is an error, and so are two imported modules with the same file name (`util` and `lib/util`)
+- in a macro file, `import` still pastes the file in (inclusion), as the macro file's helpers
 - only in the Candy translator (the Python translator is frozen)
  > (import *symbol*)
 ### import-macros
