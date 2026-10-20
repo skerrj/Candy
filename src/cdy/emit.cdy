@@ -2,6 +2,10 @@
 ;;; Unlike py_cdy/emit_py.py, which builds Python's ast, this writes text, as smz's
 ;;; render.py did. Every operator gets parentheses, so precedence never matters.
 
+(import form)
+(import core)
+(import lower)
+
 ;; Python names: top-level names (Candy name -> Python name), locals (Local id -> Python
 ;; name), and the Python names already taken where new locals are bound. `generic`: the
 ;; variants of generic sums.

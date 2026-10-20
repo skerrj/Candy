@@ -186,6 +186,51 @@ def test_errors_say_where(
         translate_file_with(t1, Path("main.cdy"))
 
 
+@pytest.mark.parametrize(
+    ("files", "message"),
+    [
+        (
+            {
+                "main.cdy": "(import a)\n(import b)",
+                "a.cdy": "(sig x Int) (def x 1)",
+                "b.cdy": "(sig x Int) (def x 2)",
+            },
+            "main.cdy:2:1: import: a and b both define x",
+        ),
+        (
+            {"main.cdy": "(import a)", "a.cdy": "(import b)", "b.cdy": "(import a)"},
+            "b.cdy:1:1: import: cycle a -> b -> a",
+        ),
+        ({"main.cdy": "(import main)"}, "main.cdy:1:1: import: cycle main -> main"),
+        (
+            {"main.cdy": "(import util)\n(import lib/util)", "util.cdy": "", "lib/util.cdy": ""},
+            "import: two modules are named util: util.cdy and lib/util.cdy",
+        ),
+        (
+            {
+                "main.cdy": "(import a)\n(put (f 1))",
+                "a.cdy": "(import b)",
+                "b.cdy": "(sig f (Fn (Int) Int)) (defn f (n) n)",
+            },
+            "main.cdy:2:7: f is not defined here; b defines it, but this file doesn't import b",
+        ),
+    ],
+)
+def test_module_errors(
+    files: dict[str, str],
+    message: str,
+    t1: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    Path("lib").mkdir()
+    for name, text in files.items():
+        Path(name).write_text(text + "\n", encoding="utf-8")
+    with pytest.raises(CandyFail, match="^" + re.escape(message)):
+        translate_file_with(t1, Path("main.cdy"))
+
+
 LONG = 150  # Python allows 100 levels of indentation
 
 
@@ -221,7 +266,9 @@ def test_quoting_errors(
     src: str, message: str, t1: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(ROOT)  # macro code has Form, from the translator's form.cdy
-    forms = t1.include_imports(t1.read_source("", "(import src/cdy/form)\n" + src), ".")
+    forms = t1.include__include_imports(
+        t1.read__read_source("", "(import src/cdy/form)\n" + src), "."
+    )
     with pytest.raises(CandyFail, match="^" + re.escape("line 2, " + message)):
         translate_macro_code(t1, forms)
 
@@ -229,12 +276,14 @@ def test_quoting_errors(
 def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
     """``forms`` as Python, translated as macro code (where quoting is allowed), as
     ``expand.cdy`` translates a macro program."""
-    return cast(str, t1.translate_expanded(forms, t1.read_forms, {}, True))
+    return cast(str, t1.translate_expanded(forms, t1.read__read_forms, {}, True))
 
 
 def test_quoting_in_macro_code(t1: ModuleType, tmp_path: Path) -> None:
     program = CDYC_ONLY / "macro_code" / "quoting.cdy"
-    done = run(translate_macro_code(t1, t1.read_program(str(program))), tmp_path, "quoting")
+    done = run(
+        translate_macro_code(t1, t1.include__read_program(str(program))), tmp_path, "quoting"
+    )
     assert done.returncode == 0, done.stderr
     assert done.stdout == program.with_suffix(".out").read_text(encoding="utf-8")
 
@@ -457,7 +506,7 @@ def read_both(t1: ModuleType, text: str) -> tuple[str, str]:
     except ParseFailure:
         theirs = "error"
     try:
-        mine = repr(t1.read_forms(text))
+        mine = repr(t1.read__read_forms(text))
     except CandyFail:
         mine = "error"
     return mine, theirs
@@ -523,14 +572,17 @@ def test_reader_agrees(text: str, t1: ModuleType) -> None:
 )
 def test_reader_errors(text: str, message: str, t1: ModuleType) -> None:
     with pytest.raises(CandyFail, match="^" + re.escape(message)):
-        t1.read_forms(text)
+        t1.read__read_forms(text)
 
 
 def test_reader_positions(t1: ModuleType) -> None:
-    forms = t1.read_source("f.cdy", "(a\n  (b c))\n x")
-    pos = t1.form_pos
-    assert pos(forms[0]) == t1.Pos("f.cdy", 1, 1)
-    assert [pos(f) for f in forms[0].items] == [t1.Pos("f.cdy", 1, 2), t1.Pos("f.cdy", 2, 3)]
-    assert pos(forms[0].items[1].items[1]) == t1.Pos("f.cdy", 2, 6)
-    assert pos(forms[1]) == t1.Pos("f.cdy", 3, 2)
-    assert pos(t1.read_forms("x")[0]) == t1.NOWHERE  # read_forms gives no positions
+    forms = t1.read__read_source("f.cdy", "(a\n  (b c))\n x")
+    pos = t1.form__form_pos
+    assert pos(forms[0]) == t1.form__Pos("f.cdy", 1, 1)
+    assert [pos(f) for f in forms[0].items] == [
+        t1.form__Pos("f.cdy", 1, 2),
+        t1.form__Pos("f.cdy", 2, 3),
+    ]
+    assert pos(forms[0].items[1].items[1]) == t1.form__Pos("f.cdy", 2, 6)
+    assert pos(forms[1]) == t1.form__Pos("f.cdy", 3, 2)
+    assert pos(t1.read__read_forms("x")[0]) == t1.form__NOWHERE  # read_forms gives no positions

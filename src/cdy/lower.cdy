@@ -4,6 +4,8 @@
 ;;; an If left in an expression is a conditional expression, and a Lambda a lambda.
 ;;; A let arrives as applied Lambdas and becomes assignments again.
 
+(import core)
+
 (deft Stmt
   (SRecord ((name String) (tvars (List String)) (fields (List (Tup String CType)))))
   (SSum ((name String) (tvars (List String)) (variants (List Variant))))

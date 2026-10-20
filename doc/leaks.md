@@ -11,24 +11,32 @@ Shortcuts that are too small to matter to Candy's design go in `doc/tech_debt.md
   `imvp-py-translator`);
 - `doc/archive/leaks_pre_self_host.md`: self-hosting (up to tag `self-host-py`);
 - `doc/archive/leaks_self_host_cleanup.md`: `import` and the cleanup (up to tag
-  `self-host-cleanup`).
+  `self-host-cleanup`);
+- `doc/archive/leaks_macros.md`: macros (up to tag `macros`).
 
 Those entries stay in effect until they are fixed. When one is fixed, mark it there (strike
 it through and say where it was fixed) rather than copying it here. This file is for leaks
-added from branch `macros` on.
+added from branch `modules` on.
 
-- **Macros run with Python's `exec`** (`load_macros` in `cdy_rt/table_defs.py`): the
-  translator translates the macro code into Python and executes it inside its own module
-  namespace, so Candy's macros depend on the translator running on Python, and on Python
-  module namespaces (the macro program's copy of `form.cdy` is replaced by the
-  translator's names after it runs). The steps are in `doc/hl_rqmt/macros.md`, "How
-  `load-macros` runs macro code". Fix: with modules, the macro program could import
-  the translator's `form` module instead of copying it; a translator on another host
-  needs another way to run macro code (or an interpreter).
-- **A macro's result isn't checked to be a `Form`:** Candy has no type checker yet, and
-  macro code is executed without `mypy`, so a macro that returns, say, an `Int` gives a
-  confusing error (or none) later. Fix: Candy's type checker; meanwhile `call_macro` could
-  check the result's class.
-- **`gensym` is impure:** a counter in the runtime (`fresh_name`), restarted when a
-  program's macros are loaded. It is the only built-in with state besides I/O. Fix: pass a
-  counter through expansion, or take names from a supply in the expansion's context.
+- **A macro can't expand into `import`, `import-macros` or `defmacro`** (found on
+  `macros`, recorded here). The pipeline is read → include → expand → analyse: imports are
+  resolved, and `defmacro`s collected, before any macro runs. So a top-level `(use util)`
+  whose macro returns `(import util)` reaches `analyse` unresolved, which rejects it with
+  a misleading `import is only allowed at top level`, and the same goes for a generated
+  `defmacro`. It also means the import spellings can't be prelude macros over one base
+  import form. Fix: expand top-level forms before `include` handles them, one form at a
+  time, so that a form a macro produces can still be an import or a `defmacro` (as
+  Racket and Clojure do); until then, a better error ("a macro can't produce import").
+- **Macro files still use inclusion:** in a macro file, `(import name)` pastes `name.cdy` in
+  as helpers, with step A's global names, and the macro program (`form.cdy`, helpers and
+  `defmacro`s) is one flat program. Fix: macro programs as modules, which would also let
+  them import the translator's `form` module instead of copying it.
+- **Macro templates aren't hygienic across modules:** a template's symbols mean whatever
+  the use site sees (`doc/hl_rqmt/macros.md`, "Rework point"). A macro whose expansion
+  calls a helper of the macro's own module only works where that helper is imported. Fix:
+  qualify a template's free symbols, as Clojure's syntax-quote does, once qualified names
+  exist.
+- **Only `(import m)`, everything unqualified** (the MVP of `doc/hl_rqmt/modules.md`):
+  there are no qualified names, `import-as` or `import-from`, and no private names, so two
+  modules that both define a name can't be imported into the same file. Fix: "After the
+  MVP" in the HLD.

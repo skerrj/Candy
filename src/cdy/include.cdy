@@ -1,8 +1,127 @@
-;;; Include: `import` as inclusion (step A of doc/hl_rqmt/self_host_cleanup.md). At top
-;;; level, `(import name)` is replaced by the forms of `name.cdy`, found in the importing
-;;; file's directory, so a program and everything it imports is still one program. Each file
-;;; is included once: a file imported again, or in a cycle, is skipped. `(import-macros name)`
-;;; stays, with `name.cdy`'s path in place of the name, for expand.cdy to load.
+;;; Include: reading a program's files. A program is modules (doc/hl_rqmt/modules.md):
+;;; `(import name)` at top level imports `name.cdy`, found in the importing file's
+;;; directory, and read-modules returns each module after those it imports. A cycle is an
+;;; error. `(import-macros name)` stays, with `name.cdy`'s path in place of the name, for
+;;; expand.cdy to load.
+;;;
+;;; Macro files are still read with `import` as inclusion (read-program; step A of
+;;; doc/hl_rqmt/self_host_cleanup.md): `(import name)` is replaced by the forms of
+;;; `name.cdy`, and each file is included once.
+
+(import form)
+(import read)
+
+;; --- modules ---
+
+;; A module: its file (as the user would write the path; "" for text that isn't from a
+;; file), its key (the absolute path), its stem, its forms without its imports, and what it
+;; imports.
+(deft Module ((path String) (key String) (stem String) (forms (List Form)) (imports (List Imp))))
+
+;; An import: the imported module's key, and where the import is.
+(deft Imp ((key String) (pos Pos)))
+
+;; The modules read so far, each after those it imports, and the keys read or being read.
+(deft Mods ((done (List Module)) (seen (Map String Bool))))
+
+;; The modules of the program whose top file is at `path`; the top module is last.
+(sig read-modules (Fn (String) (List Module)))
+(defn read-modules (path)
+  (checked-stems (add-module path (path-resolve path) (read-source path (slurp path)) (path-dir path) empty-list (Mods empty-list empty-map))))
+
+;; The modules of the program `text`, whose imports are found in the current directory.
+(sig text-modules (Fn (String) (List Module)))
+(defn text-modules (text)
+  (checked-stems (add-module "" "" (read-source "" text) "." empty-list (Mods empty-list empty-map))))
+
+;; `acc` with the module at `path` (whose key is `key`) and its imports added; `stack` holds
+;; the keys of the modules importing it, to catch a cycle.
+(sig add-module (Fn (String String (List Form) String (List String) Mods) Mods))
+(defn add-module (path key forms dir stack acc)
+  (let ((imports (module-imports forms dir empty-list))
+        (inner
+          (load-imports imports (+ stack (to-list key)) (assoc acc seen (map-set (get acc seen) key true)))))
+    (assoc inner done
+      (+ (get inner done)
+         (to-list (Module path key (path-stem path) (other-forms forms dir empty-list) (imp-list imports empty-list)))))))
+
+;; The imports among `forms`: each imported file's path, with its Imp.
+(sig module-imports (Fn ((List Form) String (List (Tup String Imp))) (List (Tup String Imp))))
+(defn module-imports (forms dir acc)
+  (if (= (len forms) 0)
+    acc
+    (let ((form (at forms 0))
+          (name (import-name form)))
+      (module-imports
+        (rest-of forms)
+        dir
+        (if (= name "")
+          acc
+          (let ((path (import-path "import" dir name (form-pos form))))
+            (+ acc (to-list (tup path (Imp (path-resolve path) (form-pos form)))))))))))
+
+(sig imp-list (Fn ((List (Tup String Imp)) (List Imp)) (List Imp)))
+(defn imp-list (imports acc)
+  (if (= (len imports) 0)
+    acc
+    (imp-list (slice imports 1 (len imports)) (+ acc (to-list (at (at imports 0) 1))))))
+
+;; `acc` with the modules `imports` names read, unless they were already.
+(sig load-imports (Fn ((List (Tup String Imp)) (List String) Mods) Mods))
+(defn load-imports (imports stack acc)
+  (if (= (len imports) 0)
+    acc
+    (let (((path imp) (at imports 0))
+          (key (get imp key)))
+      (load-imports
+        (slice imports 1 (len imports))
+        stack
+        (cond
+          ((in key stack)
+            (fail (format "{(pos-text (get imp pos))}import: cycle {(cycle-text stack key)}")))
+          ((map-has (get acc seen) key) acc)
+          (else (add-module path key (read-source path (slurp path)) (path-dir path) stack acc)))))))
+
+;; The cycle that importing `key` again closes, by stem: a -> b -> a.
+(sig cycle-text (Fn ((List String) String) String))
+(defn cycle-text (stack key)
+  (if (= (at stack 0) key)
+    (+ (join (stems-of stack empty-list) " -> ") " -> " (path-stem key))
+    (cycle-text (slice stack 1 (len stack)) key)))
+
+(sig stems-of (Fn ((List String) (List String)) (List String)))
+(defn stems-of (keys acc)
+  (if (= (len keys) 0) acc (stems-of (slice keys 1 (len keys)) (+ acc (to-list (path-stem (at keys 0)))))))
+
+;; `forms` without their imports; (import-macros name) as (import-macros "path").
+(sig other-forms (Fn ((List Form) String (List Form)) (List Form)))
+(defn other-forms (forms dir acc)
+  (if (= (len forms) 0)
+    acc
+    (other-forms
+      (rest-of forms)
+      dir
+      (if (= (import-name (at forms 0)) "") (+ acc (to-list (macro-import (at forms 0) dir))) acc))))
+
+;; The modules read, after checking that no two imported modules share a stem, which their
+;; names' prefix comes from (the top module's names have none).
+(sig checked-stems (Fn (Mods) (List Module)))
+(defn checked-stems (mods)
+  (let ((modules (get mods done))
+        (checked (unique-stems (slice modules 0 (- (len modules) 1)) empty-map)))
+    modules))
+
+(sig unique-stems (Fn ((List Module) (Map String String)) Bool))
+(defn unique-stems (modules seen)
+  (if (= (len modules) 0)
+    true
+    (let ((m (at modules 0))
+          (stem (get m stem)))
+      (if (map-has seen stem)
+        (fail (format "import: two modules are named {stem}: {(map-get seen stem)} and {(get m path)}"))
+        (unique-stems (slice modules 1 (len modules)) (map-set seen stem (get m path)))))))
+
+;; --- inclusion (macro files) ---
 
 ;; The forms included so far, and the files they came from (absolute paths).
 (deft Incl ((done (List Form)) (seen (Map String Bool))))

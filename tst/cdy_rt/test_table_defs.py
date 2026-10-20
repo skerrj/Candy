@@ -24,6 +24,7 @@ from cdy_rt.table_defs import (
     make_dirs,
     map_get,
     map_has,
+    map_keys,
     map_set,
     module_dir,
     path_dir,
@@ -102,6 +103,7 @@ def test_maps() -> None:
     assert m == {"a": 1, "b": 2}
     assert map_get(m, "b") == 2
     assert map_has(m, "a") and not map_has(m, "c")
+    assert map_keys(map_set(m, "a", 3)) == ("a", "b")
 
 
 def test_py_render_and_fail() -> None:
@@ -121,6 +123,13 @@ def home() -> None:
     """Stands in for a translator function: load_macros runs a program in its module."""
 
 
+form__HOME = "prefixed Form"  # the same, in a translator built with modules
+
+
+def form__home() -> None:
+    """Stands in for a function of a translator built with modules (form.cdy's prefix)."""
+
+
 def test_load_macros() -> None:
     program = (
         "HOME = 'theirs'\nOTHER = 'theirs'\n"
@@ -131,6 +140,9 @@ def test_load_macros() -> None:
     # HOME is the home module's again; OTHER stays the program's.
     assert macros["macro__m"](("a",)) == ("Form", "theirs", ("a",))
     assert "macro__m" not in globals() and OTHER == "mine"  # it ran in a copy
+    # With modules, form.cdy's names have home's prefix.
+    macros = load_macros(program, form__home, {"HOME": True})
+    assert macros["macro__m"](()) == ("prefixed Form", "theirs", ())
 
 
 def test_fresh_name() -> None:

@@ -1,5 +1,5 @@
-;; `import` as inclusion: lib/greet imports util (next to it, in lib/), which imports greet
-;; back (a cycle); util is also imported here again. Each file is included once.
+;; Imports: lib/greet imports util (next to it, in lib/); util is also imported here, and
+;; greet twice. Each module is read once.
 (import lib/greet)
 (import lib/util)
 (import lib/greet)

@@ -53,15 +53,27 @@ take one, and remove an entry once it is fixed.
   `cond`, and the forms with no expressions), to leave binding positions unexpanded. It
   duplicates a little of `analyse`'s syntax, and gets malformed forms past to `analyse`
   only roughly. A deft's variant named like a macro is not rejected.
-- **Every translation compiles the prelude's macros** (with `form.cdy`), and again for
-  each macro file it loads.
+- **Every module compiles the prelude's macros** (with `form.cdy`), and again for each
+  macro file it loads: each module is expanded on its own, with nothing shared.
 - **A macro file is compiled once per file that imports it** (and its helpers again in
   each importer's macro program), with no cache across a translation.
 - **`form.cdy` is copied next to every translator** (`bin/py/form.cdy`,
   `self_host.copy_library`) for macros to compile with; a translator copied elsewhere on
   its own can't expand macros (it says so).
 
+- **Module prefixes can collide with mangled names:** `util__greet` (module `util`'s
+  `greet`) is also what `py-mangle` makes of a top module's `util--greet`. Nothing checks.
+- **A type from a module the file doesn't import isn't caught** by the translator: a `sig`
+  naming it keeps the bare name, and `mypy` (or Python) reports it in the output.
+- **Translator internals are reached by prefixed names in Python** (`t1.form__Sym`,
+  `t1.read__read_forms`; `self_host.to_form`, `test_self_host.py`), so moving a function
+  to another file changes its Python name.
+
 ## Runtime
+
+- **`load-macros` finds the translator's `form.cdy` names from `home`'s Python name:**
+  `form__sym_name` gives the prefix `form__` (none for a translator built before
+  modules, which the bootstrap needed).
 
 - **`slurp` falls back to searching `src/`, `tst/` and `lib/` by file stem** (from smz's
   `get_path`), relative to the current directory. That can hide a wrong path: it found

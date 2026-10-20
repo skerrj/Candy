@@ -1,0 +1,8 @@
+(sig label String)
+(def label "tags")
+
+(sig tag (Fn (Unit) String))
+(defn tag (_) label)
+
+(sig main (Fn ((List String)) Int))
+(defn main (args) 1)

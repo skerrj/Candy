@@ -1,0 +1,4 @@
+(import tags)
+
+(sig report (Fn (Double) String))
+(defn report (x) (format "{(tag nil)}: {x}"))

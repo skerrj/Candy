@@ -163,6 +163,7 @@ COLLECTION: Table = {
     "map-get": runtime("map_get", 2),
     "map-has": runtime("map_has", 2),
     "map-set": runtime("map_set", 3),
+    "map-keys": runtime("map_keys", 1),
 }
 
 STRING: Table = {

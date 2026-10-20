@@ -1,0 +1,20 @@
+;; Modules (doc/hl_rqmt/modules.md): a file sees what it defines and what it imports.
+;; lib/shapes and lib/tags both define `label`: this file imports shapes, and report,
+;; which imports tags, and its own `label` wins over shapes'. lib/tags also defines a
+;; `main`, which isn't the program's.
+(import lib/shapes)
+(import lib/report)
+
+(sig label String)
+(def label "modules")
+
+(sig show (Fn (Shape) String))
+(defn show (sh)
+  (match sh
+    ((Circle r) (format "circle {r}"))
+    ((Square s) (format "square {s}"))))
+
+(put label)
+(put (area (Circle 1.0)) (show (Square 2.0)))
+(put (get (origin nil) y))
+(put (report (area (Square 3.0))))

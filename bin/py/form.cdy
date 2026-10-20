@@ -64,3 +64,9 @@
 ;; name, so no program can spell it.
 (sig gensym (Fn (String) Form))
 (defn gensym (prefix) (Sym (fresh-name prefix) NOWHERE))
+
+;; A macro: how many arguments it takes (-1 for a bare parameter name, which gets them
+;; all), its loaded function, from the arguments (a (List Form)) to a Form, and where its
+;; defmacro is. Expansion (expand.cdy) makes them; analyse (core.cdy) only needs their names,
+;; which can't be bound.
+(deft Macro ((name String) (arity Int) (run Any) (pos Pos)))

@@ -7,8 +7,10 @@ Candy's design will need to fix later, added on branch `self-host-cleanup`.
 
 ## Hacked-in forms
 
-- **`import` is inclusion, not modules** (step A of `doc/hl_rqmt/self_host_cleanup.md`,
-  `src/cdy/include.cdy`). `(import name)` pastes `name.cdy`'s forms into the program, once
+- ~~**`import` is inclusion, not modules**~~ *Fixed on branch `modules` (step 2 of
+  `doc/hl_rqmt/modules.md`): a file sees only what it defines and imports, with the rest of
+  that HLD's MVP limits in `doc/leaks.md`; macro files still use inclusion.* (Step A of
+  `doc/hl_rqmt/self_host_cleanup.md`, `src/cdy/include.cdy`.) `(import name)` pastes `name.cdy`'s forms into the program, once
   per file, so there are no namespaces: every top-level name is global across all the
   files, two files can't define the same name, and a file sees names from files it
   doesn't import (whatever else the program includes). The name is a path relative to the

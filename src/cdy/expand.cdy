@@ -11,10 +11,10 @@
 ;;; Every file but the prelude itself also imports the prelude's macros (`cond`, from
 ;;; prelude_macros.cdy, which is kept next to the translator, like form.cdy).
 
-;; A macro: how many arguments it takes (-1 for a bare parameter name, which gets them
-;; all), its loaded function, from the arguments (a (List Form)) to a Form, and where its
-;; defmacro is.
-(deft Macro ((name String) (arity Int) (run Any) (pos Pos)))
+(import form)
+(import read)
+(import include)
+(import core)
 
 ;; What a file's macro imports bring it: their macros, their helpers by file (each file's
 ;; once, and before the files that use them), and the files loaded so far.

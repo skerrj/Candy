@@ -75,29 +75,30 @@ def load(path: Path) -> ModuleType:
 
 def to_form(node: SExpr, t1: ModuleType) -> Any:
     """A ``parse_cdy`` node as the matching ``Form`` variant of the translator module ``t1``,
-    with no position (``NOWHERE``), as ``read_forms`` reads."""
+    with no position (``NOWHERE``), as ``read_forms`` reads. ``form.cdy``'s names have its
+    prefix in Python (``form__Sym``; ``doc/hl_rqmt/modules.md``)."""
     variant: Callable[..., Any]
     match node:
         case Symbol(name):
-            return t1.Sym(name, t1.NOWHERE)
+            return t1.form__Sym(name, t1.form__NOWHERE)
         case SList(items):
-            return t1.Lst(tuple(to_form(item, t1) for item in items), t1.NOWHERE)
+            return t1.form__Lst(tuple(to_form(item, t1) for item in items), t1.form__NOWHERE)
         case Str(val):
-            variant = t1.Txt
+            variant = t1.form__Txt
         case Int(val):
-            variant = t1.IntLit
+            variant = t1.form__IntLit
         case Long(val):
-            variant = t1.LongLit
+            variant = t1.form__LongLit
         case Byte(val):
-            variant = t1.ByteLit
+            variant = t1.form__ByteLit
         case Float(val):
-            variant = t1.FloatLit
+            variant = t1.form__FloatLit
         case Double(val):
-            variant = t1.DoubleLit
+            variant = t1.form__DoubleLit
         case Char(val):
-            variant = t1.CharLit
+            variant = t1.form__CharLit
         case Bool(val):
-            variant = t1.BoolLit
+            variant = t1.form__BoolLit
     return variant(val)
 
 
