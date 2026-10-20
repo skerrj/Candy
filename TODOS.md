@@ -19,4 +19,5 @@ Done and earlier items are in `doc/archive/TODOS_macros.md`,
 - [x] Review `doc/hl_rqmt/modules.md`: accepted, MVP scope (only `(import m)`, everything exported, clash at import, cycles an error, `stem__name` in Python).
 - [x] Modules step 1: the translator imports what it uses (still inclusion), `Macro` into `form.cdy`.
 - [x] Modules step 2: per-module scopes, `stem__name` Python names, errors (clash, cycle, repeated stem, not imported).
-- [ ] Review step 2 as built (`doc/hl_rqmt/modules.md`, step 2's "Done" note), and the new leaks and tech debt.
+- [x] Review step 2 as built (accepted) (`doc/hl_rqmt/modules.md`, step 2's "Done" note), and the new leaks and tech debt.
+- [x] Modules step 3: docs (the spec's `import`, CLAUDE.md, leaks and tech debt; done with step 2).

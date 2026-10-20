@@ -22,4 +22,6 @@ whenever it comes up; when one turns into real work, move it to a design doc
   - **Who reads it:** a doc generator, the editor (hover), the translator (an inline or
     deprecated flag), macros (a macro could read its argument's metadata), and, with
     modules, what a module exports. Forms already carry one piece of metadata, `Pos`.
+- **up, down, down-splice, meta-template**: (`up`, `dwn`, `dwn*`, `mt`); replacements for quote, unquote, quasiquote, and quasi-splice (low pri)
 - **dump** (i.e. needs expansion): IO, rust host, interpreter, proper reader, repl, jit
+- **Map, reduce, fold, etc**: optimized target implementations

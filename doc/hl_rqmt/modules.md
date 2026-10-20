@@ -1,6 +1,6 @@
 # Candy modules (HLD)
 
-**Status: accepted, MVP scope.** Branch `modules`, after tag `macros`. This is `import`
+**Status: done (MVP scope); steps 1–3 built.** Branch `modules`, after tag `macros`. This is `import`
 step B of `doc/hl_rqmt/self_host_cleanup.md`. The owner chose the simplest option on
 every question for the first pass ("Questions", at the end). Qualified names,
 `import-as` and `import-from` come later ("After the MVP").
@@ -165,6 +165,9 @@ same thing. Two steps:
      uses of the translator's internals now use prefixed names (`t1.form__Pos`).
 3. **Docs:** the spec (`candy-special.md`, `import`), CLAUDE.md, and any new leaks and
    tech debt.
+
+   *Done* with step 2: the spec's `import`, CLAUDE.md, three leaks (`doc/leaks.md`) and
+   four entries in `doc/tech_debt.md`. The editor grammar needed nothing: no new forms.
 
 ## After the MVP
 
