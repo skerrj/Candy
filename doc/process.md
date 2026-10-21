@@ -67,7 +67,9 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
 - **After committing a new `bin`:** `python script/bootstrap.py --step HEAD` checks that
   the previous step's `bin` builds it; then `--tag` gives it the next `boot/NN`. If it
   needed staging by hand, the tag's message says how (`doc/hl_rqmt/bootstrap.md`).
-- **Before a merge into `master`:** `python script/bootstrap.py --from-scratch`.
+- **Before a merge into `master`:** `pytest -m bootstrap` (or `python script/bootstrap.py
+  --from-scratch`, which is equivalent): the old steps can only break if the environment
+  drifts (Python, mypy, parsec, or the script), and a merge is the checkpoint for that.
 - **The bootstrap hazard:** the checked-in `bin` reads the live `table.py` and its own copy
   of the library (`bin/py/system.cdy` and the rest). A change that adds built-ins
   therefore copies the new `src/cdy/system.cdy` into `bin/py/` before the rebuild. An HLD

@@ -1,6 +1,6 @@
 # Bootstrap: the frozen Python translator off `master`, checked through the history (HLD)
 
-**Status: accepted; steps 1–4 built, in review.** Branch `bootstrap`, after tag `system-prelude` and before the library
+**Status: done.** Branch `bootstrap` (merged, tag `bootstrap`), after tag `system-prelude` and before the library
 branch (`doc/hl_rqmt/library.md`), whose table work it makes simpler. Drafted on
 `system-prelude`. Decided: the history, not a separate repo ("Repo or history"); the
 `boot/NN` tags ("Tags and history"); and the questions at the end.
@@ -127,8 +127,11 @@ So the script, for each step C:
   the Python translator reproduces today's `bin`. So the script can check:
   - **one step** (`bootstrap.py --step C`), using the parent step's checked-in `bin`;
   - **all steps** from their checked-in parents (`--check`), in any order or in parallel;
-  - **the true chain** (`--from-scratch`), feeding each output into the next: the slow,
-    final proof, run when it matters (before a merge into `master`).
+  - **the true chain** (`--from-scratch`), feeding each output into the next: the literal
+    end-to-end demonstration. It proves nothing `--check` doesn't: once every step
+    reproduces its checked-in `bin` byte for byte, feeding a step's output to the next is
+    feeding it the checked-in `bin`, which is what `--check` does. The two pass or fail
+    together, in the same time (about 35 s).
 - **In the test suite:**
   - an opt-in pytest (a `bootstrap` marker, skipped unless asked for) that runs
     `--check`; a few minutes, too slow for every run;
@@ -292,5 +295,8 @@ chain is proven before anything is removed.
 
 1. **The reader agreement check:** dropped; it was for porting the reader, which is done.
    *Lasting.*
-2. **When `--from-scratch` runs:** before each merge into `master`. *Lasting.*
+2. **When the chain runs:** before each merge into `master`, as `pytest -m bootstrap`
+   (which runs `--check`) or `--from-scratch`, which are equivalent ("Testing it"). The
+   old steps can only break if the environment drifts (Python, mypy, parsec, the script),
+   and new steps are checked with `--step HEAD` as they are made. *Lasting.*
 3. **Order:** before the library branch, so its table work needn't keep `arity`.
