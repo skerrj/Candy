@@ -6,8 +6,8 @@ Modelled on schmuz's ``src/py_smz/table.py`` (``OP_TABLE``). Differences from sc
   translator renders the symbol (operator, call, value, special form).
 - The table is immutable. ``add_fun`` returns a new table instead of changing a global, so
   the translator (and later the self-hosted compiler) passes the table along.
-- ``arity`` is ``None`` when a function takes any number of arguments. Calls render every
-  argument (schmuz rendered only ``arity`` of them, defaulting to 1).
+- No arity: a built-in's arity comes from its type in ``src/cdy/system.cdy``. Calls render
+  every argument (schmuz rendered only ``arity`` of them, defaulting to 1).
 - Generated code refers to helpers through ``RUNTIME_MODULE`` and ``TABLE_MODULE``, so
   changing where they live is a one-line change here.
 - Candy literals (``true``/``false``, chars, string escapes) replace schmuz's ``true``,
@@ -46,7 +46,6 @@ class TableEntry(NamedTuple):
 
     py: str
     kind: Kind
-    arity: int | None = None
 
 
 Table = Mapping[str, TableEntry]
@@ -57,19 +56,19 @@ def special() -> TableEntry:
     return TableEntry("", "special")
 
 
-def call(py: str, arity: int | None = None) -> TableEntry:
+def call(py: str) -> TableEntry:
     """An entry for a function call to the Python name ``py``."""
-    return TableEntry(py, "call", arity)
+    return TableEntry(py, "call")
 
 
-def runtime(name: str, arity: int | None = None) -> TableEntry:
+def runtime(name: str) -> TableEntry:
     """An entry for a call to a helper in ``table_defs.py``."""
-    return call(f"{RUNTIME_MODULE}.{name}", arity)
+    return call(f"{RUNTIME_MODULE}.{name}")
 
 
-def table_fn(name: str, arity: int | None = None) -> TableEntry:
+def table_fn(name: str) -> TableEntry:
     """An entry for a call to a function in this module."""
-    return call(f"{TABLE_MODULE}.{name}", arity)
+    return call(f"{TABLE_MODULE}.{name}")
 
 
 def value(py: str) -> TableEntry:
@@ -103,9 +102,9 @@ SPECIAL_FORMS: Table = {
 
 MATH: Table = {
     "PI": value("math.pi"),
-    "sin": call("math.sin", 1),
-    "cos": call("math.cos", 1),
-    "tan": call("math.tan", 1),
+    "sin": call("math.sin"),
+    "cos": call("math.cos"),
+    "tan": call("math.tan"),
     "+": TableEntry("+", "binop"),
     "-": TableEntry("-", "binop"),
     "*": TableEntry("*", "binop"),
@@ -122,7 +121,7 @@ BOOL: Table = {
     ">=": TableEntry(">=", "compare"),
     "and": TableEntry("and", "boolop"),
     "or": TableEntry("or", "boolop"),
-    "not": TableEntry("not", "unary", 1),
+    "not": TableEntry("not", "unary"),
     "nil": value("None"),
 }
 
@@ -130,62 +129,62 @@ IO: Table = {
     "print": call("print"),
     "display": call("print"),
     "put": call("print"),
-    "put-err": runtime("put_err", 1),
-    "file-put-lines": runtime("file_put_lines", 2),
-    "slurp": runtime("slurp", 1),
-    "spit": runtime("spit", 2),
-    "file-exists": runtime("file_exists", 1),
-    "make-dirs": runtime("make_dirs", 1),
-    "path-stem": runtime("path_stem", 1),
-    "path-dir": runtime("path_dir", 1),
-    "path-join": runtime("path_join", 2),
-    "path-resolve": runtime("path_resolve", 1),
+    "put-err": runtime("put_err"),
+    "file-put-lines": runtime("file_put_lines"),
+    "slurp": runtime("slurp"),
+    "spit": runtime("spit"),
+    "file-exists": runtime("file_exists"),
+    "make-dirs": runtime("make_dirs"),
+    "path-stem": runtime("path_stem"),
+    "path-dir": runtime("path_dir"),
+    "path-join": runtime("path_join"),
+    "path-resolve": runtime("path_resolve"),
 }
 
 RE: Table = {
-    "re-search": call("re.search", 2),
-    "re-findall": call("re.findall", 2),
-    "re-compile": call("re.compile", 1),
+    "re-search": call("re.search"),
+    "re-findall": call("re.findall"),
+    "re-compile": call("re.compile"),
 }
 
 COLLECTION: Table = {
-    "len": call("len", 1),
+    "len": call("len"),
     "empty-list": value("()"),
     # Rendered as ``coll[i]``, which mypy types precisely (``t[0]`` of a ``tuple[str, int]``
     # is a ``str``); ``table_defs.at`` would type it as the join of the element types.
-    "at": TableEntry(f"{RUNTIME_MODULE}.at", "index", 2),
-    "slice": TableEntry(f"{RUNTIME_MODULE}.slice_", "slice", 3),
-    "join": runtime("join", 2),
-    "is-coll": runtime("is_coll", 1),
-    "to-list": runtime("to_list", 1),
+    "at": TableEntry(f"{RUNTIME_MODULE}.at", "index"),
+    "slice": TableEntry(f"{RUNTIME_MODULE}.slice_", "slice"),
+    "join": runtime("join"),
+    "is-coll": runtime("is_coll"),
+    "to-list": runtime("to_list"),
     # Writable in Candy (the prelude), but built in for speed: Candy adds to a list by
     # copying it, so its own map would take quadratic time.
-    "map": runtime("list_map", 2),
-    "filter": runtime("list_filter", 2),
-    "fold": runtime("list_fold", 3),
+    "map": runtime("list_map"),
+    "filter": runtime("list_filter"),
+    "fold": runtime("list_fold"),
     # Maps: ``map-set`` returns a new map.
     "empty-map": value("{}"),
-    "map-get": runtime("map_get", 2),
-    "map-has": runtime("map_has", 2),
-    "map-set": runtime("map_set", 3),
-    "map-keys": runtime("map_keys", 1),
+    "map-get": runtime("map_get"),
+    "map-has": runtime("map_has"),
+    "map-set": runtime("map_set"),
+    "map-keys": runtime("map_keys"),
 }
 
 STRING: Table = {
-    "is-empty-str": runtime("is_empty_str", 1),
-    "to-int": runtime("to_int", 1),
-    "to-float": runtime("to_float", 1),
-    "is-decimal": runtime("is_decimal", 1),
-    "hex-char": runtime("hex_char", 1),
-    "is-str": runtime("is_str", 1),
-    "is-digit": runtime("is_digit", 1),
-    "is-alpha": runtime("is_alpha", 1),
-    "is-neg-int": runtime("is_neg_int", 2),
-    "strip": runtime("strip", 2),
-    "replace": runtime("replace", 3),
-    "isspace-at": runtime("isspace_at", 2),
-    "isspace": runtime("isspace", 1),
-    "in": runtime("in_", 2),
+    "is-empty-str": runtime("is_empty_str"),
+    "to-int": runtime("to_int"),
+    "to-float": runtime("to_float"),
+    "is-decimal": runtime("is_decimal"),
+    "hex-char": runtime("hex_char"),
+    "is-str": runtime("is_str"),
+    "is-digit": runtime("is_digit"),
+    "is-alpha": runtime("is_alpha"),
+    "is-neg-int": runtime("is_neg_int"),
+    "strip": runtime("strip"),
+    "replace": runtime("replace"),
+    "isspace-at": runtime("isspace_at"),
+    "isspace": runtime("isspace"),
+    "in": runtime("in_"),
 }
 
 # For the self-hosted compiler: read and extend a symbol table. schmuz called these
@@ -193,35 +192,34 @@ STRING: Table = {
 # returns a new one.
 META_TABLE: Table = {
     "initial-table": value(f"{TABLE_MODULE}.INITIAL_TABLE"),
-    "table-add-fun": table_fn("add_fun", 4),
-    "table-is-special": table_fn("is_special", 2),
-    "table-is-op": table_fn("is_op", 2),
-    "table-is-bin-op": table_fn("is_bin_op", 2),
-    "table-get-arity": table_fn("get_arity", 2),
-    "table-get-py": table_fn("get_py", 2),
-    "table-get-kind": table_fn("get_kind", 2),
-    "is-lit": runtime("is_lit", 1),
+    "table-add-fun": table_fn("add_fun"),
+    "table-is-special": table_fn("is_special"),
+    "table-is-op": table_fn("is_op"),
+    "table-is-bin-op": table_fn("is_bin_op"),
+    "table-get-py": table_fn("get_py"),
+    "table-get-kind": table_fn("get_kind"),
+    "is-lit": runtime("is_lit"),
 }
 
 PY_RENDER: Table = {
-    "get-indent": runtime("get_indent", 1),
-    "py-mangle": runtime("py_mangle", 1),
-    "py-repr": runtime("py_repr", 1),
+    "get-indent": runtime("get_indent"),
+    "py-mangle": runtime("py_mangle"),
+    "py-repr": runtime("py_repr"),
 }
 
 # Macros (doc/hl_rqmt/macros.md): the translator loads a translated macro program and calls
 # its macros; ``fresh-name`` is behind ``gensym`` (form.cdy).
 MACRO: Table = {
-    "load-macros": runtime("load_macros", 3),
-    "call-macro": runtime("call_macro", 3),
-    "module-dir": runtime("module_dir", 1),
-    "fresh-name": runtime("fresh_name", 1),
+    "load-macros": runtime("load_macros"),
+    "call-macro": runtime("call_macro"),
+    "module-dir": runtime("module_dir"),
+    "fresh-name": runtime("fresh_name"),
 }
 
 INFRA: Table = {
     "PY_IMPORTS": value(f"{TABLE_MODULE}.IMPORTS"),
     "SYS_ARGS": value(f"{RUNTIME_MODULE}.get_args()"),
-    "fail": runtime("fail", 1),
+    "fail": runtime("fail"),
 }
 
 INITIAL_TABLE: Table = MappingProxyType(
@@ -241,9 +239,9 @@ INITIAL_TABLE: Table = MappingProxyType(
 )
 
 
-def add_fun(table: Table, name: str, py: str, arity: int | None) -> Table:
+def add_fun(table: Table, name: str, py: str) -> Table:
     """``table`` plus a user function ``name``, called in Python as ``py``."""
-    return MappingProxyType({**table, name: call(py, arity)})
+    return MappingProxyType({**table, name: call(py)})
 
 
 def is_op(table: Table, name: str) -> bool:
@@ -259,11 +257,6 @@ def is_special(table: Table, name: str) -> bool:
 def is_bin_op(table: Table, name: str) -> bool:
     """Whether ``name`` renders as an infix operator (arithmetic, comparison, and/or)."""
     return name in table and table[name].kind in ("binop", "compare", "boolop")
-
-
-def get_arity(table: Table, name: str) -> int | None:
-    """The number of arguments ``name`` takes, or ``None`` for any number."""
-    return table[name].arity
 
 
 def get_kind(table: Table, name: str) -> str:

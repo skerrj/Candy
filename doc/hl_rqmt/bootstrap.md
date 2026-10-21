@@ -21,7 +21,8 @@ branch (`doc/hl_rqmt/library.md`), whose table work it makes simpler. Drafted on
     (`doc/hl_rqmt/system_prelude.md`, step 2 dropped; `doc/tech_debt.md`).
 - **It is the only way to build Candy from scratch,** from a language that isn't Candy.
   Today that bootstrap is only implicit in the history: each commit's `bin` was built by
-  the one before. Since `self-host-py`, 16 of 37 commits changed `bin/`, so the chain has 17 steps.
+  the one before. Since `self-host-py`, 16 of 37 commits changed `bin`, so the chain has 17
+  steps.
 
 ## Goals
 
@@ -51,10 +52,17 @@ its own repo (`git subtree split`), named `candy-bootstrap`.
 
 ### Tags and history (decided)
 
+**A commit that changes `bin`** is one that changes any file in a target's directory under
+`bin/`, that is `bin/<target>/`: the translator (`bin/py/cdy_translator.py`) or a library
+copy next to it (`bin/py/form.cdy`, `system.cdy`, ...). A change to the library copies alone
+counts, since the translator reads them as it runs (bootstrap step 3 is one). A commit that
+changes only `bin/README.md` doesn't. Every such commit is a step of the chain, and gets a
+`boot/NN` tag; the script finds them with the pathspec `:(glob)bin/*/**` (`BIN_FILES`).
+
 The chain is anchored on tags, not on branches: a tag keeps its commit reachable even if a
 branch is rewritten, so the chain survives a rewrite.
 1. **One annotated tag per step, `boot/NN`:** `boot/00` is `self-host-py`, and `boot/01`
-   on are the later commits that changed `bin/`, in order (16 today). The tag's message
+   on are the later commits that changed `bin`, in order (16 at first). The tag's message
    records the step's Python version and any staging it needs, for example:
 
    ```
@@ -65,7 +73,7 @@ branch is rewritten, so the chain survives a rewrite.
    So there is no separate list file, and a commit needn't name itself: it is tagged after
    it is made. `boot/` can't clash with a branch name (`macros` and `modules` are both a
    branch and a tag). The script reads the chain with `git tag -l 'boot/*'`.
-2. **Tagging new steps:** a commit that changes `bin/` gets the next `boot/NN` when it is
+2. **Tagging new steps:** a commit that changes `bin` gets the next `boot/NN` when it is
    committed (with gawc).
 3. **Before any history rewrite** (only when the owner asks for one): tag the old tip
    `archive/<branch>-<YYYY-MM-DD>` and push the tag first. The `boot/` tags keep the old
@@ -93,7 +101,7 @@ tag):
 
 ### The chain
 
-The steps are `self-host-py` and then every commit after it that changed `bin/`. Each step
+The steps are `self-host-py` and then every commit after it that changed `bin`. Each step
 **reuses that commit's own `self_host.py`**, which by construction worked with the `bin`
 before it:
 - **at `self-host-py`**, `build_bin` builds T1 with the Python translator, and T1 builds
@@ -124,7 +132,7 @@ So the script, for each step C:
 - **In the test suite:**
   - an opt-in pytest (a `bootstrap` marker, skipped unless asked for) that runs
     `--check`; a few minutes, too slow for every run;
-  - a fast test, run always: every commit that changed `bin/` since `self-host-py` is a
+  - a fast test, run always: every commit that changed `bin` since `self-host-py` is a
     step: it has a `boot/` tag, numbered in order (the newest commit is exempt until it
     is tagged), so the tags can't drift silently.
 - **The current step.** Until it is tagged, the newest step is checked by what already
@@ -220,6 +228,19 @@ So the script, for each step C:
      the defaults now pass, so they are gone; tech debt updated.
    - **Tests:** 226, in about 15 s (388 in 23 s before).
 3. **`table.py` without `arity`.**
+
+   *Done.* As built:
+   - **`TableEntry`** is `py` and `kind`; `call`, `runtime` and `table_fn` take no arity,
+     and the 57 entries that gave one (and `not`, `at` and `slice`) don't.
+   - **`get_arity` and the `table-get-arity` built-in are gone:** with no field it has
+     nothing to read, and nothing called it (it was one of the library HLD's four unused
+     built-ins). **`add_fun`** (`table-add-fun`) loses its `arity` parameter, and its sig in
+     `system.cdy` with it.
+   - **Bootstrap:** the old `bin` checks its own `bin/py/system.cdy` against the live
+     table, so the new `system.cdy` was copied into `bin/py/` before the rebuild, as
+     `doc/process.md` says. The translator came out the same; only `bin/py/system.cdy`
+     changed, which still makes this commit a step of the chain (`boot/17`).
+   - **Tests:** `test_table.py` without the arity checks; tech debt entry removed.
 4. **Docs.** Also, the general install and how-tos, free of this machine's setup:
    - **`README.md`** (empty today): setup (Python 3.14, parsec.py v4 from git, branch
      `functional-rewrite`; mypy, pytest and the linters; `pip install -e .

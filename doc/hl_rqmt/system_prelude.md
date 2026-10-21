@@ -156,7 +156,8 @@ The checked-in `bin` reads the live `table.py`, as in macros step 5. So:
    checks arity from `table.py` (`src/py_cdy/core_cdy.py`), and its tests still run. So
    `arity` stays, used only by it; the Candy translator takes arity from `system.cdy`
    (step 1). Retiring the Python translator was considered and not chosen. (Tech debt in
-   `doc/tech_debt.md`.)
+   `doc/tech_debt.md`.) *Later done* on branch `bootstrap`, once the Python translator
+   left `master` (`doc/hl_rqmt/bootstrap.md`, step 3).
 3. **`prelude.cdy`:** an implicit import into every file; the four functions; a test
    program; and a test that a program's own `map` wins.
 

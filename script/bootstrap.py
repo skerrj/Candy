@@ -1,7 +1,9 @@
 """The bootstrap chain: Candy built from the Python translator at ``self-host-py`` up to
 today's ``bin``, through the history (``doc/hl_rqmt/bootstrap.md``).
 
-A step is ``self-host-py`` or a later commit that changed ``bin/``. Each step is run in a
+A step is ``self-host-py`` or a later commit that changes ``bin``: any file in a target's
+directory, ``bin/<target>/`` (the translator, or a library copy next to it, which the
+translator reads as it runs); ``bin/README.md`` alone doesn't count. Each step is run in a
 scratch worktree under ``tmp/bootstrap/``: the step's ``bin`` translator is replaced by the
 one before it (except at the first step, which uses the Python translator), the step's own
 ``src/py_cdy/self_host.py`` rebuilds ``bin`` with it, against the step's own runtime, and
@@ -41,6 +43,8 @@ from typing import NamedTuple, cast
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "tmp" / "bootstrap"
 FIRST = "self-host-py"
+# What "a commit that changes bin" means: any file in a target's directory under bin/.
+BIN_FILES = ":(glob)bin/*/**"
 TRANSLATOR = Path("bin") / "py" / "cdy_translator.py"
 PYTHON = f"python {sys.version_info.major}.{sys.version_info.minor}"
 # Deep enough for the translator's recursion (only self tail calls loop).
@@ -71,9 +75,9 @@ def git(*args: str, cwd: Path = ROOT) -> str:
 
 
 def found_steps(head: str = "HEAD") -> tuple[Step, ...]:
-    """The steps from the history: ``self-host-py``, then each commit after it that changed
-    ``bin/``, oldest first."""
-    later = git("rev-list", "--reverse", f"refs/tags/{FIRST}..{head}", "--", "bin/").split()
+    """The steps from the history: ``self-host-py``, then each commit after it that changes
+    ``bin`` (``BIN_FILES``), oldest first."""
+    later = git("rev-list", "--reverse", f"refs/tags/{FIRST}..{head}", "--", BIN_FILES).split()
     first = git("rev-parse", f"refs/tags/{FIRST}^{{commit}}")
     return (Step(first, FIRST), *(Step(commit, commit[:7]) for commit in later))
 

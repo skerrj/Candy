@@ -51,8 +51,11 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
 - **Commit messages** start with what was done ("X step N: ..."), then a body on why and
   what it touches, and end with the attribution trailers Claude Code adds.
 - **Bootstrap tags** (`doc/hl_rqmt/bootstrap.md`, "Tags and history"): a commit that
-  changes `bin/` gets the next annotated `boot/NN` tag (message: the Python version and
-  any staging the rebuild needed); `boot/00` is `self-host-py`.
+  changes `bin` gets the next annotated `boot/NN` tag (message: the Python version and
+  any staging the rebuild needed); `boot/00` is `self-host-py`. *A commit that changes
+  `bin`* changes any file in `bin/<target>/`: the translator, or a library copy next to it
+  (which alone counts: the translator reads them as it runs). `bin/README.md` alone
+  doesn't.
 - **History is never rewritten** unless the owner asks. Before a rewrite, the old tip is
   tagged `archive/<branch>-<YYYY-MM-DD>` and the tag pushed first. `boot/*` and
   `archive/*` tags are never deleted.
