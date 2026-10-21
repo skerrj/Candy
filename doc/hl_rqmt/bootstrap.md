@@ -1,9 +1,9 @@
 # Bootstrap: the frozen Python translator off `master`, checked through the history (HLD)
 
-**Status: proposal (draft); option B decided** (the history, not a separate repo; see
-"Repo or history"), **and the `boot/NN` tags** ("Tags and history"). Written on branch `system-prelude`; proposed as its own branch after
-that one is merged, before or alongside the library branch (`doc/hl_rqmt/library.md`),
-whose table work it makes simpler.
+**Status: accepted.** Branch `bootstrap`, after tag `system-prelude` and before the library
+branch (`doc/hl_rqmt/library.md`), whose table work it makes simpler. Drafted on
+`system-prelude`. Decided: the history, not a separate repo ("Repo or history"); the
+`boot/NN` tags ("Tags and history"); and the questions at the end.
 
 ## Where things stand
 
@@ -75,6 +75,22 @@ branch is rewritten, so the chain survives a rewrite.
 5. **Pushing** uses full refs, as for everything else: `git push origin
    refs/tags/boot/NN:refs/tags/boot/NN`.
 
+**Boot tags and feature tags** mark different things. A feature tag (`macros`,
+`modules`, ...) is on a branch's merge into `master`: when a piece of work was finished. A
+boot tag is on each commit that rebuilt `bin`, usually a step commit on the branch: when
+the translator changed. So a branch spans several boot tags and ends in one feature tag,
+whose `bin` is that of the last boot tag before it (`--list` shows each step's feature
+tag):
+
+| Feature tag | Its `bin` | Its steps |
+|---|---|---|
+| `imvp-py-translator` | none (only the Python translator) | none |
+| `self-host-py` | `boot/00` (the same commit) | `boot/00` |
+| `self-host-cleanup` | `boot/08` | `boot/01` to `boot/08` |
+| `macros` | `boot/11` | `boot/09` to `boot/11` |
+| `modules` | `boot/13` | `boot/12` and `boot/13` |
+| `system-prelude` | `boot/16` | `boot/14` to `boot/16` |
+
 ### The chain
 
 The steps are `self-host-py` and then every commit after it that changed `bin/`. Each step
@@ -145,7 +161,40 @@ So the script, for each step C:
 
 1. **The script and the chain:** `script/bootstrap.py` (`--step`, `--check`,
    `--from-scratch`); run `--check`, stage the steps that need it, tag `boot/00` to
-   `boot/16` (pushed), then `--from-scratch` passes. Tests: the fast list check and the opt-in `--check`.
+   `boot/16` (pushed), then `--from-scratch` passes. Tests: the fast list check and the
+   opt-in `--check`.
+
+   *Done.* As built:
+   - **The chain holds:** `--from-scratch` builds every step from the Python translator
+     at `self-host-py` to today's `bin`, each byte for byte, in about 35 s (Python 3.14);
+     `--check` runs each step on its own, in the same time. Steps take one to three
+     seconds.
+   - **Two steps needed staging,** each a bridge (the translator before translates the
+     step's translator source, and the step's `self_host.py` starts from that):
+     - `joined` for step 1, `84bf89a` (`import` as inclusion): the translator before has
+       no `translate_file` and can't read `import`, so it translates the files joined,
+       without their `import` lines, through `translate_text`;
+     - `old-runtime` for step 11, `a0499db` (macros step 5, `cond` as a macro): the
+       translator before reads the live table, which no longer has `cond`, so the bridge
+       is built against the runtime of the commit's parent. (Its commit says it was
+       "bootstrapped in two rebuilds"; the first was never committed.)
+   - **No library copying needed:** a step's worktree already has that step's
+     `bin/py/*.cdy`, which is what the rebuild used (step 3 of "The chain" happens by
+     itself).
+   - **The script:** `--list`, `--step C`, `--check`, `--from-scratch`, and `--tag`, which
+     tags the steps without a `boot/NN` tag, numbering on, with the Python version and the
+     staging in the message. Until the tags exist, `STAGING` in the script holds the two
+     staging lines by commit. The bridge runs as a hidden `--bridge` mode of the script,
+     in the step's tree, with the right runtime on `PYTHONPATH`.
+   - **Tests** (`tst/py_cdy/test_bootstrap.py`): the first step is `self-host-py`;
+     `STAGING` names only steps; the tags cover the steps in order, with their staging,
+     only the newest step untagged (skipped until there are tags); and
+     `pytest -m bootstrap`, deselected by default, runs `--check`. `script/` joins the
+     import path of every tool (`pyproject.toml`).
+   - **Tagged** `boot/00` to `boot/16` with `--tag` (the owner's go): each message says
+     `python 3.14` and the staging (`none`, `joined ...` or `old-runtime`). `--check`
+     then passes reading the chain and its staging from the tags. `--list` shows each
+     step's feature tag ("Tags and history").
 2. **Remove the Python translator** from `master`: the files, their tests and the
    `main.py` default; `test_cdy_programs.py` on `bin`.
 3. **`table.py` without `arity`.**
@@ -154,11 +203,9 @@ So the script, for each step C:
 Step 1 comes first and runs while the Python translator is still on `master`, so the
 chain is proven before anything is removed.
 
-## Questions (open)
+## Questions (decided: the proposals)
 
-1. **The reader agreement check:** drop it (proposed), or keep it as part of the
-   `self-host-py` step?
-2. **When `--from-scratch` runs:** before each merge into `master` (proposed), or only
-   by hand?
-3. **Order:** before the library branch (proposed, so its table work needn't keep
-   `arity`), or with it?
+1. **The reader agreement check:** dropped; it was for porting the reader, which is done.
+   *Lasting.*
+2. **When `--from-scratch` runs:** before each merge into `master`. *Lasting.*
+3. **Order:** before the library branch, so its table work needn't keep `arity`.

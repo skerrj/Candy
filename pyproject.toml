@@ -18,10 +18,10 @@ package-data = { cdy_rt = ["py.typed"] }
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-src = ["src/py_cdy", "src"]
+src = ["src/py_cdy", "src", "script"]
 
 [tool.pylint.main]
-init-hook = "import sys; sys.path.insert(0, 'src/py_cdy')"
+init-hook = "import sys; sys.path[:0] = ['src/py_cdy', 'script']"
 # mypy is compiled (mypyc); let pylint import it to see mypy.api.
 extension-pkg-allow-list = ["mypy"]
 
@@ -44,11 +44,14 @@ no-docstring-rgx = "^(_|test_)"
 
 [tool.mypy]
 strict = true
-mypy_path = "src/py_cdy"
+mypy_path = "src/py_cdy:script"
 
 [tool.pytest.ini_options]
-pythonpath = ["src/py_cdy"]
+pythonpath = ["src/py_cdy", "script"]
 testpaths = ["tst"]
+# The bootstrap chain takes a minute: run it with `pytest -m bootstrap`.
+addopts = '-m "not bootstrap"'
+markers = ["bootstrap: runs the bootstrap chain (doc/hl_rqmt/bootstrap.md)"]
 
 [tool.pyright]
-extraPaths = ["src/py_cdy"]
+extraPaths = ["src/py_cdy", "script"]
