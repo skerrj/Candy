@@ -15,8 +15,8 @@ the result must equal the step's checked-in ``bin``, byte for byte.
     python script/bootstrap.py --from-scratch   the true chain, each output into the next
     python script/bootstrap.py --tag            tag the steps boot/00, boot/01, ...
 
-The steps are the ``boot/NN`` tags, or, before they exist, the commits found with
-``git log``. A step that needed staging says how in its tag's message, on a line
+The steps are the ``boot/NN`` tags, then the commits after them found with ``git log``
+(not tagged yet). A step that needed staging says how in its tag's message, on a line
 ``staging: KIND ARGS`` (``STAGING`` holds the lines until the tags exist). Each kind builds
 a bridge: the translator before translates the step's translator source, and the step's
 ``self_host.py`` starts from the result.
@@ -89,8 +89,10 @@ def tagged_steps() -> tuple[Step, ...]:
 
 
 def steps() -> tuple[Step, ...]:
-    """The chain: the ``boot/NN`` tags, or the history's steps before there are any."""
-    return tagged_steps() or found_steps()
+    """The chain: the ``boot/NN`` tags, then the history's steps after them that aren't
+    tagged yet (all of them, before there are tags)."""
+    tagged = tagged_steps()
+    return (*tagged, *found_steps()[len(tagged) :])
 
 
 def staging_of(step: Step) -> tuple[str, ...]:

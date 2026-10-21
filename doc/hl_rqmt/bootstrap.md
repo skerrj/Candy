@@ -203,6 +203,9 @@ So the script, for each step C:
      `python 3.14` and the staging (`none`, `joined ...` or `old-runtime`). `--check`
      then passes reading the chain and its staging from the tags. `--list` shows each
      step's feature tag ("Tags and history").
+   - **The chain is the tags, then the untagged steps after them** (the history's): so a
+     new step, such as `boot/17`, can be checked with `--step HEAD` before it is tagged.
+     (At first the tags alone were the chain, which left the newest step out.)
 2. **Remove the Python translator** from `master`: the files, their tests and the
    `main.py` default; `test_cdy_programs.py` on `bin`.
 
