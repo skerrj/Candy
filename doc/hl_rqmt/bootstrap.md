@@ -198,7 +198,16 @@ So the script, for each step C:
 2. **Remove the Python translator** from `master`: the files, their tests and the
    `main.py` default; `test_cdy_programs.py` on `bin`.
 3. **`table.py` without `arity`.**
-4. **Docs.**
+4. **Docs.** Also, the general install and how-tos, free of this machine's setup:
+   - **`README.md`** (empty today): setup (Python 3.14, parsec.py v4 from git, branch
+     `functional-rewrite`; mypy, pytest and the linters; `pip install -e .
+     --config-settings editable_mode=strict`), running a program, rebuilding `bin`, and
+     the bootstrap chain. No machine paths.
+   - **`CLAUDE.local.md`** (gitignored; Claude Code reads it with CLAUDE.md): this
+     machine's specifics, the conda activate line, the local parsec checkout, where smz
+     is. CLAUDE.md then speaks of the project's Python environment generally.
+   - **The iMVP doc's setup section** points at the README; its smz mentions stay (a
+     reference to a sibling project, not setup). The archives stay as they are (history).
 
 Step 1 comes first and runs while the Python translator is still on `master`, so the
 chain is proven before anything is removed.

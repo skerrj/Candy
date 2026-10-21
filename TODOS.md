@@ -26,4 +26,4 @@ Done and earlier items are in `doc/archive/TODOS_system_prelude.md`, `doc/archiv
 - [ ] Review step 1 as built (`doc/hl_rqmt/bootstrap.md`, its "Done" note; `script/bootstrap.py`).
 - [ ] Step 2: the Python translator off `master`.
 - [ ] Step 3: `table.py` without `arity`.
-- [ ] Step 4: docs.
+- [ ] Step 4: docs, and a general install and how-tos in `README.md`, with this machine's setup moved to a gitignored `CLAUDE.local.md`.
