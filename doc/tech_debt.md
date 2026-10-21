@@ -69,6 +69,27 @@ take one, and remove an entry once it is fixed.
   `t1.read__read_forms`; `self_host.to_form`, `test_self_host.py`), so moving a function
   to another file changes its Python name.
 
+- **Macro code doesn't get the prelude:** a macro program (a file's `defmacro`s and the
+  macro files it loads) isn't given `prelude.cdy`, so macro code can't call `rest` and
+  the rest; it has `form.cdy`'s `rest-of`. Fix: give macro programs the prelude, or let
+  them import it, with the host's modules (`doc/hl_rqmt/modules.md`, "Macro modules on
+  the host").
+- **`system.cdy` is read for every translation, and again for every macro program**
+  (`builtin-sigs` in `cdyc.cdy`), and checked against the table each time. Nothing
+  caches it.
+- **`table.py` still has every built-in's arity**, which only the frozen Python
+  translator reads (`core_cdy.py`); the Candy translator takes arity from `system.cdy`.
+  The two can disagree without a test noticing. Fix: drop the field if the Python
+  translator is ever retired.
+- **The built-ins' types are read but not used** beyond arity: there is no type checker,
+  and mypy still gets the runtime's types from `table_defs.py`'s annotations.
+
+- **The whole prelude goes into every program's Python file**, used or not, and it is
+  read and expanded again for every translation.
+- **Building a list is quadratic:** `(+ acc (to-list x))` copies the whole tuple. `map`,
+  `filter` and `fold` are built-ins to avoid it, but the translator's own accumulator
+  loops (about 94 `defn`s) still pay it. Long-term fix: in `mutation_optimization.md`.
+
 ## Runtime
 
 - **`load-macros` finds the translator's `form.cdy` names from `home`'s Python name:**

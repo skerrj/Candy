@@ -40,6 +40,7 @@ from self_host import (
     TRANSLATOR,
     build_t1,
     build_with,
+    copy_library,
     load,
     parse_forms,
     translate_file_with,
@@ -213,6 +214,10 @@ def test_errors_say_where(
                 "b.cdy": "(sig f (Fn (Int) Int)) (defn f (n) n)",
             },
             "main.cdy:2:7: f is not defined here; b defines it, but this file doesn't import b",
+        ),
+        (
+            {"main.cdy": "(import a)", "a.cdy": "(sig rest Int) (def rest 1)"},
+            "main.cdy:1:1: import: prelude and a both define rest",
         ),
     ],
 )
@@ -486,11 +491,58 @@ def test_bin_driver_expands_macros(tmp_path: Path) -> None:
     )
 
 
-def test_macros_need_form_next_to_translator(t1_path: Path, tmp_path: Path) -> None:
+def test_own_definitions_win_over_the_prelude(t1: ModuleType, tmp_path: Path) -> None:
+    # Over the prelude's rest, and over the built-in map.
+    source = translate_with(
+        t1, "(sig rest Int)\n(def rest 7)\n(sig map Int)\n(def map 8)\n(put rest map)"
+    )
+    assert run(source, tmp_path, "own").stdout == "7 8\n"
+
+
+def test_list_functions_are_built_in(t1: ModuleType) -> None:
+    # Fast: the runtime's, not Candy loops that copy the list for each item.
+    source = translate_with(t1, "(put (map (fn (n) n) (tup 1)) (filter (fn (n) true) (tup 1)))")
+    assert "cdy_rt.table_defs.list_map(" in source and "cdy_rt.table_defs.list_filter(" in source
+
+
+def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
     translator = tmp_path / t1_path.name
-    shutil.copyfile(t1_path, translator)  # without form.cdy
-    with pytest.raises(CandyFail, match="^macros need .* next to the translator"):
-        translate_with(load(translator), "(defmacro m (a) a)\n(m 1)")
+    shutil.copyfile(t1_path, translator)  # without form.cdy, system.cdy, ...
+    with pytest.raises(CandyFail, match="^the translator needs .* next to it"):
+        translate_with(load(translator), "(put 1)")
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (("(sig slurp (Fn (String) String))\n", ""), "built-in slurp has no sig in system.cdy"),
+        (("", "(sig nope Int)\n"), "system.cdy: nope has no Python mapping in table.py"),
+        (("", "(sig + (Fn (Int Int) Int))\n"), "system.cdy: + has no Python mapping in table.py"),
+        (("", "(sig len (Fn (Any) Int))\n"), "system.cdy: more than one sig for len"),
+        (("", "(def x 1)\n"), "system.cdy: expected (sig name Type)"),
+    ],
+)
+def test_system_errors(
+    change: tuple[str, str], message: str, t1_path: Path, tmp_path: Path
+) -> None:
+    translator = tmp_path / t1_path.name
+    shutil.copyfile(t1_path, translator)
+    copy_library(tmp_path)
+    system = tmp_path / "system.cdy"
+    old, extra = change
+    text = system.read_text(encoding="utf-8")
+    assert old in text
+    system.write_text(text.replace(old, "") + extra, encoding="utf-8")
+    with pytest.raises(CandyFail, match=re.escape(message)):
+        translate_with(load(translator), "(put 1)")
+
+
+def test_builtin_arity_comes_from_system(t1: ModuleType) -> None:
+    with pytest.raises(CandyFail, match=re.escape("(slurp ...) takes 1 argument(s), got 2")):
+        translate_with(t1, '(put (slurp "a" "b"))')
+    with pytest.raises(CandyFail, match=re.escape("(not ...) takes 1 argument(s), got 2")):
+        translate_with(t1, "(put (not true false))")
+    assert "print(1, 2, 3)" in translate_with(t1, "(put 1 2 3)")  # put is Any: any number
 
 
 # --- the reader ---

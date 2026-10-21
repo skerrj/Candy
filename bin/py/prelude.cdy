@@ -1,0 +1,10 @@
+;;; Prelude: definitions every program gets (doc/hl_rqmt/system_prelude.md). It is a module
+;;; that every other file imports without saying so, kept next to the translator, like
+;;; system.cdy. A file's own definitions win over the prelude's, as over any import.
+;;;
+;;; `map`, `filter` and `fold` could be written here too, but are built-ins for speed
+;;; (system.cdy): Candy adds to a list by copying it, so they would take quadratic time.
+
+;; All of `xs` but the first item.
+(sig rest (Fn ((List a)) (List a)))
+(defn rest (xs) (slice xs 1 (len xs)))

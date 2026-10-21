@@ -33,6 +33,7 @@ true|false ;; Bool
 - if it defines `main`, typed `(Fn ((List String)) Int)`, `main` then runs with the command-line arguments, and the program exits with its result
 - `main` runs only when the program itself is run: not when it's imported, as the translator's own `main` (its driver) isn't when tests load it
 - a `fail` in `main` prints `candy: ` and the message, and exits with 1
+- every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: only `rest` so far (`map`, `filter` and `fold` are built-ins, declared in `system.cdy`, for speed); a file's own definition of a prelude or built-in name wins, and a module it imports that defines one is a clash, as between any two imports
 ## special forms
 ### import
 - top level only
@@ -56,7 +57,8 @@ true|false ;; Bool
 ### sig
 - the type of a top-level `def` or `defn`
 - top level only, required for every `def` and `defn`, anywhere before its definition, one per name
-- later: a `sig` with no definition in `system.cdy` declares a runtime built-in
+- in `src/cdy/system.cdy`, which the translator reads, a `sig` has no definition: it declares a built-in that the runtime provides, with its type; anywhere else that is an error
+- a built-in's arity is its type's, so a built-in typed `Any` (`put`) takes any number of arguments
  > (sig *symbol* *type*)
 ### def
 - not immutable... for now... 

@@ -51,7 +51,8 @@ An initial macro implementation comes before modules (`import` step B). The two 
 - **Rework point:** once modules exist, a macro's symbols should resolve in the module
   that defined it, the way Clojure's syntax-quote qualifies them. Expect to revisit
   quasiquote then.
-- The symbol table work (`system.cdy`, `prelude.cdy`) comes after both.
+- The symbol table work (`system.cdy`, `prelude.cdy`) comes after both (branch
+  `system-prelude`, `doc/hl_rqmt/system_prelude.md`).
 
 ## Goals
 

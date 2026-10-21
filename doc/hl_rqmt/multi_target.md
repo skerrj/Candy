@@ -82,6 +82,17 @@ Later, the target-neutral half becomes Candy code. `system.cdy` (and the files i
 declares each built-in with a bodiless `sig`, the way Carp's `register` does, and
 `prelude.cdy` defines more on top of it.
 
+*Started on branch `system-prelude`* (`doc/hl_rqmt/system_prelude.md`):
+- `src/cdy/system.cdy` holds the Candy type of every built-in but the special forms and
+  operators, which gives the Candy translator their arities;
+- `table.py` is the Python mapping: each built-in's Python name and kind (it keeps
+  `arity` too, for the frozen Python translator);
+- the operators are still described by the table alone, since a `Fn` type can't say "two
+  or more arguments";
+- `src/cdy/prelude.cdy` is ordinary Candy, so it is the same for every target.
+
+The open questions below are still open: there is one `system.cdy`, for Python.
+
 ### Open: abstracting `system.cdy` while allowing specifics
 
 `system.cdy` has to do two things that pull against each other:

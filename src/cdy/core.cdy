@@ -76,7 +76,9 @@
    ;; and the names other modules define, by module stem, for the error when one isn't
    ;; imported.
    (names (Map String String))
-   (elsewhere (Map String String))))
+   (elsewhere (Map String String))
+   ;; The built-ins' types, from system.cdy (see system-sigs).
+   (builtins (Map String CType))))
 
 ;; `scope` analysing a form at `pos` (unless that's NOWHERE).
 (sig at-pos (Fn (Scope Pos) Scope))
@@ -156,17 +158,23 @@
               (arity-ok (check-call callee (len args) scope)))
           (tup (Call callee args) n2))))))
 
-;; Fail if a built-in is called with the wrong number of arguments.
+;; Fail if a built-in is called with the wrong number of arguments: an operator's kind
+;; says how many it takes, and any other built-in's type (in system.cdy), unless that is
+;; Any or not a function.
 (sig check-call (Fn (Expr Int Scope) Bool))
 (defn check-call (callee count scope)
   (match callee
     ((Prim name)
       (let ((kind (table-get-kind (get scope table) name))
-            (arity (table-get-arity (get scope table) name)))
+            (arity
+              (cond
+                ((= kind "unary") 1)
+                ((map-has (get scope builtins) name) (fn-arity (map-get (get scope builtins) name)))
+                (else -1))))
         (cond
           ((and (in kind (tup "binop" "compare" "boolop")) (< count 2))
             (fail (located scope (format "({name} ...) needs at least 2 arguments, got {count}"))))
-          ((and (!= arity nil) (!= arity count))
+          ((and (>= arity 0) (!= arity count))
             (fail (located scope (format "({name} ...) takes {arity} argument(s), got {count}"))))
           (else true))))
     (else true)))
@@ -829,6 +837,44 @@
     ((Lst items _) (if (= (len items) 0) "" (sym-name (at items 0))))
     (else (sym-name form))))
 
+;; --- the built-ins (system.cdy, doc/hl_rqmt/system_prelude.md) ---
+
+;; The built-ins' types, from the forms of system.cdy: each a bodiless (sig name Type).
+;; They are checked against `table` both ways: every sig needs a Python mapping, and every
+;; table entry but the special forms and operators needs a sig.
+(sig system-sigs (Fn ((List Form) Any) (Map String CType)))
+(defn system-sigs (forms table)
+  (let ((sigs (read-sigs forms table empty-map))
+        (checked (all-declared (map-keys table) table sigs)))
+    sigs))
+
+(sig read-sigs (Fn ((List Form) Any (Map String CType)) (Map String CType)))
+(defn read-sigs (forms table acc)
+  (if (= (len forms) 0)
+    acc
+    (let ((form (at forms 0))
+          (items (list-items form))
+          (name (if (and (= (len items) 3) (= (sym-name (at items 0)) "sig")) (sym-name (at items 1)) ""))
+          (where (pos-text (form-pos form))))
+      (cond
+        ((= name "") (fail (+ where "system.cdy: expected (sig name Type)")))
+        ((map-has acc name) (fail (format "{where}system.cdy: more than one sig for {name}")))
+        ((not (in (table-get-kind table name) BUILTIN_KINDS))
+          (fail (format "{where}system.cdy: {name} has no Python mapping in table.py")))
+        (else (read-sigs (rest-of forms) table (map-set acc name (analyse-type (at items 2)))))))))
+
+;; The kinds of table entry that system.cdy declares: not special forms or operators.
+(sig BUILTIN_KINDS (List String))
+(def BUILTIN_KINDS (tup "call" "value" "index" "slice"))
+
+(sig all-declared (Fn ((List String) Any (Map String CType)) Bool))
+(defn all-declared (names table sigs)
+  (cond
+    ((= (len names) 0) true)
+    ((and (in (table-get-kind table (at names 0)) BUILTIN_KINDS) (not (map-has sigs (at names 0))))
+      (fail (format "built-in {(at names 0)} has no sig in system.cdy")))
+    (else (all-declared (slice names 1 (len names)) table sigs))))
+
 ;; --- modules (doc/hl_rqmt/modules.md) ---
 
 ;; What a module defines at top level, which the modules importing it see: its names (true
@@ -858,22 +904,24 @@
 ;; A scope with only `top`, for finding variants.
 (sig blank-scope (Fn ((Map String Bool)) Scope))
 (defn blank-scope (top)
-  (Scope empty-map top nil (fn (text) empty-list) empty-map empty-map NOWHERE empty-map false empty-map empty-map))
+  (Scope empty-map top nil (fn (text) empty-list) empty-map empty-map NOWHERE empty-map false empty-map empty-map empty-map))
 
-;; `forms`, one program on its own (a macro program), with no imports and no prefix.
-(sig analyse-program (Fn ((List Form) Any (Fn (String) (List Form)) (Map String Macro) Bool) (List Top)))
-(defn analyse-program (forms table parse macros quoting)
-  (analyse-module forms (module-exports forms "" "") empty-list empty-map table parse macros quoting))
+;; `forms`, one program on its own (a macro program), with no imports and no prefix;
+;; `builtins` are the built-ins' types (system-sigs).
+(sig analyse-program
+  (Fn ((List Form) Any (Map String CType) (Fn (String) (List Form)) (Map String Macro) Bool) (List Top)))
+(defn analyse-program (forms table builtins parse macros quoting)
+  (analyse-module forms (module-exports forms "" "") empty-list empty-map table builtins parse macros quoting))
 
 ;; The module `forms`, which exports `own`. It imports `imports` (each module's exports,
 ;; and where the import is); `elsewhere` has the names the program's other modules define.
 (sig analyse-module
-  (Fn ((List Form) Exports (List (Tup Exports Pos)) (Map String String) Any (Fn (String) (List Form)) (Map String Macro) Bool)
+  (Fn ((List Form) Exports (List (Tup Exports Pos)) (Map String String) Any (Map String CType) (Fn (String) (List Form)) (Map String Macro) Bool)
       (List Top)))
-(defn analyse-module (forms own imports elsewhere table parse macros quoting)
+(defn analyse-module (forms own imports elsewhere table builtins parse macros quoting)
   (let ((seen (with-own (with-imports imports (Seen (Exports "" empty-map empty-map empty-map empty-map) empty-map)) own))
         (vis (get seen vis))
-        (scope (Scope empty-map (get vis top) table parse (get vis variants) (get vis sums) NOWHERE macros quoting (get vis names) elsewhere))
+        (scope (Scope empty-map (get vis top) table parse (get vis variants) (get vis sums) NOWHERE macros quoting (get vis names) elsewhere builtins))
         (prog (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms empty-map) empty-map))))
     (rename-tops (get prog out) (get vis names) empty-list)))
 

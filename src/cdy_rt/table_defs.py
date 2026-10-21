@@ -18,6 +18,7 @@ Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
 """
 
 import builtins
+import functools
 import itertools
 import keyword
 import sys
@@ -53,6 +54,22 @@ def is_coll(expr: object) -> bool:
 def is_lit(expr: object) -> bool:
     """Whether ``expr`` is an atom rather than a list or tuple."""
     return not is_coll(expr)
+
+
+def list_map[A, B](f: Callable[[A], B], xs: Sequence[A]) -> tuple[B, ...]:
+    """``f`` of each item of ``xs``. A built-in, not Candy, for speed: Candy adds to a list
+    by copying it (doc/hl_rqmt/system_prelude.md, step 5)."""
+    return tuple(map(f, xs))
+
+
+def list_filter[A](keep: Callable[[A], bool], xs: Sequence[A]) -> tuple[A, ...]:
+    """The items of ``xs`` for which ``keep`` is true (a built-in for speed, as ``list_map``)."""
+    return tuple(x for x in xs if keep(x))
+
+
+def list_fold[A, B](f: Callable[[B, A], B], acc: B, xs: Sequence[A]) -> B:
+    """``f`` applied to ``acc`` and each item of ``xs`` in turn (a built-in for speed)."""
+    return functools.reduce(f, xs, acc)
 
 
 def to_list[T](val: T) -> tuple[T, ...]:

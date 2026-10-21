@@ -206,13 +206,26 @@ same thing. Two steps:
 
 ## Questions (decided: the simplest option for the MVP)
 
-1. **Exports:** everything defined at top level.
+*For now* marks an answer meant to change, with where its follow-up is tracked; *lasting*
+marks one meant to stay.
+
+1. **Exports:** everything defined at top level. *For now:* "After the MVP" (export lists
+   or private names); `doc/hl_rqmt/library.md`, question 8.
 2. **Import forms:** only `(import m)`, everything unqualified; the rest after the MVP.
+   *For now:* "After the MVP" (qualified names and the other import forms);
+   `doc/archive/leaks_modules.md`, "Only `(import m)`, everything unqualified".
 3. **Qualified-name separator:** deferred with qualified names (`/` is the likely choice).
-4. **Clashes:** an error at the import; a file's own definitions win.
-5. **Output:** one Python file per program.
-6. **Cycles:** an error.
+   *For now:* "After the MVP".
+4. **Clashes:** an error at the import; a file's own definitions win. *For now* (the
+   error): "After the MVP" ("ambiguous only where used"); *lasting* (own definitions win).
+5. **Output:** one Python file per program. *For now:* "After the MVP" (modules all the
+   way to the backend); `doc/hl_rqmt/multi_target.md`, "Modules and output units".
+6. **Cycles:** an error. *Lasting.*
 7. **Python names:** `stem__name` for every module but the top one; a repeated stem is an
-   error.
-8. **Macro hygiene:** templates stay plain.
-9. **Macros and exports:** `import` doesn't bring `defmacro`s; `import-macros` stays.
+   error. *For now:* "After the MVP" (modules all the way to the backend);
+   `doc/tech_debt.md`, "Module prefixes can collide with mangled names".
+8. **Macro hygiene:** templates stay plain. *For now:* "After the MVP" (qualified template
+   symbols); `doc/archive/leaks_modules.md`, "Macro templates aren't hygienic across
+   modules".
+9. **Macros and exports:** `import` doesn't bring `defmacro`s; `import-macros` stays. *For
+   now:* "After the MVP" (a plain `import` bringing a file's `defmacro`s).

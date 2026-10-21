@@ -8,6 +8,9 @@ import cdy_rt.table
 import cdy_rt.table_defs
 
 
+def prelude__rest[a](xs: tuple[a, ...]) -> tuple[a, ...]:
+    return xs[1:len(xs)]
+
 class form__Pos(_cdy_NamedTuple):
     file: str
     line: int
@@ -375,9 +378,25 @@ def include__text_modules(text: str) -> tuple[include__Module, ...]:
     return include__checked_stems(include__add_module('', '', read__read_source('', text), '.', (), include__Mods((), {})))
 
 def include__add_module(path: str, key: str, forms: tuple[form__Form, ...], dir_: str, stack: tuple[str, ...], acc: include__Mods) -> include__Mods:
-    imports = include__module_imports(forms, dir_, ())
+    imports = (include__prelude_module(key) + include__module_imports(forms, dir_, ()))
     inner = include__load_imports(imports, (stack + cdy_rt.table_defs.to_list(key)), acc._replace(seen=cdy_rt.table_defs.map_set(acc.seen, key, True)))
     return inner._replace(done=(inner.done + cdy_rt.table_defs.to_list(include__Module(path, key, cdy_rt.table_defs.path_stem(path), include__other_forms(forms, dir_, ()), include__imp_list(imports, ())))))
+
+def include__prelude_module(key: str) -> tuple[tuple[str, include__Imp], ...]:
+    path = include__library_path('prelude.cdy')
+    prelude = cdy_rt.table_defs.path_resolve(path)
+    if (prelude == key):
+        return ()
+    else:
+        return cdy_rt.table_defs.to_list((path, include__Imp(prelude, form__NOWHERE)))
+
+def include__library_path(name: str) -> str:
+    dir_ = cdy_rt.table_defs.module_dir(form__sym_name)
+    path = cdy_rt.table_defs.path_join(dir_, name)
+    if cdy_rt.table_defs.file_exists(path):
+        return path
+    else:
+        return cdy_rt.table_defs.fail(('the translator needs ' + str(name) + ' next to it, in ' + str(dir_)))
 
 def include__module_imports(forms: tuple[form__Form, ...], dir_: str, acc: tuple[tuple[str, include__Imp], ...]) -> tuple[tuple[str, include__Imp], ...]:
     while True:
@@ -628,6 +647,7 @@ class core__Scope(_cdy_NamedTuple):
     quoting: bool
     names: _cdy_Mapping[str, str]
     elsewhere: _cdy_Mapping[str, str]
+    builtins: _cdy_Mapping[str, core__CType]
 
 def core__at_pos(scope: core__Scope, pos: form__Pos) -> core__Scope:
     if (pos.line == 0):
@@ -727,10 +747,10 @@ def core__check_call(callee: core__Expr, count: int, scope: core__Scope) -> bool
     if isinstance(_cdy_t6, core__Prim):
         name = _cdy_t6.name
         kind = cdy_rt.table.get_kind(scope.table, name)
-        arity = cdy_rt.table.get_arity(scope.table, name)
+        arity = (1 if (kind == 'unary') else (core__fn_arity(cdy_rt.table_defs.map_get(scope.builtins, name)) if cdy_rt.table_defs.map_has(scope.builtins, name) else -1))
         if (cdy_rt.table_defs.in_(kind, ('binop', 'compare', 'boolop')) and (count < 2)):
             return cdy_rt.table_defs.fail(core__located(scope, ('(' + str(name) + ' ...) needs at least 2 arguments, got ' + str(count))))
-        elif ((arity != None) and (arity != count)):
+        elif ((arity >= 0) and (arity != count)):
             return cdy_rt.table_defs.fail(core__located(scope, ('(' + str(name) + ' ...) takes ' + str(arity) + ' argument(s), got ' + str(count))))
         else:
             return True
@@ -1511,6 +1531,41 @@ def core__deft_name(form: form__Form) -> str:
     else:
         return form__sym_name(form)
 
+def core__system_sigs(forms: tuple[form__Form, ...], table: _cdy_Any) -> _cdy_Mapping[str, core__CType]:
+    sigs = core__read_sigs(forms, table, {})
+    checked = core__all_declared(cdy_rt.table_defs.map_keys(table), table, sigs)
+    return sigs
+
+def core__read_sigs(forms: tuple[form__Form, ...], table: _cdy_Any, acc: _cdy_Mapping[str, core__CType]) -> _cdy_Mapping[str, core__CType]:
+    while True:
+        if (len(forms) == 0):
+            return acc
+        else:
+            form = forms[0]
+            items = form__list_items(form)
+            name = (form__sym_name(items[1]) if ((len(items) == 3) and (form__sym_name(items[0]) == 'sig')) else '')
+            where = form__pos_text(form__form_pos(form))
+            if (name == ''):
+                return cdy_rt.table_defs.fail((where + 'system.cdy: expected (sig name Type)'))
+            elif cdy_rt.table_defs.map_has(acc, name):
+                return cdy_rt.table_defs.fail((str(where) + 'system.cdy: more than one sig for ' + str(name)))
+            elif (not cdy_rt.table_defs.in_(cdy_rt.table.get_kind(table, name), core__BUILTIN_KINDS)):
+                return cdy_rt.table_defs.fail((str(where) + 'system.cdy: ' + str(name) + ' has no Python mapping in table.py'))
+            else:
+                forms, acc = (form__rest_of(forms), cdy_rt.table_defs.map_set(acc, name, core__analyse_type(items[2])))
+                continue
+core__BUILTIN_KINDS: tuple[str, ...] = ('call', 'value', 'index', 'slice')
+
+def core__all_declared(names: tuple[str, ...], table: _cdy_Any, sigs: _cdy_Mapping[str, core__CType]) -> bool:
+    while True:
+        if (len(names) == 0):
+            return True
+        elif (cdy_rt.table_defs.in_(cdy_rt.table.get_kind(table, names[0]), core__BUILTIN_KINDS) and (not cdy_rt.table_defs.map_has(sigs, names[0]))):
+            return cdy_rt.table_defs.fail(('built-in ' + str(names[0]) + ' has no sig in system.cdy'))
+        else:
+            names = names[1:len(names)]
+            continue
+
 class core__Exports(_cdy_NamedTuple):
     stem: str
     top: _cdy_Mapping[str, bool]
@@ -1532,15 +1587,15 @@ def core__prefixed(names: tuple[str, ...], prefix: str, acc: _cdy_Mapping[str, s
             continue
 
 def core__blank_scope(top: _cdy_Mapping[str, bool]) -> core__Scope:
-    return core__Scope({}, top, None, (lambda text: ()), {}, {}, form__NOWHERE, {}, False, {}, {})
+    return core__Scope({}, top, None, (lambda text: ()), {}, {}, form__NOWHERE, {}, False, {}, {}, {})
 
-def core__analyse_program(forms: tuple[form__Form, ...], table: _cdy_Any, parse: _cdy_Callable[[str], tuple[form__Form, ...]], macros: _cdy_Mapping[str, form__Macro], quoting: bool) -> tuple[core__Top, ...]:
-    return core__analyse_module(forms, core__module_exports(forms, '', ''), (), {}, table, parse, macros, quoting)
+def core__analyse_program(forms: tuple[form__Form, ...], table: _cdy_Any, builtins: _cdy_Mapping[str, core__CType], parse: _cdy_Callable[[str], tuple[form__Form, ...]], macros: _cdy_Mapping[str, form__Macro], quoting: bool) -> tuple[core__Top, ...]:
+    return core__analyse_module(forms, core__module_exports(forms, '', ''), (), {}, table, builtins, parse, macros, quoting)
 
-def core__analyse_module(forms: tuple[form__Form, ...], own: core__Exports, imports: tuple[tuple[core__Exports, form__Pos], ...], elsewhere: _cdy_Mapping[str, str], table: _cdy_Any, parse: _cdy_Callable[[str], tuple[form__Form, ...]], macros: _cdy_Mapping[str, form__Macro], quoting: bool) -> tuple[core__Top, ...]:
+def core__analyse_module(forms: tuple[form__Form, ...], own: core__Exports, imports: tuple[tuple[core__Exports, form__Pos], ...], elsewhere: _cdy_Mapping[str, str], table: _cdy_Any, builtins: _cdy_Mapping[str, core__CType], parse: _cdy_Callable[[str], tuple[form__Form, ...]], macros: _cdy_Mapping[str, form__Macro], quoting: bool) -> tuple[core__Top, ...]:
     seen = core__with_own(core__with_imports(imports, core__Seen(core__Exports('', {}, {}, {}, {}), {})), own)
     vis = seen.vis
-    scope = core__Scope({}, vis.top, table, parse, vis.variants, vis.sums, form__NOWHERE, macros, quoting, vis.names, elsewhere)
+    scope = core__Scope({}, vis.top, table, parse, vis.variants, vis.sums, form__NOWHERE, macros, quoting, vis.names, elsewhere, builtins)
     prog = core__analyse_tops(forms, scope, core__Prog((), {}, 0, core__def_names(forms, {}), {}))
     return core__rename_tops(prog.out, vis.names, ())
 
@@ -1619,21 +1674,21 @@ def core__rename_top(top: core__Top, names: _cdy_Mapping[str, str]) -> core__Top
         fields = _cdy_t23.fields
         return core__TDeft(core__global_name(name, names), tvars, core__rename_fields(fields, names, ()))
     elif isinstance(_cdy_t23, core__TDeftSum):
-        _cdy_name_437 = _cdy_t23.name
-        _cdy_tvars_438 = _cdy_t23.tvars
+        _cdy_name_453 = _cdy_t23.name
+        _cdy_tvars_454 = _cdy_t23.tvars
         variants = _cdy_t23.variants
-        return core__TDeftSum(core__global_name(_cdy_name_437, names), _cdy_tvars_438, core__rename_variants(variants, names, ()))
+        return core__TDeftSum(core__global_name(_cdy_name_453, names), _cdy_tvars_454, core__rename_variants(variants, names, ()))
     elif isinstance(_cdy_t23, core__TDef):
-        _cdy_name_440 = _cdy_t23.name
+        _cdy_name_456 = _cdy_t23.name
         init = _cdy_t23.init
         t = _cdy_t23.t
-        return core__TDef(core__global_name(_cdy_name_440, names), init, core__rename_type(t, names))
+        return core__TDef(core__global_name(_cdy_name_456, names), init, core__rename_type(t, names))
     elif isinstance(_cdy_t23, core__TDefn):
-        _cdy_name_443 = _cdy_t23.name
+        _cdy_name_459 = _cdy_t23.name
         params = _cdy_t23.params
         body = _cdy_t23.body
-        _cdy_t_446 = _cdy_t23.t
-        return core__TDefn(core__global_name(_cdy_name_443, names), params, body, core__rename_type(_cdy_t_446, names))
+        _cdy_t_462 = _cdy_t23.t
+        return core__TDefn(core__global_name(_cdy_name_459, names), params, body, core__rename_type(_cdy_t_462, names))
     else:
         assert isinstance(_cdy_t23, core__TExpr)
         return top
@@ -1820,9 +1875,9 @@ def core__top_defn(items: tuple[form__Form, ...], scope: core__Scope, prog: core
         params = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_529 = core__analyse_expr(items[3], inner, n1)
-        body = _cdy__tup_529[0]
-        n2 = _cdy__tup_529[1]
+        _cdy__tup_545 = core__analyse_expr(items[3], inner, n1)
+        body = _cdy__tup_545[0]
+        n2 = _cdy__tup_545[1]
         if (len(params) == 0):
             return cdy_rt.table_defs.fail(core__located(scope, ('defn ' + str(name) + ': at least one argument is needed')))
         elif (len(params) != core__fn_arity(t)):
@@ -1874,8 +1929,8 @@ def core__is_main(top: core__Top) -> bool:
         else:
             return cdy_rt.table_defs.fail('main must be typed (Fn ((List String)) Int)')
     elif isinstance(_cdy_t26, core__TDef):
-        _cdy_name_544 = _cdy_t26.name
-        if (_cdy_name_544 == 'main'):
+        _cdy_name_560 = _cdy_t26.name
+        if (_cdy_name_560 == 'main'):
             return cdy_rt.table_defs.fail('main must be a defn')
         else:
             return False
@@ -1909,7 +1964,7 @@ def expand__expand_file(forms: tuple[form__Form, ...], macro_file: bool, compile
     return expand__Expanded((helpers if macro_file else expand__expand_all(rest, macros, ())), macros, own, imports.helpers)
 
 def expand__prelude_import(loading: tuple[str, ...]) -> tuple[form__Form, ...]:
-    path = expand__library_path('prelude_macros.cdy')
+    path = include__library_path('prelude_macros.cdy')
     if cdy_rt.table_defs.in_(cdy_rt.table_defs.path_resolve(path), loading):
         return ()
     else:
@@ -2001,16 +2056,8 @@ def expand__load_defs(defs: tuple[form__Form, ...], helpers: tuple[form__Form, .
     return expand__macro_list(defs, loaded, ())
 
 def expand__form_defs(_: None) -> tuple[form__Form, ...]:
-    path = expand__library_path('form.cdy')
+    path = include__library_path('form.cdy')
     return read__read_source(path, cdy_rt.table_defs.slurp(path))
-
-def expand__library_path(name: str) -> str:
-    dir_ = cdy_rt.table_defs.module_dir(form__sym_name)
-    path = cdy_rt.table_defs.path_join(dir_, name)
-    if cdy_rt.table_defs.file_exists(path):
-        return path
-    else:
-        return cdy_rt.table_defs.fail(('macros need ' + str(name) + ' next to the translator, in ' + str(dir_)))
 
 def expand__macro_program(defs: tuple[form__Form, ...], acc: tuple[form__Form, ...]) -> tuple[form__Form, ...]:
     while True:
@@ -2180,8 +2227,8 @@ def expand__stamp(form: form__Form, pos: form__Pos) -> form__Form:
             return form
     elif isinstance(_cdy_t32, form__Lst):
         items = _cdy_t32.items
-        _cdy_p_130 = _cdy_t32.pos
-        return form__Lst(expand__stamp_all(items, pos, ()), (pos if (_cdy_p_130.line == 0) else _cdy_p_130))
+        _cdy_p_127 = _cdy_t32.pos
+        return form__Lst(expand__stamp_all(items, pos, ()), (pos if (_cdy_p_127.line == 0) else _cdy_p_127))
     else:
         return form
 
@@ -3637,7 +3684,12 @@ def translate_modules(modules: tuple[include__Module, ...], parse: _cdy_Callable
     ready = expand_modules(modules, (len(modules) - 1), ())
     by_key = exports_by_key(ready, {})
     elsewhere = core__elsewhere_names(exports_of(ready, ()), {})
-    return python_of(analyse_modules(ready, by_key, elsewhere, parse, ()))
+    builtins = builtin_sigs(None)
+    return python_of(analyse_modules(ready, by_key, elsewhere, builtins, parse, ()))
+
+def builtin_sigs(_: None) -> _cdy_Mapping[str, core__CType]:
+    path = include__library_path('system.cdy')
+    return core__system_sigs(read__read_source(path, cdy_rt.table_defs.slurp(path)), cdy_rt.table.INITIAL_TABLE)
 
 def expand_modules(modules: tuple[include__Module, ...], top: int, acc: tuple[Ready, ...]) -> tuple[Ready, ...]:
     while True:
@@ -3669,14 +3721,14 @@ def exports_of(ready: tuple[Ready, ...], acc: tuple[core__Exports, ...]) -> tupl
             ready, acc = (ready[1:len(ready)], (acc + cdy_rt.table_defs.to_list(ready[0].exports)))
             continue
 
-def analyse_modules(ready: tuple[Ready, ...], by_key: _cdy_Mapping[str, core__Exports], elsewhere: _cdy_Mapping[str, str], parse: _cdy_Callable[[str], tuple[form__Form, ...]], acc: tuple[core__Top, ...]) -> tuple[core__Top, ...]:
+def analyse_modules(ready: tuple[Ready, ...], by_key: _cdy_Mapping[str, core__Exports], elsewhere: _cdy_Mapping[str, str], builtins: _cdy_Mapping[str, core__CType], parse: _cdy_Callable[[str], tuple[form__Form, ...]], acc: tuple[core__Top, ...]) -> tuple[core__Top, ...]:
     if (len(ready) == 0):
         return acc
     else:
         r = ready[0]
         macros = r.macros
-        tops = core__analyse_module(r.forms, r.exports, imported(r.module.imports, by_key, ()), elsewhere, cdy_rt.table.INITIAL_TABLE, (lambda text: expand__expand_all(parse(text), macros, ())), macros, False)
-        return analyse_modules(ready[1:len(ready)], by_key, elsewhere, parse, (acc + tops))
+        tops = core__analyse_module(r.forms, r.exports, imported(r.module.imports, by_key, ()), elsewhere, cdy_rt.table.INITIAL_TABLE, builtins, (lambda text: expand__expand_all(parse(text), macros, ())), macros, False)
+        return analyse_modules(ready[1:len(ready)], by_key, elsewhere, builtins, parse, (acc + tops))
 
 def imported(imps: tuple[include__Imp, ...], by_key: _cdy_Mapping[str, core__Exports], acc: tuple[tuple[core__Exports, form__Pos], ...]) -> tuple[tuple[core__Exports, form__Pos], ...]:
     while True:
@@ -3691,7 +3743,7 @@ def compile_macros(forms: tuple[form__Form, ...]) -> str:
     return translate_expanded(forms, read__read_forms, {}, True)
 
 def translate_expanded(forms: tuple[form__Form, ...], parse: _cdy_Callable[[str], tuple[form__Form, ...]], macros: _cdy_Mapping[str, form__Macro], quoting: bool) -> str:
-    return python_of(core__analyse_program(forms, cdy_rt.table.INITIAL_TABLE, parse, macros, quoting))
+    return python_of(core__analyse_program(forms, cdy_rt.table.INITIAL_TABLE, builtin_sigs(None), parse, macros, quoting))
 
 def python_of(tops: tuple[core__Top, ...]) -> str:
     stmts = lower__lower_program(tops, 0, ())
