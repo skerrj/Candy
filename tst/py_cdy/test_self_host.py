@@ -2,14 +2,12 @@
 
 T1, the Candy translator built by the checked-in one (``bin``), is built once per test
 session. Each test program (``tst/cdy/t1/NAME.cdy``, ``tst/cdy/NAME.cdy`` and
-``tst/cdy/cdyc/NAME.cdy``) is translated by T1, and all but those in ``tst/cdy/cdyc/`` also
-by the Python translator, which is frozen (``cdyc/`` holds programs that use what only the
-Candy translator has, such as ``import``). Every result must run and print ``NAME.out``,
-and T1's must pass ``mypy --strict``. T1 itself must pass ``mypy --strict`` too: that
-type-checks the Candy translator's own code.
+``tst/cdy/cdyc/NAME.cdy``) is translated by T1; the result must run and print ``NAME.out``,
+and pass ``mypy --strict``. T1 itself must pass ``mypy --strict`` too: that type-checks the
+Candy translator's own code.
 
-T1 reads with its own reader (``src/cdy/read.cdy``), which must accept exactly what
-``parse_cdy`` accepts, and read it into the same forms.
+T1 reads with its own reader (``src/cdy/read.cdy``). The edge cases it accepts and rejects
+are those the Python translator's parser did, when it was here (``doc/hl_rqmt/bootstrap.md``).
 
 The fixpoint: T1 translates the Candy translator into T2. T2 must pass ``mypy --strict``,
 translate the translator into the very same text (T3 = T2), and translate every test
@@ -30,7 +28,6 @@ from typing import Any, cast
 
 import pytest
 from mypy import api as mypy_api
-from parsec import ParseFailure
 
 from cdy_rt.table_defs import CandyFail
 from self_host import (
@@ -42,11 +39,9 @@ from self_host import (
     build_with,
     copy_library,
     load,
-    parse_forms,
     translate_file_with,
     translate_with,
 )
-from translate_cdy import translate
 
 ROOT = Path(__file__).resolve().parents[2]
 CDYC_ONLY = ROOT / "tst" / "cdy" / "cdyc"
@@ -94,13 +89,9 @@ def test_t1_passes_mypy_strict(t1_path: Path) -> None:
 @pytest.mark.parametrize("program", PROGRAMS, ids=IDS)
 def test_output(program: Path, t1: ModuleType, tmp_path: Path) -> None:
     expected = program.with_suffix(".out").read_text(encoding="utf-8")
-    sources = [("t1", translate_file_with(t1, program))]
-    if program.parent != CDYC_ONLY:
-        sources.append(("py", translate(program.read_text(encoding="utf-8"))))
-    for name, source in sources:
-        done = run(source, tmp_path, name)
-        assert done.returncode == 0, f"{name}: {done.stderr}"
-        assert done.stdout == expected, name
+    done = run(translate_file_with(t1, program), tmp_path, "t1")
+    assert done.returncode == 0, done.stderr
+    assert done.stdout == expected
 
 
 @pytest.mark.parametrize("program", PROGRAMS, ids=IDS)
@@ -435,7 +426,7 @@ from importlib.abc import MetaPathFinder
 
 class Block(MetaPathFinder):
     def find_spec(self, name, path, target=None):
-        if name.split(".")[0] in ("parsec", "parse_cdy", "core_cdy", "translate_cdy"):
+        if name.split(".")[0] in ("parsec", "main", "self_host"):
             raise ImportError(f"blocked: {name}")
         return None
 
@@ -547,67 +538,53 @@ def test_builtin_arity_comes_from_system(t1: ModuleType) -> None:
 
 # --- the reader ---
 
-SOURCES = PROGRAMS + sorted(CDY_DIR.glob("*.cdy"))
 
-
-def read_both(t1: ModuleType, text: str) -> tuple[str, str]:
-    """What each reader makes of ``text``: the forms' repr (which shows each variant), or
-    ``"error"``."""
+def reads(t1: ModuleType, text: str) -> bool:
+    """Whether T1's reader accepts ``text``."""
     try:
-        theirs = repr(parse_forms(t1, text))
-    except ParseFailure:
-        theirs = "error"
-    try:
-        mine = repr(t1.read__read_forms(text))
+        t1.read__read_forms(text)
     except CandyFail:
-        mine = "error"
-    return mine, theirs
-
-
-@pytest.mark.parametrize("source", SOURCES, ids=[p.stem for p in SOURCES])
-def test_reader_agrees_on_files(source: Path, t1: ModuleType) -> None:
-    mine, theirs = read_both(t1, source.read_text(encoding="utf-8"))
-    assert mine == theirs
+        return False
+    return True
 
 
 @pytest.mark.parametrize(
-    "text",
+    ("text", "accepted"),
     [
-        "",
-        " ; only a comment",
-        "(a (b c) ()) d",
-        "100 -7 1500l 1b -2b 3.14f 10.0 -0.5",
-        "\\e \\( \\;",
-        "true false trueish true1",
-        "- + -x +5 -5x a#b a.b ->",
-        '"" "a b" "\\n\\t\\"\\\\\\/\\b\\f\\r" "\\u0041\\u00e9"',
-        'a"b"c',
-        "a\\b",
-        "(a)(b)",
-        "x;c\ny",
-        "\u0663\u0662",
-        "12x",
-        "1.5l",
-        "1.",
-        ".5",
-        "#a",
-        "'a",
-        "a'b",
-        "\\ab",
-        "\\",
-        "\\ x",
-        '"abc',
-        '"\\q"',
-        '"\\u00g1"',
-        "(a",
-        "a)",
-        ")",
-        "\u00b2",
+        ("", True),
+        (" ; only a comment", True),
+        ("(a (b c) ()) d", True),
+        ("100 -7 1500l 1b -2b 3.14f 10.0 -0.5", True),
+        ("\\e \\( \\;", True),
+        ("true false trueish true1", True),
+        ("- + -x +5 -5x a#b a.b ->", True),
+        ('"" "a b" "\\n\\t\\"\\\\\\/\\b\\f\\r" "\\u0041\\u00e9"', True),
+        ('a"b"c', True),
+        ("a\\b", True),
+        ("(a)(b)", True),
+        ("x;c\ny", True),
+        ("\u0663\u0662", True),
+        ("\u00b2", True),
+        (".5", True),
+        ("12x", False),
+        ("1.5l", False),
+        ("1.", False),
+        ("#a", False),
+        ("'a", False),
+        ("a'b", False),
+        ("\\ab", False),
+        ("\\", False),
+        ("\\ x", False),
+        ('"abc', False),
+        ('"\\q"', False),
+        ('"\\u00g1"', False),
+        ("(a", False),
+        ("a)", False),
+        (")", False),
     ],
 )
-def test_reader_agrees(text: str, t1: ModuleType) -> None:
-    mine, theirs = read_both(t1, text)
-    assert mine == theirs
+def test_reader_accepts(text: str, accepted: bool, t1: ModuleType) -> None:
+    assert reads(t1, text) == accepted
 
 
 @pytest.mark.parametrize(

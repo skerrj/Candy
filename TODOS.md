@@ -24,6 +24,7 @@ Done and earlier items are in `doc/archive/TODOS_system_prelude.md`, `doc/archiv
 - [x] Step 1: `script/bootstrap.py` and the chain (two steps staged); `--from-scratch` passes.
 - [x] Step 1: tagged `boot/00` to `boot/16`.
 - [ ] Review step 1 as built (`doc/hl_rqmt/bootstrap.md`, its "Done" note; `script/bootstrap.py`).
-- [ ] Step 2: the Python translator off `master`.
+- [x] Step 2: the Python translator off `master` (and `reader.py`, `test_cdy_programs.py`).
+- [ ] Review step 2 as built (`doc/hl_rqmt/bootstrap.md`, its "Done" note).
 - [ ] Step 3: `table.py` without `arity`.
 - [ ] Step 4: docs, and a general install and how-tos in `README.md`, with this machine's setup moved to a gitignored `CLAUDE.local.md`.

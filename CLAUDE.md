@@ -48,20 +48,19 @@ Decisions that fill gaps in the spec:
 ```
 source ~/dev/activate-conda && conda activate py_cdy   # conda is not on PATH by default
 pip install -e . --config-settings editable_mode=strict   # (re)install cdy_rt, editable
-python src/py_cdy/main.py FILE.cdy --run   # translate to output/FILE.py, then run it
-python src/py_cdy/main.py FILE.cdy --translator bin   # ... with the checked-in translator (or t1)
+python src/py_cdy/main.py FILE.cdy --run   # translate to output/FILE.py with bin, then run it
+python src/py_cdy/main.py FILE.cdy --translator t1   # ... with T1, freshly built by bin
 python bin/py/cdy_translator.py FILE.cdy [OUT.py]     # the checked-in translator on its own (default output/FILE.py)
 python src/py_cdy/self_host.py             # rebuild bin/py/cdy_translator.py
 python script/bootstrap.py --from-scratch  # the bootstrap chain, Python translator to bin (--check, --step C)
-python src/py_cdy/parse_cdy.py         # parses a sample program and prints the AST
 
-mypy src/py_cdy src/cdy_rt tst      # type-check (both checkers currently clean)
-pyright src tst
-ruff check src tst                  # lint
-ruff format src tst                 # format
-pylint src/py_cdy src/cdy_rt tst
+mypy src/py_cdy src/cdy_rt tst script   # type-check (both checkers currently clean)
+pyright src tst script
+ruff check src tst script               # lint
+ruff format src tst script              # format
+pylint src/py_cdy src/cdy_rt tst script
 pytest                              # all tests (testpaths = tst)
-pytest tst/py_cdy/test_parse_cdy.py::test_atoms   # run a single test
+pytest tst/py_cdy/test_main.py::test_out_path   # run a single test
 pytest -m bootstrap                 # the bootstrap chain (deselected by default)
 ```
 

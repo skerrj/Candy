@@ -49,6 +49,7 @@ def test_main_translator_t1(
     assert Path("output/t1/cdy_translator.py").exists()
     assert main(["p.cdy", "--translator"]) == 2
     assert main(["p.cdy", "--translator", "nope"]) == 2
+    assert main(["p.cdy", "--translator", "py"]) == 2  # the Python translator is gone
     Path("bad.cdy").write_text("(put nope)\n", encoding="utf-8")
     assert main(["bad.cdy", "--translator", "t1"]) == 1
     assert "unknown name nope" in capfd.readouterr().err

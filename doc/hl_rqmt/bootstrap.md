@@ -197,6 +197,28 @@ So the script, for each step C:
      step's feature tag ("Tags and history").
 2. **Remove the Python translator** from `master`: the files, their tests and the
    `main.py` default; `test_cdy_programs.py` on `bin`.
+
+   *Done.* As built:
+   - **Removed:** `parse_cdy`, `core_cdy`, `lower_cdy`, `emit_py`, `translate_cdy` and
+     their tests; also **`reader.py`** and its test, which only the Python translator's
+     path in `main.py` used (so `slurp` is no longer duplicated). `src/py_cdy/` is now
+     `main.py` and `self_host.py`.
+   - **`test_cdy_programs.py` removed** rather than moved onto `bin`: it would only repeat
+     `test_self_host.py`, which runs every `tst/cdy/` program through T1 (output and
+     `mypy --strict`) and checks that T2, which is `bin`, translates each one as T1 does.
+   - **`main.py`:** translates with `bin` by default; `--translator t1` stays, and
+     `--translator py` is a usage error.
+   - **`self_host.py`:** `to_form` and `parse_forms` (the reader agreement check) are gone,
+     as decided. The edge cases the agreement test fed both readers stay, as
+     `test_reader_accepts`: for each of the 30 texts, whether the reader accepts it,
+     recorded from `parse_cdy` before it went (all 30 checked against it).
+   - **`test_self_host.py`:** programs are translated by T1 only; the test that runs `bin`
+     as a program now blocks `parsec`, `main` and `self_host`.
+   - **Freed:** nothing on `master` imports `parsec` any more (the `self-host-py` step of
+     the chain still needs it installed); pylint's raised limits (`max-returns`,
+     `max-branches`, `max-locals`) were for the Python translator's `match` dispatch, and
+     the defaults now pass, so they are gone; tech debt updated.
+   - **Tests:** 226, in about 15 s (388 in 23 s before).
 3. **`table.py` without `arity`.**
 4. **Docs.** Also, the general install and how-tos, free of this machine's setup:
    - **`README.md`** (empty today): setup (Python 3.14, parsec.py v4 from git, branch

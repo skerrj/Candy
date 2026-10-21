@@ -1,5 +1,5 @@
 # Packaging covers only the Candy runtime, ``src/cdy_rt`` (installed editable so generated code
-# can import it). The compiler, ``src/py_cdy``, is not packaged.
+# can import it). The Python driver, ``src/py_cdy``, is not packaged.
 [build-system]
 requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
@@ -28,13 +28,6 @@ extension-pkg-allow-list = ["mypy"]
 [tool.pylint."messages control"]
 # ruff sorts imports; pylint's import-order check disagrees with it about first-party modules.
 disable = ["wrong-import-order"]
-
-[tool.pylint.design]
-# The translator dispatches with one ``match`` over node types per function, which pylint's
-# defaults count as too many returns, branches and locals.
-max-returns = 15
-max-branches = 15
-max-locals = 20
 
 [tool.pylint.format]
 max-line-length = 100
