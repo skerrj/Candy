@@ -40,6 +40,10 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
 
 - **Commit only on "gawc"** ("go ahead with commit"). It approves the work shown so far,
   not a push. "gawcnp" is gawc and push.
+- **The owner's own edits:** the owner may edit files too (`doc/brainstorm.md`, say).
+  Either the owner says so, or Claude Code finds them with `git status` before a commit:
+  they go into the commit, and the report names them. A checkout or merge that they
+  block is done with a stash, which is popped afterwards.
 - **Push only when asked.** `origin` (GitHub, `skerrj/Candy`) is a backup, not a place for
   collaboration, so there are no pull requests.
 - **Full refs**, because a branch and its tag share a name: `git merge refs/heads/X`,
@@ -107,6 +111,7 @@ Changes to the process, newest first.
 
 - **2026-10-20:**
   - this file;
+  - the owner's own edits are found before a commit, included and named;
   - HLD answers marked *for now* or *lasting*;
   - bootstrap tags `boot/NN`, `archive/` tags before a rewrite, and history never
     rewritten unasked;

@@ -26,3 +26,6 @@ whenever it comes up; when one turns into real work, move it to a design doc
 - **dump** (i.e. needs expansion): IO, rust host, interpreter, reader improvements, repl, jit
 - **Map, reduce, fold, etc**: optimized target implementations
 - **Joy like recursive macros**: optimized target implementations
+- **Curry**: could this be a macro?
+- **Generics**: not sure where we are at... so just a note/question
+- **cndy specifice macros**: any boiler plate patterns worth a macro
