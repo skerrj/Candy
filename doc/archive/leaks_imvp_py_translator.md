@@ -131,5 +131,7 @@ stopgap is destructuring. A `let` binding can destructure a tuple:
 - **Every runtime module is imported**, whether the program uses it or not.
 - **The destructuring temporary is named `_tup`**, a plain local; it is renamed like any
   other local if the name is taken.
-- **No source positions** (skipped for the iMVP). Translation errors can't name a line
-  yet; only parse errors have a line and column.
+- ~~**No source positions** (skipped for the iMVP). Translation errors can't name a line
+  yet; only parse errors have a line and column.~~ Fixed on `self-host-cleanup`: the Candy
+  translator's errors say `file:line:col`. The Python translator, which had only the
+  parse errors' positions, left `master` on `bootstrap`.

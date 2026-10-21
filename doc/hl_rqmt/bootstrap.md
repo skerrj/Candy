@@ -1,9 +1,9 @@
 # Bootstrap: the frozen Python translator off `master`, checked through the history (HLD)
 
-**Status: proposal (draft); option B decided** (the history, not a separate repo; see
-"Repo or history"), **and the `boot/NN` tags** ("Tags and history"). Written on branch `system-prelude`; proposed as its own branch after
-that one is merged, before or alongside the library branch (`doc/hl_rqmt/library.md`),
-whose table work it makes simpler.
+**Status: done.** Branch `bootstrap` (merged, tag `bootstrap`), after tag `system-prelude` and before the library
+branch (`doc/hl_rqmt/library.md`), whose table work it makes simpler. Drafted on
+`system-prelude`. Decided: the history, not a separate repo ("Repo or history"); the
+`boot/NN` tags ("Tags and history"); and the questions at the end.
 
 ## Where things stand
 
@@ -21,7 +21,8 @@ whose table work it makes simpler.
     (`doc/hl_rqmt/system_prelude.md`, step 2 dropped; `doc/tech_debt.md`).
 - **It is the only way to build Candy from scratch,** from a language that isn't Candy.
   Today that bootstrap is only implicit in the history: each commit's `bin` was built by
-  the one before. Since `self-host-py`, 16 of 37 commits changed `bin/`, so the chain has 17 steps.
+  the one before. Since `self-host-py`, 16 of 37 commits changed `bin`, so the chain has 17
+  steps.
 
 ## Goals
 
@@ -51,10 +52,17 @@ its own repo (`git subtree split`), named `candy-bootstrap`.
 
 ### Tags and history (decided)
 
+**A commit that changes `bin`** is one that changes any file in a target's directory under
+`bin/`, that is `bin/<target>/`: the translator (`bin/py/cdy_translator.py`) or a library
+copy next to it (`bin/py/form.cdy`, `system.cdy`, ...). A change to the library copies alone
+counts, since the translator reads them as it runs (bootstrap step 3 is one). A commit that
+changes only `bin/README.md` doesn't. Every such commit is a step of the chain, and gets a
+`boot/NN` tag; the script finds them with the pathspec `:(glob)bin/*/**` (`BIN_FILES`).
+
 The chain is anchored on tags, not on branches: a tag keeps its commit reachable even if a
 branch is rewritten, so the chain survives a rewrite.
 1. **One annotated tag per step, `boot/NN`:** `boot/00` is `self-host-py`, and `boot/01`
-   on are the later commits that changed `bin/`, in order (16 today). The tag's message
+   on are the later commits that changed `bin`, in order (16 at first). The tag's message
    records the step's Python version and any staging it needs, for example:
 
    ```
@@ -65,7 +73,7 @@ branch is rewritten, so the chain survives a rewrite.
    So there is no separate list file, and a commit needn't name itself: it is tagged after
    it is made. `boot/` can't clash with a branch name (`macros` and `modules` are both a
    branch and a tag). The script reads the chain with `git tag -l 'boot/*'`.
-2. **Tagging new steps:** a commit that changes `bin/` gets the next `boot/NN` when it is
+2. **Tagging new steps:** a commit that changes `bin` gets the next `boot/NN` when it is
    committed (with gawc).
 3. **Before any history rewrite** (only when the owner asks for one): tag the old tip
    `archive/<branch>-<YYYY-MM-DD>` and push the tag first. The `boot/` tags keep the old
@@ -75,9 +83,25 @@ branch is rewritten, so the chain survives a rewrite.
 5. **Pushing** uses full refs, as for everything else: `git push origin
    refs/tags/boot/NN:refs/tags/boot/NN`.
 
+**Boot tags and feature tags** mark different things. A feature tag (`macros`,
+`modules`, ...) is on a branch's merge into `master`: when a piece of work was finished. A
+boot tag is on each commit that rebuilt `bin`, usually a step commit on the branch: when
+the translator changed. So a branch spans several boot tags and ends in one feature tag,
+whose `bin` is that of the last boot tag before it (`--list` shows each step's feature
+tag):
+
+| Feature tag | Its `bin` | Its steps |
+|---|---|---|
+| `imvp-py-translator` | none (only the Python translator) | none |
+| `self-host-py` | `boot/00` (the same commit) | `boot/00` |
+| `self-host-cleanup` | `boot/08` | `boot/01` to `boot/08` |
+| `macros` | `boot/11` | `boot/09` to `boot/11` |
+| `modules` | `boot/13` | `boot/12` and `boot/13` |
+| `system-prelude` | `boot/16` | `boot/14` to `boot/16` |
+
 ### The chain
 
-The steps are `self-host-py` and then every commit after it that changed `bin/`. Each step
+The steps are `self-host-py` and then every commit after it that changed `bin`. Each step
 **reuses that commit's own `self_host.py`**, which by construction worked with the `bin`
 before it:
 - **at `self-host-py`**, `build_bin` builds T1 with the Python translator, and T1 builds
@@ -103,12 +127,15 @@ So the script, for each step C:
   the Python translator reproduces today's `bin`. So the script can check:
   - **one step** (`bootstrap.py --step C`), using the parent step's checked-in `bin`;
   - **all steps** from their checked-in parents (`--check`), in any order or in parallel;
-  - **the true chain** (`--from-scratch`), feeding each output into the next: the slow,
-    final proof, run when it matters (before a merge into `master`).
+  - **the true chain** (`--from-scratch`), feeding each output into the next: the literal
+    end-to-end demonstration. It proves nothing `--check` doesn't: once every step
+    reproduces its checked-in `bin` byte for byte, feeding a step's output to the next is
+    feeding it the checked-in `bin`, which is what `--check` does. The two pass or fail
+    together, in the same time (about 35 s).
 - **In the test suite:**
   - an opt-in pytest (a `bootstrap` marker, skipped unless asked for) that runs
     `--check`; a few minutes, too slow for every run;
-  - a fast test, run always: every commit that changed `bin/` since `self-host-py` is a
+  - a fast test, run always: every commit that changed `bin` since `self-host-py` is a
     step: it has a `boot/` tag, numbered in order (the newest commit is exempt until it
     is tagged), so the tags can't drift silently.
 - **The current step.** Until it is tagged, the newest step is checked by what already
@@ -121,8 +148,8 @@ So the script, for each step C:
     the Python version each step was built with (3.14 today), and the script warns on a
     mismatch;
   - **mypy's version:** it only checks, so it changes pass or fail, not the output;
-  - **parsec v4:** only the `self-host-py` step uses it (a pinned commit of
-    `functional-rewrite`).
+  - **parsec v4:** only the `self-host-py` step uses it. (Planned as a pinned commit of
+    a `functional-rewrite` branch upstream; there is none, see step 4.)
 - **Finding the chain** is the first run: `--check` over all steps, then a staging entry
   in the `boot/NN` tag of each step that fails until staged by hand (macros step 5 may be
   one).
@@ -145,20 +172,131 @@ So the script, for each step C:
 
 1. **The script and the chain:** `script/bootstrap.py` (`--step`, `--check`,
    `--from-scratch`); run `--check`, stage the steps that need it, tag `boot/00` to
-   `boot/16` (pushed), then `--from-scratch` passes. Tests: the fast list check and the opt-in `--check`.
+   `boot/16` (pushed), then `--from-scratch` passes. Tests: the fast list check and the
+   opt-in `--check`.
+
+   *Done.* As built:
+   - **The chain holds:** `--from-scratch` builds every step from the Python translator
+     at `self-host-py` to today's `bin`, each byte for byte, in about 35 s (Python 3.14);
+     `--check` runs each step on its own, in the same time. Steps take one to three
+     seconds.
+   - **Two steps needed staging,** each a bridge (the translator before translates the
+     step's translator source, and the step's `self_host.py` starts from that):
+     - `joined` for step 1, `84bf89a` (`import` as inclusion): the translator before has
+       no `translate_file` and can't read `import`, so it translates the files joined,
+       without their `import` lines, through `translate_text`;
+     - `old-runtime` for step 11, `a0499db` (macros step 5, `cond` as a macro): the
+       translator before reads the live table, which no longer has `cond`, so the bridge
+       is built against the runtime of the commit's parent. (Its commit says it was
+       "bootstrapped in two rebuilds"; the first was never committed.)
+   - **No library copying needed:** a step's worktree already has that step's
+     `bin/py/*.cdy`, which is what the rebuild used (step 3 of "The chain" happens by
+     itself).
+   - **The script:** `--list`, `--step C`, `--check`, `--from-scratch`, and `--tag`, which
+     tags the steps without a `boot/NN` tag, numbering on, with the Python version and the
+     staging in the message. Until the tags exist, `STAGING` in the script holds the two
+     staging lines by commit. The bridge runs as a hidden `--bridge` mode of the script,
+     in the step's tree, with the right runtime on `PYTHONPATH`.
+   - **Tests** (`tst/py_cdy/test_bootstrap.py`): the first step is `self-host-py`;
+     `STAGING` names only steps; the tags cover the steps in order, with their staging,
+     only the newest step untagged (skipped until there are tags); and
+     `pytest -m bootstrap`, deselected by default, runs `--check`. `script/` joins the
+     import path of every tool (`pyproject.toml`).
+   - **Tagged** `boot/00` to `boot/16` with `--tag` (the owner's go): each message says
+     `python 3.14` and the staging (`none`, `joined ...` or `old-runtime`). `--check`
+     then passes reading the chain and its staging from the tags. `--list` shows each
+     step's feature tag ("Tags and history").
+   - **The chain is the tags, then the untagged steps after them** (the history's): so a
+     new step, such as `boot/17`, can be checked with `--step HEAD` before it is tagged.
+     (At first the tags alone were the chain, which left the newest step out.)
 2. **Remove the Python translator** from `master`: the files, their tests and the
    `main.py` default; `test_cdy_programs.py` on `bin`.
+
+   *Done.* As built:
+   - **Removed:** `parse_cdy`, `core_cdy`, `lower_cdy`, `emit_py`, `translate_cdy` and
+     their tests; also **`reader.py`** and its test, which only the Python translator's
+     path in `main.py` used (so `slurp` is no longer duplicated). `src/py_cdy/` is now
+     `main.py` and `self_host.py`.
+   - **`test_cdy_programs.py` removed** rather than moved onto `bin`: it would only repeat
+     `test_self_host.py`, which runs every `tst/cdy/` program through T1 (output and
+     `mypy --strict`) and checks that T2, which is `bin`, translates each one as T1 does.
+   - **`main.py`:** translates with `bin` by default; `--translator t1` stays, and
+     `--translator py` is a usage error.
+   - **`self_host.py`:** `to_form` and `parse_forms` (the reader agreement check) are gone,
+     as decided. The edge cases the agreement test fed both readers stay, as
+     `test_reader_accepts`: for each of the 30 texts, whether the reader accepts it,
+     recorded from `parse_cdy` before it went (all 30 checked against it).
+   - **`test_self_host.py`:** programs are translated by T1 only; the test that runs `bin`
+     as a program now blocks `parsec`, `main` and `self_host`.
+   - **Freed:** nothing on `master` imports `parsec` any more (the `self-host-py` step of
+     the chain still needs it installed); pylint's raised limits (`max-returns`,
+     `max-branches`, `max-locals`) were for the Python translator's `match` dispatch, and
+     the defaults now pass, so they are gone; tech debt updated.
+   - **Tests:** 226, in about 15 s (388 in 23 s before).
 3. **`table.py` without `arity`.**
-4. **Docs.**
+
+   *Done.* As built:
+   - **`TableEntry`** is `py` and `kind`; `call`, `runtime` and `table_fn` take no arity,
+     and the 57 entries that gave one (and `not`, `at` and `slice`) don't.
+   - **`get_arity` and the `table-get-arity` built-in are gone:** with no field it has
+     nothing to read, and nothing called it (it was one of the library HLD's four unused
+     built-ins). **`add_fun`** (`table-add-fun`) loses its `arity` parameter, and its sig in
+     `system.cdy` with it.
+   - **Bootstrap:** the old `bin` checks its own `bin/py/system.cdy` against the live
+     table, so the new `system.cdy` was copied into `bin/py/` before the rebuild, as
+     `doc/process.md` says. The translator came out the same; only `bin/py/system.cdy`
+     changed, which still makes this commit a step of the chain (`boot/17`).
+   - **Tests:** `test_table.py` without the arity checks; tech debt entry removed.
+4. **Docs.** Also, the general install and how-tos, free of this machine's setup:
+   - **`README.md`** (empty today): setup (Python 3.14, parsec.py v4 from git, branch
+     `functional-rewrite`; mypy, pytest and the linters; `pip install -e .
+     --config-settings editable_mode=strict`), running a program, rebuilding `bin`, and
+     the bootstrap chain. No machine paths.
+   - **`CLAUDE.local.md`** (gitignored; Claude Code reads it with CLAUDE.md): this
+     machine's specifics, the conda activate line, the local parsec checkout, where smz
+     is. CLAUDE.md then speaks of the project's Python environment generally.
+   - **The iMVP doc's setup section** points at the README; its smz mentions stay (a
+     reference to a sibling project, not setup). The archives stay as they are (history).
+
+   *Done.* As built:
+   - **`README.md`:** what Candy is (with a program that runs), setup, using it, working
+     on the translator, the bootstrap chain, and the repository's layout. No machine paths.
+   - **parsec v4 isn't published,** found while writing the setup: upstream
+     sighingnow/parsec.py has only `master`, and the local copy isn't a git checkout. So
+     the chain's first step runs only where that rewrite is installed; the README says so,
+     and it is tech debt ("parsec.py v4 isn't published"), with two fixes: publish it, or
+     vendor a copy.
+   - **`CLAUDE.local.md`** (in `.gitignore`): the conda line, the local parsec copy, and
+     where smz is.
+   - **CLAUDE.md** rewritten around what is here now: the code by directory, the history
+     and branches, how the translator works (modules, macros, the library,
+     self-hosting, errors, `main`, sum types), the decisions (dead references to the
+     Python translator's files fixed), the Python style (the parser-specific parsec notes
+     dropped), and Running. smz and the environment point at `CLAUDE.local.md`.
+   - **`bin/README.md`:** `main.py` uses `bin` by default; the bootstrap hazard of the live
+     table; bootstrapping is now the chain. Also the editor's README, the spec (no
+     "Python translator is frozen" note), `cdy_rt/__init__.py`, and the iMVP doc's setup.
+   - **Leaks:** of the archived leaks, only "No source positions" (iMVP) was the Python
+     translator's own; struck through (fixed on `self-host-cleanup`). The rest are Candy's
+     semantics on Python, and still apply.
+   - **Stale references** to the removed files, cleaned up where they are live: the
+     header comments of `core`, `emit`, `form`, `lower` and `read.cdy` (they now point at
+     tag `self-host-py`), three tech debt entries (one, on the Python translator's
+     `lower_cdy.py`, dropped), and `multi_target.md`. Finished HLDs (`macros.md`,
+     `system_prelude.md`) and this one's "Where things stand" keep them, as history.
+     `form.cdy`'s comment reaches `bin/py/form.cdy`, so this commit is a chain step
+     (`boot/18`).
+   - **parsec:** publishing it is low priority (the owner's call); it stays noted.
 
 Step 1 comes first and runs while the Python translator is still on `master`, so the
 chain is proven before anything is removed.
 
-## Questions (open)
+## Questions (decided: the proposals)
 
-1. **The reader agreement check:** drop it (proposed), or keep it as part of the
-   `self-host-py` step?
-2. **When `--from-scratch` runs:** before each merge into `master` (proposed), or only
-   by hand?
-3. **Order:** before the library branch (proposed, so its table work needn't keep
-   `arity`), or with it?
+1. **The reader agreement check:** dropped; it was for porting the reader, which is done.
+   *Lasting.*
+2. **When the chain runs:** before each merge into `master`, as `pytest -m bootstrap`
+   (which runs `--check`) or `--from-scratch`, which are equivalent ("Testing it"). The
+   old steps can only break if the environment drifts (Python, mypy, parsec, the script),
+   and new steps are checked with `--step HEAD` as they are made. *Lasting.*
+3. **Order:** before the library branch, so its table work needn't keep `arity`.

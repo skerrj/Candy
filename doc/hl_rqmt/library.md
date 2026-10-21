@@ -64,7 +64,7 @@ puts it:
 
 | Built-in | Used in | Becomes |
 |---|---|---|
-| `table-add-fun`, `table-is-bin-op`, `table-get-arity`, `is-lit` | nothing | **dropped** |
+| `table-add-fun`, `table-is-bin-op`, `table-get-arity`, `is-lit` | nothing | **dropped** (`table-get-arity` already, with the table's `arity`: `bootstrap.md`, step 3) |
 | `table-is-special`, `table-is-op`, `table-get-py`, `table-get-kind` | `core`, `expand`, `emit` | **Candy**: lookups in a map |
 | `initial-table` | `cdyc`, `expand` | **one built-in** (the data), or Candy (question 1) |
 | `py-mangle` | `emit`, `expand` | **Candy** in `emit.cdy`, with its reserved names as a Candy list |

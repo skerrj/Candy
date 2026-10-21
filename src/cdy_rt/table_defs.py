@@ -255,8 +255,8 @@ def get_indent(n: int) -> str:
     return " " * 4 * n
 
 
-# Python names a Candy name must not take (as in ``py_cdy/emit_py.py``): keywords,
-# built-ins and the modules the generated code imports.
+# Python names a Candy name must not take: keywords, built-ins and the modules the
+# generated code imports.
 PY_RESERVED = frozenset(
     {*keyword.kwlist, *dir(builtins), *(module.split(".", maxsplit=1)[0] for module in IMPORTS)}
 )

@@ -23,7 +23,7 @@ targets, so that they aren't designed out by accident.
    - `lower` → lowered IR, the "pseudo-AST" (statements vs. expressions)
    - one backend per target, which emits that target's code
 
-   The iMVP's Python backend (`emit_py`) is the first such backend. A new target adds its
+   The iMVP's Python backend (`emit_py`; now `src/cdy/emit.cdy`) is the first such backend. A new target adds its
    own backend and reuses everything before it. See "Stages and targets" below and
    "Layers" in the iMVP doc.
 3. **Each target maps the Candy types for itself.** For the iMVP's Python mapping (`Int`,
@@ -55,7 +55,7 @@ statements and temporaries.
 | Anonymous function | lambda, body one expression | closure, any body | lambda (captures effectively final) | none | closure, any body |
 | Chained comparison (`a < b < c`) | yes | no | no | no | no |
 
-The iMVP's `Caps` has only `cond_expr` and `lambda_expr` (see `src/py_cdy/lower_cdy.py`);
+The iMVP's `Caps` had only `cond_expr` and `lambda_expr` (`lower_cdy.py`, at tag `self-host-py`);
 the other rows become flags when a target needs them.
 
 Some differences are not `lower`'s problem:
@@ -85,8 +85,8 @@ declares each built-in with a bodiless `sig`, the way Carp's `register` does, an
 *Started on branch `system-prelude`* (`doc/hl_rqmt/system_prelude.md`):
 - `src/cdy/system.cdy` holds the Candy type of every built-in but the special forms and
   operators, which gives the Candy translator their arities;
-- `table.py` is the Python mapping: each built-in's Python name and kind (it keeps
-  `arity` too, for the frozen Python translator);
+- `table.py` is the Python mapping: each built-in's Python name and kind (its `arity`
+  field went once the Python translator left `master`: `doc/hl_rqmt/bootstrap.md`, step 3);
 - the operators are still described by the table alone, since a `Fn` type can't say "two
   or more arguments";
 - `src/cdy/prelude.cdy` is ordinary Candy, so it is the same for every target.

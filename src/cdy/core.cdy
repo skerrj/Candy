@@ -1,5 +1,5 @@
 ;;; Core: analyse forms into the Core AST (the first step; target-independent).
-;;; Mirrors py_cdy/core_cdy.py. Slices 1a-1c: literals, symbols, calls, if, cond, do,
+;;; Mirrored the Python translator's core_cdy.py (at tag self-host-py). Slices 1a-1c: literals, symbols, calls, if, cond, do,
 ;;; let (desugared into applied Lambdas, as in Scheme), fn, tup, format, get, assoc,
 ;;; match, sig, def, defn and deft (records and sums).
 

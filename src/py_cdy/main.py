@@ -2,34 +2,23 @@
 
 Modelled on schmuz's ``src/py_smz/main.py``: like its ``run_2_out``, it translates a Candy
 file to ``output/<name>.py``; with ``--run`` it then runs that file, like ``run_as_main``.
-With ``--translator t1`` the self-hosted translator (``self_host.py``), freshly built by the
-checked-in one, does the translating instead of the frozen Python one; with
-``--translator bin``, the checked-in copy ``bin/py/cdy_translator.py`` does. Those two
-include the file's imports (``import`` is in the Candy translator only).
+The checked-in translator ``bin/py/cdy_translator.py`` does the translating; with
+``--translator t1``, the Candy translator freshly built by it does (``self_host.py``).
+Either includes the file's imports. (The Python translator, frozen at tag ``self-host-py``,
+is no longer here: ``doc/hl_rqmt/bootstrap.md``.)
 """
 
 import subprocess
 import sys
 from pathlib import Path
 
-from parsec import ParseFailure
-
 from cdy_rt.table_defs import CandyFail
-from core_cdy import CandyError
-from reader import slurp
 from self_host import translate_bin, translate_t1
-from translate_cdy import translate
 
 OUTPUT_DIR = Path("output")
-USAGE = "usage: main.py FILE.cdy [--run] [--translator py|t1|bin]"
+USAGE = "usage: main.py FILE.cdy [--run] [--translator bin|t1]"
 
-
-def translate_py(path: Path) -> str:
-    """The Candy file at ``path`` as Python source, translated by the Python translator."""
-    return translate(slurp(str(path)))
-
-
-TRANSLATORS = {"py": translate_py, "t1": translate_t1, "bin": translate_bin}
+TRANSLATORS = {"bin": translate_bin, "t1": translate_t1}
 
 
 def out_path(name: str) -> Path:
@@ -37,7 +26,7 @@ def out_path(name: str) -> Path:
     return OUTPUT_DIR / f"{Path(name).stem}.py"
 
 
-def translate_file(name: str, translator: str = "py") -> Path:
+def translate_file(name: str, translator: str = "bin") -> Path:
     """Translate the Candy file ``name`` and write the Python; returns where it went."""
     out = out_path(name)
     source = TRANSLATORS[translator](Path(name))
@@ -49,7 +38,7 @@ def translate_file(name: str, translator: str = "py") -> Path:
 def main(args: list[str]) -> int:
     """Translate the file named in ``args`` and, with ``--run``, run the result."""
     rest = list(args)
-    translator = "py"
+    translator = "bin"
     if "--translator" in rest:
         at = rest.index("--translator")
         translator = rest[at + 1] if at + 1 < len(rest) else ""
@@ -60,7 +49,7 @@ def main(args: list[str]) -> int:
         return 2
     try:
         out = translate_file(files[0], translator)
-    except (FileNotFoundError, ParseFailure, CandyError, CandyFail) as err:
+    except (FileNotFoundError, CandyFail) as err:
         print(f"candy: {err}", file=sys.stderr)
         return 1
     print(f"candy: {files[0]} -> {out}", file=sys.stderr)

@@ -1,5 +1,6 @@
 ;;; Emit: lowered statements as Python source text (the third step; the Python backend).
-;;; Unlike py_cdy/emit_py.py, which builds Python's ast, this writes text, as smz's
+;;; Unlike the Python translator's emit_py.py (at tag self-host-py), which built Python's
+;;; ast, this writes text, as smz's
 ;;; render.py did. Every operator gets parentheses, so precedence never matters.
 
 (import form)
@@ -437,7 +438,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 
 ;; match as an isinstance chain on the temporary `subj` (mypy keeps generic type arguments
 ;; that way), each named field bound by attribute. The temporary is typed object unless the
-;; sum is generic, which keeps mypy fast (see py_cdy/emit_py.py); then, with no else clause,
+;; sum is generic, which keeps mypy fast (doc/hl_rqmt/sum_types.md); then, with no else clause,
 ;; the last case is an else that asserts its variant (`assert-last`).
 (sig emit-match (Fn (String (List Case) (List (List Stmt)) Bool String Int Env) String))
 (defn emit-match (subj cases default assert-last keyword level env)

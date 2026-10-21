@@ -51,8 +51,11 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
 - **Commit messages** start with what was done ("X step N: ..."), then a body on why and
   what it touches, and end with the attribution trailers Claude Code adds.
 - **Bootstrap tags** (`doc/hl_rqmt/bootstrap.md`, "Tags and history"): a commit that
-  changes `bin/` gets the next annotated `boot/NN` tag (message: the Python version and
-  any staging the rebuild needed); `boot/00` is `self-host-py`.
+  changes `bin` gets the next annotated `boot/NN` tag (message: the Python version and
+  any staging the rebuild needed); `boot/00` is `self-host-py`. *A commit that changes
+  `bin`* changes any file in `bin/<target>/`: the translator, or a library copy next to it
+  (which alone counts: the translator reads them as it runs). `bin/README.md` alone
+  doesn't.
 - **History is never rewritten** unless the owner asks. Before a rewrite, the old tip is
   tagged `archive/<branch>-<YYYY-MM-DD>` and the tag pushed first. `boot/*` and
   `archive/*` tags are never deleted.
@@ -61,6 +64,12 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
 
 - After a change to `src/cdy/`, rebuild with `python src/py_cdy/self_host.py`; the tests
   check the fixpoint and that `bin` is T2 (`bin/README.md`).
+- **After committing a new `bin`:** `python script/bootstrap.py --step HEAD` checks that
+  the previous step's `bin` builds it; then `--tag` gives it the next `boot/NN`. If it
+  needed staging by hand, the tag's message says how (`doc/hl_rqmt/bootstrap.md`).
+- **Before a merge into `master`:** `pytest -m bootstrap` (or `python script/bootstrap.py
+  --from-scratch`, which is equivalent): the old steps can only break if the environment
+  drifts (Python, mypy, parsec, or the script), and a merge is the checkpoint for that.
 - **The bootstrap hazard:** the checked-in `bin` reads the live `table.py` and its own copy
   of the library (`bin/py/system.cdy` and the rest). A change that adds built-ins
   therefore copies the new `src/cdy/system.cdy` into `bin/py/` before the rebuild. An HLD

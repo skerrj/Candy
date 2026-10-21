@@ -13,39 +13,18 @@ then does T2 replace ``bin``. A change to ``src/cdy/`` that ``bin`` can't transl
 breaks the result, so never reaches ``bin``, and the previous copy is in git. Run this file
 to rebuild: ``python src/py_cdy/self_host.py``.
 
-The Python translator (``py_cdy``) is frozen at tag ``self-host-py``: new features go into
-the Candy translator only. It can't build the translator any more (``src/cdy/`` uses
-``import``); to bootstrap from scratch, check out ``self-host-py``, where it builds T1 from
-the translator's files joined into one program.
-
-``parse_forms`` converts ``parse_cdy``'s nodes into a translator's ``Form`` variants, so
-tests can check that the two readers agree.
+The Python translator that first built the translator is no longer here: it is at tag
+``self-host-py``, and ``script/bootstrap.py`` builds every ``bin`` since from it, through
+the history (``doc/hl_rqmt/bootstrap.md``).
 """
 
 import importlib.util
 import shutil
-from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Any, cast
+from typing import cast
 
 from mypy import api as mypy_api
-from parsec import parse
-
-from parse_cdy import (
-    Bool,
-    Byte,
-    Char,
-    Double,
-    Float,
-    Int,
-    Long,
-    SExpr,
-    SList,
-    Str,
-    Symbol,
-    program,
-)
 
 ROOT = Path(__file__).resolve().parents[2]
 CDY_DIR = ROOT / "src" / "cdy"
@@ -71,40 +50,6 @@ def load(path: Path) -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-def to_form(node: SExpr, t1: ModuleType) -> Any:
-    """A ``parse_cdy`` node as the matching ``Form`` variant of the translator module ``t1``,
-    with no position (``NOWHERE``), as ``read_forms`` reads. ``form.cdy``'s names have its
-    prefix in Python (``form__Sym``; ``doc/hl_rqmt/modules.md``)."""
-    variant: Callable[..., Any]
-    match node:
-        case Symbol(name):
-            return t1.form__Sym(name, t1.form__NOWHERE)
-        case SList(items):
-            return t1.form__Lst(tuple(to_form(item, t1) for item in items), t1.form__NOWHERE)
-        case Str(val):
-            variant = t1.form__Txt
-        case Int(val):
-            variant = t1.form__IntLit
-        case Long(val):
-            variant = t1.form__LongLit
-        case Byte(val):
-            variant = t1.form__ByteLit
-        case Float(val):
-            variant = t1.form__FloatLit
-        case Double(val):
-            variant = t1.form__DoubleLit
-        case Char(val):
-            variant = t1.form__CharLit
-        case Bool(val):
-            variant = t1.form__BoolLit
-    return variant(val)
-
-
-def parse_forms(t1: ModuleType, text: str) -> tuple[Any, ...]:
-    """``text`` parsed by ``parse_cdy``, as ``t1``'s ``Form`` variants (to compare readers)."""
-    return tuple(to_form(node, t1) for node in parse(program, text))
 
 
 def translate_with(t1: ModuleType, text: str) -> str:

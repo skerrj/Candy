@@ -10,6 +10,9 @@ __pycache__/
 tmp/
 output/
 
+# this machine's setup, for Claude Code (CLAUDE.md stays general)
+CLAUDE.local.md
+
 # Distribution / packaging
 .Python
 build/

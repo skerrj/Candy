@@ -18,7 +18,8 @@ grammar show up on the next reload. To remove it, delete the link.
 `syntaxes/candy.tmLanguage.json` is a TextMate grammar. Its structure (comments, strings,
 nested lists, the name after a defining form) follows the Scheme grammar in
 `sjhuangx.vscode-scheme`; its literal and symbol rules follow VS Code's built-in Clojure
-grammar, changed to match `src/py_cdy/parse_cdy.py` and `src/cdy/read.cdy`:
+grammar, changed to match the reader, `src/cdy/read.cdy` (and the Python translator's
+parser, when it was here):
 
 - `;` comments; strings and their escapes (`\n`, `\uXXXX`; others are marked invalid);
 - literals that end at a delimiter: `100`, `1500l`, `1b`, `10.0`, `3.14f`, `\e`, `true`,

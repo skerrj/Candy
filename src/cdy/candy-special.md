@@ -42,7 +42,6 @@ true|false ;; Bool
 - two imports that define the same name are an error; the file's own definition of a name wins over an import's
 - importing a module twice is fine; an import cycle is an error, and so are two imported modules with the same file name (`util` and `lib/util`)
 - in a macro file, `import` still pastes the file in (inclusion), as the macro file's helpers
-- only in the Candy translator (the Python translator is frozen)
  > (import *symbol*)
 ### import-macros
 - top level only; *symbol*`.cdy` is found as for `import`, but it is a **macro file**: its `defmacro`s become macros of the importing file, and its other definitions are helpers, which run only while translating (the importing file's own `defmacro`s can call them; its program can't)

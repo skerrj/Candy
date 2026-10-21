@@ -1,5 +1,5 @@
 # Packaging covers only the Candy runtime, ``src/cdy_rt`` (installed editable so generated code
-# can import it). The compiler, ``src/py_cdy``, is not packaged.
+# can import it). The Python driver, ``src/py_cdy``, is not packaged.
 [build-system]
 requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
@@ -18,23 +18,16 @@ package-data = { cdy_rt = ["py.typed"] }
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-src = ["src/py_cdy", "src"]
+src = ["src/py_cdy", "src", "script"]
 
 [tool.pylint.main]
-init-hook = "import sys; sys.path.insert(0, 'src/py_cdy')"
+init-hook = "import sys; sys.path[:0] = ['src/py_cdy', 'script']"
 # mypy is compiled (mypyc); let pylint import it to see mypy.api.
 extension-pkg-allow-list = ["mypy"]
 
 [tool.pylint."messages control"]
 # ruff sorts imports; pylint's import-order check disagrees with it about first-party modules.
 disable = ["wrong-import-order"]
-
-[tool.pylint.design]
-# The translator dispatches with one ``match`` over node types per function, which pylint's
-# defaults count as too many returns, branches and locals.
-max-returns = 15
-max-branches = 15
-max-locals = 20
 
 [tool.pylint.format]
 max-line-length = 100
@@ -44,11 +37,14 @@ no-docstring-rgx = "^(_|test_)"
 
 [tool.mypy]
 strict = true
-mypy_path = "src/py_cdy"
+mypy_path = "src/py_cdy:script"
 
 [tool.pytest.ini_options]
-pythonpath = ["src/py_cdy"]
+pythonpath = ["src/py_cdy", "script"]
 testpaths = ["tst"]
+# The bootstrap chain takes a minute: run it with `pytest -m bootstrap`.
+addopts = '-m "not bootstrap"'
+markers = ["bootstrap: runs the bootstrap chain (doc/hl_rqmt/bootstrap.md)"]
 
 [tool.pyright]
-extraPaths = ["src/py_cdy"]
+extraPaths = ["src/py_cdy", "script"]

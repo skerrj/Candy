@@ -999,9 +999,9 @@ call.
 
 ## Tooling and conventions
 
-- **Environment:** run everything in the `py_cdy` conda environment:
-  `source ~/dev/activate-conda && conda activate py_cdy`. It provides Python 3.14, and
-  parsec.py v4 loads from `~/dev/exp/parsec.py/src`.
+- **Environment:** Python 3.14; setup is in `README.md` (and this machine's in the
+  untracked `CLAUDE.local.md`). At the iMVP the environment also provided parsec.py v4,
+  which the Python translator's parser used.
 - **Checks:** `pyproject.toml` sets line length 100 for ruff and pylint and turns on
   `mypy --strict`. mypy, pyright, ruff, pylint and pytest are installed.
 - **Tests:** pytest tests go in `tst/py_cdy/`, and Candy-language tests in `tst/cdy/`.
