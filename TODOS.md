@@ -28,4 +28,6 @@ Done and earlier items are in `doc/archive/TODOS_system_prelude.md`, `doc/archiv
 - [ ] Review step 2 as built (`doc/hl_rqmt/bootstrap.md`, its "Done" note).
 - [x] Step 3: `table.py` without `arity` (and `table-get-arity`); a new chain step, `boot/17` once tagged.
 - [ ] Review step 3 as built (`doc/hl_rqmt/bootstrap.md`, its "Done" note).
-- [ ] Step 4: docs, and a general install and how-tos in `README.md`, with this machine's setup moved to a gitignored `CLAUDE.local.md`.
+- [x] Step 4: docs; `README.md` (general install and how-tos); this machine's setup in a gitignored `CLAUDE.local.md`.
+- [ ] Review step 4 as built (`README.md`, `CLAUDE.md`, `doc/hl_rqmt/bootstrap.md`'s "Done" note).
+- [ ] parsec.py v4 isn't published (`doc/tech_debt.md`), so the chain's first step runs only on this machine. Low priority (owner, 2026-10-20): noted; publish or vendor it later.

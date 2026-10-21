@@ -1,6 +1,7 @@
 ;;; Form: a parsed Candy form, as the self-hosted translator sees it. The reader
-;;; (read.cdy) makes these; py_cdy/self_host.py can also convert py_cdy/parse_cdy.py's nodes
-;;; into them, to check that the two readers agree. See doc/hl_rqmt/self_hosting_primo.md.
+;;; (read.cdy) makes these. (Until branch bootstrap, py_cdy/self_host.py also converted the
+;;; Python translator's parser nodes into them, to check that the two readers agreed.) See
+;;; doc/hl_rqmt/self_hosting_primo.md.
 
 ;; Where a form starts: its file ("" for text that isn't from one), line and column.
 ;; Line 0 means nowhere: a form made by the translator, or read without positions.

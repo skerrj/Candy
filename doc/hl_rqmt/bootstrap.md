@@ -1,6 +1,6 @@
 # Bootstrap: the frozen Python translator off `master`, checked through the history (HLD)
 
-**Status: accepted.** Branch `bootstrap`, after tag `system-prelude` and before the library
+**Status: accepted; steps 1–4 built, in review.** Branch `bootstrap`, after tag `system-prelude` and before the library
 branch (`doc/hl_rqmt/library.md`), whose table work it makes simpler. Drafted on
 `system-prelude`. Decided: the history, not a separate repo ("Repo or history"); the
 `boot/NN` tags ("Tags and history"); and the questions at the end.
@@ -145,8 +145,8 @@ So the script, for each step C:
     the Python version each step was built with (3.14 today), and the script warns on a
     mismatch;
   - **mypy's version:** it only checks, so it changes pass or fail, not the output;
-  - **parsec v4:** only the `self-host-py` step uses it (a pinned commit of
-    `functional-rewrite`).
+  - **parsec v4:** only the `self-host-py` step uses it. (Planned as a pinned commit of
+    a `functional-rewrite` branch upstream; there is none, see step 4.)
 - **Finding the chain** is the first run: `--check` over all steps, then a staging entry
   in the `boot/NN` tag of each step that fails until staged by hand (macros step 5 may be
   one).
@@ -254,6 +254,36 @@ So the script, for each step C:
      is. CLAUDE.md then speaks of the project's Python environment generally.
    - **The iMVP doc's setup section** points at the README; its smz mentions stay (a
      reference to a sibling project, not setup). The archives stay as they are (history).
+
+   *Done.* As built:
+   - **`README.md`:** what Candy is (with a program that runs), setup, using it, working
+     on the translator, the bootstrap chain, and the repository's layout. No machine paths.
+   - **parsec v4 isn't published,** found while writing the setup: upstream
+     sighingnow/parsec.py has only `master`, and the local copy isn't a git checkout. So
+     the chain's first step runs only where that rewrite is installed; the README says so,
+     and it is tech debt ("parsec.py v4 isn't published"), with two fixes: publish it, or
+     vendor a copy.
+   - **`CLAUDE.local.md`** (in `.gitignore`): the conda line, the local parsec copy, and
+     where smz is.
+   - **CLAUDE.md** rewritten around what is here now: the code by directory, the history
+     and branches, how the translator works (modules, macros, the library,
+     self-hosting, errors, `main`, sum types), the decisions (dead references to the
+     Python translator's files fixed), the Python style (the parser-specific parsec notes
+     dropped), and Running. smz and the environment point at `CLAUDE.local.md`.
+   - **`bin/README.md`:** `main.py` uses `bin` by default; the bootstrap hazard of the live
+     table; bootstrapping is now the chain. Also the editor's README, the spec (no
+     "Python translator is frozen" note), `cdy_rt/__init__.py`, and the iMVP doc's setup.
+   - **Leaks:** of the archived leaks, only "No source positions" (iMVP) was the Python
+     translator's own; struck through (fixed on `self-host-cleanup`). The rest are Candy's
+     semantics on Python, and still apply.
+   - **Stale references** to the removed files, cleaned up where they are live: the
+     header comments of `core`, `emit`, `form`, `lower` and `read.cdy` (they now point at
+     tag `self-host-py`), three tech debt entries (one, on the Python translator's
+     `lower_cdy.py`, dropped), and `multi_target.md`. Finished HLDs (`macros.md`,
+     `system_prelude.md`) and this one's "Where things stand" keep them, as history.
+     `form.cdy`'s comment reaches `bin/py/form.cdy`, so this commit is a chain step
+     (`boot/18`).
+   - **parsec:** publishing it is low priority (the owner's call); it stays noted.
 
 Step 1 comes first and runs while the Python translator is still on `master`, so the
 chain is proven before anything is removed.

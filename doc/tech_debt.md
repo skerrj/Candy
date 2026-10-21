@@ -7,12 +7,10 @@ take one, and remove an entry once it is fixed.
 
 ## Translator
 
-- **`retail` calls `self_call` twice** (once in the `case` guard, once in the body) and
-  then `assert`s the result. It would be simpler without the guard (`lower_cdy.py`).
 - **`match` is an `isinstance` chain in Python**, not Python's `match`, because mypy (2.4)
   loses a generic variant's type arguments in a class pattern (`case Node(l, v, r):` makes
   `v` `Any`). pyright handles class patterns; switch back if mypy catches up
-  (`emit_match` in `emit_py.py`).
+  (`emit-match` in `emit.cdy`).
 - **Every `match` subject gets a temporary** in `lower`, only because the Python chain
   tests the subject more than once. The temporary is typed `object` for a non-generic sum,
   to keep mypy fast (`doc/hl_rqmt/sum_types.md`), so mypy no longer checks that a chain is
@@ -92,12 +90,18 @@ take one, and remove an entry once it is fixed.
   `file-exists` first.
 
 - **`mangle` lives in the runtime** (`py_mangle`, with `PY_RESERVED`) so the self-hosted
-  translator can use it; `emit_py.mangle` now calls it.
+  translator could use it (the library HLD moves it into `emit.cdy`, as Candy).
 - **`at` and `slice_` helpers are only used as values** now that `at` and `slice` are
   emitted as subscripts. They still return `object`/`Sequence`, so passing them as values
   loses the element type.
 
 ## Tests and tooling
+
+- **parsec.py v4 isn't published:** the bootstrap chain's first step (the Python
+  translator, at tag `self-host-py`) needs it, but it exists only as a local copy on the
+  owner's machine; upstream sighingnow/parsec.py has only `master`. So the chain can't run
+  from scratch anywhere else yet. Fix: publish it (and record where), or vendor a copy
+  (MIT) that the script puts on the path for that step.
 
 - **Test programs run mypy once each** (`test_mypy_strict` in `tst/py_cdy/test_self_host.py`).
   One mypy run over all of them would be faster.

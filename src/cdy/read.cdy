@@ -1,6 +1,6 @@
 ;;; Read: Candy source text as Forms (stage 3 of doc/hl_rqmt/self_hosting_primo.md).
-;;; A hand-written recursive-descent reader that accepts exactly what py_cdy/parse_cdy.py
-;;; accepts (see the grammar there). Like tst/cdy/read_sexpr.cdy it walks the text by
+;;; A hand-written recursive-descent reader that accepts exactly what the Python
+;;; translator's parse_cdy.py did (at tag self-host-py; see the grammar there). Like tst/cdy/read_sexpr.cdy it walks the text by
 ;;; position, so it needs no closures. An error fails with its line and column.
 
 (import form)

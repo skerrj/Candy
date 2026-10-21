@@ -1,7 +1,8 @@
 ;;; Lower: Core expressions split into statements (the second step; target-neutral).
-;;; Mirrors py_cdy/lower_cdy.py, in value, tail and effect modes. Unlike the Python
-;;; translator, statements hold Core Exprs (plus Temp) instead of separate IR expressions;
-;;; an If left in an expression is a conditional expression, and a Lambda a lambda.
+;;; Mirrored the Python translator's lower_cdy.py (at tag self-host-py), in value, tail
+;;; and effect modes. Unlike that translator, statements hold Core Exprs (plus Temp) instead
+;;; of separate IR expressions; an If left in an expression is a conditional expression,
+;;; and a Lambda a lambda.
 ;;; A let arrives as applied Lambdas and becomes assignments again.
 
 (import core)

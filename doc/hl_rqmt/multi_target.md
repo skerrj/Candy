@@ -23,7 +23,7 @@ targets, so that they aren't designed out by accident.
    - `lower` → lowered IR, the "pseudo-AST" (statements vs. expressions)
    - one backend per target, which emits that target's code
 
-   The iMVP's Python backend (`emit_py`) is the first such backend. A new target adds its
+   The iMVP's Python backend (`emit_py`; now `src/cdy/emit.cdy`) is the first such backend. A new target adds its
    own backend and reuses everything before it. See "Stages and targets" below and
    "Layers" in the iMVP doc.
 3. **Each target maps the Candy types for itself.** For the iMVP's Python mapping (`Int`,
@@ -55,7 +55,7 @@ statements and temporaries.
 | Anonymous function | lambda, body one expression | closure, any body | lambda (captures effectively final) | none | closure, any body |
 | Chained comparison (`a < b < c`) | yes | no | no | no | no |
 
-The iMVP's `Caps` has only `cond_expr` and `lambda_expr` (see `src/py_cdy/lower_cdy.py`);
+The iMVP's `Caps` had only `cond_expr` and `lambda_expr` (`lower_cdy.py`, at tag `self-host-py`);
 the other rows become flags when a target needs them.
 
 Some differences are not `lower`'s problem:
