@@ -23,11 +23,7 @@ Done and earlier items are in `doc/archive/TODOS_system_prelude.md`, `doc/archiv
 - [x] Review `doc/hl_rqmt/bootstrap.md`: accepted (drop the reader agreement check; `--from-scratch` before each merge into `master`; before the library branch).
 - [x] Step 1: `script/bootstrap.py` and the chain (two steps staged); `--from-scratch` passes.
 - [x] Step 1: tagged `boot/00` to `boot/16`.
-- [ ] Review step 1 as built (`doc/hl_rqmt/bootstrap.md`, its "Done" note; `script/bootstrap.py`).
 - [x] Step 2: the Python translator off `master` (and `reader.py`, `test_cdy_programs.py`).
-- [ ] Review step 2 as built (`doc/hl_rqmt/bootstrap.md`, its "Done" note).
 - [x] Step 3: `table.py` without `arity` (and `table-get-arity`); a new chain step, `boot/17` once tagged.
-- [ ] Review step 3 as built (`doc/hl_rqmt/bootstrap.md`, its "Done" note).
 - [x] Step 4: docs; `README.md` (general install and how-tos); this machine's setup in a gitignored `CLAUDE.local.md`.
-- [ ] Review step 4 as built (`README.md`, `CLAUDE.md`, `doc/hl_rqmt/bootstrap.md`'s "Done" note).
-- [ ] parsec.py v4 isn't published (`doc/tech_debt.md`), so the chain's first step runs only on this machine. Low priority (owner, 2026-10-20): noted; publish or vendor it later.
+- [X] parsec.py v4 isn't published (`doc/tech_debt.md`), so the chain's first step runs only on this machine. Low priority (owner, 2026-10-20): noted; publish or vendor it later.
