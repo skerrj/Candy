@@ -78,7 +78,8 @@ puts it:
   step: `initial-table` stays the one built-in, typed as a Candy map of records (a
   `deft TableEntry`), and every lookup is Candy. Later the data itself can move into
   Candy (`doc/hl_rqmt/multi_target.md`'s target-neutral table plus a mapping per target),
-  and `table.py` checks against it, or is generated from it.
+  and `table.py` checks against it, or is generated from it. The whole design is now
+  its own HLD: `doc/hl_rqmt/symbol_table.md`.
 - **What stays built-in** is four functions for macros (plus `initial-table`). They are
   host built-ins: they exist because the translator runs on Python, not because a program
   targets it (`doc/hl_rqmt/macros.md`, "Terms"). They stay in `system.cdy`, marked as the
@@ -101,9 +102,28 @@ move, for example:
 - `isspace-at`: `isspace` of a one-character `slice`;
 - `is-neg-int` and `join`: `slice` and a loop.
 
-Exception, for speed: while lists are tuples that Candy copies to add to, list operations
-that build a list stay built-in. `map`, `filter` and `fold` already are
-(`system_prelude.md`, step 5); the long-term fix is in `mutation_optimization.md`.
+**Revised: a host type's operations are built-in.** A type whose representation is the
+host's (lists, which are Python tuples; strings; maps) gets its operations from the host,
+as built-ins, *all* of them, not only the ones Candy can't write. For lists this is about
+speed: Candy can only add to a tuple by copying it, so a list built an item at a time takes
+quadratic time. The first rule was "only what Candy can't express, plus the list operations
+that build a list", but that line falls inside the list operations, by how each happens to
+be written (`reverse` is linear on `map` and `range`, quadratic on `fold`), and moves when
+one is rewritten. One line per type is simpler:
+
+- **built-in:** every list operation (`map`, `filter` and `fold` already are:
+  `system_prelude.md`, step 5; and `any`, `all`, `find`, `reverse`, `range`, `take`,
+  `drop`, `concat`, `zip`, `index-of`, `contains`), and the string and map operations
+  (`split`, `starts-with`, `join`, `map-from`, ...); each is a line in `table.py` and a
+  `sig`, since Python has them;
+- **prelude:** what is built on top of them, such as `with-default` and `map-update`, and
+  later the library's own helpers;
+- **cost:** every target's runtime provides these operations, about 15 for lists rather
+  than 5; every likely target has them natively;
+- ***for now*:** when Candy has its own list representation (`mutation_optimization.md`),
+  list operations can move into Candy, and the line with them;
+- **unchanged:** under B (below) programs see only the prelude, which re-exports these
+  built-ins, so where an operation lives doesn't change its name.
 
 ### What a program sees (decided: A now, B later)
 
@@ -121,9 +141,11 @@ that build a list stay built-in. `map`, `filter` and `fold` already are
 The few built-ins left for the translator (above) are visible to programs either way,
 until a declaration file can be imported (question 3).
 
-### A fuller prelude (question 5)
+### A fuller library (question 5)
 
-Candidates, from what the translator and the test programs write by hand:
+Candidates, from what the translator and the test programs write by hand. By the revised
+rule above, the list, string and map operations among them are built-ins; only what is
+built on them (`with-default`, `map-update`) is prelude:
 - **lists:** `rest`, `any`, `all`, `find` (the first match, as a
   `Maybe`), `reverse`, `range`, `take`, `drop`, `concat` (a list of lists), `zip`,
   `index-of`, `contains`;
@@ -163,8 +185,8 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 
 ## Questions (open)
 
-Decided so far: anything that can be written in Candy goes in the prelude ("Built-in or
-prelude"); a program sees the primitives and the prelude now, and only the prelude later
+Decided so far: anything that can be written in Candy goes in the prelude, except a host
+type's operations, which are all built-in ("Built-in or prelude", revised); a program sees the primitives and the prelude now, and only the prelude later
 ("What a program sees"); the translator's helpers become Candy, with no `translator.cdy`
 ("The translator's built-ins become Candy").
 Leaning (not decided): a small implicit prelude plus opt-in library modules for the rest
@@ -172,13 +194,16 @@ Leaning (not decided): a small implicit prelude plus opt-in library modules for 
 imports find library modules, their names (`std/list`?), and what the prelude keeps.
 
 1. **The symbol table's data:** `initial-table` stays one built-in, typed as a Candy map
-   (proposed), or the table moves into Candy now (the multi-target split)?
+   (proposed), or the table moves into Candy now (the multi-target split)? See
+   `doc/hl_rqmt/symbol_table.md`.
 2. **`py-repr`:** rewrite in Candy (string escapes, a few lines), or keep the built-in?
 3. **The five host built-ins:** stay in `system.cdy`, marked as the translator's
    (proposed), or a declaration file only the translator imports?
 4. **Names and place:** `system.cdy` and `prelude.cdy` next to the translator, or a `lib/`
    directory?
-5. **Prelude contents:** which of the candidates, and in what order?
+5. **Library contents:** which of the candidates, and in what order? Most are built-ins
+   now ("Built-in or prelude", revised), so the prelude stays small, and questions 7
+   and 8 matter less.
 6. **The translator on the prelude:** rewrite its loops with `map`, `filter` and the rest,
    or leave it alone?
 7. **Tree shaking:** only what a program uses (proposed), or the whole prelude?

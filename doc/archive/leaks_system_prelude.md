@@ -23,6 +23,7 @@ Candy's design will need to fix later, added on branch `system-prelude`.
   (`table-is-special`). What the language's own forms are is a front-end fact, the same
   for every target. Fix: a target-neutral table in Candy (`doc/hl_rqmt/multi_target.md`,
   "The symbol table across targets"), or the translator's own list of special forms.
+  Planned in `doc/hl_rqmt/symbol_table.md` (step 3).
 - **The translator's built-ins are every program's built-ins.** `system.cdy` (like
   `table.py` before it) is one flat set. Besides what programs need (`len`, `put`,
   `slurp`, ...), it has what only the translator uses:

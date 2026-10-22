@@ -4,6 +4,8 @@ Random thoughts about Candy's design: not decided, not planned, not tech debt. A
 whenever it comes up; when one turns into real work, move it to a design doc
 (`doc/hl_rqmt/`) and leave a pointer here.
 
+- **type checker**: *lean4*?
+- **rust host**: *pulled from dump*
 - **Curried function types.** Should `(Fn (Int Int) Int)` mean the same as
   `(Fn (Int) (Fn (Int) Int))`, as in ML and Haskell? And should Candy support partial
   application (`(add 1)` as a function of one argument)? Today a `Fn` type takes all its
@@ -23,9 +25,21 @@ whenever it comes up; when one turns into real work, move it to a design doc
     deprecated flag), macros (a macro could read its argument's metadata), and, with
     modules, what a module exports. Forms already carry one piece of metadata, `Pos`.
 - **up, down, down-splice, meta-template**: (`up`, `dwn`, `dwn*`, `mt`); replacements for quote, unquote, quasiquote, and quasi-splice (low pri)
-- **dump** (i.e. needs expansion): IO, rust host, interpreter, reader improvements, repl, jit
+- **dump** (i.e. needs expansion): IO, interpreter, reader improvements, repl, jit
 - **Map, reduce, fold, etc**: optimized target implementations
 - **Joy like recursive macros**: optimized target implementations
 - **Curry**: could this be a macro?
 - **Generics**: not sure where we are at... so just a note/question
 - **cndy specifice macros**: any boiler plate patterns worth a macro
+- **add special forms to the symbol table**: via special spec file
+  (`doc/hl_rqmt/symbol_table.md`, question 1)
+- **An SRS for the current design:** a requirements spec of the language and translator
+  as they are (the HLDs record decisions, branch by branch, not the whole), pointing at
+  functional specs where a part needs one (the symbol table, modules, macros, sum
+  types, `src/cdy/candy-special.md`), and in time at a test suite or test library that
+  checks each requirement (`tst/cdy/` is the start). Open: its format, whether the HLDs
+  become its functional specs, and how a requirement names its tests.
+- **Build a host and target(s) from their own library files:** a host's and each
+  target's `system.cdy` and `prelude.cdy`, and probably another set of files, or a
+  completely separate set of spec files that give a system and prelude for each spec
+  (`doc/hl_rqmt/multi_target.md`, `doc/hl_rqmt/library.md`)
