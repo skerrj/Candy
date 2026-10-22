@@ -206,6 +206,14 @@ So the front end needs three classes, and the backend the rendering kinds withou
 5. **`table.py` as the Python spellings only:** the `special` entries (`SPECIAL_FORMS`, the
    `special` kind) go; a special form must have no entry; the grammar test reads
    `special.cdy`.
+
+   *Done. As built:* `table.py` loses `SPECIAL_FORMS`, `special()` and the `special` kind;
+   its docstring says what it is now, the Python spellings, with what a built-in *is*
+   declared in Candy. `SPECIAL_KINDS` is only `""`, so a special form with an entry fails
+   (`special.cdy: x is a special form, so table.py can't spell it`). `bin/py/forms.cdy`,
+   kept for the `bin` before the rename, goes. `test_editor_grammar.py` reads the special
+   forms from `special.cdy`; `test_library_errors`' cases follow (231 tests). Bootstrap:
+   no staging (the `bin` of step 4 takes special forms with no entry).
 6. **Docs:** `candy-special.md` points at `special.cdy`; CLAUDE.md, the leak (struck
    through), `library.md` (its step 1 shrinks to `py-mangle`, `get-indent`, `PY_IMPORTS`
    and `py-repr`), `multi_target.md`.

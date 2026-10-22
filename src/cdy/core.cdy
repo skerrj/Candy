@@ -867,10 +867,9 @@
 (defn spelling-kind (table name) (if (map-has table name) (at (map-get table name) 1) ""))
 
 ;; The table kinds of each built-in class: an entry's kind must be one of its class's. A
-;; special form may have a "special" entry or none ("") for now, while table.py loses them
-;; (doc/hl_rqmt/symbol_table.md, step 5).
+;; special form has no entry (""): only the target's spellings are in table.py.
 (sig SPECIAL_KINDS (List String))
-(def SPECIAL_KINDS (tup "special" ""))
+(def SPECIAL_KINDS (tup ""))
 (sig VARIADIC_KINDS (List String))
 (def VARIADIC_KINDS (tup "binop" "compare" "boolop"))
 (sig UNARY_KINDS (List String))
@@ -901,7 +900,10 @@
           (fail (+ where "special.cdy: expected (special name), (op name variadic) or (op name unary)")))
         ((map-has acc name) (fail (format "{where}special.cdy: {name} is declared more than once")))
         ((not (in (spelling-kind table name) (kinds-of class)))
-          (fail (format "{where}special.cdy: {name} has no {class} entry in table.py")))
+          (fail
+            (if (= class "special")
+              (format "{where}special.cdy: {name} is a special form, so table.py can't spell it")
+              (format "{where}special.cdy: {name} has no {class} entry in table.py"))))
         (else (read-decls (rest-of forms) table (map-set acc name (at decl 1))))))))
 
 (sig kinds-of (Fn (String) (List String)))

@@ -1,9 +1,12 @@
-"""The initial Candy symbol table: what each built-in Candy symbol translates to in Python.
+"""The Python spellings of Candy's built-ins: what each translates to in Python. What a
+built-in is (special form, operator, or function or value with a type) is declared in
+Candy, in ``src/cdy/special.cdy`` and ``src/cdy/system.cdy``, which the translator checks
+against this table both ways (``doc/hl_rqmt/symbol_table.md``).
 
 Modelled on schmuz's ``src/py_smz/table.py`` (``OP_TABLE``). Differences from schmuz:
 
 - Entries are typed ``TableEntry`` records instead of dicts, and ``kind`` says how the
-  translator renders the symbol (operator, call, value, special form).
+  translator renders the symbol (operator, call, value). Special forms have no entry.
 - The table is immutable, and holds only the built-ins: a program's own names are in the
   translator's scope (``doc/hl_rqmt/symbol_table.md``).
 - No arity: a built-in's arity comes from its type in ``src/cdy/system.cdy``. Calls render
@@ -29,7 +32,6 @@ IMPORTS: tuple[str, ...] = ("math", "re", TABLE_MODULE, RUNTIME_MODULE)
 SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 
 # How the translator renders a symbol:
-#   special  - a special form, translated by its own rule (``py`` is unused)
 #   binop    - arithmetic, ``a + b``; folds left with more than two arguments
 #   compare  - comparison, ``a < b``; chains with more than two arguments
 #   boolop   - ``and`` / ``or``; short-circuits
@@ -38,7 +40,7 @@ SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 #   value    - a Python expression, used as is (``math.pi``, ``None``)
 #   index    - indexing, ``coll[i]`` (``py`` is the runtime helper, for use as a value)
 #   slice    - slicing, ``coll[i:j]``, so a ``String`` slice stays a ``str`` (likewise)
-Kind = Literal["special", "binop", "compare", "boolop", "unary", "call", "value", "index", "slice"]
+Kind = Literal["binop", "compare", "boolop", "unary", "call", "value", "index", "slice"]
 
 
 class TableEntry(NamedTuple):
@@ -49,11 +51,6 @@ class TableEntry(NamedTuple):
 
 
 Table = Mapping[str, TableEntry]
-
-
-def special() -> TableEntry:
-    """An entry for a special form."""
-    return TableEntry("", "special")
 
 
 def call(py: str) -> TableEntry:
@@ -70,30 +67,6 @@ def value(py: str) -> TableEntry:
     """An entry for a Python expression used as a value."""
     return TableEntry(py, "value")
 
-
-SPECIAL_FORMS: Table = {
-    "import": special(),
-    "import-macros": special(),
-    "def": special(),
-    "defn": special(),
-    "do": special(),
-    "if": special(),
-    "let": special(),
-    "fn": special(),
-    # Macros (doc/hl_rqmt/macros.md): quote, quasiquote, unquote, unquote-splicing.
-    "quo": special(),
-    "quasi": special(),
-    "unq": special(),
-    "unq-sp": special(),
-    "defmacro": special(),
-    "format": special(),
-    "tup": special(),
-    "sig": special(),
-    "deft": special(),
-    "get": special(),
-    "assoc": special(),
-    "match": special(),
-}
 
 MATH: Table = {
     "PI": value("math.pi"),
@@ -212,7 +185,6 @@ INFRA: Table = {
 
 INITIAL_TABLE: Table = MappingProxyType(
     {
-        **SPECIAL_FORMS,
         **MATH,
         **BOOL,
         **IO,

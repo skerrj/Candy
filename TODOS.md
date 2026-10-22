@@ -25,3 +25,4 @@ Done and earlier items are in `doc/archive/TODOS_bootstrap.md`,
 - [ ] Review step 2 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note; `src/cdy/special.cdy`).
 - [ ] Review step 3 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note).
 - [ ] Review step 4 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note; the plan's step 4 split in two).
+- [ ] Review step 5 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note).

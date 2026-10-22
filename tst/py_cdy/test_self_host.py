@@ -521,13 +521,13 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         ("system.cdy", ("", "(def x 1)\n"), "system.cdy: expected (sig name Type)"),
         (
             "special.cdy",
-            ("(special match)\n", ""),
-            "table.py: match is declared in neither special.cdy nor system.cdy",
+            ("(op not unary)\n", ""),
+            "table.py: not is declared in neither special.cdy nor system.cdy",
         ),
         (
             "special.cdy",
             ("", "(special len)\n"),
-            "special.cdy: len has no special entry in table.py",
+            "special.cdy: len is a special form, so table.py can't spell it",
         ),
         (
             "special.cdy",

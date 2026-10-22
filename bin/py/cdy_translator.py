@@ -1577,7 +1577,7 @@ def core__spelling_kind(table: _cdy_Mapping[str, tuple[str, str]], name: str) ->
         return cdy_rt.table_defs.map_get(table, name)[1]
     else:
         return ''
-core__SPECIAL_KINDS: tuple[str, ...] = ('special', '')
+core__SPECIAL_KINDS: tuple[str, ...] = ('',)
 core__VARIADIC_KINDS: tuple[str, ...] = ('binop', 'compare', 'boolop')
 core__UNARY_KINDS: tuple[str, ...] = ('unary',)
 core__TYPED_KINDS: tuple[str, ...] = ('call', 'value', 'index', 'slice')
@@ -1600,7 +1600,7 @@ def core__read_decls(forms: tuple[form__Form, ...], table: _cdy_Mapping[str, tup
             elif cdy_rt.table_defs.map_has(acc, name):
                 return cdy_rt.table_defs.fail((str(where) + 'special.cdy: ' + str(name) + ' is declared more than once'))
             elif (not cdy_rt.table_defs.in_(core__spelling_kind(table, name), core__kinds_of(class_))):
-                return cdy_rt.table_defs.fail((str(where) + 'special.cdy: ' + str(name) + ' has no ' + str(class_) + ' entry in table.py'))
+                return cdy_rt.table_defs.fail(((str(where) + 'special.cdy: ' + str(name) + " is a special form, so table.py can't spell it") if (class_ == 'special') else (str(where) + 'special.cdy: ' + str(name) + ' has no ' + str(class_) + ' entry in table.py')))
             else:
                 forms, acc = (form__rest_of(forms), cdy_rt.table_defs.map_set(acc, name, decl[1]))
                 continue
