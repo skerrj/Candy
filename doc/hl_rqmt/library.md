@@ -65,21 +65,18 @@ puts it:
 | Built-in | Used in | Becomes |
 |---|---|---|
 | `table-add-fun`, `table-is-bin-op`, `table-get-arity`, `is-lit` | nothing | **dropped** (`table-get-arity` with the table's `arity`: `bootstrap.md`, step 3; the rest in `symbol_table.md`, step 1) |
-| `table-is-special`, `table-is-op`, `table-get-py`, `table-get-kind` | `core`, `expand`, `emit` | **Candy**: lookups in a map |
-| `initial-table` | `cdyc`, `expand` | **one built-in** (the data), or Candy (question 1) |
+| `table-is-special`, `table-is-op`, `table-get-py`, `table-get-kind` | `core`, `expand`, `emit` | **Candy**: lookups in a map (done: `symbol_table.md`, steps 2 to 4) |
+| `initial-table` | `cdyc`, `expand` | **one built-in** (the data), typed as a map of pairs (done: `symbol_table.md`, step 3) |
 | `py-mangle` | `emit`, `expand` | **Candy** in `emit.cdy`, with its reserved names as a Candy list |
 | `get-indent`, `PY_IMPORTS` | `emit`, `cdyc` | **Candy** in `emit.cdy` |
 | `py-repr` | `emit` | **Candy** in `emit.cdy` (string escapes), or kept (question 2) |
 | `load-macros`, `call-macro`, `module-dir` | `expand`, `include` | **built-ins**: they load and run generated Python |
 | `fresh-name` | `form` | **built-in**: it keeps a counter, and Candy has no mutation |
 
-- **The symbol table's data** is the hard part. `table.py` holds it, and the frozen
-  Python translator and the generated code's imports still need `table.py`. The simplest
-  step: `initial-table` stays the one built-in, typed as a Candy map of records (a
-  `deft TableEntry`), and every lookup is Candy. Later the data itself can move into
-  Candy (`doc/hl_rqmt/multi_target.md`'s target-neutral table plus a mapping per target),
-  and `table.py` checks against it, or is generated from it. The whole design is now
-  its own HLD: `doc/hl_rqmt/symbol_table.md`.
+- **The symbol table's data** was the hard part, and became its own branch
+  (`doc/hl_rqmt/symbol_table.md`, done before this one): what each built-in is is now
+  Candy (`special.cdy`, `system.cdy`), `table.py` holds only the Python spellings, and
+  `initial-table` is a Candy map of pairs that the translator reads as data.
 - **What stays built-in** is four functions for macros (plus `initial-table`). They are
   host built-ins: they exist because the translator runs on Python, not because a program
   targets it (`doc/hl_rqmt/macros.md`, "Terms"). They stay in `system.cdy`, marked as the
@@ -172,9 +169,9 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 
 ## Steps (sketch)
 
-1. **The translator's helpers into Candy:** drop the four unused built-ins; the table
-   lookups, `py-mangle`, `get-indent` and `PY_IMPORTS` (and maybe `py-repr`) become Candy
-   in the translator's modules, with `initial-table` typed as a map of records. Tests that
+1. **The translator's helpers into Candy:** `py-mangle`, `get-indent`, `PY_IMPORTS` and
+   `py-repr` become Candy in `emit.cdy`. (The unused built-ins, the table lookups and
+   `initial-table`'s type were done on `symbol-table`: `doc/hl_rqmt/symbol_table.md`.) Tests that
    a program can't see `py-mangle`, and that the fixpoint holds (the output shouldn't
    change).
 2. **Private names** (if decided).
@@ -198,7 +195,7 @@ imports find library modules, their names (`std/list`?), and what the prelude ke
 1. **The symbol table's data:** `initial-table` stays one built-in, typed as a Candy map
    (proposed), or the table moves into Candy now (the multi-target split)? See
    `doc/hl_rqmt/symbol_table.md`.
-   *Proposed:* decided there, on its own branch before this one (its question 3).
+   *Proposed:* decided there, on its own branch before this one (its question 3). Done.
 2. **`py-repr`:** rewrite in Candy (string escapes, a few lines), or keep the built-in?
    *Proposed:* rewrite it in Candy in `emit.cdy`: it writes Python, so it belongs to the
    backend, not the runtime.

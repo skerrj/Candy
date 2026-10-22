@@ -66,9 +66,9 @@ take one, and remove an entry once it is fixed.
   the rest; it has `form.cdy`'s `rest-of`. Fix: give macro programs the prelude, or let
   them import it, with the host's modules (`doc/hl_rqmt/modules.md`, "Macro modules on
   the host").
-- **`system.cdy` is read for every translation, and again for every macro program**
-  (`builtin-sigs` in `cdyc.cdy`), and checked against the table each time. Nothing
-  caches it.
+- **`special.cdy` and `system.cdy` are read for every translation, and again for every
+  macro program** (`library-builtins` in `expand.cdy`), and checked against the table each
+  time. Nothing caches them.
 - **The built-ins' types are read but not used** beyond arity: there is no type checker,
   and mypy still gets the runtime's types from `table_defs.py`'s annotations.
 

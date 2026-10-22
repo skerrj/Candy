@@ -1,12 +1,12 @@
 # The symbol table (HLD)
 
-**Status: accepted (2026-10-21), with the proposed answers to its questions; steps 1 to 5
-below.** Branch `symbol-table`, after tag `bootstrap` and before the library branch.
+**Status: accepted (2026-10-21), with the proposed answers to its questions; steps 1 to 6
+built (the plan's step 4 split in two), in review.** Branch `symbol-table`, after tag `bootstrap` and before the library branch.
 Written on `master`, broken out of the library HLD (`doc/hl_rqmt/library.md`, question 1)
 and `doc/hl_rqmt/multi_target.md`: how the translator finds out what a name means today,
 what has been decided, and the way forward.
 
-## Where things stand
+## Where things stood (before this branch)
 
 A name is looked up in three places, and the built-ins are described in two files.
 
@@ -217,6 +217,15 @@ So the front end needs three classes, and the backend the rendering kinds withou
 6. **Docs:** `candy-special.md` points at `special.cdy`; CLAUDE.md, the leak (struck
    through), `library.md` (its step 1 shrinks to `py-mangle`, `get-indent`, `PY_IMPORTS`
    and `py-repr`), `multi_target.md`.
+
+   *Done. As built:* `candy-special.md` points at `special.cdy`; CLAUDE.md (the library
+   files, `table.py`, "The built-ins", current work), `README.md`, `bin/README.md`, the
+   VS Code extension's README; the leak struck through (`doc/archive/leaks_system_prelude.md`),
+   and the operators' and the translator's-built-ins' leaks updated there; `library.md` (its
+   step 1 is now `py-mangle`, `get-indent`, `PY_IMPORTS` and `py-repr`; question 1 done);
+   `multi_target.md` ("The symbol table across targets"); the tech-debt entry on reading
+   the library files for every translation. The older HLDs (`system_prelude.md`,
+   `self_hosting_primo.md`, the iMVP doc) are left as records of their branches.
 
 ## Bootstrap
 

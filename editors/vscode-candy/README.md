@@ -25,7 +25,7 @@ parser, when it was here):
 - literals that end at a delimiter: `100`, `1500l`, `1b`, `10.0`, `3.14f`, `\e`, `true`,
   `false`, `nil` (so `12x` is marked invalid);
 - the special forms in head position (`tst/py_cdy/test_editor_grammar.py` checks the list
-  against `SPECIAL_FORMS` in `src/cdy_rt/table.py`), `else`, and the operators;
+  against `src/cdy/special.cdy`), `else`, and the operators;
 - the name defined by `defn`, `def`, `sig` and `deft`;
 - the parameters of `defn` and `fn`, and the names `let` binds (`x` in `(x 1)`, and
   `form next` in `((form next) (read-form text pos))`), as parameters, not calls;
