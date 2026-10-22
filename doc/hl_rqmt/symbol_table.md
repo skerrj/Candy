@@ -122,7 +122,7 @@ So the front end needs three classes, and the backend the rendering kinds withou
   `builtins` and the table in `Scope`):
 
   ```
-  (deft Builtin (Special) (Op ((unary Bool))) (Prim-fn ((type CType))))
+  (deft Builtin (Special) (Op ((unary Bool))) (Typed ((type CType))))
   ```
 
   `cdyc.cdy` reads `forms.cdy` and `system.cdy` into it once (as `builtin-sigs` reads
@@ -160,6 +160,24 @@ So the front end needs three classes, and the backend the rendering kinds withou
    `forms.cdy` and `system.cdy`; `core.cdy` and `expand.cdy` stop calling the table; the
    check both ways moves. `table.py` still has its `special` entries (the bootstrap,
    below).
+
+   *Done. As built:* `src/cdy/forms.cdy` declares the 20 special forms and the 14
+   operators (`(special def)`, `(op + variadic)`, `(op not unary)`), and `self_host.py`'s
+   `LIBRARY` copies it into `bin`. In `core.cdy`, `Builtin` (its third variant is `Typed`,
+   not the plan's `Prim-fn`: it covers values like `PI` too) replaces `Scope`'s `table`
+   and its map of types; `read-builtins` (replacing `system-sigs`) reads `forms.cdy` and
+   then `system.cdy`, and checks them against the table both ways, now by class: a
+   `special` needs a `special` entry, a `variadic` op a `binop`, `compare` or `boolop`
+   one, a `unary` op a `unary` one, a `sig` a `call`, `value`, `index` or `slice` one; and
+   every entry needs a declaration (`table.py: x is declared in neither forms.cdy nor
+   system.cdy`, which replaces `built-in x has no sig in system.cdy`; a second
+   declaration is `x is already declared`). `resolve`, `is-special-head`, `check-call`
+   and `let-bindings` match on the map; `expand.cdy` reads it (`library-builtins`, which
+   replaces `cdyc.cdy`'s `builtin-sigs`, since expand needs it too) for `defmacro-items`.
+   The table is now read by `core.cdy` only to check the declarations, and by `emit.cdy`.
+   Tests: `test_system_errors` became `test_library_errors` (11 cases, 6 for `forms.cdy`),
+   and `test_special_forms_are_declared` (232 tests). Bootstrap: no staging (the old `bin`
+   doesn't read `forms.cdy`).
 3. **`emit.cdy` reads the spellings as Candy data:** `initial-table` typed as a map of
    pairs; `table-get-kind` and `table-get-py` replaced by lookups.
 4. **`table.py` as the Python spellings only:** the `special` entries and the `table-*`

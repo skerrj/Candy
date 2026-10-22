@@ -4,7 +4,7 @@
 ;;; built-in's arity is its type's. Only here may a sig have no definition.
 ;;;
 ;;; Not here: the special forms, and the operators (+, =, and, not, ...), which take two or
-;;; more arguments, as the table says. `Any` marks a type Candy can't write yet: built-ins
+;;; more arguments (or one); forms.cdy declares those. `Any` marks a type Candy can't write yet: built-ins
 ;;; that take any number of arguments, or work on lists, strings and maps alike (Collection,
 ;;; later), or return Python objects with no Candy type. Each is a leak (doc/leaks.md).
 ;;; This file is read as it is, so it can't use macros.

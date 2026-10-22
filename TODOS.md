@@ -22,3 +22,4 @@ Done and earlier items are in `doc/archive/TODOS_bootstrap.md`,
 ## symbol-table
 
 - [ ] Review step 1 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note).
+- [ ] Review step 2 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note; `src/cdy/forms.cdy`).

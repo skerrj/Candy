@@ -504,28 +504,57 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("change", "message"),
+    ("file", "change", "message"),
     [
-        (("(sig slurp (Fn (String) String))\n", ""), "built-in slurp has no sig in system.cdy"),
-        (("", "(sig nope Int)\n"), "system.cdy: nope has no Python mapping in table.py"),
-        (("", "(sig + (Fn (Int Int) Int))\n"), "system.cdy: + has no Python mapping in table.py"),
-        (("", "(sig len (Fn (Any) Int))\n"), "system.cdy: more than one sig for len"),
-        (("", "(def x 1)\n"), "system.cdy: expected (sig name Type)"),
+        (
+            "system.cdy",
+            ("(sig slurp (Fn (String) String))\n", ""),
+            "table.py: slurp is declared in neither forms.cdy nor system.cdy",
+        ),
+        (
+            "system.cdy",
+            ("", "(sig nope Int)\n"),
+            "system.cdy: nope has no Python mapping in table.py",
+        ),
+        ("system.cdy", ("", "(sig + (Fn (Int Int) Int))\n"), "system.cdy: + is already declared"),
+        ("system.cdy", ("", "(sig len (Fn (Any) Int))\n"), "system.cdy: len is already declared"),
+        ("system.cdy", ("", "(def x 1)\n"), "system.cdy: expected (sig name Type)"),
+        (
+            "forms.cdy",
+            ("(special match)\n", ""),
+            "table.py: match is declared in neither forms.cdy nor system.cdy",
+        ),
+        ("forms.cdy", ("", "(special len)\n"), "forms.cdy: len has no special entry in table.py"),
+        (
+            "forms.cdy",
+            ("", "(op len variadic)\n"),
+            "forms.cdy: len has no variadic entry in table.py",
+        ),
+        ("forms.cdy", ("", "(op len unary)\n"), "forms.cdy: len has no unary entry in table.py"),
+        ("forms.cdy", ("", "(special if)\n"), "forms.cdy: if is declared more than once"),
+        ("forms.cdy", ("", "(op - binary)\n"), "forms.cdy: expected (special name), (op name"),
     ],
 )
-def test_system_errors(
-    change: tuple[str, str], message: str, t1_path: Path, tmp_path: Path
+def test_library_errors(
+    file: str, change: tuple[str, str], message: str, t1_path: Path, tmp_path: Path
 ) -> None:
     translator = tmp_path / t1_path.name
     shutil.copyfile(t1_path, translator)
     copy_library(tmp_path)
-    system = tmp_path / "system.cdy"
+    declared = tmp_path / file
     old, extra = change
-    text = system.read_text(encoding="utf-8")
+    text = declared.read_text(encoding="utf-8")
     assert old in text
-    system.write_text(text.replace(old, "") + extra, encoding="utf-8")
+    declared.write_text(text.replace(old, "") + extra, encoding="utf-8")
     with pytest.raises(CandyFail, match=re.escape(message)):
         translate_with(load(translator), "(put 1)")
+
+
+def test_special_forms_are_declared(t1: ModuleType) -> None:
+    with pytest.raises(CandyFail, match="if is a special form, not a value"):
+        translate_with(t1, "(put if)")
+    with pytest.raises(CandyFail, match="defmacro: if is a special form"):
+        translate_with(t1, "(defmacro if (a) a)\n(put 1)")
 
 
 def test_builtin_arity_comes_from_system(t1: ModuleType) -> None:
