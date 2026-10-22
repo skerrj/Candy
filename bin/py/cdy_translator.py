@@ -1596,11 +1596,11 @@ def core__read_decls(forms: tuple[form__Form, ...], table: _cdy_Mapping[str, tup
             decl = (('', core__Special()) if (name == '') else (('special', core__Special()) if ((head == 'special') and (len(items) == 2)) else (('variadic', core__Op(False)) if ((head == 'op') and (shape == 'variadic')) else (('unary', core__Op(True)) if ((head == 'op') and (shape == 'unary')) else ('', core__Special())))))
             class_ = decl[0]
             if (class_ == ''):
-                return cdy_rt.table_defs.fail((where + 'forms.cdy: expected (special name), (op name variadic) or (op name unary)'))
+                return cdy_rt.table_defs.fail((where + 'special.cdy: expected (special name), (op name variadic) or (op name unary)'))
             elif cdy_rt.table_defs.map_has(acc, name):
-                return cdy_rt.table_defs.fail((str(where) + 'forms.cdy: ' + str(name) + ' is declared more than once'))
+                return cdy_rt.table_defs.fail((str(where) + 'special.cdy: ' + str(name) + ' is declared more than once'))
             elif (not cdy_rt.table_defs.in_(core__spelling_kind(table, name), core__kinds_of(class_))):
-                return cdy_rt.table_defs.fail((str(where) + 'forms.cdy: ' + str(name) + ' has no ' + str(class_) + ' entry in table.py'))
+                return cdy_rt.table_defs.fail((str(where) + 'special.cdy: ' + str(name) + ' has no ' + str(class_) + ' entry in table.py'))
             else:
                 forms, acc = (form__rest_of(forms), cdy_rt.table_defs.map_set(acc, name, decl[1]))
                 continue
@@ -1639,7 +1639,7 @@ def core__all_declared(names: tuple[str, ...], builtins: _cdy_Mapping[str, core_
         if (len(names) == 0):
             return True
         elif (not cdy_rt.table_defs.map_has(builtins, names[0])):
-            return cdy_rt.table_defs.fail(('table.py: ' + str(names[0]) + ' is declared in neither forms.cdy nor system.cdy'))
+            return cdy_rt.table_defs.fail(('table.py: ' + str(names[0]) + ' is declared in neither special.cdy nor system.cdy'))
         else:
             names = prelude__rest(names)
             continue
@@ -2135,7 +2135,7 @@ def expand__load_defs(defs: tuple[form__Form, ...], helpers: tuple[form__Form, .
     return expand__macro_list(defs, loaded, ())
 
 def expand__library_builtins(_: None) -> _cdy_Mapping[str, core__Builtin]:
-    decls = include__library_path('forms.cdy')
+    decls = include__library_path('special.cdy')
     sigs = include__library_path('system.cdy')
     return core__read_builtins(read__read_source(decls, cdy_rt.table_defs.slurp(decls)), read__read_source(sigs, cdy_rt.table_defs.slurp(sigs)), cdy_rt.table.INITIAL_TABLE)
 

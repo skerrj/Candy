@@ -1,4 +1,4 @@
-;;; Forms: the special forms and the operators, declared (doc/hl_rqmt/symbol_table.md).
+;;; Special: the special forms and the operators, declared (doc/hl_rqmt/symbol_table.md).
 ;;; What the language's own forms are is a fact about Candy, the same for every target, so
 ;;; it is stated here, in Candy; system.cdy declares the other built-ins, with their types.
 ;;; The translator reads both into its built-ins (read-builtins in core.cdy) and checks them

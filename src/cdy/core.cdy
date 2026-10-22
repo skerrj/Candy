@@ -76,7 +76,7 @@
    ;; imported.
    (names (Map String String))
    (elsewhere (Map String String))
-   ;; The built-ins, from forms.cdy and system.cdy (see read-builtins).
+   ;; The built-ins, from special.cdy and system.cdy (see read-builtins).
    (builtins (Map String Builtin))))
 
 ;; `scope` analysing a form at `pos` (unless that's NOWHERE).
@@ -158,7 +158,7 @@
           (tup (Call callee args) n2))))))
 
 ;; Fail if a built-in is called with the wrong number of arguments: an operator says how
-;; many it takes (forms.cdy), and any other built-in's type (system.cdy), unless that is
+;; many it takes (special.cdy), and any other built-in's type (system.cdy), unless that is
 ;; Any or not a function.
 (sig check-call (Fn (Expr Int Scope) Bool))
 (defn check-call (callee count scope)
@@ -837,10 +837,10 @@
     ((Lst items _) (if (= (len items) 0) "" (sym-name (at items 0))))
     (else (sym-name form))))
 
-;; --- the built-ins (forms.cdy and system.cdy, doc/hl_rqmt/symbol_table.md) ---
+;; --- the built-ins (special.cdy and system.cdy, doc/hl_rqmt/symbol_table.md) ---
 
 ;; A built-in as analysis sees it: a special form, analysed by its own rule; an operator,
-;; which takes one argument if `unary` and two or more if not (forms.cdy); or a function
+;; which takes one argument if `unary` and two or more if not (special.cdy); or a function
 ;; or value, with its type (system.cdy).
 (deft Builtin
   (Special)
@@ -851,7 +851,7 @@
 (defn is-special (name builtins)
   (and (map-has builtins name) (match (map-get builtins name) ((Special) true) (else false))))
 
-;; The built-ins, from the forms of forms.cdy (`decls`: special forms and operators) and of
+;; The built-ins, from the forms of special.cdy (`decls`: special forms and operators) and of
 ;; system.cdy (`sigs`: each a bodiless (sig name Type)). They are checked against `table`,
 ;; the target's spellings, both ways: each needs an entry of its kind there, and every
 ;; entry needs a declaration.
@@ -898,10 +898,10 @@
           (class (at decl 0)))
       (cond
         ((= class "")
-          (fail (+ where "forms.cdy: expected (special name), (op name variadic) or (op name unary)")))
-        ((map-has acc name) (fail (format "{where}forms.cdy: {name} is declared more than once")))
+          (fail (+ where "special.cdy: expected (special name), (op name variadic) or (op name unary)")))
+        ((map-has acc name) (fail (format "{where}special.cdy: {name} is declared more than once")))
         ((not (in (spelling-kind table name) (kinds-of class)))
-          (fail (format "{where}forms.cdy: {name} has no {class} entry in table.py")))
+          (fail (format "{where}special.cdy: {name} has no {class} entry in table.py")))
         (else (read-decls (rest-of forms) table (map-set acc name (at decl 1))))))))
 
 (sig kinds-of (Fn (String) (List String)))
@@ -933,7 +933,7 @@
   (cond
     ((= (len names) 0) true)
     ((not (map-has builtins (at names 0)))
-      (fail (format "table.py: {(at names 0)} is declared in neither forms.cdy nor system.cdy")))
+      (fail (format "table.py: {(at names 0)} is declared in neither special.cdy nor system.cdy")))
     (else (all-declared (rest names) builtins))))
 
 ;; --- modules (doc/hl_rqmt/modules.md) ---

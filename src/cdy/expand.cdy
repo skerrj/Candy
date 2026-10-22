@@ -169,11 +169,11 @@
         (loaded (load-macros python sym-name (top-names form-forms empty-map))))
     (macro-list defs loaded empty-list)))
 
-;; The built-ins, from forms.cdy and system.cdy, which are kept next to the translator
+;; The built-ins, from special.cdy and system.cdy, which are kept next to the translator
 ;; (read-builtins).
 (sig library-builtins (Fn (Unit) (Map String Builtin)))
 (defn library-builtins (_)
-  (let ((decls (library-path "forms.cdy"))
+  (let ((decls (library-path "special.cdy"))
         (sigs (library-path "system.cdy")))
     (read-builtins (read-source decls (slurp decls)) (read-source sigs (slurp sigs)) initial-table)))
 

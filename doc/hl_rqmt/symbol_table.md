@@ -107,7 +107,7 @@ So the front end needs three classes, and the backend the rendering kinds withou
 
 ### The built-ins in Candy
 
-- **`forms.cdy`** (new, next to `system.cdy`, copied into `bin` with the library): the
+- **`special.cdy`** (new, next to `system.cdy`, copied into `bin` with the library): the
   special forms and the operators, one form each:
 
   ```
@@ -125,7 +125,7 @@ So the front end needs three classes, and the backend the rendering kinds withou
   (deft Builtin (Special) (Op ((unary Bool))) (Typed ((type CType))))
   ```
 
-  `cdyc.cdy` reads `forms.cdy` and `system.cdy` into it once (as `builtin-sigs` reads
+  `cdyc.cdy` reads `special.cdy` and `system.cdy` into it once (as `builtin-sigs` reads
   `system.cdy` today) and passes it to `expand.cdy` and `core.cdy`.
 - **`resolve`, `check-call`, `is-special-head`, `let-bindings` and `defmacro-items`**
   match on it instead of calling `table-is-special`, `table-is-op` and `table-get-kind`.
@@ -141,7 +141,7 @@ So the front end needs three classes, and the backend the rendering kinds withou
   is a `Mapping[str, tuple[str, str]]` to mypy, and Candy reads it with `map-get` and
   `at`. `emit.cdy`'s `Env` holds it typed, and its two lookups become Candy.
 - **Tests that read `table.py`:** `test_editor_grammar.py` checks the grammar against
-  `forms.cdy` instead of `SPECIAL_FORMS`; `tst/cdy_rt/test_table.py` loses the `is_special`
+  `special.cdy` instead of `SPECIAL_FORMS`; `tst/cdy_rt/test_table.py` loses the `is_special`
   case.
 
 ## Steps
@@ -156,28 +156,30 @@ So the front end needs three classes, and the backend the rendering kinds withou
    (225 tests). Bootstrap: `src/cdy/system.cdy` copied into `bin/py/` before the rebuild;
    the translator comes out byte for byte the same (nothing called them), so the step's
    `bin` change is `bin/py/system.cdy` alone, a chain step all the same.
-2. **`forms.cdy` and the `Builtin` map:** the front end reads its built-ins from
-   `forms.cdy` and `system.cdy`; `core.cdy` and `expand.cdy` stop calling the table; the
+2. **`special.cdy` and the `Builtin` map:** the front end reads its built-ins from
+   `special.cdy` and `system.cdy`; `core.cdy` and `expand.cdy` stop calling the table; the
    check both ways moves. `table.py` still has its `special` entries (the bootstrap,
    below).
 
-   *Done. As built:* `src/cdy/forms.cdy` declares the 20 special forms and the 14
+   *Done. As built:* `src/cdy/special.cdy` (first `forms.cdy`, renamed after step 4: too
+   close to `form.cdy`; the rename's `bin` keeps `bin/py/forms.cdy` for the `bin` before
+   it, until step 5) declares the 20 special forms and the 14
    operators (`(special def)`, `(op + variadic)`, `(op not unary)`), and `self_host.py`'s
    `LIBRARY` copies it into `bin`. In `core.cdy`, `Builtin` (its third variant is `Typed`,
    not the plan's `Prim-fn`: it covers values like `PI` too) replaces `Scope`'s `table`
-   and its map of types; `read-builtins` (replacing `system-sigs`) reads `forms.cdy` and
+   and its map of types; `read-builtins` (replacing `system-sigs`) reads `special.cdy` and
    then `system.cdy`, and checks them against the table both ways, now by class: a
    `special` needs a `special` entry, a `variadic` op a `binop`, `compare` or `boolop`
    one, a `unary` op a `unary` one, a `sig` a `call`, `value`, `index` or `slice` one; and
-   every entry needs a declaration (`table.py: x is declared in neither forms.cdy nor
+   every entry needs a declaration (`table.py: x is declared in neither special.cdy nor
    system.cdy`, which replaces `built-in x has no sig in system.cdy`; a second
    declaration is `x is already declared`). `resolve`, `is-special-head`, `check-call`
    and `let-bindings` match on the map; `expand.cdy` reads it (`library-builtins`, which
    replaces `cdyc.cdy`'s `builtin-sigs`, since expand needs it too) for `defmacro-items`.
    The table is now read by `core.cdy` only to check the declarations, and by `emit.cdy`.
-   Tests: `test_system_errors` became `test_library_errors` (11 cases, 6 for `forms.cdy`),
+   Tests: `test_system_errors` became `test_library_errors` (11 cases, 6 for `special.cdy`),
    and `test_special_forms_are_declared` (232 tests). Bootstrap: no staging (the old `bin`
-   doesn't read `forms.cdy`).
+   doesn't read `special.cdy`).
 3. **`emit.cdy` reads the spellings as Candy data:** `initial-table` typed as a map of
    pairs; `table-get-kind` and `table-get-py` replaced by lookups.
 
@@ -203,8 +205,8 @@ So the front end needs three classes, and the backend the rendering kinds withou
    step's `bin` accepting either, step 5 can remove them with no staging.
 5. **`table.py` as the Python spellings only:** the `special` entries (`SPECIAL_FORMS`, the
    `special` kind) go; a special form must have no entry; the grammar test reads
-   `forms.cdy`.
-6. **Docs:** `candy-special.md` points at `forms.cdy`; CLAUDE.md, the leak (struck
+   `special.cdy`.
+6. **Docs:** `candy-special.md` points at `special.cdy`; CLAUDE.md, the leak (struck
    through), `library.md` (its step 1 shrinks to `py-mangle`, `get-indent`, `PY_IMPORTS`
    and `py-repr`), `multi_target.md`.
 
@@ -219,7 +221,7 @@ Each of steps 1 to 5 changes `bin`, so each is a chain step (`boot/NN`). The haz
   `bin` of step 4 no longer needs special forms in the table. (The plan had steps 4 and 5
   as one, which missed that step 2's check needs the `special` entries; see step 4.) `src/cdy/system.cdy` is copied into `bin/py/` before
   the rebuild, so the old `bin` doesn't find sigs without table entries.
-- **A new library file** (step 2): the old `bin` doesn't read `forms.cdy`, and the new one
+- **A new library file** (step 2): the old `bin` doesn't read `special.cdy`, and the new one
   finds it next to itself once `self_host.py`'s `LIBRARY` lists it.
 - If a step still needs staging, its tag says how (`script/bootstrap.py`, `STAGING`).
 
@@ -227,10 +229,10 @@ Each of steps 1 to 5 changes `bin`, so each is a chain step (`boot/NN`). The haz
 
 1. **Where the operators and special forms are declared:** in `system.cdy` (a new form,
    since a `sig` can't say "two or more arguments"), or a file of their own
-   (`forms.cdy`)? The owner's brainstorm note favours a spec file of their own ("add
+   (`special.cdy`)? The owner's brainstorm note favours a spec file of their own ("add
    special forms to the symbol table: via special spec file"), which could also replace
    `src/cdy/candy-special.md`'s informal list.
-   *Proposed:* a file of their own, `forms.cdy` next to `system.cdy`, with a form that
+   *Proposed:* a file of their own, `special.cdy` next to `system.cdy`, with a form that
    can say a special form's or operator's shape; *lasting* (the language's forms are a
    front-end fact, apart from any target's built-ins).
 2. **The Python spellings:** stay in `table.py` (read through `initial-table`), or become

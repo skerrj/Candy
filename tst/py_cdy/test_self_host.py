@@ -509,7 +509,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig slurp (Fn (String) String))\n", ""),
-            "table.py: slurp is declared in neither forms.cdy nor system.cdy",
+            "table.py: slurp is declared in neither special.cdy nor system.cdy",
         ),
         (
             "system.cdy",
@@ -520,19 +520,27 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         ("system.cdy", ("", "(sig len (Fn (Any) Int))\n"), "system.cdy: len is already declared"),
         ("system.cdy", ("", "(def x 1)\n"), "system.cdy: expected (sig name Type)"),
         (
-            "forms.cdy",
+            "special.cdy",
             ("(special match)\n", ""),
-            "table.py: match is declared in neither forms.cdy nor system.cdy",
+            "table.py: match is declared in neither special.cdy nor system.cdy",
         ),
-        ("forms.cdy", ("", "(special len)\n"), "forms.cdy: len has no special entry in table.py"),
         (
-            "forms.cdy",
-            ("", "(op len variadic)\n"),
-            "forms.cdy: len has no variadic entry in table.py",
+            "special.cdy",
+            ("", "(special len)\n"),
+            "special.cdy: len has no special entry in table.py",
         ),
-        ("forms.cdy", ("", "(op len unary)\n"), "forms.cdy: len has no unary entry in table.py"),
-        ("forms.cdy", ("", "(special if)\n"), "forms.cdy: if is declared more than once"),
-        ("forms.cdy", ("", "(op - binary)\n"), "forms.cdy: expected (special name), (op name"),
+        (
+            "special.cdy",
+            ("", "(op len variadic)\n"),
+            "special.cdy: len has no variadic entry in table.py",
+        ),
+        (
+            "special.cdy",
+            ("", "(op len unary)\n"),
+            "special.cdy: len has no unary entry in table.py",
+        ),
+        ("special.cdy", ("", "(special if)\n"), "special.cdy: if is declared more than once"),
+        ("special.cdy", ("", "(op - binary)\n"), "special.cdy: expected (special name), (op name"),
     ],
 )
 def test_library_errors(
