@@ -185,6 +185,8 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 
 ## Questions (open)
 
+Each has a proposed answer, for review.
+
 Decided so far: anything that can be written in Candy goes in the prelude, except a host
 type's operations, which are all built-in ("Built-in or prelude", revised); a program sees the primitives and the prelude now, and only the prelude later
 ("What a program sees"); the translator's helpers become Candy, with no `translator.cdy`
@@ -196,18 +198,38 @@ imports find library modules, their names (`std/list`?), and what the prelude ke
 1. **The symbol table's data:** `initial-table` stays one built-in, typed as a Candy map
    (proposed), or the table moves into Candy now (the multi-target split)? See
    `doc/hl_rqmt/symbol_table.md`.
+   *Proposed:* decided there, on its own branch before this one (its question 3).
 2. **`py-repr`:** rewrite in Candy (string escapes, a few lines), or keep the built-in?
+   *Proposed:* rewrite it in Candy in `emit.cdy`: it writes Python, so it belongs to the
+   backend, not the runtime.
 3. **The five host built-ins:** stay in `system.cdy`, marked as the translator's
    (proposed), or a declaration file only the translator imports?
+   *Proposed:* stay in `system.cdy`, marked as the translator's, *for now* (the leak
+   "The translator's built-ins are every program's", down to 5 names); a declaration
+   file can come with B, when programs see only the prelude.
 4. **Names and place:** `system.cdy` and `prelude.cdy` next to the translator, or a `lib/`
    directory?
+   *Proposed:* next to the translator, *for now*: `bin` copies them and the translator
+   finds them there; a `lib/` layout waits for how imports find library modules (the
+   "Leaning" note above).
 5. **Library contents:** which of the candidates, and in what order? Most are built-ins
    now ("Built-in or prelude", revised), so the prelude stays small, and questions 7
    and 8 matter less.
+   *Proposed:* the list operations first (what the translator writes by hand), then the
+   string and map ones, then `with-default` and `map-update` in the prelude.
 6. **The translator on the prelude:** rewrite its loops with `map`, `filter` and the rest,
    or leave it alone?
+   *Proposed:* only the mechanical cleanup: `(slice xs 1 (len xs))` and `rest-of`
+   become `rest` (94 and 50 places). The `acc` loops stay *for now*: a `fn` becomes a
+   nested Python `def` with `Any` annotations, so `map`/`fold` would cost the fixpoint's
+   `mypy --strict` checking, and many loops also thread a counter or scope. Revisit when
+   `fn`s get typed annotations.
 7. **Tree shaking:** only what a program uses (proposed), or the whole prelude?
+   *Proposed:* later; with the revised rule the prelude stays small, so the whole
+   prelude in every output is cheap *for now* (`doc/tech_debt.md`).
 8. **Private names:** how, and whether this branch needs them?
+   *Proposed:* not in this branch: a small prelude needs no helpers.
 9. **Where `form.cdy` and `prelude_macros.cdy` fit:** `form.cdy` is the macro layer's
    library, used on the host only (with `fresh-name`). Is it part of the translator, or
    its own layer (macro code's library)?
+   *Proposed:* leave as they are for this branch; decide with the macro work.

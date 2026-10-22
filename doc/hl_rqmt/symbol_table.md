@@ -112,14 +112,27 @@ out of `table.py` need the bootstrap staging of `doc/process.md` ("Rebuilding `b
 
 ## Questions (open)
 
+Each has a proposed answer, for review.
+
 1. **Where the operators and special forms are declared:** in `system.cdy` (a new form,
    since a `sig` can't say "two or more arguments"), or a file of their own
    (`forms.cdy`)? The owner's brainstorm note favours a spec file of their own ("add
    special forms to the symbol table: via special spec file"), which could also replace
    `src/cdy/candy-special.md`'s informal list.
+   *Proposed:* a file of their own, `forms.cdy` next to `system.cdy`, with a form that
+   can say a special form's or operator's shape; *lasting* (the language's forms are a
+   front-end fact, apart from any target's built-ins).
 2. **The Python spellings:** stay in `table.py` (read through `initial-table`), or become
    a Candy file too (`py/spelling.cdy`), with `table.py` generated from it or dropped?
+   *Proposed:* stay in `table.py` *for now*, read through `initial-table` (way forward,
+   point 4); a Candy spelling file comes with a second target
+   (`doc/hl_rqmt/multi_target.md`).
 3. **Order:** before the library branch (it changes what the library's first step
    rewrites), as part of it, or after?
+   *Proposed:* before, as its own branch: the library's first step would otherwise
+   rewrite the table lookups twice (as map lookups over `initial-table`, then over the
+   seeded scope). Its first step, dropping the unused built-ins, is the library's too.
 4. **Name:** "symbol table" for the seeded scope, or keep that for the built-ins and call
    the whole thing the environment?
+   *Proposed:* "symbol table" for the seeded scope, the one place a name's meaning is
+   found; the runtime's `table.py` becomes "the Python spellings".

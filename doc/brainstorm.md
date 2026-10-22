@@ -4,6 +4,7 @@ Random thoughts about Candy's design: not decided, not planned, not tech debt. A
 whenever it comes up; when one turns into real work, move it to a design doc
 (`doc/hl_rqmt/`) and leave a pointer here.
 
+- **rewrite parsec-v4 in Candy**: ref *publish parsec*
 - **type checker**: *lean4*?
 - **rust host**: *pulled from dump*
 - **Curried function types.** Should `(Fn (Int Int) Int)` mean the same as
