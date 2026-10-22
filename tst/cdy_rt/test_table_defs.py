@@ -17,7 +17,6 @@ from cdy_rt.table_defs import (
     in_,
     is_coll,
     is_decimal,
-    is_lit,
     is_neg_int,
     join,
     list_filter,
@@ -51,7 +50,6 @@ def test_collections() -> None:
     assert slice_((1, 2, 3, 4), 1, 3) == (2, 3)
     assert join(("a", "b"), ", ") == "a, b"
     assert is_coll((1,)) and is_coll([1]) and not is_coll("ab")
-    assert is_lit(3) and not is_lit(())
     assert to_list(5) == (5,)
     assert in_(2, (1, 2)) and in_("b", "abc")
 

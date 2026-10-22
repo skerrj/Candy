@@ -15,10 +15,11 @@ Shortcuts that are too small to matter to Candy's design go in `doc/tech_debt.md
 - `doc/archive/leaks_macros.md`: macros (up to tag `macros`);
 - `doc/archive/leaks_modules.md`: modules (up to tag `modules`);
 - `doc/archive/leaks_system_prelude.md`: `system.cdy` and the prelude (up to tag
-  `system-prelude`).
+  `system-prelude`);
+- `doc/archive/leaks_bootstrap.md`: the bootstrap chain (up to tag `bootstrap`; none).
 
 Those entries stay in effect until they are fixed. When one is fixed, mark it there (strike
 it through and say where it was fixed) rather than copying it here. This file is for leaks
-added from branch `bootstrap` on.
+added from branch `symbol-table` on.
 
 *None yet.*

@@ -4,8 +4,8 @@ Modelled on schmuz's ``src/py_smz/table.py`` (``OP_TABLE``). Differences from sc
 
 - Entries are typed ``TableEntry`` records instead of dicts, and ``kind`` says how the
   translator renders the symbol (operator, call, value, special form).
-- The table is immutable. ``add_fun`` returns a new table instead of changing a global, so
-  the translator (and later the self-hosted compiler) passes the table along.
+- The table is immutable, and holds only the built-ins: a program's own names are in the
+  translator's scope (``doc/hl_rqmt/symbol_table.md``).
 - No arity: a built-in's arity comes from its type in ``src/cdy/system.cdy``. Calls render
   every argument (schmuz rendered only ``arity`` of them, defaulting to 1).
 - Generated code refers to helpers through ``RUNTIME_MODULE`` and ``TABLE_MODULE``, so
@@ -187,18 +187,13 @@ STRING: Table = {
     "in": runtime("in_"),
 }
 
-# For the self-hosted compiler: read and extend a symbol table. schmuz called these
-# ``op-tab-*`` and changed a global table; here they take the table and ``table-add-fun``
-# returns a new one.
+# For the translator: read the symbol table. schmuz called these ``op-tab-*``.
 META_TABLE: Table = {
     "initial-table": value(f"{TABLE_MODULE}.INITIAL_TABLE"),
-    "table-add-fun": table_fn("add_fun"),
     "table-is-special": table_fn("is_special"),
     "table-is-op": table_fn("is_op"),
-    "table-is-bin-op": table_fn("is_bin_op"),
     "table-get-py": table_fn("get_py"),
     "table-get-kind": table_fn("get_kind"),
-    "is-lit": runtime("is_lit"),
 }
 
 PY_RENDER: Table = {
@@ -239,11 +234,6 @@ INITIAL_TABLE: Table = MappingProxyType(
 )
 
 
-def add_fun(table: Table, name: str, py: str) -> Table:
-    """``table`` plus a user function ``name``, called in Python as ``py``."""
-    return MappingProxyType({**table, name: call(py)})
-
-
 def is_op(table: Table, name: str) -> bool:
     """Whether ``name`` is in the table at all."""
     return name in table
@@ -252,11 +242,6 @@ def is_op(table: Table, name: str) -> bool:
 def is_special(table: Table, name: str) -> bool:
     """Whether ``name`` is a special form."""
     return name in table and table[name].kind == "special"
-
-
-def is_bin_op(table: Table, name: str) -> bool:
-    """Whether ``name`` renders as an infix operator (arithmetic, comparison, and/or)."""
-    return name in table and table[name].kind in ("binop", "compare", "boolop")
 
 
 def get_kind(table: Table, name: str) -> str:

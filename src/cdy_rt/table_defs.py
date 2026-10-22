@@ -51,11 +51,6 @@ def is_coll(expr: object) -> bool:
     return isinstance(expr, (list, tuple))
 
 
-def is_lit(expr: object) -> bool:
-    """Whether ``expr`` is an atom rather than a list or tuple."""
-    return not is_coll(expr)
-
-
 def list_map[A, B](f: Callable[[A], B], xs: Sequence[A]) -> tuple[B, ...]:
     """``f`` of each item of ``xs``. A built-in, not Candy, for speed: Candy adds to a list
     by copying it (doc/hl_rqmt/system_prelude.md, step 5)."""
