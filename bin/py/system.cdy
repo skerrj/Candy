@@ -76,8 +76,8 @@
 (sig isspace-at (Fn (String Int) Bool))
 (sig isspace (Fn (String) Bool))
 
-;; --- the symbol table, for the translator (a Python Mapping) ---
-(sig initial-table Any)
+;; --- the symbol table, for the translator (each built-in's Python text and kind) ---
+(sig initial-table (Map String (Tup String String)))
 (sig table-is-special (Fn (Any String) Bool))
 (sig table-is-op (Fn (Any String) Bool))
 (sig table-get-py (Fn (Any String) String))

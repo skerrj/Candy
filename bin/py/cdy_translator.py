@@ -1567,16 +1567,22 @@ def core__is_special(name: str, builtins: _cdy_Mapping[str, core__Builtin]) -> b
         _cdy_t29 = _cdy_t27
     return _cdy_t29
 
-def core__read_builtins(decls: tuple[form__Form, ...], sigs: tuple[form__Form, ...], table: _cdy_Any) -> _cdy_Mapping[str, core__Builtin]:
+def core__read_builtins(decls: tuple[form__Form, ...], sigs: tuple[form__Form, ...], table: _cdy_Mapping[str, tuple[str, str]]) -> _cdy_Mapping[str, core__Builtin]:
     builtins = core__read_sigs(sigs, table, core__read_decls(decls, table, {}))
     checked = core__all_declared(cdy_rt.table_defs.map_keys(table), builtins)
     return builtins
+
+def core__spelling_kind(table: _cdy_Mapping[str, tuple[str, str]], name: str) -> str:
+    if cdy_rt.table_defs.map_has(table, name):
+        return cdy_rt.table_defs.map_get(table, name)[1]
+    else:
+        return ''
 core__SPECIAL_KINDS: tuple[str, ...] = ('special',)
 core__VARIADIC_KINDS: tuple[str, ...] = ('binop', 'compare', 'boolop')
 core__UNARY_KINDS: tuple[str, ...] = ('unary',)
 core__TYPED_KINDS: tuple[str, ...] = ('call', 'value', 'index', 'slice')
 
-def core__read_decls(forms: tuple[form__Form, ...], table: _cdy_Any, acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
+def core__read_decls(forms: tuple[form__Form, ...], table: _cdy_Mapping[str, tuple[str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
     while True:
         if (len(forms) == 0):
             return acc
@@ -1593,7 +1599,7 @@ def core__read_decls(forms: tuple[form__Form, ...], table: _cdy_Any, acc: _cdy_M
                 return cdy_rt.table_defs.fail((where + 'forms.cdy: expected (special name), (op name variadic) or (op name unary)'))
             elif cdy_rt.table_defs.map_has(acc, name):
                 return cdy_rt.table_defs.fail((str(where) + 'forms.cdy: ' + str(name) + ' is declared more than once'))
-            elif (not cdy_rt.table_defs.in_(cdy_rt.table.get_kind(table, name), core__kinds_of(class_))):
+            elif (not cdy_rt.table_defs.in_(core__spelling_kind(table, name), core__kinds_of(class_))):
                 return cdy_rt.table_defs.fail((str(where) + 'forms.cdy: ' + str(name) + ' has no ' + str(class_) + ' entry in table.py'))
             else:
                 forms, acc = (form__rest_of(forms), cdy_rt.table_defs.map_set(acc, name, decl[1]))
@@ -1609,7 +1615,7 @@ def core__kinds_of(class_: str) -> tuple[str, ...]:
     else:
         return core__TYPED_KINDS
 
-def core__read_sigs(forms: tuple[form__Form, ...], table: _cdy_Any, acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
+def core__read_sigs(forms: tuple[form__Form, ...], table: _cdy_Mapping[str, tuple[str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
     while True:
         if (len(forms) == 0):
             return acc
@@ -1622,7 +1628,7 @@ def core__read_sigs(forms: tuple[form__Form, ...], table: _cdy_Any, acc: _cdy_Ma
                 return cdy_rt.table_defs.fail((where + 'system.cdy: expected (sig name Type)'))
             elif cdy_rt.table_defs.map_has(acc, name):
                 return cdy_rt.table_defs.fail((str(where) + 'system.cdy: ' + str(name) + ' is already declared'))
-            elif (not cdy_rt.table_defs.in_(cdy_rt.table.get_kind(table, name), core__TYPED_KINDS)):
+            elif (not cdy_rt.table_defs.in_(core__spelling_kind(table, name), core__TYPED_KINDS)):
                 return cdy_rt.table_defs.fail((str(where) + 'system.cdy: ' + str(name) + ' has no Python mapping in table.py'))
             else:
                 forms, acc = (form__rest_of(forms), cdy_rt.table_defs.map_set(acc, name, core__Typed(core__analyse_type(items[2]))))
@@ -1746,21 +1752,21 @@ def core__rename_top(top: core__Top, names: _cdy_Mapping[str, str]) -> core__Top
         fields = _cdy_t30.fields
         return core__TDeft(core__global_name(name, names), tvars, core__rename_fields(fields, names, ()))
     elif isinstance(_cdy_t30, core__TDeftSum):
-        _cdy_name_469 = _cdy_t30.name
-        _cdy_tvars_470 = _cdy_t30.tvars
+        _cdy_name_471 = _cdy_t30.name
+        _cdy_tvars_472 = _cdy_t30.tvars
         variants = _cdy_t30.variants
-        return core__TDeftSum(core__global_name(_cdy_name_469, names), _cdy_tvars_470, core__rename_variants(variants, names, ()))
+        return core__TDeftSum(core__global_name(_cdy_name_471, names), _cdy_tvars_472, core__rename_variants(variants, names, ()))
     elif isinstance(_cdy_t30, core__TDef):
-        _cdy_name_472 = _cdy_t30.name
+        _cdy_name_474 = _cdy_t30.name
         init = _cdy_t30.init
         t = _cdy_t30.t
-        return core__TDef(core__global_name(_cdy_name_472, names), init, core__rename_type(t, names))
+        return core__TDef(core__global_name(_cdy_name_474, names), init, core__rename_type(t, names))
     elif isinstance(_cdy_t30, core__TDefn):
-        _cdy_name_475 = _cdy_t30.name
+        _cdy_name_477 = _cdy_t30.name
         params = _cdy_t30.params
         body = _cdy_t30.body
-        _cdy_t_478 = _cdy_t30.t
-        return core__TDefn(core__global_name(_cdy_name_475, names), params, body, core__rename_type(_cdy_t_478, names))
+        _cdy_t_480 = _cdy_t30.t
+        return core__TDefn(core__global_name(_cdy_name_477, names), params, body, core__rename_type(_cdy_t_480, names))
     else:
         assert isinstance(_cdy_t30, core__TExpr)
         return top
@@ -1947,9 +1953,9 @@ def core__top_defn(items: tuple[form__Form, ...], scope: core__Scope, prog: core
         params = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_561 = core__analyse_expr(items[3], inner, n1)
-        body = _cdy__tup_561[0]
-        n2 = _cdy__tup_561[1]
+        _cdy__tup_563 = core__analyse_expr(items[3], inner, n1)
+        body = _cdy__tup_563[0]
+        n2 = _cdy__tup_563[1]
         if (len(params) == 0):
             return cdy_rt.table_defs.fail(core__located(scope, ('defn ' + str(name) + ': at least one argument is needed')))
         elif (len(params) != core__fn_arity(t)):
@@ -2001,8 +2007,8 @@ def core__is_main(top: core__Top) -> bool:
         else:
             return cdy_rt.table_defs.fail('main must be typed (Fn ((List String)) Int)')
     elif isinstance(_cdy_t33, core__TDef):
-        _cdy_name_576 = _cdy_t33.name
-        if (_cdy_name_576 == 'main'):
+        _cdy_name_578 = _cdy_t33.name
+        if (_cdy_name_578 == 'main'):
             return cdy_rt.table_defs.fail('main must be a defn')
         else:
             return False
@@ -3118,7 +3124,7 @@ class emit__Env(_cdy_NamedTuple):
     locals_: _cdy_Mapping[int, str]
     taken: _cdy_Mapping[str, bool]
     generic: _cdy_Mapping[str, bool]
-    table: _cdy_Any
+    table: _cdy_Mapping[str, tuple[str, str]]
 emit__HEADER: str = 'from __future__ import annotations\n\nfrom collections.abc import Callable as _cdy_Callable, Mapping as _cdy_Mapping\nfrom typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple\n'
 
 def emit__comma_join(strs: tuple[str, ...]) -> str:
@@ -3418,8 +3424,8 @@ def emit__emit_lit(form: form__Form) -> str:
         return cdy_rt.table_defs.fail('emit: not a literal')
 
 def emit__emit_prim(name: str, env: emit__Env) -> str:
-    if cdy_rt.table_defs.in_(cdy_rt.table.get_kind(env.table, name), ('call', 'value', 'index', 'slice')):
-        return cdy_rt.table.get_py(env.table, name)
+    if cdy_rt.table_defs.in_(core__spelling_kind(env.table, name), core__TYPED_KINDS):
+        return cdy_rt.table_defs.map_get(env.table, name)[0]
     else:
         return cdy_rt.table_defs.fail(('the operator ' + str(name) + " can't be used as a value yet; wrap it in a fn"))
 
@@ -3433,8 +3439,8 @@ def emit__emit_call(callee: core__Expr, args: tuple[core__Expr, ...], env: emit_
         return (str(emit__emit_expr(callee, env)) + '(' + str(emit__comma_join(strs)) + ')')
 
 def emit__emit_prim_call(name: str, strs: tuple[str, ...], env: emit__Env) -> str:
-    kind = cdy_rt.table.get_kind(env.table, name)
-    py = cdy_rt.table.get_py(env.table, name)
+    kind = cdy_rt.table_defs.map_get(env.table, name)[1]
+    py = cdy_rt.table_defs.map_get(env.table, name)[0]
     op = (' ' + py + ' ')
     if cdy_rt.table_defs.in_(kind, ('binop', 'compare', 'boolop')):
         return ('(' + str(cdy_rt.table_defs.join(strs, op)) + ')')

@@ -44,3 +44,10 @@ whenever it comes up; when one turns into real work, move it to a design doc
   target's `system.cdy` and `prelude.cdy`, and probably another set of files, or a
   completely separate set of spec files that give a system and prelude for each spec
   (`doc/hl_rqmt/multi_target.md`, `doc/hl_rqmt/library.md`)
+- **Recursion limits and trampolines:** should Candy get a trampoline, or a Clojure-style
+  `loop`/`recur` form, for mutual and deep recursion? Today only a self tail call in a
+  top-level `defn` that makes no `fn` is a loop (`lower.cdy`, `loop-tail-calls`); the rest
+  uses the Python stack (about 1000 levels). And could `self_host.py`'s raise of the
+  recursion limit (to 20,000) go once T1 no longer recurses so deeply? See
+  `doc/hl_rqmt/mutation_optimization.md` ("Tail calls"), the leak "Only self tail calls
+  are loops" (`doc/archive/leaks_imvp_py_translator.md`) and `doc/tech_debt.md`.

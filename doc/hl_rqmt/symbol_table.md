@@ -180,6 +180,14 @@ So the front end needs three classes, and the backend the rendering kinds withou
    doesn't read `forms.cdy`).
 3. **`emit.cdy` reads the spellings as Candy data:** `initial-table` typed as a map of
    pairs; `table-get-kind` and `table-get-py` replaced by lookups.
+
+   *Done. As built:* `system.cdy` types `initial-table` as `(Map String (Tup String
+   String))`, with no runtime change (mypy takes the `Mapping[str, TableEntry]` as one of
+   pairs). `emit.cdy`'s `Env` holds it typed; `emit-prim` and `emit-prim-call` read an
+   entry's text and kind with `map-get` and `at`. `core.cdy`'s declaration checks do too,
+   through `spelling-kind` (an entry's kind, or `""`), which `emit-prim` shares, with
+   `TYPED_KINDS`. So `bin` calls no `table-*` function any more, which step 4 needs. Tests:
+   unchanged (232). Bootstrap: no staging.
 4. **`table.py` as the Python spellings only:** the `special` entries and the `table-*`
    functions go, with their built-ins; the tests that read them change.
 5. **Docs:** `candy-special.md` points at `forms.cdy`; CLAUDE.md, the leak (struck

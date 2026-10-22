@@ -9,13 +9,13 @@
 
 ;; Python names: top-level names (Candy name -> Python name), locals (Local id -> Python
 ;; name), and the Python names already taken where new locals are bound. `generic`: the
-;; variants of generic sums.
+;; variants of generic sums. `table`: each built-in's Python text and kind (table.py).
 (deft Env
   ((globals (Map String String))
    (locals (Map Int String))
    (taken (Map String Bool))
    (generic (Map String Bool))
-   (table Any)))
+   (table (Map String (Tup String String)))))
 
 (sig HEADER String)
 (def HEADER "from __future__ import annotations
@@ -233,8 +233,8 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 
 (sig emit-prim (Fn (String Env) String))
 (defn emit-prim (name env)
-  (if (in (table-get-kind (get env table) name) (tup "call" "value" "index" "slice"))
-    (table-get-py (get env table) name)
+  (if (in (spelling-kind (get env table) name) TYPED_KINDS)
+    (at (map-get (get env table) name) 0)
     (fail (format "the operator {name} can't be used as a value yet; wrap it in a fn"))))
 
 (sig emit-call (Fn (Expr (List Expr) Env) String))
@@ -246,8 +246,8 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 
 (sig emit-prim-call (Fn (String (List String) Env) String))
 (defn emit-prim-call (name strs env)
-  (let ((kind (table-get-kind (get env table) name))
-        (py (table-get-py (get env table) name))
+  (let ((kind (at (map-get (get env table) name) 1))
+        (py (at (map-get (get env table) name) 0))
         (op (+ " " py " ")))
     (cond
       ((in kind (tup "binop" "compare" "boolop")) (format "({(join strs op)})"))
