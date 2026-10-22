@@ -1577,7 +1577,7 @@ def core__spelling_kind(table: _cdy_Mapping[str, tuple[str, str]], name: str) ->
         return cdy_rt.table_defs.map_get(table, name)[1]
     else:
         return ''
-core__SPECIAL_KINDS: tuple[str, ...] = ('special',)
+core__SPECIAL_KINDS: tuple[str, ...] = ('special', '')
 core__VARIADIC_KINDS: tuple[str, ...] = ('binop', 'compare', 'boolop')
 core__UNARY_KINDS: tuple[str, ...] = ('unary',)
 core__TYPED_KINDS: tuple[str, ...] = ('call', 'value', 'index', 'slice')

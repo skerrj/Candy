@@ -866,9 +866,11 @@
 (sig spelling-kind (Fn ((Map String (Tup String String)) String) String))
 (defn spelling-kind (table name) (if (map-has table name) (at (map-get table name) 1) ""))
 
-;; The table kinds of each built-in class: an entry's kind must be one of its class's.
+;; The table kinds of each built-in class: an entry's kind must be one of its class's. A
+;; special form may have a "special" entry or none ("") for now, while table.py loses them
+;; (doc/hl_rqmt/symbol_table.md, step 5).
 (sig SPECIAL_KINDS (List String))
-(def SPECIAL_KINDS (tup "special"))
+(def SPECIAL_KINDS (tup "special" ""))
 (sig VARIADIC_KINDS (List String))
 (def VARIADIC_KINDS (tup "binop" "compare" "boolop"))
 (sig UNARY_KINDS (List String))

@@ -19,8 +19,8 @@ from types import MappingProxyType
 from typing import Literal, NamedTuple
 
 # Modules the generated code imports, by name. ``RUNTIME_MODULE`` holds the helper functions
-# (``table_defs.py``); ``TABLE_MODULE`` is this module, which the self-hosted compiler needs
-# for the ``table-*`` functions.
+# (``table_defs.py``); ``TABLE_MODULE`` is this module, which the translator needs for
+# ``initial-table`` and ``PY_IMPORTS``.
 RUNTIME_MODULE = "cdy_rt.table_defs"
 TABLE_MODULE = "cdy_rt.table"
 IMPORTS: tuple[str, ...] = ("math", "re", TABLE_MODULE, RUNTIME_MODULE)
@@ -64,11 +64,6 @@ def call(py: str) -> TableEntry:
 def runtime(name: str) -> TableEntry:
     """An entry for a call to a helper in ``table_defs.py``."""
     return call(f"{RUNTIME_MODULE}.{name}")
-
-
-def table_fn(name: str) -> TableEntry:
-    """An entry for a call to a function in this module."""
-    return call(f"{TABLE_MODULE}.{name}")
 
 
 def value(py: str) -> TableEntry:
@@ -187,13 +182,11 @@ STRING: Table = {
     "in": runtime("in_"),
 }
 
-# For the translator: read the symbol table. schmuz called these ``op-tab-*``.
+# For the translator: this table, which it reads as Candy data (each entry a pair, its text
+# and kind; doc/hl_rqmt/symbol_table.md). schmuz read its table through ``op-tab-*``
+# functions.
 META_TABLE: Table = {
     "initial-table": value(f"{TABLE_MODULE}.INITIAL_TABLE"),
-    "table-is-special": table_fn("is_special"),
-    "table-is-op": table_fn("is_op"),
-    "table-get-py": table_fn("get_py"),
-    "table-get-kind": table_fn("get_kind"),
 }
 
 PY_RENDER: Table = {
@@ -232,23 +225,3 @@ INITIAL_TABLE: Table = MappingProxyType(
         **INFRA,
     }
 )
-
-
-def is_op(table: Table, name: str) -> bool:
-    """Whether ``name`` is in the table at all."""
-    return name in table
-
-
-def is_special(table: Table, name: str) -> bool:
-    """Whether ``name`` is a special form."""
-    return name in table and table[name].kind == "special"
-
-
-def get_kind(table: Table, name: str) -> str:
-    """How ``name`` is rendered (see ``Kind``); ``""`` if it isn't in the table."""
-    return table[name].kind if name in table else ""
-
-
-def get_py(table: Table, name: str) -> str:
-    """The Python name or expression for ``name``; ``name`` itself if it isn't in the table."""
-    return table[name].py if name in table else name

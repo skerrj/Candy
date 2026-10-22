@@ -188,21 +188,36 @@ So the front end needs three classes, and the backend the rendering kinds withou
    through `spelling-kind` (an entry's kind, or `""`), which `emit-prim` shares, with
    `TYPED_KINDS`. So `bin` calls no `table-*` function any more, which step 4 needs. Tests:
    unchanged (232). Bootstrap: no staging.
-4. **`table.py` as the Python spellings only:** the `special` entries and the `table-*`
-   functions go, with their built-ins; the tests that read them change.
-5. **Docs:** `candy-special.md` points at `forms.cdy`; CLAUDE.md, the leak (struck
+4. **The `table-*` functions go:** from `table.py`, with their built-ins; the special forms
+   may now have no entry (split from the plan's step 4, below).
+
+   *Done. As built:* `table.py` loses `is_op`, `is_special`, `get_kind`, `get_py`,
+   `table_fn` and the four `table-*` entries (`META_TABLE` keeps `initial-table`);
+   `system.cdy` loses their sigs (copied into `bin/py/` before the rebuild).
+   `SPECIAL_KINDS` takes `""` (no entry) as well as `special`, *for now*, until step 5.
+   `test_table.py` tests the entries as data (`test_spellings`, replacing `test_lookups`
+   and `test_get_py`; 231 tests). Why the split: the `bin` of step 3 checks that every
+   special form has a `special` entry, so removing them in the same step would break it,
+   and the `old-runtime` staging can't bridge it either (the parent's runtime still has
+   the `table-*` entries, which the step's `system.cdy` no longer declares). With this
+   step's `bin` accepting either, step 5 can remove them with no staging.
+5. **`table.py` as the Python spellings only:** the `special` entries (`SPECIAL_FORMS`, the
+   `special` kind) go; a special form must have no entry; the grammar test reads
+   `forms.cdy`.
+6. **Docs:** `candy-special.md` points at `forms.cdy`; CLAUDE.md, the leak (struck
    through), `library.md` (its step 1 shrinks to `py-mangle`, `get-indent`, `PY_IMPORTS`
    and `py-repr`), `multi_target.md`.
 
 ## Bootstrap
 
-Each of steps 1 to 4 changes `bin`, so each is a chain step (`boot/NN`). The hazard
+Each of steps 1 to 5 changes `bin`, so each is a chain step (`boot/NN`). The hazard
 (`doc/process.md`, "Rebuilding `bin`") is that the checked-in `bin` reads the live
 `table.py` and its own copy of the library. The order above avoids staging:
 
-- **Removing a built-in** (steps 1 and 4) waits until `bin` no longer uses it: in step 1
-  nothing does; in step 4 the `bin` of step 3 calls no `table-*` function and no longer
-  asks the table about special forms. `src/cdy/system.cdy` is copied into `bin/py/` before
+- **Removing a built-in** (steps 1, 4 and 5) waits until `bin` no longer uses it: in step
+  1 nothing does; in step 4 the `bin` of step 3 calls no `table-*` function; in step 5 the
+  `bin` of step 4 no longer needs special forms in the table. (The plan had steps 4 and 5
+  as one, which missed that step 2's check needs the `special` entries; see step 4.) `src/cdy/system.cdy` is copied into `bin/py/` before
   the rebuild, so the old `bin` doesn't find sigs without table entries.
 - **A new library file** (step 2): the old `bin` doesn't read `forms.cdy`, and the new one
   finds it next to itself once `self_host.py`'s `LIBRARY` lists it.

@@ -78,10 +78,6 @@
 
 ;; --- the symbol table, for the translator (each built-in's Python text and kind) ---
 (sig initial-table (Map String (Tup String String)))
-(sig table-is-special (Fn (Any String) Bool))
-(sig table-is-op (Fn (Any String) Bool))
-(sig table-get-py (Fn (Any String) String))
-(sig table-get-kind (Fn (Any String) String))
 
 ;; --- writing Python, for the translator ---
 (sig get-indent (Fn (Int) String))
