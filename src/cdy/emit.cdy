@@ -32,9 +32,13 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 
 ;; --- Python spellings (doc/hl_rqmt/library.md, "The translator's built-ins become Candy") ---
 
-;; Indentation for nesting level `level`: four spaces each.
+;; One level of Python indentation: four spaces, as PEP 8 has it.
+(sig INDENT_STEP String)
+(def INDENT_STEP "    ")
+
+;; Indentation for nesting level `level`: `level` steps.
 (sig indent (Fn (Int) String))
-(defn indent (level) (if (<= level 0) "" (+ "    " (indent (- level 1)))))
+(defn indent (level) (if (<= level 0) "" (+ INDENT_STEP (indent (- level 1)))))
 
 ;; The modules every generated file imports: those table.py's spellings refer to.
 (sig PY_IMPORTS (List String))
@@ -636,4 +640,4 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (sig emit-main (Fn (Env) String))
 (defn emit-main (env)
   (let ((name (map-get (get env globals) "main")))
-    (format "\n\nif __name__ == \"__main__\":\n    cdy_rt.table_defs.run_main({name})\n")))
+    (format "\n\nif __name__ == \"__main__\":\n{(indent 1)}cdy_rt.table_defs.run_main({name})\n")))

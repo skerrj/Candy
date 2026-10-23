@@ -2823,12 +2823,13 @@ def emit__comma_join(strs: tuple[str, ...]) -> str:
 
 def emit__line(level: int, text: str) -> str:
     return (emit__indent(level) + text + '\n')
+emit__INDENT_STEP: str = '    '
 
 def emit__indent(level: int) -> str:
     if (level <= 0):
         return ''
     else:
-        return ('    ' + emit__indent((level - 1)))
+        return (emit__INDENT_STEP + emit__indent((level - 1)))
 emit__PY_IMPORTS: tuple[str, ...] = ('math', 're', 'cdy_rt.table', 'cdy_rt.table_defs')
 
 def emit__name_set(names: tuple[str, ...], acc: _cdy_Mapping[str, bool]) -> _cdy_Mapping[str, bool]:
@@ -3522,7 +3523,7 @@ def emit__emit_imports(modules: tuple[str, ...], acc: str) -> str:
 
 def emit__emit_main(env: emit__Env) -> str:
     name = cdy_rt.table_defs.map_get(env.globals_, 'main')
-    return ('\n\nif __name__ == "__main__":\n    cdy_rt.table_defs.run_main(' + str(name) + ')\n')
+    return ('\n\nif __name__ == "__main__":\n' + str(emit__indent(1)) + 'cdy_rt.table_defs.run_main(' + str(name) + ')\n')
 
 class expand__Imports(_cdy_NamedTuple):
     macros: tuple[form__Macro, ...]
