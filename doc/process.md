@@ -48,6 +48,11 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
   collaboration, so there are no pull requests.
 - **Full refs**, because a branch and its tag share a name: `git merge refs/heads/X`,
   `git push origin refs/heads/X:refs/heads/X refs/tags/X:refs/tags/X`.
+- **Tags are annotated** (`-a`, with a message), branch and `boot/NN` tags alike: `git tag
+  -a X <merge commit> -m "X: <summary>"`, never a bare `git tag X`. Before pushing,
+  `git cat-file -t refs/tags/X` must say `tag` (a lightweight one says `commit`). A
+  lightweight tag already pushed can only be replaced by a force-push of the tag, which
+  the owner does. (The `library` tag went out lightweight.)
 - **Commit messages** start with what was done ("X step N: ..."), then a body on why and
   what it touches, and end with the attribution trailers Claude Code adds.
 - **Bootstrap tags** (`doc/hl_rqmt/bootstrap.md`, "Tags and history"): a commit that
@@ -117,6 +122,8 @@ HLDs live in `doc/hl_rqmt/`, one per piece of work, named for it.
 ## Log
 
 Changes to the process, newest first.
+
+- **2026-10-22:** tags are annotated, with the command and a check before pushing.
 
 - **2026-10-20:**
   - this file;

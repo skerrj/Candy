@@ -112,7 +112,7 @@ take one, and remove an entry once it is fixed.
   `symbol-table`, `cdy_rt/table.py` is the Python spellings, not a symbol table, and
   `table_defs.py` is the primitives generated code calls (its name is smz's). Plan, agreed
   for a branch of its own after `library`: `table.py` → `spelling.py`, `table_defs.py` →
-  `prims.py`, and `INITIAL_TABLE`/`initial-table` → `SPELLINGS`/`py-spellings`. Every
+  `primitives.py`, and `INITIAL_TABLE`/`initial-table` → `SPELLINGS`/`py-spellings`. Every
   generated file imports the modules by name, and the old `bin` imports `cdy_rt.table`
   from the live runtime, so it takes two chain steps (the new modules with the old ones
   as re-exports, then the old ones go), a reinstall of the editable runtime, and the docs.

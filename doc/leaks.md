@@ -17,30 +17,9 @@ Shortcuts that are too small to matter to Candy's design go in `doc/tech_debt.md
 - `doc/archive/leaks_system_prelude.md`: `system.cdy` and the prelude (up to tag
   `system-prelude`);
 - `doc/archive/leaks_bootstrap.md`: the bootstrap chain (up to tag `bootstrap`; none);
-- `doc/archive/leaks_symbol_table.md`: the symbol table (up to tag `symbol-table`).
+- `doc/archive/leaks_symbol_table.md`: the symbol table (up to tag `symbol-table`);
+- `doc/archive/leaks_library.md`: the library (up to tag `library`).
 
 Those entries stay in effect until they are fixed. When one is fixed, mark it there (strike
 it through and say where it was fixed) rather than copying it here. This file is for leaks
-added from branch `library` on.
-
-- **`Maybe` is `None`-or-a-value, so `(Maybe (Maybe a))` collapses** (from `library`, step
-  4): `find` and `index-of` return `None` for "not found", which is also what a list of
-  `Maybe`s holds for "nothing", so `(find f xs)` on such a list can't tell the two apart,
-  and `with-default` takes either as missing. Python's `Optional` is the leak. Fix: a
-  real `Maybe` sum (`(deft (Maybe a) (Nothing) (Just ((val a))))`), when Candy's types
-  are its own.
-- **`with-default` is a built-in** (from `library`, step 4), though by the library rule
-  it belongs in the prelude, being built on `Maybe`: written in Candy,
-  `(if (= m nil) d m)` doesn't narrow `m` from `Optional[A]` to `A` for mypy, so the
-  generated Python fails `mypy --strict`. The Python checker decides what can be Candy.
-  Fix: move it to the prelude once Candy narrows a `Maybe` itself (its own type checker,
-  or `match` on a real `Maybe` sum, as in the entry above).
-- **Macro code doesn't get the prelude** (moved from `doc/tech_debt.md` on `library`, step
-  5: it is a design gap, not a small shortcut). A macro program (a file's `defmacro`s and
-  the macro files it loads) gets the built-ins and `form.cdy`, but not `prelude.cdy`, so
-  macro code can't call `rest` or `map-update`, and has `form.cdy`'s `rest-of` instead.
-  Macro code is Candy, yet it sees a different library from a program, and falls further
-  behind as the prelude grows. What code that runs while translating can see is a phase
-  question (Racket's `(require (for-syntax ...))`). Fix: give macro programs the prelude,
-  or let them import it, with the host's modules (`doc/hl_rqmt/modules.md`, "Macro
-  modules on the host"); then `rest-of` can go.
+added from branch `runtime-names` on.
