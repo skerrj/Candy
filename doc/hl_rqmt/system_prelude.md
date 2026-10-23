@@ -224,8 +224,8 @@ marks one meant to stay.
 7. **Prelude output:** all of it, in every program. *For now:* `doc/tech_debt.md`, "The
    whole prelude goes into every program's Python file"; `doc/hl_rqmt/library.md`,
    question 7 (tree shaking).
-8. **Macro programs:** don't get the prelude. *For now:* `doc/tech_debt.md`, "Macro code
-   doesn't get the prelude".
+8. **Macro programs:** don't get the prelude. *For now:* `doc/leaks.md`, "Macro code
+   doesn't get the prelude" (in `doc/tech_debt.md` until `library`, step 5).
 9. **Special forms:** stay in `table.py`. *For now:* `doc/leaks.md`, "Special forms are
    described by the Python table".
 10. **One prelude or two:** two; `prelude_macros.cdy` stays apart. *Lasting.*

@@ -29,6 +29,12 @@ added from branch `library` on.
   and `with-default` takes either as missing. Python's `Optional` is the leak. Fix: a
   real `Maybe` sum (`(deft (Maybe a) (Nothing) (Just ((val a))))`), when Candy's types
   are its own.
+- **`with-default` is a built-in** (from `library`, step 4), though by the library rule
+  it belongs in the prelude, being built on `Maybe`: written in Candy,
+  `(if (= m nil) d m)` doesn't narrow `m` from `Optional[A]` to `A` for mypy, so the
+  generated Python fails `mypy --strict`. The Python checker decides what can be Candy.
+  Fix: move it to the prelude once Candy narrows a `Maybe` itself (its own type checker,
+  or `match` on a real `Maybe` sum, as in the entry above).
 - **Macro code doesn't get the prelude** (moved from `doc/tech_debt.md` on `library`, step
   5: it is a design gap, not a small shortcut). A macro program (a file's `defmacro`s and
   the macro files it loads) gets the built-ins and `form.cdy`, but not `prelude.cdy`, so

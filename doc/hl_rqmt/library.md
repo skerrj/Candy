@@ -1,7 +1,7 @@
 # Candy's library: system, translator and prelude (HLD)
 
 **Status: accepted (2026-10-22), with the proposed answers to its questions; steps 1 to 6
-built (steps 2 and 3 deferred; step 1 in two), in review.** Branch
+built (steps 2 and 3 deferred; step 1 in two), reviewed (2026-10-22): done.** Branch
 `library`, after tag `symbol-table`. Drafted on branch `system-prelude`, as the follow-up
 to its MVP (`doc/hl_rqmt/system_prelude.md`).
 
@@ -114,7 +114,8 @@ one is rewritten. One line per type is simpler:
   `drop`, `concat`, `zip`, `index-of`, `contains`), and the string and map operations
   (`split`, `starts-with`, `join`, `map-from`, ...); each is a line in `table.py` and a
   `sig`, since Python has them;
-- **prelude:** what is built on top of them, such as `with-default` and `map-update`, and
+- **prelude:** what is built on top of them, such as `with-default` (a built-in as built:
+  step 4) and `map-update`, and
   later the library's own helpers;
 - **cost:** every target's runtime provides these operations, about 15 for lists rather
   than 5; every likely target has them natively;
@@ -143,7 +144,8 @@ until a declaration file can be imported (question 3).
 
 Candidates, from what the translator and the test programs write by hand. By the revised
 rule above, the list, string and map operations among them are built-ins; only what is
-built on them (`with-default`, `map-update`) is prelude:
+built on them (`with-default`, `map-update`) is prelude (`with-default` is a built-in as
+built: step 4):
 - **lists:** `rest`, `any`, `all`, `find` (the first match, as a
   `Maybe`), `reverse`, `range`, `take`, `drop`, `concat` (a list of lists), `zip`,
   `index-of`, `contains`;
@@ -218,13 +220,15 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
      `map-from`; and `with-default`, for `Maybe`;
    - **the prelude:** `map-update`, beside `rest` (which stays there: a list operation,
      but one `slice`, and moving it gains nothing);
-   - **choices the plan left open:** a list operation takes the list last, as `map` and
-     `filter` do (`(take 2 xs)`, `(contains x xs)`, `(index-of x xs)`); strings and maps
-     come first, as in `map-set` (`(starts-with s "can")`, `(map-update m k f)`);
-     `with-default` takes the default first, as Elm's `withDefault`; `find` and
-     `index-of` return a `Maybe`, not `-1`; `with-default` is a built-in, not prelude
-     Candy, since `(= m nil)` doesn't narrow a `Maybe` for mypy; `take` and `drop` of a
+   - **choices the plan left open** (*lasting* unless marked): a list operation takes the
+     list last, as `map` and `filter` do (`(take 2 xs)`, `(contains x xs)`,
+     `(index-of x xs)`); strings and maps come first, as in `map-set`
+     (`(starts-with s "can")`, `(map-update m k f)`); `with-default` takes the default
+     first, as Elm's `withDefault`; `find` and `index-of` return a `Maybe`, not `-1` (its
+     leak: `doc/leaks.md`, "`Maybe` is `None`-or-a-value"); `take` and `drop` of a
      negative count are `take` and `drop` of 0; `split`'s separator must not be empty;
+     `with-default` is a built-in, not prelude Candy, since `(= m nil)` doesn't narrow a
+     `Maybe` for mypy (*for now*: `doc/leaks.md`, "`with-default` is a built-in");
    - **tests:** `tst/cdy/lists.cdy`, `strings.cdy` and `maps.cdy` (264 tests); a leak for
      `find` on a list of `Maybe`s (`doc/leaks.md`).
 
@@ -248,7 +252,7 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
    (`doc/archive/leaks_system_prelude.md`), now down to the five host built-ins. After
    review, `emit.cdy`'s `get-indent` (smz's name) became `indent`.
 
-## Questions (answered: the proposals, accepted)
+## Questions (answered: the proposals, accepted; confirmed in review, 2026-10-22)
 
 Decided so far: anything that can be written in Candy goes in the prelude, except a host
 type's operations, which are all built-in ("Built-in or prelude", revised); a program sees the primitives and the prelude now, and only the prelude later
@@ -291,7 +295,8 @@ imports find library modules, their names (`std/list`?), and what the prelude ke
    *Proposed:* later; with the revised rule the prelude stays small, so the whole
    prelude in every output is cheap *for now* (`doc/tech_debt.md`).
 8. **Private names:** how, and whether this branch needs them?
-   *Proposed:* not in this branch: a small prelude needs no helpers.
+   *Proposed:* not in this branch: a small prelude needs no helpers. *For now:*
+   `doc/hl_rqmt/modules.md`, "After the MVP" (export lists or private names).
 9. **Where `form.cdy` and `prelude_macros.cdy` fit:** `form.cdy` is the macro layer's
    library, used on the host only (with `fresh-name`). Is it part of the translator, or
    its own layer (macro code's library)?
