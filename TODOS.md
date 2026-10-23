@@ -22,3 +22,4 @@ Done and earlier items are in `doc/archive/TODOS_symbol_table.md`,
 ## library
 
 - [ ] Review step 1a as built (`doc/hl_rqmt/library.md`, its "Done" note; step 1 split in two).
+- [ ] Review step 1b as built (`doc/hl_rqmt/library.md`, its "Done" note; `quoting.cdy` changed).

@@ -537,6 +537,12 @@ def test_py_str_is_repr(t1: ModuleType, text: str) -> None:
     assert t1.emit__py_str(text) == repr(text)
 
 
+@pytest.mark.parametrize("name", ("py-mangle", "py-repr", "get-indent", "PY_IMPORTS"))
+def test_programs_cant_see_the_python_helpers(t1: ModuleType, name: str) -> None:
+    with pytest.raises(CandyFail, match=f"unknown name {name}"):
+        translate_with(t1, f"(put {name})")
+
+
 def test_list_functions_are_built_in(t1: ModuleType) -> None:
     # Fast: the runtime's, not Candy loops that copy the list for each item.
     source = translate_with(t1, "(put (map (fn (n) n) (tup 1)) (filter (fn (n) true) (tup 1)))")

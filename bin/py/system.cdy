@@ -80,12 +80,6 @@
 ;; --- the symbol table, for the translator (each built-in's Python text and kind) ---
 (sig initial-table (Map String (Tup String String)))
 
-;; --- writing Python, for the translator ---
-(sig get-indent (Fn (Int) String))
-(sig py-mangle (Fn (String) String))
-(sig py-repr (Fn (Any) String))
-(sig PY_IMPORTS (List String))
-
 ;; --- macros, for the translator (the macros are Python functions on Forms) ---
 (sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))
 (sig call-macro (Fn (Any (List Any) String) Any))

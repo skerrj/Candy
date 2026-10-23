@@ -30,13 +30,15 @@ Candy's design will need to fix later, added on branch `system-prelude`.
   `table.py` before it) is one flat set. Besides what programs need (`len`, `put`,
   `slurp`, ...), it has what only the translator uses:
   - the symbol table: `initial-table` (the `table-*` lookups went on `symbol-table`);
-  - writing Python: `py-mangle`, `py-repr`, `get-indent`, `PY_IMPORTS`;
+  - writing Python: `py-mangle`, `py-repr`, `get-indent`, `PY_IMPORTS` (Candy in
+    `emit.cdy` since `library`, step 1);
   - macros: `load-macros`, `call-macro`, `module-dir`, `fresh-name`.
 
   Every program can call them, and a Python backend's helpers appear as Candy built-ins,
   so a second target would have to provide them too. (A program's own definition of one
   of those names wins, so they don't get in its way.) Fix (decided, `doc/hl_rqmt/library.md`,
   "The translator's built-ins become Candy"): drop the unused ones (done on `symbol-table`),
-  and rewrite the table lookups (done there too) and the Python-writing helpers as Candy in the translator's own modules. That
+  and rewrite the table lookups (done there too) and the Python-writing helpers (done on
+  `library`, step 1) as Candy in the translator's own modules. That
   leaves five host built-ins (`initial-table` and the macro four) in `system.cdy`, until a
   declaration file can be imported by the translator alone.

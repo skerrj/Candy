@@ -193,9 +193,17 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
      Bootstrap: `system.cdy` copied into `bin/py/` before the rebuild (for `char-code`).
    - **1b.** The four built-ins go, from `table.py`, `table_defs.py` and `system.cdy`, and
      `load_macros` takes the names as they are. Tests that a program can't see
-     `py-mangle`, and that the fixpoint holds. Tests that
-   a program can't see `py-mangle`, and that the fixpoint holds (the output shouldn't
-   change).
+     `py-mangle`, and that the fixpoint holds.
+
+     *Done. As built:* `table.py` loses `PY_RENDER` (`get-indent`, `py-mangle`, `py-repr`),
+     the `PY_IMPORTS` entry and its `IMPORTS`; `table_defs.py` loses `get_indent`,
+     `PY_RESERVED`, `py_mangle` and `py_repr` (and its `builtins` and `keyword` imports),
+     and `load_macros` takes `keep`'s names as they are; `system.cdy` loses the four sigs
+     (copied into `bin/py/` before the rebuild). The test program
+     `tst/cdy/cdyc/macro_code/quoting.cdy` used `py-repr` to show a string form; it writes
+     it in Candy's double quotes now (its `.out` follows). Tests:
+     `test_programs_cant_see_the_python_helpers` (255 tests). Bootstrap: no staging (the
+     `bin` of step 1a calls none of them).
 2. **Private names** (if decided).
 3. **Tree shaking** of the prelude (and maybe of every module).
 4. **The fuller prelude**, with a test program per group.

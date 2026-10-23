@@ -17,16 +17,14 @@ Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
   one it used) and commented-out experiments.
 """
 
-import builtins
 import functools
 import itertools
-import keyword
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
-from cdy_rt.table import IMPORTS, SEARCH_PATH
+from cdy_rt.table import SEARCH_PATH
 
 # --- collections ---
 
@@ -242,42 +240,6 @@ def path_resolve(path: str) -> str:
     return str(Path(path).resolve())
 
 
-# --- rendering Python source ---
-
-
-def get_indent(n: int) -> str:
-    """Indentation for nesting level ``n`` (four spaces per level)."""
-    return " " * 4 * n
-
-
-# Python names a Candy name must not take: keywords, built-ins and the modules the
-# generated code imports.
-PY_RESERVED = frozenset(
-    {*keyword.kwlist, *dir(builtins), *(module.split(".", maxsplit=1)[0] for module in IMPORTS)}
-)
-
-
-def py_mangle(name: str) -> str:
-    """A Candy name as a Python identifier: ``-`` to ``_``, ``?`` to ``_p``, ``!`` to ``_x``,
-    any other character to ``_uXXXX``; a reserved name or one starting ``_cdy_`` gets a ``_``.
-    """
-    special = {"-": "_", "?": "_p", "!": "_x"}
-    out = "".join(
-        ch
-        if (ch.isascii() and (ch.isalnum() or ch == "_"))
-        else special.get(ch, f"_u{ord(ch):04x}")
-        for ch in name
-    )
-    if out in PY_RESERVED or out.startswith("_cdy_"):
-        out += "_"
-    return out
-
-
-def py_repr(val: object) -> str:
-    """``val`` as a Python literal (``'a\\n'``, ``3.0``, ``True``)."""
-    return repr(val)
-
-
 # --- infra ---
 
 
@@ -345,8 +307,9 @@ def load_macros(
     exec(compile(python, "<macros>", "exec"), namespace)  # noqa: S102  # pylint: disable=exec-used
     # In a translator built with modules, form.cdy's names have its prefix (``form__Sym``),
     # which ``home``'s own Python name shows; a translator built before modules has none.
+    # ``keep``'s names are Python names (the translator mangles them).
     head, sep, _ = home.__name__.rpartition("__")
-    for name in map(py_mangle, keep):
+    for name in keep:
         namespace[name] = home_ns[head + sep + name]
     _FRESH[0] = itertools.count(1)
     return {name: val for name, val in namespace.items() if name.startswith("macro__")}

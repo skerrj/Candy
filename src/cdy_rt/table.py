@@ -21,12 +21,11 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Literal, NamedTuple
 
-# Modules the generated code imports, by name. ``RUNTIME_MODULE`` holds the helper functions
-# (``table_defs.py``); ``TABLE_MODULE`` is this module, which the translator needs for
-# ``initial-table`` and ``PY_IMPORTS``.
+# Modules the generated code refers to, by name (emit.cdy's PY_IMPORTS lists the imports).
+# ``RUNTIME_MODULE`` holds the helper functions (``table_defs.py``); ``TABLE_MODULE`` is
+# this module, which the translator needs for ``initial-table``.
 RUNTIME_MODULE = "cdy_rt.table_defs"
 TABLE_MODULE = "cdy_rt.table"
-IMPORTS: tuple[str, ...] = ("math", "re", TABLE_MODULE, RUNTIME_MODULE)
 
 # Where ``slurp`` looks for a Candy file that isn't found at the given path.
 SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
@@ -163,12 +162,6 @@ META_TABLE: Table = {
     "initial-table": value(f"{TABLE_MODULE}.INITIAL_TABLE"),
 }
 
-PY_RENDER: Table = {
-    "get-indent": runtime("get_indent"),
-    "py-mangle": runtime("py_mangle"),
-    "py-repr": runtime("py_repr"),
-}
-
 # Macros (doc/hl_rqmt/macros.md): the translator loads a translated macro program and calls
 # its macros; ``fresh-name`` is behind ``gensym`` (form.cdy).
 MACRO: Table = {
@@ -179,7 +172,6 @@ MACRO: Table = {
 }
 
 INFRA: Table = {
-    "PY_IMPORTS": value(f"{TABLE_MODULE}.IMPORTS"),
     "SYS_ARGS": value(f"{RUNTIME_MODULE}.get_args()"),
     "fail": runtime("fail"),
 }
@@ -193,7 +185,6 @@ INITIAL_TABLE: Table = MappingProxyType(
         **COLLECTION,
         **STRING,
         **META_TABLE,
-        **PY_RENDER,
         **MACRO,
         **INFRA,
     }

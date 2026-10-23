@@ -1,4 +1,4 @@
-(if (< x 1) 'small' (f x 2.5 3.0f 7l 2b \c true ()))
+(if (< x 1) "small" (f x 2.5 3.0f 7l 2b \c true ()))
 True
 (when (ready) (go a (b c)) done)
 plain
