@@ -2822,13 +2822,13 @@ def emit__comma_join(strs: tuple[str, ...]) -> str:
     return cdy_rt.table_defs.join(strs, ', ')
 
 def emit__line(level: int, text: str) -> str:
-    return (emit__get_indent(level) + text + '\n')
+    return (emit__indent(level) + text + '\n')
 
-def emit__get_indent(level: int) -> str:
+def emit__indent(level: int) -> str:
     if (level <= 0):
         return ''
     else:
-        return ('    ' + emit__get_indent((level - 1)))
+        return ('    ' + emit__indent((level - 1)))
 emit__PY_IMPORTS: tuple[str, ...] = ('math', 're', 'cdy_rt.table', 'cdy_rt.table_defs')
 
 def emit__name_set(names: tuple[str, ...], acc: _cdy_Mapping[str, bool]) -> _cdy_Mapping[str, bool]:

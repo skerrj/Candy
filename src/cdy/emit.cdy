@@ -28,13 +28,13 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn comma-join (strs) (join strs ", "))
 
 (sig line (Fn (Int String) String))
-(defn line (level text) (+ (get-indent level) text "\n"))
+(defn line (level text) (+ (indent level) text "\n"))
 
 ;; --- Python spellings (doc/hl_rqmt/library.md, "The translator's built-ins become Candy") ---
 
 ;; Indentation for nesting level `level`: four spaces each.
-(sig get-indent (Fn (Int) String))
-(defn get-indent (level) (if (<= level 0) "" (+ "    " (get-indent (- level 1)))))
+(sig indent (Fn (Int) String))
+(defn indent (level) (if (<= level 0) "" (+ "    " (indent (- level 1)))))
 
 ;; The modules every generated file imports: those table.py's spellings refer to.
 (sig PY_IMPORTS (List String))

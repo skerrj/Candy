@@ -245,7 +245,8 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
    *Done. As built:* CLAUDE.md ("The library", current work), `candy-special.md` (the
    prelude), `bootstrap.md` (the Python version no longer changes the output from
    `boot/25` on), and the leak "The translator's built-ins are every program's"
-   (`doc/archive/leaks_system_prelude.md`), now down to the five host built-ins.
+   (`doc/archive/leaks_system_prelude.md`), now down to the five host built-ins. After
+   review, `emit.cdy`'s `get-indent` (smz's name) became `indent`.
 
 ## Questions (answered: the proposals, accepted)
 
