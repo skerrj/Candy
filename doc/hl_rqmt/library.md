@@ -1,10 +1,11 @@
 # Candy's library: system, translator and prelude (HLD)
 
-**Status: accepted (2026-10-22), with the proposed answers to its questions.** Branch
+**Status: accepted (2026-10-22), with the proposed answers to its questions; steps 1 to 6
+built (steps 2 and 3 deferred; step 1 in two), in review.** Branch
 `library`, after tag `symbol-table`. Drafted on branch `system-prelude`, as the follow-up
 to its MVP (`doc/hl_rqmt/system_prelude.md`).
 
-## Where things stand
+## Where things stood (before this branch)
 
 After `system-prelude` there are three library files next to the translator, besides
 `form.cdy`:
@@ -240,6 +241,11 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
    a design gap. The loops that thread an accumulator stay (question 6). Tests: unchanged
    (264). Bootstrap: no staging (`rest` was already in `bin`'s prelude).
 6. **Docs.**
+
+   *Done. As built:* CLAUDE.md ("The library", current work), `candy-special.md` (the
+   prelude), `bootstrap.md` (the Python version no longer changes the output from
+   `boot/25` on), and the leak "The translator's built-ins are every program's"
+   (`doc/archive/leaks_system_prelude.md`), now down to the five host built-ins.
 
 ## Questions (answered: the proposals, accepted)
 
