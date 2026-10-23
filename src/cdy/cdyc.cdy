@@ -29,14 +29,8 @@
   (let ((ready (expand-modules modules (- (len modules) 1) empty-list))
         (by-key (exports-by-key ready empty-map))
         (elsewhere (elsewhere-names (exports-of ready empty-list) empty-map))
-        (builtins (builtin-sigs nil)))
+        (builtins (library-builtins nil)))
     (python-of (analyse-modules ready by-key elsewhere builtins parse empty-list))))
-
-;; The built-ins' types, from system.cdy, which is kept next to the translator.
-(sig builtin-sigs (Fn (Unit) (Map String CType)))
-(defn builtin-sigs (_)
-  (let ((path (library-path "system.cdy")))
-    (system-sigs (read-source path (slurp path)) initial-table)))
 
 ;; Each of `modules` with its macros expanded; `top` is the top module's index.
 (sig expand-modules (Fn ((List Module) Int (List Ready)) (List Ready)))
@@ -63,7 +57,7 @@
 
 ;; The definitions of all the modules, in order.
 (sig analyse-modules
-  (Fn ((List Ready) (Map String Exports) (Map String String) (Map String CType) (Fn (String) (List Form)) (List Top))
+  (Fn ((List Ready) (Map String Exports) (Map String String) (Map String Builtin) (Fn (String) (List Form)) (List Top))
       (List Top)))
 (defn analyse-modules (ready by-key elsewhere builtins parse acc)
   (if (= (len ready) 0)
@@ -76,7 +70,6 @@
               (get r exports)
               (imported (get (get r module) imports) by-key empty-list)
               elsewhere
-              initial-table
               builtins
               (fn (text) (expand-all (parse text) macros empty-list))
               macros
@@ -99,7 +92,7 @@
 ;; the program's macros.
 (sig translate-expanded (Fn ((List Form) (Fn (String) (List Form)) (Map String Macro) Bool) String))
 (defn translate-expanded (forms parse macros quoting)
-  (python-of (analyse-program forms initial-table (builtin-sigs nil) parse macros quoting)))
+  (python-of (analyse-program forms (library-builtins nil) parse macros quoting)))
 
 ;; The definitions `tops` as a Python module.
 (sig python-of (Fn ((List Top)) String))

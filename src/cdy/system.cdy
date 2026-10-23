@@ -4,7 +4,7 @@
 ;;; built-in's arity is its type's. Only here may a sig have no definition.
 ;;;
 ;;; Not here: the special forms, and the operators (+, =, and, not, ...), which take two or
-;;; more arguments, as the table says. `Any` marks a type Candy can't write yet: built-ins
+;;; more arguments (or one); special.cdy declares those. `Any` marks a type Candy can't write yet: built-ins
 ;;; that take any number of arguments, or work on lists, strings and maps alike (Collection,
 ;;; later), or return Python objects with no Candy type. Each is a leak (doc/leaks.md).
 ;;; This file is read as it is, so it can't use macros.
@@ -76,15 +76,8 @@
 (sig isspace-at (Fn (String Int) Bool))
 (sig isspace (Fn (String) Bool))
 
-;; --- the symbol table, for the translator (a Python Mapping) ---
-(sig initial-table Any)
-(sig table-add-fun (Fn (Any String String) Any))
-(sig table-is-special (Fn (Any String) Bool))
-(sig table-is-op (Fn (Any String) Bool))
-(sig table-is-bin-op (Fn (Any String) Bool))
-(sig table-get-py (Fn (Any String) String))
-(sig table-get-kind (Fn (Any String) String))
-(sig is-lit (Fn (Any) Bool))
+;; --- the symbol table, for the translator (each built-in's Python text and kind) ---
+(sig initial-table (Map String (Tup String String)))
 
 ;; --- writing Python, for the translator ---
 (sig get-indent (Fn (Int) String))

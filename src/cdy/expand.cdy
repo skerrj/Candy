@@ -162,11 +162,20 @@
 ;; The macros `defs` define, compiled with the helper forms `helpers` and loaded.
 (sig load-defs (Fn ((List Form) (List Form) (Fn ((List Form)) String)) (List Macro)))
 (defn load-defs (defs helpers compile)
-  (let ((checked (unique-names defs empty-map))
+  (let ((builtins (library-builtins nil))
+        (checked (unique-names defs builtins empty-map))
         (form-forms (form-defs nil))
-        (python (compile (+ form-forms helpers (macro-program defs empty-list))))
+        (python (compile (+ form-forms helpers (macro-program defs builtins empty-list))))
         (loaded (load-macros python sym-name (top-names form-forms empty-map))))
     (macro-list defs loaded empty-list)))
+
+;; The built-ins, from special.cdy and system.cdy, which are kept next to the translator
+;; (read-builtins).
+(sig library-builtins (Fn (Unit) (Map String Builtin)))
+(defn library-builtins (_)
+  (let ((decls (library-path "special.cdy"))
+        (sigs (library-path "system.cdy")))
+    (read-builtins (read-source decls (slurp decls)) (read-source sigs (slurp sigs)) initial-table)))
 
 ;; Form and its helpers, which macro code may use: form.cdy, read as it is (so it can't
 ;; use macros).
@@ -178,11 +187,11 @@
 ;; Each (defmacro name params body) as a function from the arguments to a form:
 ;; (sig macro__name (Fn ((List Form)) Form))
 ;; (defn macro__name (args__) (let ((p1 (at args__ 0)) ...) body))
-(sig macro-program (Fn ((List Form) (List Form)) (List Form)))
-(defn macro-program (defs acc)
+(sig macro-program (Fn ((List Form) (Map String Builtin) (List Form)) (List Form)))
+(defn macro-program (defs builtins acc)
   (if (= (len defs) 0)
     acc
-    (let ((items (defmacro-items (at defs 0)))
+    (let ((items (defmacro-items (at defs 0) builtins))
           (pos (form-pos (at defs 0)))
           (fname (Sym (macro-fn (sym-name (at items 1))) pos))
           (args (Sym "args__" pos))
@@ -190,19 +199,21 @@
           (body (Lst (tup (Sym "let" pos) (Lst (param-binds (at items 2) args pos) pos) (at items 3)) pos)))
       (macro-program
         (rest-of defs)
+        builtins
         (+ acc
            (to-list (Lst (tup (Sym "sig" pos) fname type) pos))
            (to-list (Lst (tup (Sym "defn" pos) fname (Lst (to-list args) pos) body) pos)))))))
 
-;; The items of (defmacro name params body), checked.
-(sig defmacro-items (Fn (Form) (List Form)))
-(defn defmacro-items (form)
+;; The items of (defmacro name params body), checked; a special form (in `builtins`)
+;; can't be a macro's name.
+(sig defmacro-items (Fn (Form (Map String Builtin)) (List Form)))
+(defn defmacro-items (form builtins)
   (let ((items (list-items form))
         (where (pos-text (form-pos form))))
     (cond
       ((or (!= (len items) 4) (= (sym-name (at items 1)) ""))
         (fail (+ where "defmacro: expected (defmacro name (params) body) or (defmacro name args body)")))
-      ((table-is-special initial-table (sym-name (at items 1)))
+      ((is-special (sym-name (at items 1)) builtins)
         (fail (format "{where}defmacro: {(sym-name (at items 1))} is a special form")))
       ((not (params-ok (at items 2))) (fail (+ where "defmacro: a parameter must be a name")))
       (else items))))
@@ -244,14 +255,14 @@
 (defn macro-fn (name) (+ "macro__" name))
 
 ;; True, unless two of `defs` define the same macro.
-(sig unique-names (Fn ((List Form) (Map String Bool)) Bool))
-(defn unique-names (defs seen)
+(sig unique-names (Fn ((List Form) (Map String Builtin) (Map String Bool)) Bool))
+(defn unique-names (defs builtins seen)
   (if (= (len defs) 0)
     true
-    (let ((name (sym-name (at (defmacro-items (at defs 0)) 1))))
+    (let ((name (sym-name (at (defmacro-items (at defs 0) builtins) 1))))
       (if (map-has seen name)
         (fail (format "{(pos-text (form-pos (at defs 0)))}defmacro: {name} is defined twice"))
-        (unique-names (rest-of defs) (map-set seen name true))))))
+        (unique-names (rest-of defs) builtins (map-set seen name true))))))
 
 ;; The macro each of `defs` defines, with its function from `loaded` (by Python name).
 (sig macro-list (Fn ((List Form) (Map String Any) (List Macro)) (List Macro)))

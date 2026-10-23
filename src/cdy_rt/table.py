@@ -1,11 +1,14 @@
-"""The initial Candy symbol table: what each built-in Candy symbol translates to in Python.
+"""The Python spellings of Candy's built-ins: what each translates to in Python. What a
+built-in is (special form, operator, or function or value with a type) is declared in
+Candy, in ``src/cdy/special.cdy`` and ``src/cdy/system.cdy``, which the translator checks
+against this table both ways (``doc/hl_rqmt/symbol_table.md``).
 
 Modelled on schmuz's ``src/py_smz/table.py`` (``OP_TABLE``). Differences from schmuz:
 
 - Entries are typed ``TableEntry`` records instead of dicts, and ``kind`` says how the
-  translator renders the symbol (operator, call, value, special form).
-- The table is immutable. ``add_fun`` returns a new table instead of changing a global, so
-  the translator (and later the self-hosted compiler) passes the table along.
+  translator renders the symbol (operator, call, value). Special forms have no entry.
+- The table is immutable, and holds only the built-ins: a program's own names are in the
+  translator's scope (``doc/hl_rqmt/symbol_table.md``).
 - No arity: a built-in's arity comes from its type in ``src/cdy/system.cdy``. Calls render
   every argument (schmuz rendered only ``arity`` of them, defaulting to 1).
 - Generated code refers to helpers through ``RUNTIME_MODULE`` and ``TABLE_MODULE``, so
@@ -19,8 +22,8 @@ from types import MappingProxyType
 from typing import Literal, NamedTuple
 
 # Modules the generated code imports, by name. ``RUNTIME_MODULE`` holds the helper functions
-# (``table_defs.py``); ``TABLE_MODULE`` is this module, which the self-hosted compiler needs
-# for the ``table-*`` functions.
+# (``table_defs.py``); ``TABLE_MODULE`` is this module, which the translator needs for
+# ``initial-table`` and ``PY_IMPORTS``.
 RUNTIME_MODULE = "cdy_rt.table_defs"
 TABLE_MODULE = "cdy_rt.table"
 IMPORTS: tuple[str, ...] = ("math", "re", TABLE_MODULE, RUNTIME_MODULE)
@@ -29,7 +32,6 @@ IMPORTS: tuple[str, ...] = ("math", "re", TABLE_MODULE, RUNTIME_MODULE)
 SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 
 # How the translator renders a symbol:
-#   special  - a special form, translated by its own rule (``py`` is unused)
 #   binop    - arithmetic, ``a + b``; folds left with more than two arguments
 #   compare  - comparison, ``a < b``; chains with more than two arguments
 #   boolop   - ``and`` / ``or``; short-circuits
@@ -38,7 +40,7 @@ SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 #   value    - a Python expression, used as is (``math.pi``, ``None``)
 #   index    - indexing, ``coll[i]`` (``py`` is the runtime helper, for use as a value)
 #   slice    - slicing, ``coll[i:j]``, so a ``String`` slice stays a ``str`` (likewise)
-Kind = Literal["special", "binop", "compare", "boolop", "unary", "call", "value", "index", "slice"]
+Kind = Literal["binop", "compare", "boolop", "unary", "call", "value", "index", "slice"]
 
 
 class TableEntry(NamedTuple):
@@ -51,11 +53,6 @@ class TableEntry(NamedTuple):
 Table = Mapping[str, TableEntry]
 
 
-def special() -> TableEntry:
-    """An entry for a special form."""
-    return TableEntry("", "special")
-
-
 def call(py: str) -> TableEntry:
     """An entry for a function call to the Python name ``py``."""
     return TableEntry(py, "call")
@@ -66,39 +63,10 @@ def runtime(name: str) -> TableEntry:
     return call(f"{RUNTIME_MODULE}.{name}")
 
 
-def table_fn(name: str) -> TableEntry:
-    """An entry for a call to a function in this module."""
-    return call(f"{TABLE_MODULE}.{name}")
-
-
 def value(py: str) -> TableEntry:
     """An entry for a Python expression used as a value."""
     return TableEntry(py, "value")
 
-
-SPECIAL_FORMS: Table = {
-    "import": special(),
-    "import-macros": special(),
-    "def": special(),
-    "defn": special(),
-    "do": special(),
-    "if": special(),
-    "let": special(),
-    "fn": special(),
-    # Macros (doc/hl_rqmt/macros.md): quote, quasiquote, unquote, unquote-splicing.
-    "quo": special(),
-    "quasi": special(),
-    "unq": special(),
-    "unq-sp": special(),
-    "defmacro": special(),
-    "format": special(),
-    "tup": special(),
-    "sig": special(),
-    "deft": special(),
-    "get": special(),
-    "assoc": special(),
-    "match": special(),
-}
 
 MATH: Table = {
     "PI": value("math.pi"),
@@ -187,18 +155,11 @@ STRING: Table = {
     "in": runtime("in_"),
 }
 
-# For the self-hosted compiler: read and extend a symbol table. schmuz called these
-# ``op-tab-*`` and changed a global table; here they take the table and ``table-add-fun``
-# returns a new one.
+# For the translator: this table, which it reads as Candy data (each entry a pair, its text
+# and kind; doc/hl_rqmt/symbol_table.md). schmuz read its table through ``op-tab-*``
+# functions.
 META_TABLE: Table = {
     "initial-table": value(f"{TABLE_MODULE}.INITIAL_TABLE"),
-    "table-add-fun": table_fn("add_fun"),
-    "table-is-special": table_fn("is_special"),
-    "table-is-op": table_fn("is_op"),
-    "table-is-bin-op": table_fn("is_bin_op"),
-    "table-get-py": table_fn("get_py"),
-    "table-get-kind": table_fn("get_kind"),
-    "is-lit": runtime("is_lit"),
 }
 
 PY_RENDER: Table = {
@@ -224,7 +185,6 @@ INFRA: Table = {
 
 INITIAL_TABLE: Table = MappingProxyType(
     {
-        **SPECIAL_FORMS,
         **MATH,
         **BOOL,
         **IO,
@@ -237,33 +197,3 @@ INITIAL_TABLE: Table = MappingProxyType(
         **INFRA,
     }
 )
-
-
-def add_fun(table: Table, name: str, py: str) -> Table:
-    """``table`` plus a user function ``name``, called in Python as ``py``."""
-    return MappingProxyType({**table, name: call(py)})
-
-
-def is_op(table: Table, name: str) -> bool:
-    """Whether ``name`` is in the table at all."""
-    return name in table
-
-
-def is_special(table: Table, name: str) -> bool:
-    """Whether ``name`` is a special form."""
-    return name in table and table[name].kind == "special"
-
-
-def is_bin_op(table: Table, name: str) -> bool:
-    """Whether ``name`` renders as an infix operator (arithmetic, comparison, and/or)."""
-    return name in table and table[name].kind in ("binop", "compare", "boolop")
-
-
-def get_kind(table: Table, name: str) -> str:
-    """How ``name`` is rendered (see ``Kind``); ``""`` if it isn't in the table."""
-    return table[name].kind if name in table else ""
-
-
-def get_py(table: Table, name: str) -> str:
-    """The Python name or expression for ``name``; ``name`` itself if it isn't in the table."""
-    return table[name].py if name in table else name

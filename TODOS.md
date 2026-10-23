@@ -1,6 +1,7 @@
 # TODOS
 
-Done and earlier items are in `doc/archive/TODOS_system_prelude.md`, `doc/archive/TODOS_modules.md`,
+Done and earlier items are in `doc/archive/TODOS_bootstrap.md`,
+`doc/archive/TODOS_system_prelude.md`, `doc/archive/TODOS_modules.md`,
 `doc/archive/TODOS_macros.md`, `doc/archive/TODOS_self_host_cleanup.md`,
 `doc/archive/TODOS_pre_self_host.md` and `doc/archive/TODOS_imvp_py_translator.md`.
 
@@ -18,12 +19,11 @@ Done and earlier items are in `doc/archive/TODOS_system_prelude.md`, `doc/archiv
 - [ ] system-prelude: review step 5 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note).
 - [ ] Review `doc/hl_rqmt/library.md` (draft HLD, a later branch): two layers, the translator's built-ins become Candy, and its questions.
 
-## bootstrap
+## symbol-table
 
-- [x] Review `doc/hl_rqmt/bootstrap.md`: accepted (drop the reader agreement check; `--from-scratch` before each merge into `master`; before the library branch).
-- [x] Step 1: `script/bootstrap.py` and the chain (two steps staged); `--from-scratch` passes.
-- [x] Step 1: tagged `boot/00` to `boot/16`.
-- [x] Step 2: the Python translator off `master` (and `reader.py`, `test_cdy_programs.py`).
-- [x] Step 3: `table.py` without `arity` (and `table-get-arity`); a new chain step, `boot/17` once tagged.
-- [x] Step 4: docs; `README.md` (general install and how-tos); this machine's setup in a gitignored `CLAUDE.local.md`.
-- [X] parsec.py v4 isn't published (`doc/tech_debt.md`), so the chain's first step runs only on this machine. Low priority (owner, 2026-10-20): noted; publish or vendor it later.
+- [x] Review step 1 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note): looks good.
+- [x] Review step 2 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note; `src/cdy/special.cdy`): looks ok for now.
+- [x] Review step 3 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note): looks ok for now.
+- [x] Review step 4 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note; the plan's step 4 split in two): looks ok for now.
+- [x] Review step 5 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note): looks good.
+- [x] Review step 6 (docs) as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note): looks good.

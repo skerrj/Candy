@@ -3,6 +3,7 @@
 - the special form grammar uses regular expression syntax: ? (optional), * (0 or more), and + (1 or more). 
 - placeholders are denoted by a italics.
 - the details and the reasons behind them are in `doc/hl_rqmt/iMVP_py_translator.md`, `doc/hl_rqmt/sum_types.md` and `doc/hl_rqmt/self_host_cleanup.md`
+- the list of special forms and operators the translator knows is `src/cdy/special.cdy` (`doc/hl_rqmt/symbol_table.md`); this file describes them
 ## literals
 ```
 100        ;; Int

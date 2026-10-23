@@ -91,6 +91,14 @@ declares each built-in with a bodiless `sig`, the way Carp's `register` does, an
   or more arguments";
 - `src/cdy/prelude.cdy` is ordinary Candy, so it is the same for every target.
 
+*Taken further on branch `symbol-table`* (`doc/hl_rqmt/symbol_table.md`): the
+target-neutral half is now Candy. `src/cdy/special.cdy` declares the special forms and
+the operators (how many arguments each takes), `system.cdy` the other built-ins with their
+types, and the translator reads both into one map of built-ins (`Builtin`, in `core.cdy`).
+`table.py` holds only each built-in's Python spelling and rendering kind, which the
+backend reads as Candy data (`initial-table`, a map of pairs), and is checked against the
+declarations both ways. A second target needs its own spelling table and runtime.
+
 The open questions below are still open: there is one `system.cdy`, for Python.
 
 ### Open: abstracting `system.cdy` while allowing specifics

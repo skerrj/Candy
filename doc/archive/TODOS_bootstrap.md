@@ -1,0 +1,29 @@
+# TODOS
+
+Done and earlier items are in `doc/archive/TODOS_system_prelude.md`, `doc/archive/TODOS_modules.md`,
+`doc/archive/TODOS_macros.md`, `doc/archive/TODOS_self_host_cleanup.md`,
+`doc/archive/TODOS_pre_self_host.md` and `doc/archive/TODOS_imvp_py_translator.md`.
+
+## Carried over (for owner review)
+
+- [ ] `doc/archive/leaks_imvp_py_translator.md` and `doc/archive/leaks_pre_self_host.md`: check the lists of hacks and Python leaks, including `format` (a hack) and `tup` destructuring (a stopgap), both from smz.
+- [ ] `cdy_rt` packaging in `pyproject.toml` (editable install, strict mode, `py.typed`) and the `.gitignore` change (`lib/` no longer ignored).
+- [ ] Open items summary in the iMVP doc ("Open items (summary)"): `deft` (proposed), literal parser rules, and confirming that `defn` and `sig` are top-level only and that a top-level `do` isn't spliced.
+- [ ] Review `doc/hl_rqmt/self_hosting_primo.md` (stages 0–3 done, as built).
+- [ ] Review `import` step A as built (`doc/hl_rqmt/self_host_cleanup.md`, "Step A as built"), and its leak (now in `doc/archive/leaks_self_host_cleanup.md`).
+- [ ] Review the `main` entry-point convention (`doc/hl_rqmt/self_host_cleanup.md`, "The driver as built"; `src/cdy/candy-special.md`, "programs").
+- [ ] Add the up, down, down*, meta-template side conversation to `doc/brainstorm.md` (owner to supply the gist).
+- [ ] system-prelude: review step 1 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/system.cdy`'s types), and the new leaks and tech debt.
+- [ ] system-prelude: review step 3 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/prelude.cdy`).
+- [ ] system-prelude: review step 5 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note).
+- [ ] Review `doc/hl_rqmt/library.md` (draft HLD, a later branch): two layers, the translator's built-ins become Candy, and its questions.
+
+## bootstrap
+
+- [x] Review `doc/hl_rqmt/bootstrap.md`: accepted (drop the reader agreement check; `--from-scratch` before each merge into `master`; before the library branch).
+- [x] Step 1: `script/bootstrap.py` and the chain (two steps staged); `--from-scratch` passes.
+- [x] Step 1: tagged `boot/00` to `boot/16`.
+- [x] Step 2: the Python translator off `master` (and `reader.py`, `test_cdy_programs.py`).
+- [x] Step 3: `table.py` without `arity` (and `table-get-arity`); a new chain step, `boot/17` once tagged.
+- [x] Step 4: docs; `README.md` (general install and how-tos); this machine's setup in a gitignored `CLAUDE.local.md`.
+- [X] parsec.py v4 isn't published (`doc/tech_debt.md`), so the chain's first step runs only on this machine. Low priority (owner, 2026-10-20): noted; publish or vendor it later.

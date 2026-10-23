@@ -53,7 +53,7 @@
         (prelude (path-resolve path)))
     (if (= prelude key) empty-list (to-list (tup path (Imp prelude NOWHERE))))))
 
-;; The path of the library file `name` (form.cdy, system.cdy, the prelude and its macros), which
+;; The path of the library file `name` (form.cdy, special.cdy, system.cdy, the prelude and its macros), which
 ;; is kept next to the translator (in bin/py/; py_cdy/self_host.py copies the library there).
 (sig library-path (Fn (String) String))
 (defn library-path (name)
