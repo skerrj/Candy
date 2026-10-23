@@ -61,11 +61,6 @@ take one, and remove an entry once it is fixed.
   `t1.read__read_forms`; `self_host.to_form`, `test_self_host.py`), so moving a function
   to another file changes its Python name.
 
-- **Macro code doesn't get the prelude:** a macro program (a file's `defmacro`s and the
-  macro files it loads) isn't given `prelude.cdy`, so macro code can't call `rest` and
-  the rest; it has `form.cdy`'s `rest-of`. Fix: give macro programs the prelude, or let
-  them import it, with the host's modules (`doc/hl_rqmt/modules.md`, "Macro modules on
-  the host").
 - **`special.cdy` and `system.cdy` are read for every translation, and again for every
   macro program** (`library-builtins` in `expand.cdy`), and checked against the table each
   time. Nothing caches them.
@@ -107,3 +102,17 @@ take one, and remove an entry once it is fixed.
   One mypy run over all of them would be faster.
 - **Repo naming.** The default branch is `master`, while some notes and tools assume
   `main`.
+- **`py-str` is close to `repr`, not equal** (`emit.cdy`, `doc/hl_rqmt/library.md` step
+  1a): it escapes control characters (below 32, and 127 to 160) but leaves other
+  characters Python's `repr` would escape (such as U+00AD or U+2028) as they are, since
+  Candy can't ask whether a character is printable. The output is still valid Python.
+- **`PY_RESERVED` is Python 3.14's** keywords and built-ins, written out in `emit.cdy`;
+  `test_py_reserved_is_this_python` fails when another Python adds one.
+- **The runtime's module names are out of date** (noted on `library`, after review): since
+  `symbol-table`, `cdy_rt/table.py` is the Python spellings, not a symbol table, and
+  `table_defs.py` is the primitives generated code calls (its name is smz's). Plan, agreed
+  for a branch of its own after `library`: `table.py` → `spelling.py`, `table_defs.py` →
+  `prims.py`, and `INITIAL_TABLE`/`initial-table` → `SPELLINGS`/`py-spellings`. Every
+  generated file imports the modules by name, and the old `bin` imports `cdy_rt.table`
+  from the live runtime, so it takes two chain steps (the new modules with the old ones
+  as re-exports, then the old ones go), a reinstall of the editable runtime, and the docs.

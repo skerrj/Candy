@@ -34,7 +34,7 @@ true|false ;; Bool
 - if it defines `main`, typed `(Fn ((List String)) Int)`, `main` then runs with the command-line arguments, and the program exits with its result
 - `main` runs only when the program itself is run: not when it's imported, as the translator's own `main` (its driver) isn't when tests load it
 - a `fail` in `main` prints `candy: ` and the message, and exits with 1
-- every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: only `rest` so far (`map`, `filter` and `fold` are built-ins, declared in `system.cdy`, for speed); a file's own definition of a prelude or built-in name wins, and a module it imports that defines one is a clash, as between any two imports
+- every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: `rest` and `map-update` so far (the list, string and map operations, such as `map`, `filter`, `fold`, `find`, `take` and `split`, are built-ins, declared in `system.cdy`: `doc/hl_rqmt/library.md`); macro code doesn't get the prelude; a file's own definition of a prelude or built-in name wins, and a module it imports that defines one is a clash, as between any two imports
 ## special forms
 ### import
 - top level only

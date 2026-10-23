@@ -71,7 +71,7 @@
     (let ((form (at forms 0))
           (name (import-name form)))
       (module-imports
-        (rest-of forms)
+        (rest forms)
         dir
         (if (= name "")
           acc
@@ -82,7 +82,7 @@
 (defn imp-list (imports acc)
   (if (= (len imports) 0)
     acc
-    (imp-list (slice imports 1 (len imports)) (+ acc (to-list (at (at imports 0) 1))))))
+    (imp-list (rest imports) (+ acc (to-list (at (at imports 0) 1))))))
 
 ;; `acc` with the modules `imports` names read, unless they were already.
 (sig load-imports (Fn ((List (Tup String Imp)) (List String) Mods) Mods))
@@ -92,7 +92,7 @@
     (let (((path imp) (at imports 0))
           (key (get imp key)))
       (load-imports
-        (slice imports 1 (len imports))
+        (rest imports)
         stack
         (cond
           ((in key stack)
@@ -105,11 +105,11 @@
 (defn cycle-text (stack key)
   (if (= (at stack 0) key)
     (+ (join (stems-of stack empty-list) " -> ") " -> " (path-stem key))
-    (cycle-text (slice stack 1 (len stack)) key)))
+    (cycle-text (rest stack) key)))
 
 (sig stems-of (Fn ((List String) (List String)) (List String)))
 (defn stems-of (keys acc)
-  (if (= (len keys) 0) acc (stems-of (slice keys 1 (len keys)) (+ acc (to-list (path-stem (at keys 0)))))))
+  (if (= (len keys) 0) acc (stems-of (rest keys) (+ acc (to-list (path-stem (at keys 0)))))))
 
 ;; `forms` without their imports; (import-macros name) as (import-macros "path").
 (sig other-forms (Fn ((List Form) String (List Form)) (List Form)))
@@ -117,7 +117,7 @@
   (if (= (len forms) 0)
     acc
     (other-forms
-      (rest-of forms)
+      (rest forms)
       dir
       (if (= (import-name (at forms 0)) "") (+ acc (to-list (macro-import (at forms 0) dir))) acc))))
 
@@ -137,7 +137,7 @@
           (stem (get m stem)))
       (if (map-has seen stem)
         (fail (format "import: two modules are named {stem}: {(map-get seen stem)} and {(get m path)}"))
-        (unique-stems (slice modules 1 (len modules)) (map-set seen stem (get m path)))))))
+        (unique-stems (rest modules) (map-set seen stem (get m path)))))))
 
 ;; --- inclusion (macro files) ---
 
@@ -176,7 +176,7 @@
     (let ((form (at forms 0))
           (name (import-name form)))
       (include-forms
-        (rest-of forms)
+        (rest forms)
         dir
         (if (= name "")
           (assoc acc done (+ (get acc done) (to-list (macro-import form dir))))

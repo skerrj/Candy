@@ -72,8 +72,8 @@
   (if (= (len targets) 0)
     acc
     (assigns
-      (slice targets 1 (len targets))
-      (slice vals 1 (len vals))
+      (rest targets)
+      (rest vals)
       (+ acc (to-list (SAssign (at targets 0) (at vals 0)))))))
 
 ;; --- value mode ---
@@ -100,7 +100,7 @@
           (Low (get low stmts) (Field (get low expr) field) (get low n))))
       ((Assoc obj fields)
         (let (((stmts vals n1) (value-seq (+ (to-list obj) (field-vals fields empty-list)) n)))
-          (Low stmts (Assoc (at vals 0) (refill fields (slice vals 1 (len vals)) empty-list)) n1)))
+          (Low stmts (Assoc (at vals 0) (refill fields (rest vals) empty-list)) n1)))
       ((MatchE _ _ _)
         (let ((tmp (Temp n))
               ((stmts n1) (lower-match e "value" tmp (+ n 1))))
@@ -134,7 +134,7 @@
     (let ((clause (at clauses 0))
           ((body n1) (lower-body (get clause body) mode tmp n)))
       (lower-cases
-        (slice clauses 1 (len clauses))
+        (rest clauses)
         mode
         tmp
         n1
@@ -163,7 +163,7 @@
   (if (= (len parts) 0)
     acc
     (holes
-      (slice parts 1 (len parts))
+      (rest parts)
       (match (at parts 0)
         ((FHole e) (+ acc (to-list e)))
         ((FText _) acc)))))
@@ -175,29 +175,29 @@
     acc
     (match (at parts 0)
       ((FHole _)
-        (fill-holes (slice parts 1 (len parts)) (slice vals 1 (len vals)) (+ acc (to-list (FHole (at vals 0))))))
-      ((FText text) (fill-holes (slice parts 1 (len parts)) vals (+ acc (to-list (FText text))))))))
+        (fill-holes (rest parts) (rest vals) (+ acc (to-list (FHole (at vals 0))))))
+      ((FText text) (fill-holes (rest parts) vals (+ acc (to-list (FText text))))))))
 
 (sig field-vals (Fn ((List (Tup String Expr)) (List Expr)) (List Expr)))
 (defn field-vals (fields acc)
   (if (= (len fields) 0)
     acc
     (let (((_ v) (at fields 0)))
-      (field-vals (slice fields 1 (len fields)) (+ acc (to-list v))))))
+      (field-vals (rest fields) (+ acc (to-list v))))))
 
 (sig refill (Fn ((List (Tup String Expr)) (List Expr) (List (Tup String Expr))) (List (Tup String Expr))))
 (defn refill (fields vals acc)
   (if (= (len fields) 0)
     acc
     (let (((f _) (at fields 0)))
-      (refill (slice fields 1 (len fields)) (slice vals 1 (len vals)) (+ acc (to-list (tup f (at vals 0))))))))
+      (refill (rest fields) (rest vals) (+ acc (to-list (tup f (at vals 0))))))))
 
 (sig value-call (Fn (Expr (List Expr) Int) Low))
 (defn value-call (callee args n)
   (if (in (prim-name callee) (tup "and" "or"))
     (value-boolop callee args n)
     (let (((stmts items n1) (value-seq (+ (to-list callee) args) n)))
-      (Low stmts (Call (at items 0) (slice items 1 (len items))) n1))))
+      (Low stmts (Call (at items 0) (rest items)) n1))))
 
 (sig prim-name (Fn (Expr) String))
 (defn prim-name (e)
@@ -212,7 +212,7 @@
 (defn value-boolop (op args n)
   (let (((lows n1) (low-all args n empty-list))
         (first (at lows 0))
-        (later (slice lows 1 (len lows))))
+        (later (rest lows)))
     (if (has-stmts later)
       (let ((tmp (Temp n1)))
         (Low
@@ -231,7 +231,7 @@
         (assign (+ (get low stmts) (to-list (SAssign tmp (get low expr))))))
     (if (= (len lows) 1)
       assign
-      (+ assign (to-list (guard op tmp (guarded op (slice lows 1 (len lows)) tmp)))))))
+      (+ assign (to-list (guard op tmp (guarded op (rest lows) tmp)))))))
 
 (sig guard (Fn (Expr Expr (List Stmt)) Stmt))
 (defn guard (op tmp body)
@@ -241,7 +241,7 @@
 (defn low-exprs (lows acc)
   (if (= (len lows) 0)
     acc
-    (low-exprs (slice lows 1 (len lows)) (+ acc (to-list (get (at lows 0) expr))))))
+    (low-exprs (rest lows) (+ acc (to-list (get (at lows 0) expr))))))
 
 ;; Each expression in value mode, keeping left-to-right order: an earlier value that isn't
 ;; simple goes in a Temp if a later one needs statements.
@@ -255,21 +255,21 @@
   (if (= (len exprs) 0)
     (tup acc n)
     (let ((low (value (at exprs 0) n)))
-      (low-all (slice exprs 1 (len exprs)) (get low n) (+ acc (to-list low))))))
+      (low-all (rest exprs) (get low n) (+ acc (to-list low))))))
 
 (sig has-stmts (Fn ((List Low)) Bool))
 (defn has-stmts (lows)
   (cond
     ((= (len lows) 0) false)
     ((> (len (get (at lows 0) stmts)) 0) true)
-    (else (has-stmts (slice lows 1 (len lows))))))
+    (else (has-stmts (rest lows)))))
 
 (sig seq-build (Fn ((List Low) Int (List Stmt) (List Expr)) (Tup (List Stmt) (List Expr) Int)))
 (defn seq-build (lows n stmts out)
   (if (= (len lows) 0)
     (tup stmts out n)
     (let ((low (at lows 0))
-          (later (slice lows 1 (len lows))))
+          (later (rest lows)))
       (if (and (has-stmts later) (not (is-simple (get low expr))))
         (seq-build
           later
@@ -392,7 +392,7 @@
   (if (= (len exprs) 0)
     (tup acc n)
     (let (((stmts n1) (effect (at exprs 0) n)))
-      (effect-all (slice exprs 1 (len exprs)) n1 (+ acc stmts)))))
+      (effect-all (rest exprs) n1 (+ acc stmts)))))
 
 ;; --- top level ---
 
@@ -458,7 +458,7 @@
     acc
     (let ((c (at cases 0)))
       (retail-cases
-        (slice cases 1 (len cases))
+        (rest cases)
         name
         params
         (+ acc (to-list (assoc c body (retail-all (get c body) name params))))))))
@@ -467,7 +467,7 @@
 (defn retail-lists (lists name params acc)
   (if (= (len lists) 0)
     acc
-    (retail-lists (slice lists 1 (len lists)) name params (+ acc (to-list (retail-all (at lists 0) name params))))))
+    (retail-lists (rest lists) name params (+ acc (to-list (retail-all (at lists 0) name params))))))
 
 (sig is-self-call (Fn (Expr String (List Expr)) Bool))
 (defn is-self-call (e name params)
@@ -498,11 +498,11 @@
   (cond
     ((= (len params) 0) (tup targets vals))
     ((= (at params 0) (at args 0))
-      (changed (slice params 1 (len params)) (slice args 1 (len args)) targets vals))
+      (changed (rest params) (rest args) targets vals))
     (else
       (changed
-        (slice params 1 (len params))
-        (slice args 1 (len args))
+        (rest params)
+        (rest args)
         (+ targets (to-list (at params 0)))
         (+ vals (to-list (at args 0)))))))
 
@@ -512,7 +512,7 @@
   (cond
     ((= (len stmts) 0) false)
     ((stmt-has-closure (at stmts 0)) true)
-    (else (stmts-have-closure (slice stmts 1 (len stmts))))))
+    (else (stmts-have-closure (rest stmts)))))
 
 (sig stmt-has-closure (Fn (Stmt) Bool))
 (defn stmt-has-closure (s)
@@ -535,21 +535,21 @@
   (cond
     ((= (len cases) 0) false)
     ((stmts-have-closure (get (at cases 0) body)) true)
-    (else (cases-have-closure (slice cases 1 (len cases))))))
+    (else (cases-have-closure (rest cases)))))
 
 (sig lists-have-closure (Fn ((List (List Stmt))) Bool))
 (defn lists-have-closure (lists)
   (cond
     ((= (len lists) 0) false)
     ((stmts-have-closure (at lists 0)) true)
-    (else (lists-have-closure (slice lists 1 (len lists))))))
+    (else (lists-have-closure (rest lists)))))
 
 (sig any-lambda (Fn ((List Expr)) Bool))
 (defn any-lambda (exprs)
   (cond
     ((= (len exprs) 0) false)
     ((has-lambda (at exprs 0)) true)
-    (else (any-lambda (slice exprs 1 (len exprs))))))
+    (else (any-lambda (rest exprs)))))
 
 (sig has-lambda (Fn (Expr) Bool))
 (defn has-lambda (e)
@@ -570,4 +570,4 @@
   (if (= (len tops) 0)
     acc
     (let (((stmts n1) (lower-top (at tops 0) n)))
-      (lower-program (slice tops 1 (len tops)) n1 (+ acc stmts)))))
+      (lower-program (rest tops) n1 (+ acc stmts)))))

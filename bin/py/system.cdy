@@ -53,6 +53,20 @@
 (sig filter (Fn ((Fn (a) Bool) (List a)) (List a)))
 (sig fold (Fn ((Fn (b a) b) b (List a)) b))
 (sig in (Fn (Any Any) Bool))
+;; The library's list operations (doc/hl_rqmt/library.md): built-ins, since a list is the
+;; host's. Like map and filter, they take the list last.
+(sig any (Fn ((Fn (a) Bool) (List a)) Bool))
+(sig all (Fn ((Fn (a) Bool) (List a)) Bool))
+(sig find (Fn ((Fn (a) Bool) (List a)) (Maybe a)))
+(sig reverse (Fn ((List a)) (List a)))
+(sig range (Fn (Int Int) (List Int)))
+(sig take (Fn (Int (List a)) (List a)))
+(sig drop (Fn (Int (List a)) (List a)))
+(sig concat (Fn ((List (List a))) (List a)))
+(sig zip (Fn ((List a) (List b)) (List (Tup a b))))
+(sig index-of (Fn (a (List a)) (Maybe Int)))
+(sig contains (Fn (a (List a)) Bool))
+(sig with-default (Fn (a (Maybe a)) a))
 
 ;; --- maps ---
 (sig empty-map (Map k v))
@@ -60,6 +74,7 @@
 (sig map-has (Fn ((Map k v) k) Bool))
 (sig map-set (Fn ((Map k v) k v) (Map k v)))
 (sig map-keys (Fn ((Map k v)) (List k)))
+(sig map-from (Fn ((List (Tup k v))) (Map k v)))
 
 ;; --- strings ---
 (sig is-empty-str (Fn (String) Bool))
@@ -67,6 +82,11 @@
 (sig to-float (Fn (String) Double))
 (sig is-decimal (Fn (String) Bool))
 (sig hex-char (Fn (String) String))
+(sig char-code (Fn (String) Int))
+(sig starts-with (Fn (String String) Bool))
+(sig ends-with (Fn (String String) Bool))
+(sig split (Fn (String String) (List String)))
+(sig repeat (Fn (String Int) String))
 (sig is-str (Fn (Any) Bool))
 (sig is-digit (Fn (String) Bool))
 (sig is-alpha (Fn (String) Bool))
@@ -78,12 +98,6 @@
 
 ;; --- the symbol table, for the translator (each built-in's Python text and kind) ---
 (sig initial-table (Map String (Tup String String)))
-
-;; --- writing Python, for the translator ---
-(sig get-indent (Fn (Int) String))
-(sig py-mangle (Fn (String) String))
-(sig py-repr (Fn (Any) String))
-(sig PY_IMPORTS (List String))
 
 ;; --- macros, for the translator (the macros are Python functions on Forms) ---
 (sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))

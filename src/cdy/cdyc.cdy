@@ -47,13 +47,13 @@
   (if (= (len ready) 0)
     acc
     (let ((r (at ready 0)))
-      (exports-by-key (slice ready 1 (len ready)) (map-set acc (get (get r module) key) (get r exports))))))
+      (exports-by-key (rest ready) (map-set acc (get (get r module) key) (get r exports))))))
 
 (sig exports-of (Fn ((List Ready) (List Exports)) (List Exports)))
 (defn exports-of (ready acc)
   (if (= (len ready) 0)
     acc
-    (exports-of (slice ready 1 (len ready)) (+ acc (to-list (get (at ready 0) exports))))))
+    (exports-of (rest ready) (+ acc (to-list (get (at ready 0) exports))))))
 
 ;; The definitions of all the modules, in order.
 (sig analyse-modules
@@ -74,7 +74,7 @@
               (fn (text) (expand-all (parse text) macros empty-list))
               macros
               false)))
-      (analyse-modules (slice ready 1 (len ready)) by-key elsewhere builtins parse (+ acc tops)))))
+      (analyse-modules (rest ready) by-key elsewhere builtins parse (+ acc tops)))))
 
 ;; The exports of each import, with where it is.
 (sig imported (Fn ((List Imp) (Map String Exports) (List (Tup Exports Pos))) (List (Tup Exports Pos))))
@@ -82,7 +82,7 @@
   (if (= (len imps) 0)
     acc
     (let ((imp (at imps 0)))
-      (imported (slice imps 1 (len imps)) by-key (+ acc (to-list (tup (map-get by-key (get imp key)) (get imp pos))))))))
+      (imported (rest imps) by-key (+ acc (to-list (tup (map-get by-key (get imp key)) (get imp pos))))))))
 
 ;; A macro program (expand.cdy) as Python. It is macro code, so it can quote.
 (sig compile-macros (Fn ((List Form)) String))

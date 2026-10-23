@@ -12,7 +12,6 @@ from cdy_rt.table_defs import (
     file_exists,
     file_put_lines,
     fresh_name,
-    get_indent,
     hex_char,
     in_,
     is_coll,
@@ -34,8 +33,6 @@ from cdy_rt.table_defs import (
     path_resolve,
     path_stem,
     put_err,
-    py_mangle,
-    py_repr,
     replace,
     run_main,
     slice_,
@@ -59,7 +56,6 @@ def test_strings() -> None:
     assert not is_neg_int("x-", 1)
     assert not is_neg_int("-", 0)
     assert replace("a-a", "a", "b") == "b-a"
-    assert get_indent(2) == " " * 8
     assert to_float("-1.5") == -1.5
     assert is_decimal("09") and not is_decimal("") and not is_decimal("\u00b2")
     assert hex_char("0041") == "A"
@@ -107,11 +103,7 @@ def test_maps() -> None:
     assert map_keys(map_set(m, "a", 3)) == ("a", "b")
 
 
-def test_py_render_and_fail() -> None:
-    assert py_mangle("set-x!") == "set_x_x"
-    assert py_mangle("list") == "list_"
-    assert py_repr("a'b") == '"a\'b"'
-    assert py_repr(2.0) == "2.0"
+def test_fail() -> None:
     with pytest.raises(CandyFail, match="boom"):
         fail("boom")
 

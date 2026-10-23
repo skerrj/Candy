@@ -17,16 +17,14 @@ Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
   one it used) and commented-out experiments.
 """
 
-import builtins
 import functools
 import itertools
-import keyword
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
-from cdy_rt.table import IMPORTS, SEARCH_PATH
+from cdy_rt.table import SEARCH_PATH
 
 # --- collections ---
 
@@ -97,12 +95,101 @@ def in_(item: object, coll: Sequence[object]) -> bool:
     return item in coll
 
 
+# The library's list operations (doc/hl_rqmt/library.md, "Built-in or prelude"): a list is
+# the host's tuple, so its operations are the host's.
+
+
+def list_any[A](pred: Callable[[A], bool], xs: Sequence[A]) -> bool:
+    """Whether ``pred`` is true of some item of ``xs``."""
+    return any(pred(x) for x in xs)
+
+
+def list_all[A](pred: Callable[[A], bool], xs: Sequence[A]) -> bool:
+    """Whether ``pred`` is true of every item of ``xs``."""
+    return all(pred(x) for x in xs)
+
+
+def list_find[A](pred: Callable[[A], bool], xs: Sequence[A]) -> A | None:
+    """The first item of ``xs`` that ``pred`` is true of, or ``None``."""
+    return next((x for x in xs if pred(x)), None)
+
+
+def list_reverse[A](xs: Sequence[A]) -> tuple[A, ...]:
+    """The items of ``xs``, last first."""
+    return tuple(reversed(xs))
+
+
+def list_range(start: int, end: int) -> tuple[int, ...]:
+    """The integers from ``start`` up to (not including) ``end``."""
+    return tuple(range(start, end))
+
+
+def list_take[A](n: int, xs: Sequence[A]) -> tuple[A, ...]:
+    """The first ``n`` items of ``xs`` (all of them if it has fewer)."""
+    return tuple(xs[: max(n, 0)])
+
+
+def list_drop[A](n: int, xs: Sequence[A]) -> tuple[A, ...]:
+    """``xs`` without its first ``n`` items."""
+    return tuple(xs[max(n, 0) :])
+
+
+def list_concat[A](xss: Sequence[Sequence[A]]) -> tuple[A, ...]:
+    """The lists in ``xss``, one after another."""
+    return tuple(itertools.chain.from_iterable(xss))
+
+
+def list_zip[A, B](xs: Sequence[A], ys: Sequence[B]) -> tuple[tuple[A, B], ...]:
+    """Pairs of the items of ``xs`` and ``ys`` at the same index, as many as the shorter."""
+    return tuple(zip(xs, ys, strict=False))
+
+
+def list_index_of[A](x: A, xs: Sequence[A]) -> int | None:
+    """The index of the first item of ``xs`` equal to ``x``, or ``None``."""
+    return next((i for i, y in enumerate(xs) if y == x), None)
+
+
+def list_contains[A](x: A, xs: Sequence[A]) -> bool:
+    """Whether ``xs`` has an item equal to ``x``."""
+    return x in xs
+
+
+def map_from[K, V](pairs: Sequence[tuple[K, V]]) -> Mapping[K, V]:
+    """A map of ``pairs`` (key, value); a later pair wins over an earlier one."""
+    return dict(pairs)
+
+
+def with_default[A](default: A, maybe: A | None) -> A:
+    """``maybe``, unless it is ``None``: then ``default``."""
+    return default if maybe is None else maybe
+
+
 # --- strings ---
 
 
 def is_str(expr: object) -> bool:
     """Whether ``expr`` is a string."""
     return isinstance(expr, str)
+
+
+def starts_with(text: str, prefix: str) -> bool:
+    """Whether ``text`` starts with ``prefix``."""
+    return text.startswith(prefix)
+
+
+def ends_with(text: str, suffix: str) -> bool:
+    """Whether ``text`` ends with ``suffix``."""
+    return text.endswith(suffix)
+
+
+def split(text: str, sep: str) -> tuple[str, ...]:
+    """The parts of ``text`` between occurrences of ``sep``, which must not be empty."""
+    return tuple(text.split(sep))
+
+
+def repeat(text: str, n: int) -> str:
+    """``text`` ``n`` times over (empty if ``n`` is not positive)."""
+    return text * max(n, 0)
 
 
 def is_empty_str(text: str) -> bool:
@@ -242,42 +329,6 @@ def path_resolve(path: str) -> str:
     return str(Path(path).resolve())
 
 
-# --- rendering Python source ---
-
-
-def get_indent(n: int) -> str:
-    """Indentation for nesting level ``n`` (four spaces per level)."""
-    return " " * 4 * n
-
-
-# Python names a Candy name must not take: keywords, built-ins and the modules the
-# generated code imports.
-PY_RESERVED = frozenset(
-    {*keyword.kwlist, *dir(builtins), *(module.split(".", maxsplit=1)[0] for module in IMPORTS)}
-)
-
-
-def py_mangle(name: str) -> str:
-    """A Candy name as a Python identifier: ``-`` to ``_``, ``?`` to ``_p``, ``!`` to ``_x``,
-    any other character to ``_uXXXX``; a reserved name or one starting ``_cdy_`` gets a ``_``.
-    """
-    special = {"-": "_", "?": "_p", "!": "_x"}
-    out = "".join(
-        ch
-        if (ch.isascii() and (ch.isalnum() or ch == "_"))
-        else special.get(ch, f"_u{ord(ch):04x}")
-        for ch in name
-    )
-    if out in PY_RESERVED or out.startswith("_cdy_"):
-        out += "_"
-    return out
-
-
-def py_repr(val: object) -> str:
-    """``val`` as a Python literal (``'a\\n'``, ``3.0``, ``True``)."""
-    return repr(val)
-
-
 # --- infra ---
 
 
@@ -345,8 +396,9 @@ def load_macros(
     exec(compile(python, "<macros>", "exec"), namespace)  # noqa: S102  # pylint: disable=exec-used
     # In a translator built with modules, form.cdy's names have its prefix (``form__Sym``),
     # which ``home``'s own Python name shows; a translator built before modules has none.
+    # ``keep``'s names are Python names (the translator mangles them).
     head, sep, _ = home.__name__.rpartition("__")
-    for name in map(py_mangle, keep):
+    for name in keep:
         namespace[name] = home_ns[head + sep + name]
     _FRESH[0] = itertools.count(1)
     return {name: val for name, val in namespace.items() if name.startswith("macro__")}

@@ -4,6 +4,7 @@ Random thoughts about Candy's design: not decided, not planned, not tech debt. A
 whenever it comes up; when one turns into real work, move it to a design doc
 (`doc/hl_rqmt/`) and leave a pointer here.
 
+- **vscode syntax extension**: `(defn line (level text) (+ (get-indent level) text "\n"))`: get-indent is the same color as args... should be similar to `+`
 - **rewrite parsec-v4 in Candy**: ref *publish parsec*
 - **type checker**: *lean4*?
   - fork and start rewriting with lean4? 
@@ -56,6 +57,13 @@ whenever it comes up; when one turns into real work, move it to a design doc
   so the arithmetic and comparison operators, `tup`, and `put`/`print` (typed `Any` now)
   get Candy types and move to `system.cdy` (`doc/leaks.md`, "Some of `special.cdy`'s
   entries are there for want of a type")
+  - Macros are variadic already (`(defmacro name args body)` binds `args` to all the
+    argument forms; `cond` is one), and untyped (host functions from forms to a form), so
+    they never hit the gap. So the operators could be variadic macros over two-argument
+    functions: `(+ a b c)` → `(add (add a b) c)`, with only `add` typed. That runs into
+    another gap: `+` works on `Int`, `Double` and `String`, and Candy has no overloading or
+    type classes, so `add` is `Any` or one function per type. It doesn't help `tup`, whose
+    type depends on how many arguments it gets, or `put`.
 - **`and` and `or` as macros?** Short-circuiting needn't make them operators: macros over
   `if` (as in Scheme, and like `cond`), or functions with lazy arguments (`doc/leaks.md`,
   "Some of `special.cdy`'s entries are there for want of a type")

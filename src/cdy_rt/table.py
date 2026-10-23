@@ -21,12 +21,11 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Literal, NamedTuple
 
-# Modules the generated code imports, by name. ``RUNTIME_MODULE`` holds the helper functions
-# (``table_defs.py``); ``TABLE_MODULE`` is this module, which the translator needs for
-# ``initial-table`` and ``PY_IMPORTS``.
+# Modules the generated code refers to, by name (emit.cdy's PY_IMPORTS lists the imports).
+# ``RUNTIME_MODULE`` holds the helper functions (``table_defs.py``); ``TABLE_MODULE`` is
+# this module, which the translator needs for ``initial-table``.
 RUNTIME_MODULE = "cdy_rt.table_defs"
 TABLE_MODULE = "cdy_rt.table"
-IMPORTS: tuple[str, ...] = ("math", "re", TABLE_MODULE, RUNTIME_MODULE)
 
 # Where ``slurp`` looks for a Candy file that isn't found at the given path.
 SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
@@ -136,6 +135,21 @@ COLLECTION: Table = {
     "map-has": runtime("map_has"),
     "map-set": runtime("map_set"),
     "map-keys": runtime("map_keys"),
+    "map-from": runtime("map_from"),
+    # The library (doc/hl_rqmt/library.md): a list is the host's tuple, so its operations
+    # are built-ins.
+    "any": runtime("list_any"),
+    "all": runtime("list_all"),
+    "find": runtime("list_find"),
+    "reverse": runtime("list_reverse"),
+    "range": runtime("list_range"),
+    "take": runtime("list_take"),
+    "drop": runtime("list_drop"),
+    "concat": runtime("list_concat"),
+    "zip": runtime("list_zip"),
+    "index-of": runtime("list_index_of"),
+    "contains": runtime("list_contains"),
+    "with-default": runtime("with_default"),
 }
 
 STRING: Table = {
@@ -144,6 +158,11 @@ STRING: Table = {
     "to-float": runtime("to_float"),
     "is-decimal": runtime("is_decimal"),
     "hex-char": runtime("hex_char"),
+    "starts-with": runtime("starts_with"),
+    "ends-with": runtime("ends_with"),
+    "split": runtime("split"),
+    "repeat": runtime("repeat"),
+    "char-code": call("ord"),
     "is-str": runtime("is_str"),
     "is-digit": runtime("is_digit"),
     "is-alpha": runtime("is_alpha"),
@@ -162,12 +181,6 @@ META_TABLE: Table = {
     "initial-table": value(f"{TABLE_MODULE}.INITIAL_TABLE"),
 }
 
-PY_RENDER: Table = {
-    "get-indent": runtime("get_indent"),
-    "py-mangle": runtime("py_mangle"),
-    "py-repr": runtime("py_repr"),
-}
-
 # Macros (doc/hl_rqmt/macros.md): the translator loads a translated macro program and calls
 # its macros; ``fresh-name`` is behind ``gensym`` (form.cdy).
 MACRO: Table = {
@@ -178,7 +191,6 @@ MACRO: Table = {
 }
 
 INFRA: Table = {
-    "PY_IMPORTS": value(f"{TABLE_MODULE}.IMPORTS"),
     "SYS_ARGS": value(f"{RUNTIME_MODULE}.get_args()"),
     "fail": runtime("fail"),
 }
@@ -192,7 +204,6 @@ INITIAL_TABLE: Table = MappingProxyType(
         **COLLECTION,
         **STRING,
         **META_TABLE,
-        **PY_RENDER,
         **MACRO,
         **INFRA,
     }

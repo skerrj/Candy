@@ -9,7 +9,7 @@
   (match form
     ((Sym name _) name)
     ((Lst items _) (format "({(join (show-all items empty-list) \" \")})"))
-    ((Txt val) (py-repr val))
+    ((Txt val) (format "\"{val}\""))
     ((IntLit val) (format "{val}"))
     ((LongLit val) (format "{val}l"))
     ((ByteLit val) (format "{val}b"))

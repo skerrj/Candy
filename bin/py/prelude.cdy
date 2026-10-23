@@ -2,9 +2,15 @@
 ;;; that every other file imports without saying so, kept next to the translator, like
 ;;; system.cdy. A file's own definitions win over the prelude's, as over any import.
 ;;;
-;;; `map`, `filter` and `fold` could be written here too, but are built-ins for speed
-;;; (system.cdy): Candy adds to a list by copying it, so they would take quadratic time.
+;;; The list, string and map operations are built-ins (system.cdy), since lists, strings
+;;; and maps are the host's (doc/hl_rqmt/library.md, "Built-in or prelude"); for lists it
+;;; is also speed, since Candy adds to a list by copying it. The prelude holds what is
+;;; built on top of them.
 
 ;; All of `xs` but the first item.
 (sig rest (Fn ((List a)) (List a)))
 (defn rest (xs) (slice xs 1 (len xs)))
+
+;; `m` with the value at `key` replaced by `f` of it; `key` must be in `m`.
+(sig map-update (Fn ((Map k v) k (Fn (v) v)) (Map k v)))
+(defn map-update (m key f) (map-set m key (f (map-get m key))))

@@ -1,10 +1,11 @@
 # Candy's library: system, translator and prelude (HLD)
 
-**Status: draft; three decisions in.** Drafted on branch `system-prelude`, as the follow-up to its MVP
-(`doc/hl_rqmt/system_prelude.md`). Proposed as its own branch after that one is merged.
-The questions at the end are open.
+**Status: accepted (2026-10-22), with the proposed answers to its questions; steps 1 to 6
+built (steps 2 and 3 deferred; step 1 in two), reviewed (2026-10-22): done.** Branch
+`library`, after tag `symbol-table`. Drafted on branch `system-prelude`, as the follow-up
+to its MVP (`doc/hl_rqmt/system_prelude.md`).
 
-## Where things stand
+## Where things stood (before this branch)
 
 After `system-prelude` there are three library files next to the translator, besides
 `form.cdy`:
@@ -113,7 +114,8 @@ one is rewritten. One line per type is simpler:
   `drop`, `concat`, `zip`, `index-of`, `contains`), and the string and map operations
   (`split`, `starts-with`, `join`, `map-from`, ...); each is a line in `table.py` and a
   `sig`, since Python has them;
-- **prelude:** what is built on top of them, such as `with-default` and `map-update`, and
+- **prelude:** what is built on top of them, such as `with-default` (a built-in as built:
+  step 4) and `map-update`, and
   later the library's own helpers;
 - **cost:** every target's runtime provides these operations, about 15 for lists rather
   than 5; every likely target has them natively;
@@ -142,7 +144,8 @@ until a declaration file can be imported (question 3).
 
 Candidates, from what the translator and the test programs write by hand. By the revised
 rule above, the list, string and map operations among them are built-ins; only what is
-built on them (`with-default`, `map-update`) is prelude:
+built on them (`with-default`, `map-update`) is prelude (`with-default` is a built-in as
+built: step 4):
 - **lists:** `rest`, `any`, `all`, `find` (the first match, as a
   `Maybe`), `reverse`, `range`, `take`, `drop`, `concat` (a list of lists), `zip`,
   `index-of`, `contains`;
@@ -171,18 +174,85 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 
 1. **The translator's helpers into Candy:** `py-mangle`, `get-indent`, `PY_IMPORTS` and
    `py-repr` become Candy in `emit.cdy`. (The unused built-ins, the table lookups and
-   `initial-table`'s type were done on `symbol-table`: `doc/hl_rqmt/symbol_table.md`.) Tests that
-   a program can't see `py-mangle`, and that the fixpoint holds (the output shouldn't
-   change).
-2. **Private names** (if decided).
-3. **Tree shaking** of the prelude (and maybe of every module).
-4. **The fuller prelude**, with a test program per group.
+   `initial-table`'s type were done on `symbol-table`: `doc/hl_rqmt/symbol_table.md`.)
+   In two steps, for the bootstrap (the `bin` before calls the built-ins, from the live
+   runtime):
+   - **1a.** The Candy versions, and the translator uses them. `py-mangle` needs a
+     character's code, for `_uXXXX`: a new primitive, `char-code`. The runtime's
+     `load_macros` mangles `form.cdy`'s names too, so `expand.cdy` passes them already
+     mangled (mangling a mangled name changes nothing, so the old `bin` still works).
+
+     *Done. As built:* `emit.cdy` defines `get-indent`, `PY_IMPORTS`, `PY_RESERVED` (Python
+     3.14's keywords and built-ins, and the imported modules), `py-mangle` (with `hex`) and
+     `py-str` (repr's quoting and escapes; numbers and `Bool`s are `(format "{v}")`), under
+     the built-ins' names where there is one, so they shadow them now and nothing needs
+     renaming when the built-ins go. `char-code` is a new primitive (Python's `ord`).
+     `expand.cdy` imports `emit` for `py-mangle`, and gives `load-macros` `form.cdy`'s
+     names mangled. The new `bin` has every literal the old one had (`py-str` matches repr
+     on the whole translator), reordered (expand now imports emit). Tests: `py-mangle`
+     cases, `py-str` against `repr`, `PY_RESERVED` against this Python, `PY_IMPORTS`
+     against `table.py`'s spellings (251 tests). Tech debt: `py-str` leaves non-printable
+     non-ASCII characters as they are; `PY_RESERVED` is written out for Python 3.14.
+     Bootstrap: `system.cdy` copied into `bin/py/` before the rebuild (for `char-code`).
+   - **1b.** The four built-ins go, from `table.py`, `table_defs.py` and `system.cdy`, and
+     `load_macros` takes the names as they are. Tests that a program can't see
+     `py-mangle`, and that the fixpoint holds.
+
+     *Done. As built:* `table.py` loses `PY_RENDER` (`get-indent`, `py-mangle`, `py-repr`),
+     the `PY_IMPORTS` entry and its `IMPORTS`; `table_defs.py` loses `get_indent`,
+     `PY_RESERVED`, `py_mangle` and `py_repr` (and its `builtins` and `keyword` imports),
+     and `load_macros` takes `keep`'s names as they are; `system.cdy` loses the four sigs
+     (copied into `bin/py/` before the rebuild). The test program
+     `tst/cdy/cdyc/macro_code/quoting.cdy` used `py-repr` to show a string form; it writes
+     it in Candy's double quotes now (its `.out` follows). Tests:
+     `test_programs_cant_see_the_python_helpers` (255 tests). Bootstrap: no staging (the
+     `bin` of step 1a calls none of them).
+2. ~~**Private names** (if decided).~~ *Deferred:* not in this branch (question 8).
+3. ~~**Tree shaking** of the prelude (and maybe of every module).~~ *Deferred:* later
+   (question 7); the prelude stays small.
+4. **The fuller library**, with a test program per group (the plan said "prelude"; by the
+   revised "Built-in or prelude" most of it is built-ins).
+
+   *Done. As built:*
+   - **built-ins** (`system.cdy`, `table.py`, `table_defs.py`): for lists `any`, `all`,
+     `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of` and
+     `contains`; for strings `starts-with`, `ends-with`, `split` and `repeat`; for maps
+     `map-from`; and `with-default`, for `Maybe`;
+   - **the prelude:** `map-update`, beside `rest` (which stays there: a list operation,
+     but one `slice`, and moving it gains nothing);
+   - **choices the plan left open** (*lasting* unless marked): a list operation takes the
+     list last, as `map` and `filter` do (`(take 2 xs)`, `(contains x xs)`,
+     `(index-of x xs)`); strings and maps come first, as in `map-set`
+     (`(starts-with s "can")`, `(map-update m k f)`); `with-default` takes the default
+     first, as Elm's `withDefault`; `find` and `index-of` return a `Maybe`, not `-1` (its
+     leak: `doc/leaks.md`, "`Maybe` is `None`-or-a-value"); `take` and `drop` of a
+     negative count are `take` and `drop` of 0; `split`'s separator must not be empty;
+     `with-default` is a built-in, not prelude Candy, since `(= m nil)` doesn't narrow a
+     `Maybe` for mypy (*for now*: `doc/leaks.md`, "`with-default` is a built-in");
+   - **tests:** `tst/cdy/lists.cdy`, `strings.cdy` and `maps.cdy` (264 tests); a leak for
+     `find` on a list of `Maybe`s (`doc/leaks.md`).
+
+   Bootstrap: `system.cdy` copied into `bin/py/` before the rebuild (the new built-ins).
 5. **The translator on the prelude** (optional; its own step).
+
+   *Done. As built:* only the mechanical cleanup (question 6): in the translator's modules
+   (`cdyc`, `core`, `expand`, `include`, `lower`, `emit`), 92 `(slice xs 1 (len xs))` and
+   51 `(rest-of xs)` became `(rest xs)`, and `core.cdy`'s `rest-of-pairs` went (it was one
+   such `slice`). Fourteen of `core.cdy`'s special-form functions (`analyse-special`,
+   `an-if`, ...) named their parameter `rest`, which hid the prelude's `rest` in their
+   bodies; it is `args` now. `form.cdy` and macro code keep `rest-of`, since macro code
+   doesn't get the prelude: that entry moved from `doc/tech_debt.md` to `doc/leaks.md`, as
+   a design gap. The loops that thread an accumulator stay (question 6). Tests: unchanged
+   (264). Bootstrap: no staging (`rest` was already in `bin`'s prelude).
 6. **Docs.**
 
-## Questions (open)
+   *Done. As built:* CLAUDE.md ("The library", current work), `candy-special.md` (the
+   prelude), `bootstrap.md` (the Python version no longer changes the output from
+   `boot/25` on), and the leak "The translator's built-ins are every program's"
+   (`doc/archive/leaks_system_prelude.md`), now down to the five host built-ins. After
+   review, `emit.cdy`'s `get-indent` (smz's name) became `indent`.
 
-Each has a proposed answer, for review.
+## Questions (answered: the proposals, accepted; confirmed in review, 2026-10-22)
 
 Decided so far: anything that can be written in Candy goes in the prelude, except a host
 type's operations, which are all built-in ("Built-in or prelude", revised); a program sees the primitives and the prelude now, and only the prelude later
@@ -225,7 +295,8 @@ imports find library modules, their names (`std/list`?), and what the prelude ke
    *Proposed:* later; with the revised rule the prelude stays small, so the whole
    prelude in every output is cheap *for now* (`doc/tech_debt.md`).
 8. **Private names:** how, and whether this branch needs them?
-   *Proposed:* not in this branch: a small prelude needs no helpers.
+   *Proposed:* not in this branch: a small prelude needs no helpers. *For now:*
+   `doc/hl_rqmt/modules.md`, "After the MVP" (export lists or private names).
 9. **Where `form.cdy` and `prelude_macros.cdy` fit:** `form.cdy` is the macro layer's
    library, used on the host only (with `fresh-name`). Is it part of the translator, or
    its own layer (macro code's library)?

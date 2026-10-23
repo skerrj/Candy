@@ -18,6 +18,8 @@ that same T2: after changing the Candy translator, rebuild it with
 nor ``py_cdy`` importable.
 """
 
+import builtins
+import keyword
 import re
 import shutil
 import subprocess
@@ -29,6 +31,7 @@ from typing import Any, cast
 import pytest
 from mypy import api as mypy_api
 
+from cdy_rt.table import INITIAL_TABLE
 from cdy_rt.table_defs import CandyFail
 from self_host import (
     BIN_PATH,
@@ -488,6 +491,56 @@ def test_own_definitions_win_over_the_prelude(t1: ModuleType, tmp_path: Path) ->
         t1, "(sig rest Int)\n(def rest 7)\n(sig map Int)\n(def map 8)\n(put rest map)"
     )
     assert run(source, tmp_path, "own").stdout == "7 8\n"
+
+
+# --- the Python spellings, in Candy (emit.cdy; doc/hl_rqmt/library.md) ---
+
+
+@pytest.mark.parametrize(
+    ("name", "py"),
+    (
+        ("set-x!", "set_x_x"),
+        ("empty?", "empty_p"),
+        ("list", "list_"),
+        ("_cdy_x", "_cdy_x_"),
+        ("aéb", "a_u00e9b"),
+        ("x😀", "x_u1f600"),
+        ("def", "def_"),
+        ("math", "math_"),
+        ("ok_1", "ok_1"),
+    ),
+)
+def test_py_mangle(t1: ModuleType, name: str, py: str) -> None:
+    assert t1.emit__py_mangle(name) == py
+
+
+def test_py_reserved_is_this_python(t1: ModuleType) -> None:
+    live = {*keyword.kwlist, *dir(builtins)}
+    assert set(t1.emit__PY_RESERVED) == live | {"math", "re", "cdy_rt"}, (
+        "emit.cdy's PY_RESERVED is Python 3.14's; update it for this Python"
+    )
+
+
+def test_py_imports_cover_the_spellings(t1: ModuleType) -> None:
+    modules = set(t1.emit__PY_IMPORTS)
+    for entry in INITIAL_TABLE.values():
+        head = entry.py.split("(", 1)[0]
+        if "." in head:
+            assert head.rsplit(".", 1)[0] in modules, entry.py
+
+
+@pytest.mark.parametrize(
+    "text",
+    ("", "a", "a'b", 'a"b', "a'\"b", "back\\slash", "\n\r\t", "\x00\x1f\x7f\x9f\xa0", "\u00e9"),
+)
+def test_py_str_is_repr(t1: ModuleType, text: str) -> None:
+    assert t1.emit__py_str(text) == repr(text)
+
+
+@pytest.mark.parametrize("name", ("py-mangle", "py-repr", "get-indent", "PY_IMPORTS"))
+def test_programs_cant_see_the_python_helpers(t1: ModuleType, name: str) -> None:
+    with pytest.raises(CandyFail, match=f"unknown name {name}"):
+        translate_with(t1, f"(put {name})")
 
 
 def test_list_functions_are_built_in(t1: ModuleType) -> None:

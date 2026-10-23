@@ -146,7 +146,10 @@ So the script, for each step C:
   - **the Python version:** `py-mangle` avoids the names in `dir(builtins)`, so a new
     built-in in a later Python changes mangling, and the output. each `boot/NN` tag records
     the Python version each step was built with (3.14 today), and the script warns on a
-    mismatch;
+    mismatch. (From `library`, step 1, `boot/25` on, the names are written out in
+    `emit.cdy`, so the output no longer depends on the Python running it;
+    `test_py_reserved_is_this_python` says when they need updating. The older steps still
+    do);
   - **mypy's version:** it only checks, so it changes pass or fail, not the output;
   - **parsec v4:** only the `self-host-py` step uses it. (Planned as a pinned commit of
     a `functional-rewrite` branch upstream; there is none, see step 4.)

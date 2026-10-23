@@ -1,0 +1,16 @@
+;;; The library's list operations (doc/hl_rqmt/library.md, step 4): built-ins.
+(sig nums (List Int))
+(def nums (range 1 6))
+
+(put nums (range 3 3))
+(put (any (fn (n) (> n 4)) nums) (any (fn (n) (> n 5)) nums) (any (fn (n) true) empty-list))
+(put (all (fn (n) (> n 0)) nums) (all (fn (n) (> n 1)) nums) (all (fn (n) false) empty-list))
+(put (find (fn (n) (> n 2)) nums) (find (fn (n) (> n 9)) nums))
+(put (reverse nums) (reverse empty-list))
+(put (take 2 nums) (take 9 nums) (take -1 nums))
+(put (drop 2 nums) (drop 9 nums))
+(put (concat (tup (tup 1 2) empty-list (tup 3))))
+(put (zip nums (tup "a" "b" "c")))
+(put (index-of 3 nums) (index-of 9 nums))
+(put (contains 3 nums) (contains 9 nums))
+(put (with-default 0 (find (fn (n) (> n 9)) nums)) (with-default 0 (index-of 4 nums)))
