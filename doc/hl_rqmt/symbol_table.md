@@ -1,7 +1,7 @@
 # The symbol table (HLD)
 
 **Status: accepted (2026-10-21), with the proposed answers to its questions; steps 1 to 6
-built (the plan's step 4 split in two), in review.** Branch `symbol-table`, after tag `bootstrap` and before the library branch.
+built (the plan's step 4 split in two), reviewed (2026-10-22): done.** Branch `symbol-table`, after tag `bootstrap` and before the library branch.
 Written on `master`, broken out of the library HLD (`doc/hl_rqmt/library.md`, question 1)
 and `doc/hl_rqmt/multi_target.md`: how the translator finds out what a name means today,
 what has been decided, and the way forward.
@@ -251,7 +251,9 @@ Each of steps 1 to 5 changes `bin`, so each is a chain step (`boot/NN`). The haz
    `src/cdy/candy-special.md`'s informal list.
    *Proposed:* a file of their own, `special.cdy` next to `system.cdy`, with a form that
    can say a special form's or operator's shape; *lasting* (the language's forms are a
-   front-end fact, apart from any target's built-ins).
+   front-end fact, apart from any target's built-ins). *Lasting* for the file and the
+   special forms; the arithmetic and comparison operators, and `tup`, are there *for now*,
+   for want of variadic types (`doc/leaks.md`).
 2. **The Python spellings:** stay in `table.py` (read through `initial-table`), or become
    a Candy file too (`py/spelling.cdy`), with `table.py` generated from it or dropped?
    *Proposed:* stay in `table.py` *for now*, read through `initial-table` (way forward,

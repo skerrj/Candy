@@ -6,6 +6,7 @@ whenever it comes up; when one turns into real work, move it to a design doc
 
 - **rewrite parsec-v4 in Candy**: ref *publish parsec*
 - **type checker**: *lean4*?
+  - fork and start rewriting with lean4? 
 - **rust host**: *pulled from dump*
 - **Curried function types.** Should `(Fn (Int Int) Int)` mean the same as
   `(Fn (Int) (Fn (Int) Int))`, as in ML and Haskell? And should Candy support partial
@@ -51,3 +52,10 @@ whenever it comes up; when one turns into real work, move it to a design doc
   recursion limit (to 20,000) go once T1 no longer recurses so deeply? See
   `doc/hl_rqmt/mutation_optimization.md` ("Tail calls"), the leak "Only self tail calls
   are loops" (`doc/archive/leaks_imvp_py_translator.md`) and `doc/tech_debt.md`.
+- **Variadic types (to revisit):** a `Fn` type for two or more arguments (or any number),
+  so the arithmetic and comparison operators, `tup`, and `put`/`print` (typed `Any` now)
+  get Candy types and move to `system.cdy` (`doc/leaks.md`, "Some of `special.cdy`'s
+  entries are there for want of a type")
+- **`and` and `or` as macros?** Short-circuiting needn't make them operators: macros over
+  `if` (as in Scheme, and like `cond`), or functions with lazy arguments (`doc/leaks.md`,
+  "Some of `special.cdy`'s entries are there for want of a type")
