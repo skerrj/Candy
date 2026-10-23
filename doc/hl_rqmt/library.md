@@ -204,9 +204,30 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
      it in Candy's double quotes now (its `.out` follows). Tests:
      `test_programs_cant_see_the_python_helpers` (255 tests). Bootstrap: no staging (the
      `bin` of step 1a calls none of them).
-2. **Private names** (if decided).
-3. **Tree shaking** of the prelude (and maybe of every module).
-4. **The fuller prelude**, with a test program per group.
+2. ~~**Private names** (if decided).~~ *Deferred:* not in this branch (question 8).
+3. ~~**Tree shaking** of the prelude (and maybe of every module).~~ *Deferred:* later
+   (question 7); the prelude stays small.
+4. **The fuller library**, with a test program per group (the plan said "prelude"; by the
+   revised "Built-in or prelude" most of it is built-ins).
+
+   *Done. As built:*
+   - **built-ins** (`system.cdy`, `table.py`, `table_defs.py`): for lists `any`, `all`,
+     `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of` and
+     `contains`; for strings `starts-with`, `ends-with`, `split` and `repeat`; for maps
+     `map-from`; and `with-default`, for `Maybe`;
+   - **the prelude:** `map-update`, beside `rest` (which stays there: a list operation,
+     but one `slice`, and moving it gains nothing);
+   - **choices the plan left open:** a list operation takes the list last, as `map` and
+     `filter` do (`(take 2 xs)`, `(contains x xs)`, `(index-of x xs)`); strings and maps
+     come first, as in `map-set` (`(starts-with s "can")`, `(map-update m k f)`);
+     `with-default` takes the default first, as Elm's `withDefault`; `find` and
+     `index-of` return a `Maybe`, not `-1`; `with-default` is a built-in, not prelude
+     Candy, since `(= m nil)` doesn't narrow a `Maybe` for mypy; `take` and `drop` of a
+     negative count are `take` and `drop` of 0; `split`'s separator must not be empty;
+   - **tests:** `tst/cdy/lists.cdy`, `strings.cdy` and `maps.cdy` (264 tests); a leak for
+     `find` on a list of `Maybe`s (`doc/leaks.md`).
+
+   Bootstrap: `system.cdy` copied into `bin/py/` before the rebuild (the new built-ins).
 5. **The translator on the prelude** (optional; its own step).
 6. **Docs.**
 

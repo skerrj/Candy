@@ -23,4 +23,9 @@ Those entries stay in effect until they are fixed. When one is fixed, mark it th
 it through and say where it was fixed) rather than copying it here. This file is for leaks
 added from branch `library` on.
 
-*None yet.*
+- **`Maybe` is `None`-or-a-value, so `(Maybe (Maybe a))` collapses** (from `library`, step
+  4): `find` and `index-of` return `None` for "not found", which is also what a list of
+  `Maybe`s holds for "nothing", so `(find f xs)` on such a list can't tell the two apart,
+  and `with-default` takes either as missing. Python's `Optional` is the leak. Fix: a
+  real `Maybe` sum (`(deft (Maybe a) (Nothing) (Just ((val a))))`), when Candy's types
+  are its own.

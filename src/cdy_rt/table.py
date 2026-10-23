@@ -135,6 +135,21 @@ COLLECTION: Table = {
     "map-has": runtime("map_has"),
     "map-set": runtime("map_set"),
     "map-keys": runtime("map_keys"),
+    "map-from": runtime("map_from"),
+    # The library (doc/hl_rqmt/library.md): a list is the host's tuple, so its operations
+    # are built-ins.
+    "any": runtime("list_any"),
+    "all": runtime("list_all"),
+    "find": runtime("list_find"),
+    "reverse": runtime("list_reverse"),
+    "range": runtime("list_range"),
+    "take": runtime("list_take"),
+    "drop": runtime("list_drop"),
+    "concat": runtime("list_concat"),
+    "zip": runtime("list_zip"),
+    "index-of": runtime("list_index_of"),
+    "contains": runtime("list_contains"),
+    "with-default": runtime("with_default"),
 }
 
 STRING: Table = {
@@ -143,6 +158,10 @@ STRING: Table = {
     "to-float": runtime("to_float"),
     "is-decimal": runtime("is_decimal"),
     "hex-char": runtime("hex_char"),
+    "starts-with": runtime("starts_with"),
+    "ends-with": runtime("ends_with"),
+    "split": runtime("split"),
+    "repeat": runtime("repeat"),
     "char-code": call("ord"),
     "is-str": runtime("is_str"),
     "is-digit": runtime("is_digit"),

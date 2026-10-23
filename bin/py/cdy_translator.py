@@ -11,6 +11,9 @@ import cdy_rt.table_defs
 def prelude__rest[a](xs: tuple[a, ...]) -> tuple[a, ...]:
     return xs[1:len(xs)]
 
+def prelude__map_update[k, v](m: _cdy_Mapping[k, v], key: k, f: _cdy_Callable[[v], v]) -> _cdy_Mapping[k, v]:
+    return cdy_rt.table_defs.map_set(m, key, f(cdy_rt.table_defs.map_get(m, key)))
+
 class form__Pos(_cdy_NamedTuple):
     file: str
     line: int

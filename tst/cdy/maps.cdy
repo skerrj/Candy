@@ -1,0 +1,7 @@
+;;; The library's map operations (doc/hl_rqmt/library.md, step 4): map-from is a built-in,
+;;; map-update is the prelude's.
+(sig ages (Map String Int))
+(def ages (map-from (tup (tup "ann" 30) (tup "bo" 4) (tup "ann" 31))))
+
+(put (map-keys ages) (map-get ages "ann"))
+(put (map-get (map-update ages "bo" (fn (n) (+ n 1))) "bo") (map-get ages "bo"))

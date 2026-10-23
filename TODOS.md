@@ -23,3 +23,4 @@ Done and earlier items are in `doc/archive/TODOS_symbol_table.md`,
 
 - [ ] Review step 1a as built (`doc/hl_rqmt/library.md`, its "Done" note; step 1 split in two).
 - [ ] Review step 1b as built (`doc/hl_rqmt/library.md`, its "Done" note; `quoting.cdy` changed).
+- [ ] Review step 4 as built (`doc/hl_rqmt/library.md`, its "Done" note: the names, argument orders, and `Maybe` results; steps 2 and 3 deferred).
