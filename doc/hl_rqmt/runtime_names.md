@@ -78,7 +78,10 @@ into `bin/py/` before the rebuild).
    `system.cdy` copied into `bin/py/`, `bin` rebuilt, `boot/31`; reinstall.
 
    *Done. As built:* as the table says. `table.py` and `table_defs.py` were moved
-   (`git mv`, so their history follows) to `spelling.py` and `primitives.py`, which keeps
+   (`git mv`) to `spelling.py` and `primitives.py`. `git log --follow` finds
+   `primitives.py`'s history but not `spelling.py`'s, since the commit also re-created a
+   very different `table.py`: that history is `git log -- src/cdy_rt/table.py` (or
+   `git blame -C -C`). `primitives.py` keeps
    `SEARCH_PATH` now, so neither imports the other; the new `table.py` is one line,
    `SPELLINGS` as `INITIAL_TABLE` (all the old `bin` takes from it), and `table_defs.py` a
    star re-export of `primitives.py`. In Candy: `py-spellings` (`system.cdy`, `cdyc.cdy`,
@@ -91,6 +94,10 @@ into `bin/py/` before the rebuild).
    into `bin/py/` before the rebuild, no staging; the runtime reinstalled.
 2. **Remove** `table.py` and `table_defs.py`; reinstall. `pytest -m bootstrap` checks the
    older steps still build on their own runtimes.
+
+   *Done. As built:* both removed (`git rm`) and the runtime reinstalled; nothing in `src`,
+   `tst`, `script` or `bin` names them. `bin` is unchanged, so this is no chain step, as
+   planned. Tests: 264, unchanged; `pytest -m bootstrap` passes (`boot/00` to `boot/31`).
 3. **Docs:** CLAUDE.md, `bin/README.md`, `src/cdy_rt/__init__.py`, the
    comments in `special.cdy`, `system.cdy` and `emit.cdy`, `doc/hl_rqmt/multi_target.md`
    and the iMVP doc (question 3); the tech-debt entry goes.

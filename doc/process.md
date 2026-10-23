@@ -53,6 +53,10 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
   `git cat-file -t refs/tags/X` must say `tag` (a lightweight one says `commit`). A
   lightweight tag already pushed can only be replaced by a force-push of the tag, which
   the owner does. (The `library` tag went out lightweight.)
+- **A tag's message is one line,** and `git tag -n1` shows only its first: when pasting a
+  tag command, check the terminal didn't wrap the `-m` text. The `library` tag's message
+  has a line break after "operations as", from a wrapped paste in its re-tagging (left
+  as it is: `git tag -l --format='%(contents)' library` shows all of it).
 - **Commit messages** start with what was done ("X step N: ..."), then a body on why and
   what it touches, and end with the attribution trailers Claude Code adds.
 - **Bootstrap tags** (`doc/hl_rqmt/bootstrap.md`, "Tags and history"): a commit that
