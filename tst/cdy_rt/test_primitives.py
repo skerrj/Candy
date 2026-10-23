@@ -1,10 +1,10 @@
-"""Tests for the runtime helpers in ``cdy_rt.table_defs``."""
+"""Tests for the primitives in ``cdy_rt.primitives``."""
 
 from pathlib import Path
 
 import pytest
 
-from cdy_rt.table_defs import (
+from cdy_rt.primitives import (
     CandyFail,
     at,
     call_macro,

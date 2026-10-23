@@ -98,7 +98,7 @@
 (sig python-of (Fn ((List Top)) String))
 (defn python-of (tops)
   (let ((stmts (lower-program tops 0 empty-list))
-        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) initial-table)))
+        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) py-spellings)))
         (env (bind-locals (bound-locals stmts empty-list) globals)))
     (+ HEADER
        (emit-imports PY_IMPORTS "")

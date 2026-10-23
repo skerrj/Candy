@@ -849,22 +849,22 @@
   (and (map-has builtins name) (match (map-get builtins name) ((Special) true) (else false))))
 
 ;; The built-ins, from the forms of special.cdy (`decls`: special forms and operators) and of
-;; system.cdy (`sigs`: each a bodiless (sig name Type)). They are checked against `table`,
+;; system.cdy (`sigs`: each a bodiless (sig name Type)). They are checked against `spellings`,
 ;; the target's spellings, both ways: each needs an entry of its kind there, and every
 ;; entry needs a declaration.
 (sig read-builtins (Fn ((List Form) (List Form) (Map String (Tup String String))) (Map String Builtin)))
-(defn read-builtins (decls sigs table)
-  (let ((builtins (read-sigs sigs table (read-decls decls table empty-map)))
-        (checked (all-declared (map-keys table) builtins)))
+(defn read-builtins (decls sigs spellings)
+  (let ((builtins (read-sigs sigs spellings (read-decls decls spellings empty-map)))
+        (checked (all-declared (map-keys spellings) builtins)))
     builtins))
 
-;; The kind of the built-in `name`'s entry in `table`, the target's spellings (table.py:
+;; The kind of the built-in `name`'s entry in `spellings`, the target's (spelling.py:
 ;; each built-in's Python text and kind), or "" if it has none.
 (sig spelling-kind (Fn ((Map String (Tup String String)) String) String))
-(defn spelling-kind (table name) (if (map-has table name) (at (map-get table name) 1) ""))
+(defn spelling-kind (spellings name) (if (map-has spellings name) (at (map-get spellings name) 1) ""))
 
-;; The table kinds of each built-in class: an entry's kind must be one of its class's. A
-;; special form has no entry (""): only the target's spellings are in table.py.
+;; The spelling kinds of each built-in class: an entry's kind must be one of its class's. A
+;; special form has no entry (""): only the target's spellings are in spelling.py.
 (sig SPECIAL_KINDS (List String))
 (def SPECIAL_KINDS (tup ""))
 (sig VARIADIC_KINDS (List String))
@@ -875,7 +875,7 @@
 (def TYPED_KINDS (tup "call" "value" "index" "slice"))
 
 (sig read-decls (Fn ((List Form) (Map String (Tup String String)) (Map String Builtin)) (Map String Builtin)))
-(defn read-decls (forms table acc)
+(defn read-decls (forms spellings acc)
   (if (= (len forms) 0)
     acc
     (let ((form (at forms 0))
@@ -896,12 +896,12 @@
         ((= class "")
           (fail (+ where "special.cdy: expected (special name), (op name variadic) or (op name unary)")))
         ((map-has acc name) (fail (format "{where}special.cdy: {name} is declared more than once")))
-        ((not (in (spelling-kind table name) (kinds-of class)))
+        ((not (in (spelling-kind spellings name) (kinds-of class)))
           (fail
             (if (= class "special")
-              (format "{where}special.cdy: {name} is a special form, so table.py can't spell it")
-              (format "{where}special.cdy: {name} has no {class} entry in table.py"))))
-        (else (read-decls (rest forms) table (map-set acc name (at decl 1))))))))
+              (format "{where}special.cdy: {name} is a special form, so spelling.py can't spell it")
+              (format "{where}special.cdy: {name} has no {class} entry in spelling.py"))))
+        (else (read-decls (rest forms) spellings (map-set acc name (at decl 1))))))))
 
 (sig kinds-of (Fn (String) (List String)))
 (defn kinds-of (class)
@@ -912,7 +912,7 @@
     (else TYPED_KINDS)))
 
 (sig read-sigs (Fn ((List Form) (Map String (Tup String String)) (Map String Builtin)) (Map String Builtin)))
-(defn read-sigs (forms table acc)
+(defn read-sigs (forms spellings acc)
   (if (= (len forms) 0)
     acc
     (let ((form (at forms 0))
@@ -922,17 +922,17 @@
       (cond
         ((= name "") (fail (+ where "system.cdy: expected (sig name Type)")))
         ((map-has acc name) (fail (format "{where}system.cdy: {name} is already declared")))
-        ((not (in (spelling-kind table name) TYPED_KINDS))
-          (fail (format "{where}system.cdy: {name} has no Python mapping in table.py")))
-        (else (read-sigs (rest forms) table (map-set acc name (Typed (analyse-type (at items 2))))))))))
+        ((not (in (spelling-kind spellings name) TYPED_KINDS))
+          (fail (format "{where}system.cdy: {name} has no Python mapping in spelling.py")))
+        (else (read-sigs (rest forms) spellings (map-set acc name (Typed (analyse-type (at items 2))))))))))
 
-;; Fail unless every one of `names`, the table's entries, is a declared built-in.
+;; Fail unless every one of `names`, the spellings' entries, is a declared built-in.
 (sig all-declared (Fn ((List String) (Map String Builtin)) Bool))
 (defn all-declared (names builtins)
   (cond
     ((= (len names) 0) true)
     ((not (map-has builtins (at names 0)))
-      (fail (format "table.py: {(at names 0)} is declared in neither special.cdy nor system.cdy")))
+      (fail (format "spelling.py: {(at names 0)} is declared in neither special.cdy nor system.cdy")))
     (else (all-declared (rest names) builtins))))
 
 ;; --- modules (doc/hl_rqmt/modules.md) ---

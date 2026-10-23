@@ -1,5 +1,5 @@
 ;;; System: the built-ins, declared (doc/hl_rqmt/system_prelude.md). Each bodiless sig
-;;; gives a built-in its Candy type; the target's runtime provides it, and src/cdy_rt/table.py
+;;; gives a built-in its Candy type; the target's runtime provides it, and src/cdy_rt/spelling.py
 ;;; says how Python spells it. The translator checks the two against each other, and a
 ;;; built-in's arity is its type's. Only here may a sig have no definition.
 ;;;
@@ -96,8 +96,8 @@
 (sig isspace-at (Fn (String Int) Bool))
 (sig isspace (Fn (String) Bool))
 
-;; --- the symbol table, for the translator (each built-in's Python text and kind) ---
-(sig initial-table (Map String (Tup String String)))
+;; --- the spellings, for the translator (each built-in's Python text and kind) ---
+(sig py-spellings (Map String (Tup String String)))
 
 ;; --- macros, for the translator (the macros are Python functions on Forms) ---
 (sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))

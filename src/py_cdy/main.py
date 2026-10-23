@@ -12,7 +12,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from cdy_rt.table_defs import CandyFail
+from cdy_rt.primitives import CandyFail
 from self_host import translate_bin, translate_t1
 
 OUTPUT_DIR = Path("output")

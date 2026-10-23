@@ -176,7 +176,7 @@
 (defn library-builtins (_)
   (let ((decls (library-path "special.cdy"))
         (sigs (library-path "system.cdy")))
-    (read-builtins (read-source decls (slurp decls)) (read-source sigs (slurp sigs)) initial-table)))
+    (read-builtins (read-source decls (slurp decls)) (read-source sigs (slurp sigs)) py-spellings)))
 
 ;; The Python names of `names` (form.cdy's), which load-macros sets back to the translator's.
 (sig mangled-names (Fn ((List String) (Map String Bool)) (Map String Bool)))

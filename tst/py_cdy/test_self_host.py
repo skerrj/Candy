@@ -31,8 +31,8 @@ from typing import Any, cast
 import pytest
 from mypy import api as mypy_api
 
-from cdy_rt.table import INITIAL_TABLE
-from cdy_rt.table_defs import CandyFail
+from cdy_rt.primitives import CandyFail
+from cdy_rt.spelling import SPELLINGS
 from self_host import (
     BIN_PATH,
     CDY_DIR,
@@ -523,7 +523,7 @@ def test_py_reserved_is_this_python(t1: ModuleType) -> None:
 
 def test_py_imports_cover_the_spellings(t1: ModuleType) -> None:
     modules = set(t1.emit__PY_IMPORTS)
-    for entry in INITIAL_TABLE.values():
+    for entry in SPELLINGS.values():
         head = entry.py.split("(", 1)[0]
         if "." in head:
             assert head.rsplit(".", 1)[0] in modules, entry.py
@@ -546,7 +546,7 @@ def test_programs_cant_see_the_python_helpers(t1: ModuleType, name: str) -> None
 def test_list_functions_are_built_in(t1: ModuleType) -> None:
     # Fast: the runtime's, not Candy loops that copy the list for each item.
     source = translate_with(t1, "(put (map (fn (n) n) (tup 1)) (filter (fn (n) true) (tup 1)))")
-    assert "cdy_rt.table_defs.list_map(" in source and "cdy_rt.table_defs.list_filter(" in source
+    assert "cdy_rt.primitives.list_map(" in source and "cdy_rt.primitives.list_filter(" in source
 
 
 def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
@@ -562,12 +562,12 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig slurp (Fn (String) String))\n", ""),
-            "table.py: slurp is declared in neither special.cdy nor system.cdy",
+            "spelling.py: slurp is declared in neither special.cdy nor system.cdy",
         ),
         (
             "system.cdy",
             ("", "(sig nope Int)\n"),
-            "system.cdy: nope has no Python mapping in table.py",
+            "system.cdy: nope has no Python mapping in spelling.py",
         ),
         ("system.cdy", ("", "(sig + (Fn (Int Int) Int))\n"), "system.cdy: + is already declared"),
         ("system.cdy", ("", "(sig len (Fn (Any) Int))\n"), "system.cdy: len is already declared"),
@@ -575,22 +575,22 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "special.cdy",
             ("(op not unary)\n", ""),
-            "table.py: not is declared in neither special.cdy nor system.cdy",
+            "spelling.py: not is declared in neither special.cdy nor system.cdy",
         ),
         (
             "special.cdy",
             ("", "(special len)\n"),
-            "special.cdy: len is a special form, so table.py can't spell it",
+            "special.cdy: len is a special form, so spelling.py can't spell it",
         ),
         (
             "special.cdy",
             ("", "(op len variadic)\n"),
-            "special.cdy: len has no variadic entry in table.py",
+            "special.cdy: len has no variadic entry in spelling.py",
         ),
         (
             "special.cdy",
             ("", "(op len unary)\n"),
-            "special.cdy: len has no unary entry in table.py",
+            "special.cdy: len has no unary entry in spelling.py",
         ),
         ("special.cdy", ("", "(special if)\n"), "special.cdy: if is declared more than once"),
         ("special.cdy", ("", "(op - binary)\n"), "special.cdy: expected (special name), (op name"),

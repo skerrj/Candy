@@ -76,6 +76,19 @@ into `bin/py/` before the rebuild).
 
 1. **Rename** (the table above), with `table.py` and `table_defs.py` as re-exports;
    `system.cdy` copied into `bin/py/`, `bin` rebuilt, `boot/31`; reinstall.
+
+   *Done. As built:* as the table says. `table.py` and `table_defs.py` were moved
+   (`git mv`, so their history follows) to `spelling.py` and `primitives.py`, which keeps
+   `SEARCH_PATH` now, so neither imports the other; the new `table.py` is one line,
+   `SPELLINGS` as `INITIAL_TABLE` (all the old `bin` takes from it), and `table_defs.py` a
+   star re-export of `primitives.py`. In Candy: `py-spellings` (`system.cdy`, `cdyc.cdy`,
+   `expand.cdy`); `emit.cdy`'s `Env` field and `core.cdy`'s parameter are `spellings`;
+   `PY_IMPORTS` and `emit-main` name the new modules; the errors say `spelling.py`; and
+   the comments in `special.cdy` and `system.cdy` that named `table.py` (planned for
+   step 3). `src/py_cdy/main.py` and `test_self_host.py` import the new modules; the tests
+   are `tst/cdy_rt/test_spelling.py` and `test_primitives.py` (264 tests, unchanged). The
+   new `bin` names neither old module. Bootstrap: `system.cdy` and `special.cdy` copied
+   into `bin/py/` before the rebuild, no staging; the runtime reinstalled.
 2. **Remove** `table.py` and `table_defs.py`; reinstall. `pytest -m bootstrap` checks the
    older steps still build on their own runtimes.
 3. **Docs:** CLAUDE.md, `bin/README.md`, `src/cdy_rt/__init__.py`, the

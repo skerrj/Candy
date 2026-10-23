@@ -2,7 +2,7 @@
 ;;; What the language's own forms are is a fact about Candy, the same for every target, so
 ;;; it is stated here, in Candy; system.cdy declares the other built-ins, with their types.
 ;;; The translator reads both into its built-ins (read-builtins in core.cdy) and checks them
-;;; against the target's spellings (src/cdy_rt/table.py).
+;;; against the target's spellings (src/cdy_rt/spelling.py).
 ;;;
 ;;; (special name): a special form, analysed by its own rule (src/cdy/candy-special.md).
 ;;; (op name variadic): an operator taking two or more arguments; (op name unary): one.

@@ -20,3 +20,5 @@ Done and earlier items are in `doc/archive/TODOS_library.md`,
 - [ ] system-prelude: review step 5 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note).
 
 ## runtime-names
+
+- [ ] Review step 1 as built (`doc/hl_rqmt/runtime_names.md`, its "Done" note: the renames, and `table.py` and `table_defs.py` as re-exports until step 2).
