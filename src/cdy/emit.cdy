@@ -30,6 +30,120 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (sig line (Fn (Int String) String))
 (defn line (level text) (+ (get-indent level) text "\n"))
 
+;; --- Python spellings (doc/hl_rqmt/library.md, "The translator's built-ins become Candy") ---
+
+;; Indentation for nesting level `level`: four spaces each.
+(sig get-indent (Fn (Int) String))
+(defn get-indent (level) (if (<= level 0) "" (+ "    " (get-indent (- level 1)))))
+
+;; The modules every generated file imports: those table.py's spellings refer to.
+(sig PY_IMPORTS (List String))
+(def PY_IMPORTS (tup "math" "re" "cdy_rt.table" "cdy_rt.table_defs"))
+
+;; The names `names` as a set (each mapped to true), added to `acc`.
+(sig name-set (Fn ((List String) (Map String Bool)) (Map String Bool)))
+(defn name-set (names acc)
+  (if (= (len names) 0) acc (name-set (rest names) (map-set acc (at names 0) true))))
+
+;; Python names a Candy name must not take: Python's keywords and built-ins (Python 3.14's
+;; `keyword.kwlist` and `dir(builtins)`), and the modules generated code imports.
+(sig PY_RESERVED (Map String Bool))
+(def PY_RESERVED
+  (name-set
+    (+
+      (tup
+    "ArithmeticError" "AssertionError" "AttributeError" "BaseException"
+    "BaseExceptionGroup" "BlockingIOError" "BrokenPipeError" "BufferError"
+    "BytesWarning" "ChildProcessError" "ConnectionAbortedError" "ConnectionError"
+    "ConnectionRefusedError" "ConnectionResetError" "DeprecationWarning" "EOFError"
+    "Ellipsis" "EncodingWarning" "EnvironmentError" "Exception" "ExceptionGroup" "False"
+    "FileExistsError" "FileNotFoundError" "FloatingPointError" "FutureWarning"
+    "GeneratorExit" "IOError" "ImportError" "ImportWarning" "IndentationError"
+    "IndexError" "InterruptedError" "IsADirectoryError" "KeyError" "KeyboardInterrupt"
+    "LookupError" "MemoryError" "ModuleNotFoundError" "NameError" "None"
+    "NotADirectoryError" "NotImplemented" "NotImplementedError" "OSError"
+    "OverflowError" "PendingDeprecationWarning" "PermissionError" "ProcessLookupError"
+    "PythonFinalizationError" "RecursionError" "ReferenceError" "ResourceWarning"
+    "RuntimeError" "RuntimeWarning" "StopAsyncIteration" "StopIteration" "SyntaxError"
+    "SyntaxWarning" "SystemError" "SystemExit" "TabError" "TimeoutError" "True"
+    "TypeError" "UnboundLocalError" "UnicodeDecodeError" "UnicodeEncodeError"
+    "UnicodeError" "UnicodeTranslateError" "UnicodeWarning" "UserWarning" "ValueError"
+    "Warning" "ZeroDivisionError" "_IncompleteInputError" "__build_class__" "__debug__"
+    "__doc__" "__import__" "__loader__" "__name__" "__package__" "__spec__" "abs"
+    "aiter" "all" "and" "anext" "any" "as" "ascii" "assert" "async" "await" "bin" "bool"
+    "break" "breakpoint" "bytearray" "bytes" "callable" "chr" "class" "classmethod"
+    "compile" "complex" "continue" "copyright" "credits" "def" "del" "delattr" "dict"
+    "dir" "divmod" "elif" "else" "enumerate" "eval" "except" "exec" "exit" "filter"
+    "finally" "float" "for" "format" "from" "frozenset" "getattr" "global" "globals"
+    "hasattr" "hash" "help" "hex" "id" "if" "import" "in" "input" "int" "is"
+    "isinstance" "issubclass" "iter" "lambda" "len" "license" "list" "locals" "map"
+    "max" "memoryview" "min" "next" "nonlocal" "not" "object" "oct" "open" "or" "ord"
+    "pass" "pow" "print" "property" "quit" "raise" "range" "repr" "return" "reversed"
+    "round" "set" "setattr" "slice" "sorted" "staticmethod" "str" "sum" "super" "try"
+    "tuple" "type" "vars" "while" "with" "yield" "zip")
+      (tup "math" "re" "cdy_rt"))
+    empty-map))
+
+;; The characters py-mangle spells as letters.
+(sig MANGLED (Map String String))
+(def MANGLED (map-set (map-set (map-set empty-map "-" "_") "?" "_p") "!" "_x"))
+
+;; A Candy name as a Python identifier: `-` to `_`, `?` to `_p`, `!` to `_x`, any other
+;; character but an ASCII letter, digit or `_` to `_uXXXX`; a reserved name, or one
+;; starting `_cdy_`, gets a trailing `_`.
+(sig py-mangle (Fn (String) String))
+(defn py-mangle (name)
+  (let ((out (mangle-chars name 0 "")))
+    (if (or (map-has PY_RESERVED out) (= (slice out 0 5) "_cdy_")) (+ out "_") out)))
+
+(sig mangle-chars (Fn (String Int String) String))
+(defn mangle-chars (name i acc)
+  (if (= i (len name))
+    acc
+    (mangle-chars name (+ i 1) (+ acc (mangle-char (slice name i (+ i 1)))))))
+
+(sig mangle-char (Fn (String) String))
+(defn mangle-char (ch)
+  (cond
+    ((or (<= "a" ch "z") (<= "A" ch "Z") (<= "0" ch "9") (= ch "_")) ch)
+    ((map-has MANGLED ch) (map-get MANGLED ch))
+    (else (+ "_u" (hex (char-code ch) 4)))))
+
+(sig HEX_DIGITS String)
+(def HEX_DIGITS "0123456789abcdef")
+
+;; `n` (not negative) in lower-case hexadecimal, with at least `width` digits.
+(sig hex (Fn (Int Int) String))
+(defn hex (n width)
+  (let ((digit (slice HEX_DIGITS (- n (* 16 (quot n 16))) (+ (- n (* 16 (quot n 16))) 1))))
+    (if (and (< n 16) (<= width 1)) digit (+ (hex (quot n 16) (- width 1)) digit))))
+
+;; The string `s` as a Python literal, as Python's repr writes it: in single quotes, or in
+;; double quotes if it has a single quote and no double quote; the quote, backslash,
+;; newline, return and tab escaped, and other control characters as `\xhh`. Unlike repr, it
+;; leaves other characters as they are (doc/tech_debt.md).
+(sig py-str (Fn (String) String))
+(defn py-str (s)
+  (let ((q (if (and (in "'" s) (not (in "\"" s))) "\"" "'")))
+    (+ q (escape-chars s q 0 "") q)))
+
+(sig escape-chars (Fn (String String Int String) String))
+(defn escape-chars (s q i acc)
+  (if (= i (len s))
+    acc
+    (escape-chars s q (+ i 1) (+ acc (escape-char (slice s i (+ i 1)) q)))))
+
+(sig escape-char (Fn (String String) String))
+(defn escape-char (ch q)
+  (let ((code (char-code ch)))
+    (cond
+      ((or (= ch q) (= ch "\\")) (+ "\\" ch))
+      ((= ch "\n") "\\n")
+      ((= ch "\r") "\\r")
+      ((= ch "\t") "\\t")
+      ((or (< code 32) (<= 127 code 160)) (+ "\\x" (hex code 2)))
+      (else ch))))
+
 ;; --- names ---
 
 (sig global-names (Fn ((List Top) Env) Env))
@@ -199,7 +313,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
       (+ acc
          (to-list
            (match (at parts 0)
-             ((FText text) (py-repr text))
+             ((FText text) (py-str text))
              ((FHole e) (format "str({(emit-expr e env)})"))))))))
 
 (sig emit-fields (Fn ((List (Tup String Expr)) Env (List String)) (List String)))
@@ -221,14 +335,14 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (sig emit-lit (Fn (Form) String))
 (defn emit-lit (form)
   (match form
-    ((Txt v) (py-repr v))
-    ((CharLit v) (py-repr v))
-    ((IntLit v) (py-repr v))
-    ((LongLit v) (py-repr v))
-    ((ByteLit v) (py-repr v))
-    ((FloatLit v) (py-repr v))
-    ((DoubleLit v) (py-repr v))
-    ((BoolLit v) (py-repr v))
+    ((Txt v) (py-str v))
+    ((CharLit v) (py-str v))
+    ((IntLit v) (format "{v}"))
+    ((LongLit v) (format "{v}"))
+    ((ByteLit v) (format "{v}"))
+    ((FloatLit v) (format "{v}"))
+    ((DoubleLit v) (format "{v}"))
+    ((BoolLit v) (format "{v}"))
     (else (fail "emit: not a literal"))))
 
 (sig emit-prim (Fn (String Env) String))

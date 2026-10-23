@@ -1,9 +1,10 @@
 # TODOS
 
-Done and earlier items are in `doc/archive/TODOS_bootstrap.md`,
-`doc/archive/TODOS_system_prelude.md`, `doc/archive/TODOS_modules.md`,
-`doc/archive/TODOS_macros.md`, `doc/archive/TODOS_self_host_cleanup.md`,
-`doc/archive/TODOS_pre_self_host.md` and `doc/archive/TODOS_imvp_py_translator.md`.
+Done and earlier items are in `doc/archive/TODOS_symbol_table.md`,
+`doc/archive/TODOS_bootstrap.md`, `doc/archive/TODOS_system_prelude.md`,
+`doc/archive/TODOS_modules.md`, `doc/archive/TODOS_macros.md`,
+`doc/archive/TODOS_self_host_cleanup.md`, `doc/archive/TODOS_pre_self_host.md` and
+`doc/archive/TODOS_imvp_py_translator.md`.
 
 ## Carried over (for owner review)
 
@@ -17,13 +18,7 @@ Done and earlier items are in `doc/archive/TODOS_bootstrap.md`,
 - [ ] system-prelude: review step 1 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/system.cdy`'s types), and the new leaks and tech debt.
 - [ ] system-prelude: review step 3 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/prelude.cdy`).
 - [ ] system-prelude: review step 5 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note).
-- [ ] Review `doc/hl_rqmt/library.md` (draft HLD, a later branch): two layers, the translator's built-ins become Candy, and its questions.
 
-## symbol-table
+## library
 
-- [x] Review step 1 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note): looks good.
-- [x] Review step 2 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note; `src/cdy/special.cdy`): looks ok for now.
-- [x] Review step 3 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note): looks ok for now.
-- [x] Review step 4 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note; the plan's step 4 split in two): looks ok for now.
-- [x] Review step 5 as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note): looks good.
-- [x] Review step 6 (docs) as built (`doc/hl_rqmt/symbol_table.md`, its "Done" note): looks good.
+- [ ] Review step 1a as built (`doc/hl_rqmt/library.md`, its "Done" note; step 1 split in two).

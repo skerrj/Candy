@@ -4,6 +4,7 @@ Random thoughts about Candy's design: not decided, not planned, not tech debt. A
 whenever it comes up; when one turns into real work, move it to a design doc
 (`doc/hl_rqmt/`) and leave a pointer here.
 
+- **vscode syntax extension**: `(defn line (level text) (+ (get-indent level) text "\n"))`: get-indent is the same color as args... should be similar to `+`
 - **rewrite parsec-v4 in Candy**: ref *publish parsec*
 - **type checker**: *lean4*?
   - fork and start rewriting with lean4? 

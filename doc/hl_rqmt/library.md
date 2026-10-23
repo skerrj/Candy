@@ -1,8 +1,8 @@
 # Candy's library: system, translator and prelude (HLD)
 
-**Status: draft; three decisions in.** Drafted on branch `system-prelude`, as the follow-up to its MVP
-(`doc/hl_rqmt/system_prelude.md`). Proposed as its own branch after that one is merged.
-The questions at the end are open.
+**Status: accepted (2026-10-22), with the proposed answers to its questions.** Branch
+`library`, after tag `symbol-table`. Drafted on branch `system-prelude`, as the follow-up
+to its MVP (`doc/hl_rqmt/system_prelude.md`).
 
 ## Where things stand
 
@@ -171,7 +171,29 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 
 1. **The translator's helpers into Candy:** `py-mangle`, `get-indent`, `PY_IMPORTS` and
    `py-repr` become Candy in `emit.cdy`. (The unused built-ins, the table lookups and
-   `initial-table`'s type were done on `symbol-table`: `doc/hl_rqmt/symbol_table.md`.) Tests that
+   `initial-table`'s type were done on `symbol-table`: `doc/hl_rqmt/symbol_table.md`.)
+   In two steps, for the bootstrap (the `bin` before calls the built-ins, from the live
+   runtime):
+   - **1a.** The Candy versions, and the translator uses them. `py-mangle` needs a
+     character's code, for `_uXXXX`: a new primitive, `char-code`. The runtime's
+     `load_macros` mangles `form.cdy`'s names too, so `expand.cdy` passes them already
+     mangled (mangling a mangled name changes nothing, so the old `bin` still works).
+
+     *Done. As built:* `emit.cdy` defines `get-indent`, `PY_IMPORTS`, `PY_RESERVED` (Python
+     3.14's keywords and built-ins, and the imported modules), `py-mangle` (with `hex`) and
+     `py-str` (repr's quoting and escapes; numbers and `Bool`s are `(format "{v}")`), under
+     the built-ins' names where there is one, so they shadow them now and nothing needs
+     renaming when the built-ins go. `char-code` is a new primitive (Python's `ord`).
+     `expand.cdy` imports `emit` for `py-mangle`, and gives `load-macros` `form.cdy`'s
+     names mangled. The new `bin` has every literal the old one had (`py-str` matches repr
+     on the whole translator), reordered (expand now imports emit). Tests: `py-mangle`
+     cases, `py-str` against `repr`, `PY_RESERVED` against this Python, `PY_IMPORTS`
+     against `table.py`'s spellings (251 tests). Tech debt: `py-str` leaves non-printable
+     non-ASCII characters as they are; `PY_RESERVED` is written out for Python 3.14.
+     Bootstrap: `system.cdy` copied into `bin/py/` before the rebuild (for `char-code`).
+   - **1b.** The four built-ins go, from `table.py`, `table_defs.py` and `system.cdy`, and
+     `load_macros` takes the names as they are. Tests that a program can't see
+     `py-mangle`, and that the fixpoint holds. Tests that
    a program can't see `py-mangle`, and that the fixpoint holds (the output shouldn't
    change).
 2. **Private names** (if decided).
@@ -180,9 +202,7 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 5. **The translator on the prelude** (optional; its own step).
 6. **Docs.**
 
-## Questions (open)
-
-Each has a proposed answer, for review.
+## Questions (answered: the proposals, accepted)
 
 Decided so far: anything that can be written in Candy goes in the prelude, except a host
 type's operations, which are all built-in ("Built-in or prelude", revised); a program sees the primitives and the prelude now, and only the prelude later

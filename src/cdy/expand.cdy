@@ -15,6 +15,7 @@
 (import read)
 (import include)
 (import core)
+(import emit)
 
 ;; What a file's macro imports bring it: their macros, their helpers by file (each file's
 ;; once, and before the files that use them), and the files loaded so far.
@@ -166,7 +167,7 @@
         (checked (unique-names defs builtins empty-map))
         (form-forms (form-defs nil))
         (python (compile (+ form-forms helpers (macro-program defs builtins empty-list))))
-        (loaded (load-macros python sym-name (top-names form-forms empty-map))))
+        (loaded (load-macros python sym-name (mangled-names (map-keys (top-names form-forms empty-map)) empty-map))))
     (macro-list defs loaded empty-list)))
 
 ;; The built-ins, from special.cdy and system.cdy, which are kept next to the translator
@@ -176,6 +177,11 @@
   (let ((decls (library-path "special.cdy"))
         (sigs (library-path "system.cdy")))
     (read-builtins (read-source decls (slurp decls)) (read-source sigs (slurp sigs)) initial-table)))
+
+;; The Python names of `names` (form.cdy's), which load-macros sets back to the translator's.
+(sig mangled-names (Fn ((List String) (Map String Bool)) (Map String Bool)))
+(defn mangled-names (names acc)
+  (if (= (len names) 0) acc (mangled-names (rest names) (map-set acc (py-mangle (at names 0)) true))))
 
 ;; Form and its helpers, which macro code may use: form.cdy, read as it is (so it can't
 ;; use macros).

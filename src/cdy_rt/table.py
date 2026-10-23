@@ -144,6 +144,7 @@ STRING: Table = {
     "to-float": runtime("to_float"),
     "is-decimal": runtime("is_decimal"),
     "hex-char": runtime("hex_char"),
+    "char-code": call("ord"),
     "is-str": runtime("is_str"),
     "is-digit": runtime("is_digit"),
     "is-alpha": runtime("is_alpha"),

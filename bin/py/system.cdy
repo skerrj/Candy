@@ -67,6 +67,7 @@
 (sig to-float (Fn (String) Double))
 (sig is-decimal (Fn (String) Bool))
 (sig hex-char (Fn (String) String))
+(sig char-code (Fn (String) Int))
 (sig is-str (Fn (Any) Bool))
 (sig is-digit (Fn (String) Bool))
 (sig is-alpha (Fn (String) Bool))
