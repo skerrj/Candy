@@ -82,7 +82,7 @@
     (let ((form (at forms 0))
           (items (list-items form))
           (picked (and (> (len items) 0) (in (sym-name (at items 0)) heads))))
-      (pick-forms (rest-of forms) heads keep (if (= picked keep) (+ acc (to-list form)) acc)))))
+      (pick-forms (rest forms) heads keep (if (= picked keep) (+ acc (to-list form)) acc)))))
 
 ;; Each defmacro in `defs` with the macro calls in its body expanded.
 (sig expand-defs (Fn ((List Form) (Map String Macro) (List Form)) (List Form)))
@@ -90,7 +90,7 @@
   (if (= (len defs) 0)
     acc
     (expand-defs
-      (rest-of defs)
+      (rest defs)
       macros
       (+ acc (to-list (Lst (expand-after (list-items (at defs 0)) 3 macros) (form-pos (at defs 0))))))))
 
@@ -103,7 +103,7 @@
           (name (get macro name)))
       (if (map-has acc name)
         (fail (format "{(pos-text (get macro pos))}defmacro: {name} is already a macro"))
-        (macro-map (slice macros 1 (len macros)) (map-set acc name macro))))))
+        (macro-map (rest macros) (map-set acc name macro))))))
 
 ;; --- macro files ---
 
@@ -112,7 +112,7 @@
 (defn import-all (forms compile loading acc)
   (if (= (len forms) 0)
     acc
-    (import-all (rest-of forms) compile loading (import-file (at forms 0) compile loading acc))))
+    (import-all (rest forms) compile loading (import-file (at forms 0) compile loading acc))))
 
 ;; `acc` with the macro file of `form` loaded, unless it was already.
 (sig import-file (Fn (Form (Fn ((List Form)) String) (List String) Imports) Imports))
@@ -144,19 +144,19 @@
   (if (= (len groups) 0)
     acc
     (add-helpers
-      (slice groups 1 (len groups))
+      (rest groups)
       (if (has-helpers (at (at groups 0) 0) acc) acc (+ acc (to-list (at groups 0)))))))
 
 (sig has-helpers (Fn (String (List (Tup String (List Form)))) Bool))
 (defn has-helpers (key groups)
-  (and (> (len groups) 0) (or (= (at (at groups 0) 0) key) (has-helpers key (slice groups 1 (len groups))))))
+  (and (> (len groups) 0) (or (= (at (at groups 0) 0) key) (has-helpers key (rest groups)))))
 
 ;; The forms of all the helper groups.
 (sig helper-forms (Fn ((List (Tup String (List Form))) (List Form)) (List Form)))
 (defn helper-forms (groups acc)
   (if (= (len groups) 0)
     acc
-    (helper-forms (slice groups 1 (len groups)) (+ acc (at (at groups 0) 1)))))
+    (helper-forms (rest groups) (+ acc (at (at groups 0) 1)))))
 
 ;; --- compiling and loading macros ---
 
@@ -204,7 +204,7 @@
           (type (Lst (tup (Sym "Fn" pos) (Lst (to-list (Lst (tup (Sym "List" pos) (Sym "Form" pos)) pos)) pos) (Sym "Form" pos)) pos))
           (body (Lst (tup (Sym "let" pos) (Lst (param-binds (at items 2) args pos) pos) (at items 3)) pos)))
       (macro-program
-        (rest-of defs)
+        (rest defs)
         builtins
         (+ acc
            (to-list (Lst (tup (Sym "sig" pos) fname type) pos))
@@ -235,7 +235,7 @@
 ;; Whether every form in `forms` is a symbol.
 (sig all-names (Fn ((List Form)) Bool))
 (defn all-names (forms)
-  (or (= (len forms) 0) (and (!= (sym-name (at forms 0)) "") (all-names (rest-of forms)))))
+  (or (= (len forms) 0) (and (!= (sym-name (at forms 0)) "") (all-names (rest forms)))))
 
 ;; The let bindings for a macro's parameters: (p args) for a bare name, (p1 (at args 0))
 ;; ... for a parameter list.
@@ -250,7 +250,7 @@
   (if (= (len params) 0)
     acc
     (arg-binds
-      (rest-of params)
+      (rest params)
       args
       (+ i 1)
       pos
@@ -268,7 +268,7 @@
     (let ((name (sym-name (at (defmacro-items (at defs 0) builtins) 1))))
       (if (map-has seen name)
         (fail (format "{(pos-text (form-pos (at defs 0)))}defmacro: {name} is defined twice"))
-        (unique-names (rest-of defs) builtins (map-set seen name true))))))
+        (unique-names (rest defs) builtins (map-set seen name true))))))
 
 ;; The macro each of `defs` defines, with its function from `loaded` (by Python name).
 (sig macro-list (Fn ((List Form) (Map String Any) (List Macro)) (List Macro)))
@@ -280,7 +280,7 @@
           (params (at items 2))
           (arity (if (= (sym-name params) "") (len (list-items params)) -1))
           (run (map-get loaded (py-mangle (macro-fn name)))))
-      (macro-list (rest-of defs) loaded (+ acc (to-list (Macro name arity run (form-pos (at defs 0)))))))))
+      (macro-list (rest defs) loaded (+ acc (to-list (Macro name arity run (form-pos (at defs 0)))))))))
 
 ;; --- expanding ---
 
@@ -288,7 +288,7 @@
 (defn expand-all (forms macros acc)
   (if (= (len forms) 0)
     acc
-    (expand-all (rest-of forms) macros (+ acc (to-list (expand-form (at forms 0) macros))))))
+    (expand-all (rest forms) macros (+ acc (to-list (expand-form (at forms 0) macros))))))
 
 ;; `form` with its macro calls expanded: a call is replaced by its expansion, again until
 ;; the head isn't a macro; then the parts are expanded. Names being bound (parameters, let
@@ -301,7 +301,7 @@
       (let ((head (if (= (len items) 0) "" (sym-name (at items 0)))))
         (cond
           ((map-has macros head)
-            (expand-form (expand-call (map-get macros head) (rest-of items) pos) macros))
+            (expand-form (expand-call (map-get macros head) (rest items) pos) macros))
           ((in head (tup "sig" "deft" "import" "import-macros" "quo" "quasi")) form)
           ((= head "defn") (Lst (expand-after items 3 macros) pos))
           ((= head "fn") (Lst (expand-after items 2 macros) pos))
@@ -336,7 +336,7 @@
 (defn each-clause (clauses n macros acc)
   (if (= (len clauses) 0)
     acc
-    (each-clause (rest-of clauses) n macros (+ acc (to-list (expand-clause (at clauses 0) n macros))))))
+    (each-clause (rest clauses) n macros (+ acc (to-list (expand-clause (at clauses 0) n macros))))))
 
 (sig expand-clause (Fn (Form Int (Map String Macro)) Form))
 (defn expand-clause (clause n macros)
@@ -366,4 +366,4 @@
 (defn stamp-all (forms pos acc)
   (if (= (len forms) 0)
     acc
-    (stamp-all (rest-of forms) pos (+ acc (to-list (stamp (at forms 0) pos))))))
+    (stamp-all (rest forms) pos (+ acc (to-list (stamp (at forms 0) pos))))))

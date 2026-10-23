@@ -150,7 +150,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn global-names (tops env)
   (if (= (len tops) 0)
     env
-    (global-names (slice tops 1 (len tops)) (add-globals (top-names-of (at tops 0)) env))))
+    (global-names (rest tops) (add-globals (top-names-of (at tops 0)) env))))
 
 (sig add-globals (Fn ((List String) Env) Env))
 (defn add-globals (names env)
@@ -159,7 +159,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     (let ((name (at names 0))
           (py (py-mangle name)))
       (add-globals
-        (slice names 1 (len names))
+        (rest names)
         (assoc env
           globals (map-set (get env globals) name py)
           taken (map-set (get env taken) py true))))))
@@ -176,7 +176,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len variants) 0)
     acc
     (variant-list-names
-      (slice variants 1 (len variants))
+      (rest variants)
       (+ acc (to-list (get (at variants 0) name))))))
 
 (sig top-name (Fn (Top) String))
@@ -193,7 +193,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len tops) 0)
     acc
     (generic-variants
-      (slice tops 1 (len tops))
+      (rest tops)
       (match (at tops 0)
         ((TDeftSum _ tvars variants)
           (if (= (len tvars) 0) acc (mark-all (variant-list-names variants empty-list) acc)))
@@ -203,7 +203,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn mark-all (names acc)
   (if (= (len names) 0)
     acc
-    (mark-all (slice names 1 (len names)) (map-set acc (at names 0) true))))
+    (mark-all (rest names) (map-set acc (at names 0) true))))
 
 ;; A local's Python name, chosen when its scope was entered (bind-locals).
 (sig local-py (Fn (String Int Env) String))
@@ -219,7 +219,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len locs) 0)
     env
     (bind-locals
-      (slice locs 1 (len locs))
+      (rest locs)
       (match (at locs 0)
         ((Local name id)
           (if (map-has (get env locals) id)
@@ -237,7 +237,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len stmts) 0)
     acc
     (bound-locals
-      (slice stmts 1 (len stmts))
+      (rest stmts)
       (match (at stmts 0)
         ((SAssign target _)
           (match target
@@ -254,7 +254,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     acc
     (let ((c (at cases 0)))
       (bound-in-cases
-        (slice cases 1 (len cases))
+        (rest cases)
         (bound-locals (get c body) (+ acc (bind-locs (get c binds) empty-list)))))))
 
 (sig bind-locs (Fn ((List (Tup String Expr)) (List Expr)) (List Expr)))
@@ -262,13 +262,13 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len binds) 0)
     acc
     (let (((_ loc) (at binds 0)))
-      (bind-locs (slice binds 1 (len binds)) (+ acc (to-list loc))))))
+      (bind-locs (rest binds) (+ acc (to-list loc))))))
 
 (sig bound-in-lists (Fn ((List (List Stmt)) (List Expr)) (List Expr)))
 (defn bound-in-lists (lists acc)
   (if (= (len lists) 0)
     acc
-    (bound-in-lists (slice lists 1 (len lists)) (bound-locals (at lists 0) acc))))
+    (bound-in-lists (rest lists) (bound-locals (at lists 0) acc))))
 
 ;; --- expressions ---
 
@@ -308,7 +308,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len parts) 0)
     acc
     (emit-parts
-      (slice parts 1 (len parts))
+      (rest parts)
       env
       (+ acc
          (to-list
@@ -322,7 +322,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     acc
     (let (((f v) (at fields 0)))
       (emit-fields
-        (slice fields 1 (len fields))
+        (rest fields)
         env
         (+ acc (to-list (format "{(py-mangle f)}={(emit-expr v env)}")))))))
 
@@ -330,7 +330,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn emit-exprs (exprs env acc)
   (if (= (len exprs) 0)
     acc
-    (emit-exprs (slice exprs 1 (len exprs)) env (+ acc (to-list (emit-expr (at exprs 0) env))))))
+    (emit-exprs (rest exprs) env (+ acc (to-list (emit-expr (at exprs 0) env))))))
 
 (sig emit-lit (Fn (Form) String))
 (defn emit-lit (form)
@@ -384,7 +384,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn emit-types (types env acc)
   (if (= (len types) 0)
     acc
-    (emit-types (slice types 1 (len types)) env (+ acc (to-list (emit-type (at types 0) env))))))
+    (emit-types (rest types) env (+ acc (to-list (emit-type (at types 0) env))))))
 
 (sig emit-tcon (Fn (String (List String)) String))
 (defn emit-tcon (name args)
@@ -408,7 +408,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len types) 0)
     acc
     (type-vars
-      (slice types 1 (len types))
+      (rest types)
       (match (at types 0)
         ((TVar name) (if (in name acc) acc (+ acc (to-list name))))
         ((TCon _ args) (type-vars args acc))
@@ -476,7 +476,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len params) 0)
     acc
     (emit-any-params
-      (slice params 1 (len params))
+      (rest params)
       env
       (+ acc (to-list (format "{(emit-expr (at params 0) env)}: _cdy_Any"))))))
 
@@ -489,7 +489,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn mangle-all (names acc)
   (if (= (len names) 0)
     acc
-    (mangle-all (slice names 1 (len names)) (+ acc (to-list (py-mangle (at names 0)))))))
+    (mangle-all (rest names) (+ acc (to-list (py-mangle (at names 0)))))))
 
 (sig emit-record-fields (Fn ((List (Tup String CType)) Int Env String) String))
 (defn emit-record-fields (fields level env acc)
@@ -497,7 +497,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     acc
     (let (((f t) (at fields 0)))
       (emit-record-fields
-        (slice fields 1 (len fields))
+        (rest fields)
         level
         env
         (+ acc (line level (format "{(py-mangle f)}: {(emit-type t env)}")))))))
@@ -510,7 +510,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len tvars) 0)
     acc
     (used-tvars
-      (slice tvars 1 (len tvars))
+      (rest tvars)
       used
       (if (in (at tvars 0) used) (+ acc (to-list (at tvars 0))) acc))))
 
@@ -519,7 +519,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len fields) 0)
     acc
     (let (((_ t) (at fields 0)))
-      (field-types (slice fields 1 (len fields)) (+ acc (to-list t))))))
+      (field-types (rest fields) (+ acc (to-list t))))))
 
 (sig variant-tvars (Fn (Variant (List String)) (List String)))
 (defn variant-tvars (v tvars)
@@ -535,7 +535,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
           (body (if (= (len (get v fields)) 0)
                   (line (+ level 1) "pass")
                   (emit-record-fields (get v fields) (+ level 1) env ""))))
-      (emit-variants (slice variants 1 (len variants)) tvars level env (+ acc "\n" (line level head) body)))))
+      (emit-variants (rest variants) tvars level env (+ acc "\n" (line level head) body)))))
 
 ;; Each variant as a member of the sum's union: `Leaf`, `Node[a]`.
 (sig variant-refs (Fn ((List Variant) (List String) Env (List String)) (List String)))
@@ -545,7 +545,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     (let ((v (at variants 0))
           (vt (variant-tvars v tvars)))
       (variant-refs
-        (slice variants 1 (len variants))
+        (rest variants)
         tvars
         env
         (+ acc (to-list (+ (map-get (get env globals) (get v name)) (type-params vt))))))))
@@ -576,7 +576,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
                     (if (= binds "") (line (+ level 1) "pass") "")
                     (emit-stmts (get c body) (+ level 1) env ""))))
         (+ (line level test) binds body
-           (emit-match subj (slice cases 1 (len cases)) default assert-last "elif" level env))))))
+           (emit-match subj (rest cases) default assert-last "elif" level env))))))
 
 (sig emit-binds (Fn ((List (Tup String Expr)) String Int Env String) String))
 (defn emit-binds (binds subj level env acc)
@@ -584,7 +584,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     acc
     (let (((f loc) (at binds 0)))
       (emit-binds
-        (slice binds 1 (len binds))
+        (rest binds)
         subj
         level
         env
@@ -594,7 +594,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn emit-stmts (stmts level env acc)
   (if (= (len stmts) 0)
     acc
-    (emit-stmts (slice stmts 1 (len stmts)) level env (+ acc (emit-stmt (at stmts 0) level env)))))
+    (emit-stmts (rest stmts) level env (+ acc (emit-stmt (at stmts 0) level env)))))
 
 (sig emit-block (Fn ((List Stmt) Int Env) String))
 (defn emit-block (stmts level env)
@@ -605,8 +605,8 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len params) 0)
     acc
     (emit-params
-      (slice params 1 (len params))
-      (slice types 1 (len types))
+      (rest params)
+      (rest types)
       env
       (+ acc (to-list (format "{(emit-expr (at params 0) env)}: {(emit-type (at types 0) env)}"))))))
 
@@ -630,7 +630,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn emit-imports (modules acc)
   (if (= (len modules) 0)
     acc
-    (emit-imports (slice modules 1 (len modules)) (+ acc (format "import {(at modules 0)}\n")))))
+    (emit-imports (rest modules) (+ acc (format "import {(at modules 0)}\n")))))
 
 ;; Run `main` when the module is run, not imported (see has-main in core.cdy).
 (sig emit-main (Fn (Env) String))

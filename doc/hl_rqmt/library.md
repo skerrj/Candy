@@ -229,6 +229,16 @@ as a leading `-`, or a form), or the helpers get written so they aren't needed.
 
    Bootstrap: `system.cdy` copied into `bin/py/` before the rebuild (the new built-ins).
 5. **The translator on the prelude** (optional; its own step).
+
+   *Done. As built:* only the mechanical cleanup (question 6): in the translator's modules
+   (`cdyc`, `core`, `expand`, `include`, `lower`, `emit`), 92 `(slice xs 1 (len xs))` and
+   51 `(rest-of xs)` became `(rest xs)`, and `core.cdy`'s `rest-of-pairs` went (it was one
+   such `slice`). Fourteen of `core.cdy`'s special-form functions (`analyse-special`,
+   `an-if`, ...) named their parameter `rest`, which hid the prelude's `rest` in their
+   bodies; it is `args` now. `form.cdy` and macro code keep `rest-of`, since macro code
+   doesn't get the prelude: that entry moved from `doc/tech_debt.md` to `doc/leaks.md`, as
+   a design gap. The loops that thread an accumulator stay (question 6). Tests: unchanged
+   (264). Bootstrap: no staging (`rest` was already in `bin`'s prelude).
 6. **Docs.**
 
 ## Questions (answered: the proposals, accepted)

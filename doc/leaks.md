@@ -29,3 +29,12 @@ added from branch `library` on.
   and `with-default` takes either as missing. Python's `Optional` is the leak. Fix: a
   real `Maybe` sum (`(deft (Maybe a) (Nothing) (Just ((val a))))`), when Candy's types
   are its own.
+- **Macro code doesn't get the prelude** (moved from `doc/tech_debt.md` on `library`, step
+  5: it is a design gap, not a small shortcut). A macro program (a file's `defmacro`s and
+  the macro files it loads) gets the built-ins and `form.cdy`, but not `prelude.cdy`, so
+  macro code can't call `rest` or `map-update`, and has `form.cdy`'s `rest-of` instead.
+  Macro code is Candy, yet it sees a different library from a program, and falls further
+  behind as the prelude grows. What code that runs while translating can see is a phase
+  question (Racket's `(require (for-syntax ...))`). Fix: give macro programs the prelude,
+  or let them import it, with the host's modules (`doc/hl_rqmt/modules.md`, "Macro
+  modules on the host"); then `rest-of` can go.
