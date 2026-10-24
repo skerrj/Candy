@@ -23,3 +23,4 @@ Done and earlier items are in `doc/archive/TODOS_library.md`,
 
 - [ ] Review step 1 as built (`doc/hl_rqmt/runtime_names.md`, its "Done" note: the renames, and `table.py` and `table_defs.py` as re-exports until step 2).
 - [ ] Review step 2 as built (`doc/hl_rqmt/runtime_names.md`, its "Done" note; no chain step).
+- [ ] Review step 3 (docs) as built (`doc/hl_rqmt/runtime_names.md`, its "Done" note).

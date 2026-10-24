@@ -65,7 +65,7 @@ take one, and remove an entry once it is fixed.
   macro program** (`library-builtins` in `expand.cdy`), and checked against the table each
   time. Nothing caches them.
 - **The built-ins' types are read but not used** beyond arity: there is no type checker,
-  and mypy still gets the runtime's types from `table_defs.py`'s annotations.
+  and mypy still gets the runtime's types from `primitives.py`'s annotations.
 
 - **The whole prelude goes into every program's Python file**, used or not, and it is
   read and expanded again for every translation.
@@ -108,11 +108,3 @@ take one, and remove an entry once it is fixed.
   Candy can't ask whether a character is printable. The output is still valid Python.
 - **`PY_RESERVED` is Python 3.14's** keywords and built-ins, written out in `emit.cdy`;
   `test_py_reserved_is_this_python` fails when another Python adds one.
-- **The runtime's module names are out of date** (noted on `library`, after review): since
-  `symbol-table`, `cdy_rt/table.py` is the Python spellings, not a symbol table, and
-  `table_defs.py` is the primitives generated code calls (its name is smz's). Plan, agreed
-  for a branch of its own after `library`: `table.py` → `spelling.py`, `table_defs.py` →
-  `primitives.py`, and `INITIAL_TABLE`/`initial-table` → `SPELLINGS`/`py-spellings`. Every
-  generated file imports the modules by name, and the old `bin` imports `cdy_rt.table`
-  from the live runtime, so it takes two chain steps (the new modules with the old ones
-  as re-exports, then the old ones go), a reinstall of the editable runtime, and the docs.

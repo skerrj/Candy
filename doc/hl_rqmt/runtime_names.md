@@ -102,6 +102,17 @@ into `bin/py/` before the rebuild).
    comments in `special.cdy`, `system.cdy` and `emit.cdy`, `doc/hl_rqmt/multi_target.md`
    and the iMVP doc (question 3); the tech-debt entry goes.
 
+   *Done. As built:* CLAUDE.md (the runtime, the built-ins, the library, generated code's
+   dependencies, the tests' imports, and current work; its history keeps `table.py`, with
+   a pointer), `bin/README.md`, `doc/process.md` ("The bootstrap hazard"),
+   `src/cdy_rt/__init__.py` and `pyproject.toml`'s description; `multi_target.md` (a
+   *Renamed on branch `runtime-names`* note, and the current-state lines); the iMVP doc
+   (a note at the head of "Symbol table: `table.py` and `table_defs.py`", the section
+   otherwise as decided); `doc/tech_debt.md` loses the rename entry, and its "types from
+   `table_defs.py`'s annotations" says `primitives.py`. The comments in `special.cdy`,
+   `system.cdy` and `emit.cdy` were done in step 1. CLAUDE.md now says the two modules
+   import only the standard library (step 1 moved `SEARCH_PATH`). Tests: 264, unchanged.
+
 ## Questions (answered: the proposals, 2026-10-23)
 
 1. **The other names** (the "proposed" rows above): as proposed, or keep `TableEntry`,

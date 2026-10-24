@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cdy-rt"
 version = "0.0.1"
-description = "Candy runtime: the initial symbol table and helpers that generated Python imports."
+description = "Candy runtime: the Python spellings of the built-ins, and the primitives generated Python calls."
 requires-python = ">=3.14"
 
 [tool.setuptools]

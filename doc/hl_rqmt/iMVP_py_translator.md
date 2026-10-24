@@ -377,6 +377,10 @@ through per-type names like Carp's `Vector2.x` or Scheme's `vector2-x`. The name
 
 ## Symbol table: `table.py` and `table_defs.py`
 
+*Now `src/cdy_rt/spelling.py` and `primitives.py`* (branch `runtime-names`,
+`doc/hl_rqmt/runtime_names.md`); since `symbol-table` the table holds only each built-in's
+Python spelling (`doc/hl_rqmt/symbol_table.md`). This section is as decided for the iMVP.
+
 **Decided:** operators and builtins (`+`, `*`, `=`, `print` and so on) are not hard-coded in
 the translator.
 

@@ -79,7 +79,7 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
 - **Before a merge into `master`:** `pytest -m bootstrap` (or `python script/bootstrap.py
   --from-scratch`, which is equivalent): the old steps can only break if the environment
   drifts (Python, mypy, parsec, or the script), and a merge is the checkpoint for that.
-- **The bootstrap hazard:** the checked-in `bin` reads the live `table.py` and its own copy
+- **The bootstrap hazard:** the checked-in `bin` reads the live `spelling.py` and its own copy
   of the library (`bin/py/system.cdy` and the rest). A change that adds built-ins
   therefore copies the new `src/cdy/system.cdy` into `bin/py/` before the rebuild. An HLD
   step that changes how `bin` is built says how in a "Bootstrap" section.

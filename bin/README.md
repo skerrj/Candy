@@ -31,7 +31,7 @@ A translator expands macros with its own copy of the prelude, so a new prelude m
 `src/cdy/` uses must be copied into `py/` by hand before the rebuild (as `cond` was; see
 step 5 in `doc/hl_rqmt/macros.md`).
 
-A translator also reads the live `table.py`, and checks its own copies of `special.cdy`
+A translator also reads the live `spelling.py`, and checks its own copies of `special.cdy`
 and `system.cdy` against it: a change that adds or removes built-ins copies the new files
 into `py/` before the rebuild (`doc/process.md`, "Rebuilding `bin`").
 
