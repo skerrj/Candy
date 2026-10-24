@@ -1,10 +1,10 @@
 # TODOS
 
-Done and earlier items are in `doc/archive/TODOS_symbol_table.md`,
-`doc/archive/TODOS_bootstrap.md`, `doc/archive/TODOS_system_prelude.md`,
-`doc/archive/TODOS_modules.md`, `doc/archive/TODOS_macros.md`,
-`doc/archive/TODOS_self_host_cleanup.md`, `doc/archive/TODOS_pre_self_host.md` and
-`doc/archive/TODOS_imvp_py_translator.md`.
+Done and earlier items are in `doc/archive/TODOS_library.md`,
+`doc/archive/TODOS_symbol_table.md`, `doc/archive/TODOS_bootstrap.md`,
+`doc/archive/TODOS_system_prelude.md`, `doc/archive/TODOS_modules.md`,
+`doc/archive/TODOS_macros.md`, `doc/archive/TODOS_self_host_cleanup.md`,
+`doc/archive/TODOS_pre_self_host.md` and `doc/archive/TODOS_imvp_py_translator.md`.
 
 ## Carried over (for owner review)
 
@@ -19,10 +19,8 @@ Done and earlier items are in `doc/archive/TODOS_symbol_table.md`,
 - [ ] system-prelude: review step 3 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/prelude.cdy`).
 - [ ] system-prelude: review step 5 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note).
 
-## library
+## runtime-names
 
-- [x] Review step 1a as built (`doc/hl_rqmt/library.md`, its "Done" note; step 1 split in two).
-- [x] Review step 1b as built (`doc/hl_rqmt/library.md`, its "Done" note; `quoting.cdy` changed).
-- [x] Review step 4 as built (`doc/hl_rqmt/library.md`, its "Done" note: the names, argument orders, and `Maybe` results; steps 2 and 3 deferred).
-- [x] Review step 5 as built (`doc/hl_rqmt/library.md`, its "Done" note; the prelude-in-macro-code entry moved to `doc/leaks.md`).
-- [x] Review step 6 (docs) as built (`doc/hl_rqmt/library.md`, its "Done" note).
+- [x] Review step 1 as built (`doc/hl_rqmt/runtime_names.md`, its "Done" note: the renames, and `table.py` and `table_defs.py` as re-exports until step 2).
+- [x] Review step 2 as built (`doc/hl_rqmt/runtime_names.md`, its "Done" note; no chain step).
+- [x] Review step 3 (docs) as built (`doc/hl_rqmt/runtime_names.md`, its "Done" note).

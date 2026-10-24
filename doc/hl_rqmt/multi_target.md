@@ -70,11 +70,11 @@ Some differences are not `lower`'s problem:
 
 The iMVP's `TableEntry` already separates the two halves. Its `kind` (`binop`, `compare`,
 `call`, ...) and `arity` describe the Candy built-in and hold for any target. Only `py` is
-Python-specific. When a second target arrives, split `table.py` into:
+Python-specific. When a second target arrives, split `table.py` (now `spelling.py`) into:
 
 - a target-neutral table of built-ins: name, kind, arity and (later) Candy signature;
 - one mapping per target, from built-in name to that target's name or operator. Each
-  target also gets its own runtime, the equivalent of `table_defs.py`.
+  target also gets its own runtime, the equivalent of `primitives.py` (once `table_defs.py`).
 
 Core refers to built-ins by Candy name (`Prim("+")`), so it never sees a target's names.
 
@@ -98,6 +98,9 @@ types, and the translator reads both into one map of built-ins (`Builtin`, in `c
 `table.py` holds only each built-in's Python spelling and rendering kind, which the
 backend reads as Candy data (`initial-table`, a map of pairs), and is checked against the
 declarations both ways. A second target needs its own spelling table and runtime.
+
+*Renamed on branch `runtime-names`* (`doc/hl_rqmt/runtime_names.md`): `table.py` is
+`spelling.py`, `table_defs.py` is `primitives.py`, and `initial-table` is `py-spellings`.
 
 The open questions below are still open: there is one `system.cdy`, for Python.
 
@@ -173,7 +176,7 @@ host's modules, whatever the target (`doc/hl_rqmt/macros.md`, "Terms: host and t
 - **The lowered IR** is worth keeping as its own layer if a second statement-based target
   is likely. It is also worth keeping for bootstrapping: the self-hosted Candy translator
   can keep it as plain data and print Python text from it, without Python's `ast` module.
-  (Generated code may depend only on `table.py` and `table_defs.py`.)
+  (Generated code may depend only on `spelling.py` and `primitives.py`.)
 - **The risk** is designing the IR around Python alone. To limit it, keep Python-isms out
   of the IR nodes themselves and in `Caps` and `emit_py`: the IR has a `CondExpr` node,
   but a `Caps` flag says whether a target may use it.
@@ -196,7 +199,7 @@ fixed-size numbers can't.
 
 - The candidate targets and which comes first.
 - The exact lowered IR node set, and whether types live on IR nodes or only on Core.
-- How each target provides its runtime: the equivalent of `table.py` / `table_defs.py`.
+- How each target provides its runtime: the equivalent of `spelling.py` / `primitives.py`.
 
 ## Checked-in translators: `bin/<target>/`
 

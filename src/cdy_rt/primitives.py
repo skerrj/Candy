@@ -1,8 +1,8 @@
-"""Runtime helpers that translated Candy code calls (``table.py`` entries point here).
+"""The primitives that translated Candy code calls (``spelling.py``'s entries point here).
 
 Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
 
-- No ``bop_table`` copy or renamed imports: ``SEARCH_PATH`` comes straight from ``table``.
+- No ``bop_table`` copy or renamed imports; ``SEARCH_PATH`` is here, beside ``slurp``.
 - Names that clash with Python built-ins or keywords get a trailing ``_``: ``slice_``,
   ``in_``. ``join_it`` is now ``join``.
 - ``spit`` takes ``(path, text)`` and writes a string, like Clojure's ``spit``.
@@ -12,8 +12,8 @@ Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
 - ``is_coll`` accepts tuples as well as lists.
 - ``is_str`` is a plain type check. schmuz's version tested for a ``"``-quoted token.
 - Added ``is_empty_str`` (schmuz's table referred to it, but smztils never defined it).
-- Dropped the ``m_table_*`` functions (the self-hosted compiler calls ``table``'s functions
-  directly), the ``parse_string_help*`` leftovers (schmuz's own ``parse.scm`` defined the
+- Dropped the ``m_table_*`` functions (the translator reads ``spelling.py``'s spellings as
+  Candy data), the ``parse_string_help*`` leftovers (schmuz's own ``parse.scm`` defined the
   one it used) and commented-out experiments.
 """
 
@@ -24,7 +24,8 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
-from cdy_rt.table import SEARCH_PATH
+# Where ``slurp`` looks for a Candy file that isn't found at the given path.
+SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 
 # --- collections ---
 
