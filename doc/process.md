@@ -88,6 +88,11 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
 
 HLDs live in `doc/hl_rqmt/`, one per piece of work, named for it.
 
+- **Kinds:** most HLDs design the language or the translator. A *process HLD* designs how
+  work is done (the lifecycle, the spec and its tests, reviews): its title says
+  "(process HLD)" and its status line starts "**Kind: process**" (`spec_by_example.md`,
+  `review.md`). Its changes land in this file, and its log.
+
 - **Layout:** a status line; "Where things stand"; "Goals" (and "Not goals"); "Proposal"
   (or "Design"); "Steps"; "Questions". Larger ones add "After the MVP" for what is
   deliberately left out.
@@ -127,6 +132,7 @@ HLDs live in `doc/hl_rqmt/`, one per piece of work, named for it.
 
 Changes to the process, newest first.
 
+- **2026-10-23:** process HLDs, marked apart from design HLDs ("Design docs", "Kinds").
 - **2026-10-22:** tags are annotated, with the command and a check before pushing.
 
 - **2026-10-20:**
