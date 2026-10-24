@@ -22,3 +22,5 @@ Done and earlier items are in `doc/archive/TODOS_runtime_names.md`,
 - [ ] Review `doc/hl_rqmt/review.md` (draft HLD, a goal only): a better way to review items and tasks.
 
 ## executable-spec
+
+- [ ] Review step 1 as built (`doc/hl_rqmt/executable_spec.md`, its "Done" note: the runner, `spec/README.md`, the fixtures in `conftest.py`, and the mypy measurement).

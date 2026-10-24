@@ -1,0 +1,249 @@
+"""The executable spec: the examples in ``spec/*.md`` (``doc/hl_rqmt/executable_spec.md``).
+
+A spec file's fenced blocks are its examples:
+
+- ``candy run``, then ``expect``: the program's output must be the ``expect`` block;
+- ``candy error``, then ``expect-error``: translating it must fail, with a message that
+  contains the ``expect-error`` text;
+- ``candy errors``: one error example per line, ``source => message``;
+- any other fence (``candy`` alone, ``markdown``): an illustration, not run.
+
+A fence is three or more backticks, closed by as many or more, so a block of four can show
+a spec file's blocks without running them; it may be indented (in a list item), and its
+lines lose that indent. Each example is translated by T1 and run, one
+test each, named ``file:line``. Each file's ``run`` examples also pass ``mypy --strict``
+together, in one mypy run, and T2 translates them as T1 does. A file whose status line says
+``status: draft`` has its examples marked as expected failures (a passing one is reported).
+"""
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+from types import ModuleType
+from typing import Literal, NamedTuple
+
+import pytest
+from mypy import api as mypy_api
+
+from cdy_rt.primitives import CandyFail
+from self_host import load, translate_with
+
+ROOT = Path(__file__).resolve().parents[2]
+SPEC_DIR = ROOT / "spec"
+# The index, which needs no status line (its examples show the block kinds).
+INDEX = "README.md"
+FENCE = re.compile(r"( *)(`{3,})\s*(.*?)\s*")
+STATUS = re.compile(r"^status: (draft|stable|deprecated)(?:, since: (\S+))?\s*$", re.MULTILINE)
+
+
+class SpecError(Exception):
+    """A spec file whose blocks don't pair up."""
+
+
+class Block(NamedTuple):
+    """A fenced block: its info string (``candy run``), its text, and its opening line."""
+
+    info: str
+    text: str
+    line: int
+
+
+class Example(NamedTuple):
+    """An example: a program, and its output (``run``) or part of its message (``error``)."""
+
+    kind: Literal["run", "error"]
+    source: str
+    expected: str
+    line: int
+
+
+def blocks(text: str) -> tuple[Block, ...]:
+    """The fenced blocks of the Markdown ``text``, in order."""
+    lines = text.splitlines()
+    found: tuple[Block, ...] = ()
+    i = 0
+    while i < len(lines):
+        opening = FENCE.fullmatch(lines[i])
+        if opening is None:
+            i += 1
+            continue
+        indent = len(opening.group(1))
+        closing = re.compile(f" *`{{{len(opening.group(2))},}}\\s*")
+        j = i + 1
+        while j < len(lines) and closing.fullmatch(lines[j]) is None:
+            j += 1
+        body = "".join(dedent(line, indent) + "\n" for line in lines[i + 1 : j])
+        found = (*found, Block(opening.group(3), body, i + 1))
+        i = j + 1
+    return found
+
+
+def dedent(line: str, indent: int) -> str:
+    """``line`` without up to ``indent`` leading spaces (its fence's indent)."""
+    return line[min(indent, len(line) - len(line.lstrip(" "))) :]
+
+
+def examples(text: str, name: str) -> tuple[Example, ...]:
+    """The examples of the spec file ``name``, whose text is ``text``."""
+    found: tuple[Example, ...] = ()
+    pending: Block | None = None
+    for block in blocks(text):
+        if pending is not None:
+            want = "expect" if pending.info == "candy run" else "expect-error"
+            if block.info != want:
+                raise SpecError(f"{name}:{pending.line}: {pending.info} needs {want} after it")
+            if want == "expect":
+                found = (*found, Example("run", pending.text, block.text, pending.line))
+            else:
+                found = (*found, Example("error", pending.text, block.text.strip(), pending.line))
+            pending = None
+        elif block.info in ("candy run", "candy error"):
+            pending = block
+        elif block.info in ("expect", "expect-error"):
+            raise SpecError(f"{name}:{block.line}: {block.info} with no example before it")
+        elif block.info == "candy errors":
+            found = (*found, *error_table(block, name))
+    if pending is not None:
+        raise SpecError(f"{name}:{pending.line}: {pending.info} at the end, with no expect")
+    return found
+
+
+def error_table(block: Block, name: str) -> tuple[Example, ...]:
+    """The examples of a ``candy errors`` block, one per line that isn't blank."""
+    found: tuple[Example, ...] = ()
+    for offset, row in enumerate(block.text.splitlines(), start=1):
+        if row.strip() == "":
+            continue
+        if " => " not in row:
+            raise SpecError(f"{name}:{block.line + offset}: expected source => message")
+        source, message = row.split(" => ", 1)
+        found = (*found, Example("error", source.strip(), message.strip(), block.line + offset))
+    return found
+
+
+def status(text: str) -> str:
+    """The status of a spec file (``draft``, ``stable`` or ``deprecated``), or ``""``."""
+    found = STATUS.search(text)
+    return found.group(1) if found is not None else ""
+
+
+FILES = sorted(SPEC_DIR.glob("*.md"))
+TEXTS = {path: path.read_text(encoding="utf-8") for path in FILES}
+
+
+def marks(path: Path) -> tuple[pytest.MarkDecorator, ...]:
+    """A draft file's examples may fail."""
+    return (pytest.mark.xfail(reason="draft"),) if status(TEXTS[path]) == "draft" else ()
+
+
+def cases(kind: str) -> list[object]:
+    """Each example of ``kind`` in the spec, as a test case named ``file:line``."""
+    return [
+        pytest.param(example, id=f"{path.name}:{example.line}", marks=marks(path))
+        for path in FILES
+        for example in examples(TEXTS[path], path.name)
+        if example.kind == kind
+    ]
+
+
+def runs(path: Path) -> tuple[Example, ...]:
+    """The ``run`` examples of the spec file at ``path``."""
+    return tuple(e for e in examples(TEXTS[path], path.name) if e.kind == "run")
+
+
+RUN_FILES = [pytest.param(p, id=p.name, marks=marks(p)) for p in FILES if runs(p)]
+
+
+def run(source: str, tmp_path: Path) -> subprocess.CompletedProcess[str]:
+    """Write ``source`` to a file in ``tmp_path`` and run it from the repository root."""
+    path = tmp_path / "example.py"
+    path.write_text(source, encoding="utf-8")
+    return subprocess.run(
+        [sys.executable, str(path)], capture_output=True, text=True, check=False, cwd=ROOT
+    )
+
+
+@pytest.mark.parametrize("example", cases("run"))
+def test_run(example: Example, t1: ModuleType, tmp_path: Path) -> None:
+    done = run(translate_with(t1, example.source), tmp_path)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout == example.expected
+
+
+@pytest.mark.parametrize("example", cases("error"))
+def test_error(example: Example, t1: ModuleType) -> None:
+    with pytest.raises(CandyFail, match=re.escape(example.expected)):
+        translate_with(t1, example.source)
+
+
+@pytest.mark.parametrize("path", RUN_FILES)
+def test_mypy_strict(path: Path, t1: ModuleType, tmp_path: Path) -> None:
+    outs = [tmp_path / f"example_{example.line}.py" for example in runs(path)]
+    for out, example in zip(outs, runs(path), strict=True):
+        out.write_text(translate_with(t1, example.source), encoding="utf-8")
+    stdout, _, code = mypy_api.run(["--strict", "--no-incremental", *map(str, outs)])
+    assert code == 0, stdout
+
+
+@pytest.mark.parametrize("path", RUN_FILES)
+def test_t1_and_t2_agree(path: Path, t1: ModuleType, t2: tuple[Path, str]) -> None:
+    t2_module = load(t2[0])
+    for example in runs(path):
+        assert translate_with(t2_module, example.source) == translate_with(t1, example.source)
+
+
+def test_spec_files_have_a_status() -> None:
+    missing = [p.name for p in FILES if p.name != INDEX and status(TEXTS[p]) == ""]
+    assert not missing, f"no status: draft|stable|deprecated line in {missing}"
+
+
+# --- the runner itself ---
+
+
+def test_blocks_and_nested_fences() -> None:
+    text = "a\n```candy run\n(put 1)\n```\n````markdown\n```expect\n1\n```\n````\n"
+    assert blocks(text) == (
+        Block("candy run", "(put 1)\n", 2),
+        Block("markdown", "```expect\n1\n```\n", 5),
+    )
+
+
+def test_indented_fences() -> None:
+    text = "- a rule:\n\n  ```candy run\n  (put 1)\n    (put 2)\n  ```\n"
+    assert blocks(text) == (Block("candy run", "(put 1)\n  (put 2)\n", 3),)
+
+
+def test_examples_pair_up() -> None:
+    text = (
+        "```candy run\n(put 1)\n```\n```expect\n1\n```\n"
+        "```candy error\n(put x)\n```\n```expect-error\nunknown name x\n```\n"
+        "```candy errors\n(put y) => unknown name y\n\n(put ()) => empty form\n```\n"
+    )
+    assert examples(text, "t.md") == (
+        Example("run", "(put 1)\n", "1\n", 1),
+        Example("error", "(put x)\n", "unknown name x", 7),
+        Example("error", "(put y)", "unknown name y", 14),
+        Example("error", "(put ())", "empty form", 16),
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("```candy run\n(put 1)\n```\n```candy\nx\n```\n", "t.md:1: candy run needs expect"),
+        ("```expect\n1\n```\n", "t.md:1: expect with no example before it"),
+        ("```candy error\n(put x)\n```\n", "t.md:1: candy error at the end"),
+        ("```candy errors\n(put x)\n```\n", "t.md:2: expected source => message"),
+    ],
+    ids=["no-expect", "orphan-expect", "unclosed-pair", "bad-row"],
+)
+def test_examples_that_dont_pair_up(text: str, message: str) -> None:
+    with pytest.raises(SpecError, match=re.escape(message)):
+        examples(text, "t.md")
+
+
+def test_status() -> None:
+    assert status("# Match\n\nstatus: draft, since: sum-types\n") == "draft"
+    assert status("# Match\n\nstatus: stable\n") == "stable"
+    assert status("# Match\n\nStatus is stable.\n") == ""

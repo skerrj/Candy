@@ -38,8 +38,6 @@ from self_host import (
     CDY_DIR,
     LIBRARY,
     TRANSLATOR,
-    build_t1,
-    build_with,
     copy_library,
     load,
     translate_file_with,
@@ -54,25 +52,6 @@ PROGRAMS = [
     *sorted(CDYC_ONLY.glob("*.cdy")),
 ]
 IDS = [p.stem for p in PROGRAMS]
-
-
-@pytest.fixture(name="t1_path", scope="session")
-def fixture_t1_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """T1, built once for the session."""
-    return build_t1(tmp_path_factory.mktemp("t1"))
-
-
-@pytest.fixture(name="t1", scope="session")
-def fixture_t1(t1_path: Path) -> ModuleType:
-    """T1, loaded."""
-    return load(t1_path)
-
-
-@pytest.fixture(name="t2", scope="session")
-def fixture_t2(t1_path: Path, tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, str]:
-    """T2 (T1's translation of the translator) written to a file, and its source text."""
-    path = build_with(t1_path, tmp_path_factory.mktemp("t2"))
-    return path, path.read_text(encoding="utf-8")
 
 
 def run(source: str, tmp_path: Path, name: str) -> subprocess.CompletedProcess[str]:

@@ -106,5 +106,10 @@ take one, and remove an entry once it is fixed.
   1a): it escapes control characters (below 32, and 127 to 160) but leaves other
   characters Python's `repr` would escape (such as U+00AD or U+2028) as they are, since
   Candy can't ask whether a character is printable. The output is still valid Python.
+- **The test programs' `mypy --strict` runs one program at a time**
+  (`test_mypy_strict` in `tst/py_cdy/test_self_host.py`): about 8.7 s for 17 programs.
+  One batched run, as `tst/py_cdy/test_spec.py` does per spec file, measured 0.4 s for 40
+  small files (`doc/hl_rqmt/executable_spec.md`, step 1); a failure then names the run,
+  not the program.
 - **`PY_RESERVED` is Python 3.14's** keywords and built-ins, written out in `emit.cdy`;
   `test_py_reserved_is_this_python` fails when another Python adds one.

@@ -310,6 +310,23 @@ step's review points at, as that step's tests.
 
 1. **The runner** (`tst/py_cdy/test_spec.py`) and `spec/README.md` (the index), with one
    example to prove it; `mypy` batched per file, and its time measured ("Scale").
+
+   *Done. As built:* `tst/py_cdy/test_spec.py` scans `spec/*.md` for fences (three or
+   more backticks, closed by as many or more, possibly indented in a list item, whose
+   lines then lose the indent), pairs `candy run` with `expect` and `candy error` with
+   `expect-error`, reads `candy errors` rows, and fails at collection, naming `file:line`,
+   on a block that doesn't pair up. Tests: `test_run` and `test_error`, one per example
+   (`README.md:51`); per file, `test_mypy_strict` (all its `run` examples in one mypy run)
+   and `test_t1_and_t2_agree`; `test_spec_files_have_a_status` (every file but the
+   index); and the runner's own tests. A `status: draft` file's tests are `xfail`. The
+   T1 and T2 fixtures moved from `test_self_host.py` into `tst/py_cdy/conftest.py`, so
+   both share one T1 per session. `spec/README.md` is the index (no files yet), the guide
+   to writing a spec file (the status line, rules before examples, *for now* rules with
+   their leak, numbers and text for output) and an example of each block kind, which are
+   the step's proof (4 examples). Measured (2026-10-23), 40 small examples: `mypy --strict`
+   one file at a time 22.5 s (0.56 s each), in one batched run 0.4 s, so the spec's mypy
+   time is negligible and question 10's `pytest-xdist` stays unneeded. Tests: 279 (15
+   new). No `bin` change.
 2. **`deft` and `match`** as the first spec file; `test_match_errors` moves into it.
    **Checkpoint:** the owner reviews how the spec reads before step 3 ("Pros and cons",
    timing).
