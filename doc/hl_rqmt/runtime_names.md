@@ -1,7 +1,7 @@
 # The runtime's names (HLD)
 
 **Status: accepted (2026-10-23), with the proposed answers to its questions
-(`primitives` for `prims`).** Branch `runtime-names`, after tag
+(`primitives` for `prims`); steps 1 to 3 built, reviewed (2026-10-23): done.** Branch `runtime-names`, after tag
 `library`. From `doc/tech_debt.md`, "The runtime's module names are out of date" (noted in
 the review of `library`, where the module names were agreed).
 
