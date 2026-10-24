@@ -18,8 +18,10 @@ Shortcuts that are too small to matter to Candy's design go in `doc/tech_debt.md
   `system-prelude`);
 - `doc/archive/leaks_bootstrap.md`: the bootstrap chain (up to tag `bootstrap`; none);
 - `doc/archive/leaks_symbol_table.md`: the symbol table (up to tag `symbol-table`);
-- `doc/archive/leaks_library.md`: the library (up to tag `library`).
+- `doc/archive/leaks_library.md`: the library (up to tag `library`);
+- `doc/archive/leaks_runtime_names.md`: the runtime's names (up to tag `runtime-names`;
+  none).
 
 Those entries stay in effect until they are fixed. When one is fixed, mark it there (strike
 it through and say where it was fixed) rather than copying it here. This file is for leaks
-added from branch `runtime-names` on.
+added from branch `executable-spec` on.
