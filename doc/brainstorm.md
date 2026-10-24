@@ -4,6 +4,7 @@ Random thoughts about Candy's design: not decided, not planned, not tech debt. A
 whenever it comes up; when one turns into real work, move it to a design doc
 (`doc/hl_rqmt/`) and leave a pointer here.
 
+- **variadic args, interfaces, and generics**: *break this up*
 - **vscode syntax extension**: `(defn line (level text) (+ (get-indent level) text "\n"))`: get-indent is the same color as args... should be similar to `+`
 - **rewrite parsec-v4 in Candy**: ref *publish parsec*
 - **type checker**: *lean4*?
@@ -42,9 +43,20 @@ whenever it comes up; when one turns into real work, move it to a design doc
   types, `src/cdy/candy-special.md`), and in time at a test suite or test library that
   checks each requirement (`tst/cdy/` is the start). Open: its format, whether the HLDs
   become its functional specs, and how a requirement names its tests. *Moved to*
-  `doc/hl_rqmt/spec_by_example.md` (draft): a Markdown spec whose examples run.
+  `doc/hl_rqmt/executable_spec.md` (draft): a Markdown spec whose examples run.
+- **An I/O refactor** (the owner, 2026-10-23: "I/O is total crap at the moment"; expect a
+  big one): `print`, `display` and `put` are all Python's `print`, typed `Any`, showing
+  values with Python's `str()` (`True`, `None`, `(1, 2)`: the leaks in
+  `doc/archive/leaks_imvp_py_translator.md` and `doc/archive/leaks_system_prelude.md`),
+  and the file and path built-ins are thin wrappers. A built-in that shows a value in
+  Candy's syntax belongs to it (`doc/hl_rqmt/executable_spec.md`, question 12).
+- **"No code changes" commits** (tabled, 2026-10-23; revisit when needed): a docs-only
+  commit says so and skips the rebuild, `boot/NN`, linters and tests. Pitfalls found: a
+  file in `bin/<target>/` (even a `.md`) changes `bin`; `spec/` is tests, not docs; and the
+  label must come from the commit's files (`git diff --cached --name-only`), since it skips
+  checks.
 - **A better way to review items and tasks:** no ideas yet (the owner, 2026-10-23). *Moved
-  to* `doc/hl_rqmt/review.md` (draft), linked from `doc/hl_rqmt/spec_by_example.md`.
+  to* `doc/hl_rqmt/review.md` (draft), linked from `doc/hl_rqmt/executable_spec.md`.
 - **Build a host and target(s) from their own library files:** a host's and each
   target's `system.cdy` and `prelude.cdy`, and probably another set of files, or a
   completely separate set of spec files that give a system and prelude for each spec

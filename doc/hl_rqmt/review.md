@@ -2,7 +2,7 @@
 
 **Kind: process** (how work is done), not a design of the language or translator.
 **Status: draft (2026-10-23): a goal, no design yet.** No branch yet. Split out of
-`doc/hl_rqmt/spec_by_example.md` (its question 9), which links here: a step's review could
+`doc/hl_rqmt/executable_spec.md` (its question 9), which links here: a step's review could
 point at its spec examples, as that step's tests.
 
 ## Where things stand
