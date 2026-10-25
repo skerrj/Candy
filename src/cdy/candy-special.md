@@ -14,39 +14,15 @@
 ### import
 - in the spec: `spec/10-programs.md`
 ### import-macros
-- top level only; *symbol*`.cdy` is found as for `import`, but it is a **macro file**: its `defmacro`s become macros of the importing file, and its other definitions are helpers, which run only while translating (the importing file's own `defmacro`s can call them; its program can't)
-- a macro file can `import` ordinary files (their definitions are helpers too) and `import-macros` other macro files, whose macros expand in it; it doesn't pass those macros on
-- each macro file is loaded once per importer; a cycle is an error
-- only in the Candy translator
- > (import-macros *symbol*)
+- in the spec: `spec/50-macros.md`
 ### sig, def, deft, get, assoc, tup
 - in the spec: `spec/20-types.md` (records; sum types in `spec/30-match.md`)
-- in `src/cdy/system.cdy`, which the translator reads, a `sig` has no definition: it declares a built-in that the runtime provides, with its type; anywhere else that is an error (goes to `spec/60-library.md`)
+- `system.cdy`'s bodiless `sig`s: `spec/60-library.md`
 ### match
 - in the spec: `spec/30-match.md`
 ### defn, do, if, cond, let, fn
 - in the spec: `spec/40-expressions.md`
-### defmacro
-- define a macro: Candy code that the translator runs on the *forms* of a call, before analysing it; the call is replaced by the form it returns (see `doc/hl_rqmt/macros.md`)
-- top level only; every parameter is a `Form`, and no `sig` is needed
-- scheme style: a bare *symbol* instead of the parameter list gets all the arguments as one `(List Form)`
-- binding a macro's name (in `let`, `fn`, a pattern, `def` or `defn`) is an error
-- calling a macro with the wrong number of arguments is an error at the call, and so is an error in the macro or in the code it returns
-- a macro's body can use the built-ins, `Form` with its helpers (`form.cdy`), such as `sym-name`, `list-items`, `rest-of` and `gensym`, and the helpers of macro files (see `import-macros`); not the program's own definitions
-- `(gensym "x")` returns a new symbol, `x__1`, which no program can write: the reader rejects `__` in a name
- > (defmacro *symbol* (*args**) *expr*)\
- > (defmacro *symbol* *args-symbol* *expr*)
-### quo, quasi, unq, unq-sp
-- quoting, for macros: only in macro code for now
-- `quo` returns *form* unevaluated, as a `Form` (it replaces `quote`, reserved since the iMVP)
-- `quasi` is like `quo`, but `unq` inside it puts in the value of *expr* (a `Form`), and `unq-sp` inside a list splices in the items of *expr* (a `(List Form)`)
-- the `'` shorthand will be added later as a reader macro... ala clojure
- > (quo *form*)\
- > (quasi *form*)\
- > (unq *expr*)\
- > (unq-sp *expr*)
-## weird stuff 
+### defmacro, quo, quasi, unq, unq-sp
+- in the spec: `spec/50-macros.md`
 ### format
-- hacked in from smz: a string with Candy forms in `{...}` holes, one form per hole
-- `{{` and `}}` are literal braces
- > (format "*text* {*form*} ...")
+- in the spec: `spec/60-library.md` (with the built-ins and the prelude)

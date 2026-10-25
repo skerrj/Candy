@@ -85,23 +85,6 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("src", "message"),
-    [
-        ("(put (quo x))", "quo: only in macro code"),
-        ("(put (quasi x))", "quasi: only in macro code"),
-        ("(put (unq x))", "unq: only inside quasi"),
-        ("(put (quote x))", "unknown name quote"),
-        ('(put (format "a } b"))', "unmatched }"),
-        ('(put (format "a { b"))', "unmatched {"),
-        ('(put (format "{1 2}"))', "exactly one form"),
-    ],
-)
-def test_errors(src: str, message: str, t1: ModuleType) -> None:
-    with pytest.raises(CandyFail, match=re.escape(message)):
-        translate_with(t1, src)
-
-
-@pytest.mark.parametrize(
     ("imported", "message"),
     [
         ('(def x "open\n', "lib/b.cdy:1:8: parse error: string is never closed"),
@@ -199,29 +182,6 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
     assert (done.returncode, done.stdout) == (0, "140\n280\n"), done.stderr
 
 
-@pytest.mark.parametrize(
-    ("src", "message"),
-    [
-        ("(put (quo))", "column 6: quo: expected (quo form)"),
-        ("(put (quo a b))", "column 6: quo: expected (quo form)"),
-        ("(put (quasi (f (unq))))", "column 16: unq: expected (unq expr)"),
-        ("(put (quasi (unq-sp x)))", "column 13: unq-sp: only inside a list in quasi"),
-        ("(put (quasi (f (quasi x))))", "column 16: quasi: a quasi inside a quasi"),
-        ("(put (quasi (f (unq nope))))", "column 21: unknown name nope"),
-        ("(put (unq-sp x))", "column 6: unq-sp: only inside quasi"),
-    ],
-)
-def test_quoting_errors(
-    src: str, message: str, t1: ModuleType, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.chdir(ROOT)  # macro code has Form, from the translator's form.cdy
-    forms = t1.include__include_imports(
-        t1.read__read_source("", "(import src/cdy/form)\n" + src), "."
-    )
-    with pytest.raises(CandyFail, match="^" + re.escape("line 2, " + message)):
-        translate_macro_code(t1, forms)
-
-
 def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
     """``forms`` as Python, translated as macro code (where quoting is allowed), as
     ``expand.cdy`` translates a macro program."""
@@ -237,44 +197,6 @@ def test_quoting_in_macro_code(t1: ModuleType, tmp_path: Path) -> None:
     assert done.stdout == program.with_suffix(".out").read_text(encoding="utf-8")
 
 
-def test_quoting_only_in_macro_code(t1: ModuleType) -> None:
-    with pytest.raises(
-        CandyFail, match="^" + re.escape("line 1, column 6: quo: only in macro code")
-    ):
-        translate_with(t1, "(put (quo x))")
-
-
-M = "(defmacro m (a) a)\n"
-
-
-@pytest.mark.parametrize(
-    ("src", "message"),
-    [
-        # Calls: the error is at the call, even when it is in the expansion.
-        (M + "(m 1 2)", "line 2, column 1: m: expected 1 argument(s), got 2"),
-        ("(defmacro bad () (quo (if)))\n(put 1)\n  (bad)", "line 3, column 3: if: expected"),
-        ('(defmacro m (a) (fail "no"))\n(m 1)', "line 2, column 1: m: no"),
-        ("(defmacro m (a) (at (list-items a) 5))\n(m x)", "line 2, column 1: m: IndexError"),
-        ("(defmacro m () (quo (quo x)))\n(m)", "line 2, column 1: quo: only in macro code"),
-        # A macro's name can't be bound or defined.
-        (M + "(sig f (Fn (Int) Int))\n(defn f (m) m)", "line 3, column 1: m is a macro, so"),
-        (M + "(put (let ((m 1)) m))", "line 2, column 6: m is a macro, so it can't be bound"),
-        (M + "(put ((fn (m) 1) 2))", "line 2, column 7: m is a macro, so it can't be bound"),
-        (M + "(deft S (Mm ((x Int))))\n(put (match (Mm 1) ((Mm m) m)))", "line 3, column 6: m is"),
-        (M + "(sig m Int)\n(def m 1)", "line 3, column 1: m is a macro, so it can't be defined"),
-        # defmacro itself.
-        ("(defmacro m)", "line 1, column 1: defmacro: expected (defmacro name (params) body)"),
-        ("(defmacro if (a) a)", "line 1, column 1: defmacro: if is a special form"),
-        ("(defmacro m (1) a)", "line 1, column 1: defmacro: a parameter must be a name"),
-        (M + M, "line 2, column 1: defmacro: m is defined twice"),
-        ("(put (defmacro m (a) a))", "line 1, column 6: defmacro is only allowed at top level"),
-    ],
-)
-def test_macro_errors(src: str, message: str, t1: ModuleType) -> None:
-    with pytest.raises(CandyFail, match="^" + re.escape(message)):
-        translate_with(t1, src)
-
-
 MACRO_FILE = """(defmacro twice (e) (quasi (+ (unq e) (unq e))))
 (sig helper (Fn (Form) Form))
 (defn helper (f) f)
@@ -287,9 +209,6 @@ MACRO_FILE = """(defmacro twice (e) (quasi (+ (unq e) (unq e))))
         # A macro file's helpers run only while translating.
         ("(import-macros mac)\n(put (helper 1))", "p.cdy:2:7: unknown name helper"),
         ("(import-macros mac)\n(defmacro twice (a) a)", "p.cdy:2:1: defmacro: twice is already a"),
-        ("(import-macros nope)", "p.cdy:1:1: import-macros: can't find nope.cdy in ."),
-        ("(import-macros)", "p.cdy:1:1: import-macros: expected (import-macros name)"),
-        ("(put (import-macros mac))", "p.cdy:1:6: import-macros is only allowed at top level"),
         ("(import-macros cycle)", "cycle.cdy:1:1: import-macros: cycle.cdy imports itself"),
     ],
 )

@@ -16,6 +16,8 @@ One file per feature, a few hundred lines at most (split one that grows past tha
 | `20-types.md` | the types, `sig`, `def`, records (`deft`, `get`, `assoc`), `tup` |
 | `30-match.md` | patterns and match: sum types (`deft` with variants), `match`, `tup` patterns |
 | `40-expressions.md` | names and calls, the operators, `do`, `if`, `cond`, `let`, `fn`, `defn`, `Unit` |
+| `50-macros.md` | `defmacro`, quoting, `gensym`, macro files (`import-macros`), `cond` as a macro |
+| `60-library.md` | the built-ins, the prelude, and `format` |
 
 Until the migration is done, the rest of the language is in `src/cdy/candy-special.md`.
 
@@ -62,8 +64,9 @@ of its own, with the prelude and the prelude macros as every program has them.
   ```
 
 - **`candy error`**, followed by **`expect-error`**: translating the program must fail,
-  and the message must contain the `expect-error` text (the `file:line:col:` before it is
-  left out):
+  and the message must contain the `expect-error` text. The position before it
+  (`line 2, column 1: `) is usually left out, and given only for a rule about where an
+  error points (as in `50-macros.md`):
 
   ```candy error
   (put nope)

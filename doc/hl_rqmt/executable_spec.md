@@ -396,6 +396,18 @@ step's review points at, as that step's tests.
    `quot`'s rounding) and two bugs (`doc/tech_debt.md`: `(sig x (List))` crashes the
    translator, and `(def (x) 1)` gets a message with no name). mypy rejects comparing
    two different literals (`(!= 1 2)`), so the examples compare names.
+
+   *As built, commit 3 (`50` and `60`):* `spec/50-macros.md` (`defmacro`, macro code,
+   errors at the call, quoting, `gensym`, `import-macros`, `cond`) and
+   `spec/60-library.md` (the built-ins by group, lists, strings, maps, the prelude's
+   `rest` and `map-update`, `format`). Folded in: `lists`, `maps`, `strings` and
+   `cdyc/prelude` (their tuples, `True`s and `None`s now printed through `show` and `yes`
+   helpers; the programs removed). Moved in: the rest of `test_errors` (the test is gone),
+   `test_macro_errors`, `test_quoting_errors`, `test_quoting_only_in_macro_code`, and the
+   single-file rows of `test_macro_file_errors`. The rows about where a macro's error
+   points give the position (`line 2, column 1: `), which the README now allows.
+   `candy-special.md` is all pointers now. Learned: a `format` hole can't hold a brace,
+   so no `format` in a hole. Tests: 364.
 4. **The process** (`doc/process.md`): the lifecycle, "Where notes go", design docs.
 5. **Docs:** CLAUDE.md (the spec, the tests), the iMVP doc, `doc/brainstorm.md` (the SRS
    entry moves here, leaving a pointer).

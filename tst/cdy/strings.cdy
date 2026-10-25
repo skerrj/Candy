@@ -1,5 +1,0 @@
-;;; The library's string operations (doc/hl_rqmt/library.md, step 4): built-ins.
-(put (starts-with "candy" "can") (starts-with "candy" "dy") (starts-with "" ""))
-(put (ends-with "candy" "dy") (ends-with "candy" "can"))
-(put (split "a,b,,c" ",") (split "abc" ","))
-(put (repeat "ab" 3) (len (repeat "ab" 0)))
