@@ -91,7 +91,6 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(def x 1)", "x needs a (sig x Type)"),
         ("(put (if 1))", "if: expected"),
         ("(put (cond (else 1) (true 2)))", "must be the last clause"),
-        ("(put ())", "empty form"),
         ("(put if)", "special form, not a value"),
         ("(put (quo x))", "quo: only in macro code"),
         ("(put (quasi x))", "quasi: only in macro code"),
@@ -114,14 +113,6 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ('(put (format "a { b"))', "unmatched {"),
         ('(put (format "{1 2}"))', "exactly one form"),
         ("(sig f (Fn (Int) Int)) (defn f (x y) x)", "one type per argument"),
-        ("(put (do (sig x Int)))", "only allowed at top level"),
-        ("(import)", "expected (import name)"),
-        ('(import "x")', "expected (import name)"),
-        ("(import a b)", "expected (import name)"),
-        ("(import nope)", "can't find nope.cdy in ."),
-        ("(put (do (import x)))", "only allowed at top level"),
-        ("(sig main Int) (def main 1)", "main must be a defn"),
-        ("(sig main (Fn (Int) Int)) (defn main (n) n)", "main must be typed"),
     ],
 )
 def test_errors(src: str, message: str, t1: ModuleType) -> None:
@@ -418,14 +409,6 @@ def test_bin_driver_expands_macros(tmp_path: Path) -> None:
     assert run((tmp_path / "macros.py").read_text(encoding="utf-8"), tmp_path, "m").stdout == (
         program.with_suffix(".out").read_text(encoding="utf-8")
     )
-
-
-def test_own_definitions_win_over_the_prelude(t1: ModuleType, tmp_path: Path) -> None:
-    # Over the prelude's rest, and over the built-in map.
-    source = translate_with(
-        t1, "(sig rest Int)\n(def rest 7)\n(sig map Int)\n(def map 8)\n(put rest map)"
-    )
-    assert run(source, tmp_path, "own").stdout == "7 8\n"
 
 
 # --- the Python spellings, in Candy (emit.cdy; doc/hl_rqmt/library.md) ---

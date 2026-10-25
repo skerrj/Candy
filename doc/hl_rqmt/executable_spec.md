@@ -371,6 +371,18 @@ step's review points at, as that step's tests.
    in `20-types.md`, pointing at `30-match.md` for taking one apart, so `30-match.md`
    holds every pattern and is retitled "Patterns and match" (rather than moving its tuple
    section out).
+
+   *As built, commit 1 (`00` and `10`):* `spec/00-syntax.md` (forms, comments, literals,
+   names: 6 `candy run` examples, 6 `candy errors` tables, with every error the reader
+   gives) and `spec/10-programs.md` (top level, `main`, the prelude, `import`: 4 run
+   examples, 3 tables). **One change to the table:** `import-macros` goes in
+   `50-macros.md`, not `10`, since a macro file is about macros, and its examples need a
+   second file. Moved in: nine `test_errors` rows (`()`, the top-level-only and `import`
+   rows, `main`'s two) and `test_own_definitions_win_over_the_prelude`. The reader's own
+   tests stay (`test_reader_accepts`, `test_reader_errors`, `test_reader_positions`):
+   they check fragments and line and column, a unit level the spec leaves out (question
+   11). Learned: a char can't be written in a `format` hole, since the string's escapes
+   are read first (`"{\(}"` is a bad escape).
 4. **The process** (`doc/process.md`): the lifecycle, "Where notes go", design docs.
 5. **Docs:** CLAUDE.md (the spec, the tests), the iMVP doc, `doc/brainstorm.md` (the SRS
    entry moves here, leaving a pointer).

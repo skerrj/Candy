@@ -11,6 +11,8 @@ One file per feature, a few hundred lines at most (split one that grows past tha
 
 | File | What it covers |
 |---|---|
+| `00-syntax.md` | forms, comments, literals, names: what the reader accepts and rejects |
+| `10-programs.md` | the top level, `main`, the prelude, `import` |
 | `30-match.md` | sum types (`deft` with variants), `match`, and `tup` patterns |
 
 Until the migration is done, the rest of the language is in `src/cdy/candy-special.md`.

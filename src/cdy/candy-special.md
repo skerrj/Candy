@@ -4,25 +4,8 @@
 - placeholders are denoted by a italics.
 - the details and the reasons behind them are in `doc/hl_rqmt/iMVP_py_translator.md`, `doc/hl_rqmt/sum_types.md` and `doc/hl_rqmt/self_host_cleanup.md`
 - the list of special forms and operators the translator knows is `src/cdy/special.cdy` (`doc/hl_rqmt/symbol_table.md`); this file describes them
-## literals
-```
-100        ;; Int
-1500l      ;; Long
-3.14f      ;; Float
-10.0       ;; Double
-1b         ;; Byte
-true|false ;; Bool
-\e         ;; Char
-"text\n"   ;; String (escapes: \" \\ \/ \b \f \n \r \t \uXXXX)
-```
-- `nil` (the `Unit` value) is a built-in name, not a literal
-- a literal must end at a delimiter: whitespace, a paren, `;` or the end
-- `'` is reserved (for the quote shorthand)
-## comments
-- `;` are comments
-- `;` — Used for inline comments next to code.
-- `;;` — Used for standalone line comments.
-- `;;;` — Used for section headers or block descriptions 
+## literals, comments
+- in the spec: `spec/00-syntax.md` (forms, comments, literals, names, and the reader's errors)
 ## types
 - type names are Capitalised, type variables are lowercase (`a`, `b`)
 - `Int` `Long` `Byte` `Float` `Double` `Bool` `Char` `String` `Unit` `Any`
@@ -30,30 +13,16 @@ true|false ;; Bool
 - a `deft` type, possibly generic: `Shape`, `(Tree a)`
 - `Any` turns checking off: an escape hatch
 ## programs
-- a program runs its top-level forms in order
-- if it defines `main`, typed `(Fn ((List String)) Int)`, `main` then runs with the command-line arguments, and the program exits with its result
-- `main` runs only when the program itself is run: not when it's imported, as the translator's own `main` (its driver) isn't when tests load it
-- a `fail` in `main` prints `candy: ` and the message, and exits with 1
-- every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: `rest` and `map-update` so far (the list, string and map operations, such as `map`, `filter`, `fold`, `find`, `take` and `split`, are built-ins, declared in `system.cdy`: `doc/hl_rqmt/library.md`); macro code doesn't get the prelude; a file's own definition of a prelude or built-in name wins, and a module it imports that defines one is a clash, as between any two imports
+- in the spec: `spec/10-programs.md` (top level, `main`, the prelude, `import`)
 ## special forms
 ### import
-- top level only
-- imports the module *symbol*`.cdy`, found in the importing file's directory; *symbol* may be a relative path (`lib/util`)
-- every name the module defines at top level (`def`, `defn`, `deft` with its variants) becomes visible here, unqualified; names the module imports don't
-- two imports that define the same name are an error; the file's own definition of a name wins over an import's
-- importing a module twice is fine; an import cycle is an error, and so are two imported modules with the same file name (`util` and `lib/util`)
-- in a macro file, `import` still pastes the file in (inclusion), as the macro file's helpers
- > (import *symbol*)
+- in the spec: `spec/10-programs.md`
 ### import-macros
 - top level only; *symbol*`.cdy` is found as for `import`, but it is a **macro file**: its `defmacro`s become macros of the importing file, and its other definitions are helpers, which run only while translating (the importing file's own `defmacro`s can call them; its program can't)
 - a macro file can `import` ordinary files (their definitions are helpers too) and `import-macros` other macro files, whose macros expand in it; it doesn't pass those macros on
 - each macro file is loaded once per importer; a cycle is an error
 - only in the Candy translator
  > (import-macros *symbol*)
-#### import-as, import-from [SKIP]
-- will come with modules (step B)
- > (import-as *symbol* *as-symbol*)\
- > (import-from *symbol* *from-symbols*+) 
 ### sig
 - the type of a top-level `def` or `defn`
 - top level only, required for every `def` and `defn`, anywhere before its definition, one per name

@@ -25,3 +25,4 @@ Done and earlier items are in `doc/archive/TODOS_runtime_names.md`,
 
 - [x] Review step 1 as built (`doc/hl_rqmt/executable_spec.md`, its "Done" note: the runner, `spec/README.md`, the fixtures in `conftest.py`, and the mypy measurement).
 - [x] **Checkpoint:** review how `spec/30-match.md` reads (step 2's "Done" note), before step 3 writes the rest of the spec in its style. Step 3 is `doc/hl_rqmt/executable_spec.md` → "Steps (sketch)" → "3. The other features" (migrating the rest of `candy-special.md`); review its proposed file list and the tuples note there too.
+- [ ] Review step 3, commit 1 as built (`spec/00-syntax.md`, `spec/10-programs.md`; the HLD's step 3 "As built, commit 1" note, with its one change to the table: `import-macros` in `50-macros.md`).
