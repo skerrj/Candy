@@ -418,6 +418,13 @@ step's review points at, as that step's tests.
    now states as "no form changes a `def` yet", `spec/20-types.md`), and two spec files.
    The older HLDs keep the name, as history.
 4. **The process** (`doc/process.md`): the lifecycle, "Where notes go", design docs.
+
+   *Done. As built:* a section "The spec" (the spec is the current whole, the HLDs the
+   record; the statuses; the spec says what the translator does, and a gap it finds is a
+   leak or tech debt, *for now*, not a fix in passing, as step 3 did; what stays in
+   `tst/`). The lifecycle: a language feature's HLD comes with its draft spec file, each
+   step changes the spec with the language, and the docs step marks the files `stable`.
+   A row in "Where notes go", and the log.
 5. **Docs:** CLAUDE.md (the spec, the tests), the iMVP doc, `doc/brainstorm.md` (the SRS
    entry moves here, leaving a pointer).
 
