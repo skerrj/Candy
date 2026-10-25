@@ -30,3 +30,4 @@ Done and earlier items are in `doc/archive/TODOS_runtime_names.md`,
 - [ ] Review step 3, commit 3 as built (`spec/50-macros.md`, `spec/60-library.md`; the HLD's "As built, commit 3" note).
 - [ ] Review step 3, commit 4 as built (`candy-special.md` removed, the pointers, `boot/32`; the HLD's "Done. As built, commit 4" note).
 - [ ] Review step 4 as built (`doc/process.md`: "The spec", the lifecycle, "Where notes go"; the HLD's step 4 "Done" note).
+- [ ] Review step 5 as built (CLAUDE.md's `spec/` entry, history and command; the iMVP doc and `brainstorm.md` pointers; the HLD's step 5 "Done" note).

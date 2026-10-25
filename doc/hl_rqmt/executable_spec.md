@@ -428,6 +428,15 @@ step's review points at, as that step's tests.
 5. **Docs:** CLAUDE.md (the spec, the tests), the iMVP doc, `doc/brainstorm.md` (the SRS
    entry moves here, leaving a pointer).
 
+   *Done. As built:* CLAUDE.md: a `spec/` entry (what it is, what `test_spec.py` checks,
+   the output rule, "change the spec with the language"), `conftest.py`'s shared T1 and
+   T2, the branch in the history, and how to run the spec or one file of it
+   (`pytest tst/py_cdy/test_spec.py -k 30-match`); its stale `tup` line ("only in
+   `let`") now says `match` takes tuples apart too. The iMVP doc says `candy-special.md`
+   became `spec/`; `doc/brainstorm.md`'s SRS entry, already moved here, says where it was
+   built. The spec files are all `stable` already: this branch moved features in, it
+   added none, so each file's `since:` is the branch that brought its feature.
+
 One `bin` change: `special.cdy`'s pointer (Migration, 4), copied into `bin/py/`, a
 chain step with no staging. The translator's code is untouched.
 

@@ -43,7 +43,8 @@ whenever it comes up; when one turns into real work, move it to a design doc
   types, the spec in `spec/`), and in time at a test suite or test library that
   checks each requirement (`tst/cdy/` is the start). Open: its format, whether the HLDs
   become its functional specs, and how a requirement names its tests. *Moved to*
-  `doc/hl_rqmt/executable_spec.md` (draft): a Markdown spec whose examples run.
+  `doc/hl_rqmt/executable_spec.md`, built on branch `executable-spec`: `spec/`, a Markdown
+  spec whose examples run.
 - **An I/O refactor** (the owner, 2026-10-23: "I/O is total crap at the moment"; expect a
   big one): `print`, `display` and `put` are all Python's `print`, typed `Any`, showing
   values with Python's `str()` (`True`, `None`, `(1, 2)`: the leaks in
