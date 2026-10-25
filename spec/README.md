@@ -11,7 +11,7 @@ One file per feature, a few hundred lines at most (split one that grows past tha
 
 | File | What it covers |
 |---|---|
-| *(none yet: `deft` and `match` come first, as `30-match.md`)* | |
+| `30-match.md` | sum types (`deft` with variants), `match`, and `tup` patterns |
 
 Until the migration is done, the rest of the language is in `src/cdy/candy-special.md`.
 
@@ -69,11 +69,20 @@ of its own, with the prelude and the prelude macros as every program has them.
   ```
 
 - **`candy errors`**: a table of error examples, one per line, `source => message`, for a
-  rule's edge cases:
+  rule's edge cases. Lines before a `---` line (one per table) are the table's setup,
+  which goes before each row; the setup must translate on its own, so a row can only fail
+  on its own source:
 
   ```candy errors
   (put ()) => empty form
   (put (+ 1)) => needs at least 2 arguments
+  ```
+  ```candy errors
+  (sig n Int)
+  (def n 1)
+  ---
+  (def n 2) => defined more than once: n
+  (put (len n n)) => takes 1 argument(s), got 2
   ```
 
 - **any other block** (`candy` alone, `markdown`): an illustration, not run. A block of

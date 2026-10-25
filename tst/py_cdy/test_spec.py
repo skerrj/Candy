@@ -5,7 +5,9 @@ A spec file's fenced blocks are its examples:
 - ``candy run``, then ``expect``: the program's output must be the ``expect`` block;
 - ``candy error``, then ``expect-error``: translating it must fail, with a message that
   contains the ``expect-error`` text;
-- ``candy errors``: one error example per line, ``source => message``;
+- ``candy errors``: one error example per line, ``source => message``, after any setup
+  lines ended by a ``---`` line (one per table), which go before each row's source and
+  must translate on their own;
 - any other fence (``candy`` alone, ``markdown``): an illustration, not run.
 
 A fence is three or more backticks, closed by as many or more, so a block of four can show
@@ -50,9 +52,10 @@ class Block(NamedTuple):
 
 
 class Example(NamedTuple):
-    """An example: a program, and its output (``run``) or part of its message (``error``)."""
+    """An example: a program, and its output (``run``) or part of its message (``error``);
+    a ``setup`` (an error table's) has no expected text, and must translate."""
 
-    kind: Literal["run", "error"]
+    kind: Literal["run", "error", "setup"]
     source: str
     expected: str
     line: int
@@ -110,15 +113,25 @@ def examples(text: str, name: str) -> tuple[Example, ...]:
 
 
 def error_table(block: Block, name: str) -> tuple[Example, ...]:
-    """The examples of a ``candy errors`` block, one per line that isn't blank."""
-    found: tuple[Example, ...] = ()
-    for offset, row in enumerate(block.text.splitlines(), start=1):
+    """The examples of a ``candy errors`` block, one per line that isn't blank, each after
+    the block's setup (the lines before a ``---`` line, if it has one). The setup is an
+    example of its own too, which must translate."""
+    rows = block.text.splitlines()
+    separators = [i for i, row in enumerate(rows) if row.strip() == "---"]
+    if len(separators) > 1:
+        line = block.line + separators[1] + 1
+        raise SpecError(f"{name}:{line}: a second --- (a table has one setup)")
+    first = separators[0] + 1 if separators else 0
+    setup = "".join(f"{line}\n" for line in rows[: first - 1]) if separators else ""
+    found: tuple[Example, ...] = (Example("setup", setup, "", block.line + 1),) if setup else ()
+    for offset, row in enumerate(rows[first:], start=first + 1):
         if row.strip() == "":
             continue
         if " => " not in row:
             raise SpecError(f"{name}:{block.line + offset}: expected source => message")
         source, message = row.split(" => ", 1)
-        found = (*found, Example("error", source.strip(), message.strip(), block.line + offset))
+        example = Example("error", setup + source.strip(), message.strip(), block.line + offset)
+        found = (*found, example)
     return found
 
 
@@ -177,6 +190,11 @@ def test_error(example: Example, t1: ModuleType) -> None:
         translate_with(t1, example.source)
 
 
+@pytest.mark.parametrize("example", cases("setup"))
+def test_setup(example: Example, t1: ModuleType) -> None:
+    translate_with(t1, example.source)
+
+
 @pytest.mark.parametrize("path", RUN_FILES)
 def test_mypy_strict(path: Path, t1: ModuleType, tmp_path: Path) -> None:
     outs = [tmp_path / f"example_{example.line}.py" for example in runs(path)]
@@ -228,6 +246,14 @@ def test_examples_pair_up() -> None:
     )
 
 
+def test_error_table_setup() -> None:
+    text = "```candy errors\n(sig s Int)\n(def s 1)\n --- \n(put t) => unknown name t\n```\n"
+    assert examples(text, "t.md") == (
+        Example("setup", "(sig s Int)\n(def s 1)\n", "", 2),
+        Example("error", "(sig s Int)\n(def s 1)\n(put t)", "unknown name t", 5),
+    )
+
+
 @pytest.mark.parametrize(
     ("text", "message"),
     [
@@ -235,8 +261,9 @@ def test_examples_pair_up() -> None:
         ("```expect\n1\n```\n", "t.md:1: expect with no example before it"),
         ("```candy error\n(put x)\n```\n", "t.md:1: candy error at the end"),
         ("```candy errors\n(put x)\n```\n", "t.md:2: expected source => message"),
+        ("```candy errors\n(def a 1)\n---\n---\n```\n", "t.md:4: a second ---"),
     ],
-    ids=["no-expect", "orphan-expect", "unclosed-pair", "bad-row"],
+    ids=["no-expect", "orphan-expect", "unclosed-pair", "bad-row", "second-separator"],
 )
 def test_examples_that_dont_pair_up(text: str, message: str) -> None:
     with pytest.raises(SpecError, match=re.escape(message)):

@@ -330,6 +330,25 @@ step's review points at, as that step's tests.
 2. **`deft` and `match`** as the first spec file; `test_match_errors` moves into it.
    **Checkpoint:** the owner reviews how the spec reads before step 3 ("Pros and cons",
    timing).
+
+   *Done. As built:* `spec/30-match.md` (`status: stable, since: self-host-py`): the
+   grammar lines, then "Declaring a sum type", "Taking it apart: match" and "Taking a
+   tuple apart" (since `self-host-cleanup`), each rule in prose before its examples: 10
+   `candy run` examples, one `candy error`, and four `candy errors` tables (30 tests).
+   The examples use `Int` fields, so their output is numbers and text. Two rules say
+   *for now*: types and values share a namespace, and patterns are flat. Moved in:
+   `test_match_errors` (20 cases, and its `SHAPES`), `test_errors`' `Box` row, and
+   `tst/cdy/cdyc/tup_match` (its `True` now a string). Records, `get` and `assoc` stay in
+   `candy-special.md` for `20-types.md`; its `deft` section keeps the record and points
+   at the spec for sums, its `match` section is a pointer. The runner gained **setup
+   lines** for a `candy errors` table (before a `---` line, put before each row), since
+   the match table repeated its `deft` on every row; `spec/README.md` shows them. The
+   setup is a test of its own (`test_setup`: it must translate alone, so a broken setup
+   can't make a row pass on a matching message); one `---` per table (a second is a
+   `SpecError`), surrounding spaces allowed. The
+   first setup example in the README was wrong (calling an `Int` isn't an error the
+   translator catches, only mypy would: no type checker yet). Tests: 291 (312 less the
+   24 moved, all now in the spec, plus the two setups and a runner test).
 3. **The other features**, from `candy-special.md`, one commit per file or two;
    `candy-special.md` goes.
 4. **The process** (`doc/process.md`): the lifecycle, "Where notes go", design docs.

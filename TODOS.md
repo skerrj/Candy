@@ -24,3 +24,4 @@ Done and earlier items are in `doc/archive/TODOS_runtime_names.md`,
 ## executable-spec
 
 - [ ] Review step 1 as built (`doc/hl_rqmt/executable_spec.md`, its "Done" note: the runner, `spec/README.md`, the fixtures in `conftest.py`, and the mypy measurement).
+- [ ] **Checkpoint:** review how `spec/30-match.md` reads, before step 3 migrates the rest (`doc/hl_rqmt/executable_spec.md`, step 2's "Done" note).

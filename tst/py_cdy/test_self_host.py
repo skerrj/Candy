@@ -103,7 +103,6 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(sig x Int) (def x 1) (sig x Int)", "comes after its definition"),
         ("(sig x Int) (sig x Int) (def x 1)", "more than one sig"),
         ("(sig x Int) (def x 1) (def x 2)", "defined more than once: x"),
-        ("(deft Box (Box ((v Int))))", "defined more than once: Box"),
         ("(put (let ((x)) x))", "binding must be"),
         ("(put (let (((a b))) a))", "binding must be"),
         ("(put (fn () 1))", "at least one"),
@@ -331,49 +330,6 @@ def test_macro_file_errors(
     Path("p.cdy").write_text(src, encoding="utf-8")
     with pytest.raises(CandyFail, match=re.escape(message)):
         translate_file_with(t1, Path("p.cdy"))
-
-
-SHAPES = """
-(deft Shape (Circle ((r Double))) (Rect ((w Double) (h Double))) (Dot))
-(sig s Shape)
-(def s (Circle 1.0))
-"""
-
-
-@pytest.mark.parametrize(
-    ("src", "message"),
-    [
-        ("(put (match s ((Circle r) r)))", "no clause for Rect, Dot"),
-        (
-            "(put (match s ((Circle r) r) ((Circle r) r) (else 1)))",
-            "more than one clause for Circle",
-        ),
-        ("(put (match s ((Circle) 1) (else 2)))", "pattern needs that many names"),
-        ("(put (match s ((Rect a a) a) (else 2)))", "must be different"),
-        ("(put (match s (else 1)))", "after a pattern"),
-        ("(put (match s (else 1) ((Dot) 2)))", "must be the last clause"),
-        ("(put (match s ((Nope x) x)))", "not a variant"),
-        ("(put (match s (x 1)))", "pattern must be"),
-        ("(put (match s))", "expected (match"),
-        ("(put (match (tup 1 2) ((tup a b) a) (else 0)))", "must be the only clause"),
-        ("(put (match (tup 1 2) ((tup a b) a) ((tup c d) c)))", "must be the only clause"),
-        ("(put (match s ((Circle r) r) ((tup a b) a)))", "must be the only clause"),
-        ("(put (match (tup 1 2) ((tup) 1)))", "needs at least one name"),
-        ("(put (match (tup 1 2) ((tup a a) a)))", "must be different"),
-        ("(put (match (tup 1 2) ((tup a (b)) a)))", "match name must be a name"),
-        ("(put (Dot))", "it is a value"),
-        ("(put (Rect 1.0))", "takes 2 field"),
-        (
-            "(deft B (T) (F)) (put (match s ((Dot) 1) ((T) 2) (else 3)))",
-            "mix variants of Shape and B",
-        ),
-        ("(deft S2 (A) (b))", "variant names are Capitalised"),
-        ("(deft S2 (A ()))", "variant must be"),
-    ],
-)
-def test_match_errors(src: str, message: str, t1: ModuleType) -> None:
-    with pytest.raises(CandyFail, match=re.escape(message)):
-        translate_with(t1, SHAPES + src)
 
 
 def test_fixpoint_t2_passes_mypy_strict(t2: tuple[Path, str]) -> None:

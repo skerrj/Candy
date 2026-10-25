@@ -71,14 +71,10 @@ true|false ;; Bool
 - a function with no real input takes a `Unit` arg: `(defn run (_) ...)`, called as `(run nil)`
  > (defn *symbol* (*args*+) *expr*)
 ### deft
-- define a type: a record (one field list) or a sum (one or more variants)
+- define a type: a record (one field list) or a sum (one or more variants: `spec/30-match.md`)
 - top level only
-- the type name, and each variant name, is also its constructor: `(Vector2 1 2)`, `(Circle 1.0)`
-- a variant with no fields is a value: `Leaf`, not `(Leaf)`
-- variant names are Capitalised; types and values share one namespace for now
- > (deft *Name* ((*field* *type*)*))\
- > (deft *Name* (*Variant* ((*field* *type*)*)?)+)\
- > (deft (*Name* *tvar*+) ...)
+- the type name is also its constructor: `(Vector2 1 2)`
+ > (deft *Name* ((*field* *type*)*))
 ### get
 - the field of a record or variant; *field* is not evaluated
  > (get *expr* *field*)
@@ -87,12 +83,7 @@ true|false ;; Bool
  > (assoc *expr* *field* *value* ...)
 - one or more *field* *value* pairs, written flat: `(assoc v x 3 y 4)`
 ### match
-- take a sum value apart; a pattern binds the variant's fields by position, `_` skips one
-- exhaustive: without `else`, every variant needs a clause; one clause per variant
-- flat patterns only (no nesting, literals or guards)
-- a `tup` pattern takes a tuple apart: it is the only clause (a tuple has one shape), with no `else`; `_` skips an item
- > (match *expr* ((*Variant* *names**) *expr*)+ (else *expr*)?)\
- > (match *expr* ((tup *names*+) *expr*))
+- in the spec: `spec/30-match.md` (sum types, `match`, and `tup` patterns)
 ### do
 - multiple expressions sequentially and returns the value of the last expression
  > (do *expr**)
