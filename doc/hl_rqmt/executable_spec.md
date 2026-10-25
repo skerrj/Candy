@@ -351,6 +351,26 @@ step's review points at, as that step's tests.
    24 moved, all now in the spec, plus the two setups and a runner test).
 3. **The other features**, from `candy-special.md`, one commit per file or two;
    `candy-special.md` goes.
+
+   *Proposed (for the checkpoint, not yet reviewed):* the files, from
+   `candy-special.md`'s sections and the small programs (question 3):
+
+   | File | From `candy-special.md` | Programs folded in |
+   |---|---|---|
+   | `00-syntax.md` | literals, comments, `'` reserved; the reader is the authority (question 6) | — |
+   | `10-programs.md` | programs, `main`, `import`, `import-macros` | — (`imports`, `modules` stay in `tst/`: multi-module) |
+   | `20-types.md` | types, `sig`, `def`, records, `get`, `assoc`, `tup` | — |
+   | `30-match.md` | done (step 2) | `tup_match` (done) |
+   | `40-expressions.md` | `do`, `if`, `cond`, `let`, `defn`, `fn`; `Unit` and `nil` | `short_circuit` |
+   | `50-macros.md` | `defmacro`, `quo`, `quasi`, `unq`, `unq-sp` | — |
+   | `60-library.md` | `system.cdy`'s built-ins, the prelude, `format` | `lists`, `maps`, `strings`, `prelude` |
+
+   In four commits: `00` and `10`; `20` and `40` (the Python error tables' language rows
+   move with them); `50` and `60`; then the pointers (`candy-special.md` goes,
+   `special.cdy`'s comment points at `spec/`, the `boot/32` step). **Tuples:** `tup` goes
+   in `20-types.md`, pointing at `30-match.md` for taking one apart, so `30-match.md`
+   holds every pattern and is retitled "Patterns and match" (rather than moving its tuple
+   section out).
 4. **The process** (`doc/process.md`): the lifecycle, "Where notes go", design docs.
 5. **Docs:** CLAUDE.md (the spec, the tests), the iMVP doc, `doc/brainstorm.md` (the SRS
    entry moves here, leaving a pointer).

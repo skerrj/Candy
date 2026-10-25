@@ -82,3 +82,17 @@ whenever it comes up; when one turns into real work, move it to a design doc
 - **`and` and `or` as macros?** Short-circuiting needn't make them operators: macros over
   `if` (as in Scheme, and like `cond`), or functions with lazy arguments (`doc/leaks.md`,
   "Some of `special.cdy`'s entries are there for want of a type")
+- **An interpreter, and what it does to the spec** (from *dump*: interpreter, repl, jit;
+  2026-10-24): the spec's examples vs the programs in `tst/cdy/` isn't a cost line, so an
+  interpreter wouldn't erase it: an example states one rule, and the programs left in
+  `tst/` test whole things (modules importing each other, `main` with arguments, macro
+  files, the self-host), integration tests for the test-levels HLD
+  (`doc/hl_rqmt/executable_spec.md`, question 11). What it would change:
+  - REPL-style examples (`> (+ 1 2)` then `3`), an expression at a time, like doctests;
+  - a printer in Candy syntax, which is question 12's deferred show built-in, retiring the
+    numbers-and-text rule;
+  - a second implementation: every example runs on both, and the spec becomes a
+    conformance suite (as for more targets, `doc/hl_rqmt/multi_target.md`).
+  It wouldn't type-check: until Candy has a checker, mypy on the translation is the check,
+  so the examples still go through the translator. A JIT is speed only, and speed isn't
+  the problem (the whole suite is about 20 s).
