@@ -1,10 +1,11 @@
-# Sum types and match
+# Patterns and match
 
 status: stable, since: self-host-py
 
-A sum type lists its variants; `match` takes a value of it apart. Tuples are taken apart
-with `match` too (since `self-host-cleanup`). Records (`deft` with one field list), `get`
-and `assoc` are in `src/cdy/candy-special.md` until they move to `20-types.md`.
+Sum types, and the patterns that take values apart: a sum type lists its variants, and
+`match` takes a value of it apart. Tuples are taken apart with `match` too (since
+`self-host-cleanup`). Records (`deft` with one field list), `get`, `assoc` and `tup` are
+in `20-types.md`.
 
 ```candy
 (deft Name (Variant ((field Type)*)?)+)

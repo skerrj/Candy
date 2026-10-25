@@ -68,9 +68,9 @@ main: 0 argument(s)
 
 Every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: what is built
 on the built-ins (declared in `src/cdy/system.cdy`), `rest` and `map-update` so far.
-Macro code doesn't get it (`doc/leaks.md`). A file's own definition of a prelude or
-built-in name wins over it; a module the file imports that defines one is a clash, as
-between any two imports.
+Macro code doesn't get it (`doc/archive/leaks_library.md`). A file's own definition of a
+prelude or built-in name wins over it; a module the file imports that defines one is a
+clash, as between any two imports.
 
 ```candy run
 (put (len (rest (tup 1 2 3))))

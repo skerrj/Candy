@@ -7,11 +7,7 @@
 ## literals, comments
 - in the spec: `spec/00-syntax.md` (forms, comments, literals, names, and the reader's errors)
 ## types
-- type names are Capitalised, type variables are lowercase (`a`, `b`)
-- `Int` `Long` `Byte` `Float` `Double` `Bool` `Char` `String` `Unit` `Any`
-- `(Maybe a)` `(Fn (a b) r)` `(List a)` `(Tup a b)` `(Map k v)`
-- a `deft` type, possibly generic: `Shape`, `(Tree a)`
-- `Any` turns checking off: an escape hatch
+- in the spec: `spec/20-types.md`
 ## programs
 - in the spec: `spec/10-programs.md` (top level, `main`, the prelude, `import`)
 ## special forms
@@ -23,59 +19,13 @@
 - each macro file is loaded once per importer; a cycle is an error
 - only in the Candy translator
  > (import-macros *symbol*)
-### sig
-- the type of a top-level `def` or `defn`
-- top level only, required for every `def` and `defn`, anywhere before its definition, one per name
-- in `src/cdy/system.cdy`, which the translator reads, a `sig` has no definition: it declares a built-in that the runtime provides, with its type; anywhere else that is an error
-- a built-in's arity is its type's, so a built-in typed `Any` (`put`) takes any number of arguments
- > (sig *symbol* *type*)
-### def
-- not immutable... for now... 
-- top level only; *init* is required
- > (def *symbol* *init*)
-### defn
-- define a function
-- this will be replaced w/ a macro
-- top level only; at least one arg; the body is exactly one form (use `do` for more)
-- a function with no real input takes a `Unit` arg: `(defn run (_) ...)`, called as `(run nil)`
- > (defn *symbol* (*args*+) *expr*)
-### deft
-- define a type: a record (one field list) or a sum (one or more variants: `spec/30-match.md`)
-- top level only
-- the type name is also its constructor: `(Vector2 1 2)`
- > (deft *Name* ((*field* *type*)*))
-### get
-- the field of a record or variant; *field* is not evaluated
- > (get *expr* *field*)
-### assoc
-- a copy with fields replaced; *field* is not evaluated
- > (assoc *expr* *field* *value* ...)
-- one or more *field* *value* pairs, written flat: `(assoc v x 3 y 4)`
+### sig, def, deft, get, assoc, tup
+- in the spec: `spec/20-types.md` (records; sum types in `spec/30-match.md`)
+- in `src/cdy/system.cdy`, which the translator reads, a `sig` has no definition: it declares a built-in that the runtime provides, with its type; anywhere else that is an error (goes to `spec/60-library.md`)
 ### match
-- in the spec: `spec/30-match.md` (sum types, `match`, and `tup` patterns)
-### do
-- multiple expressions sequentially and returns the value of the last expression
- > (do *expr**)
-### if
-- no *else* and a false *test* gives `nil`
- > (if *test* *then* *else*?)
-### cond
-- a macro, in the prelude's macros (`src/cdy/prelude_macros.cdy`), which every file gets without `import-macros`; it expands into nested `if`s
-- its name can't be bound, like any macro's
-- the `else` clause is optional; no match gives `nil`
- > (cond (*test* *expr*)+ (else *expr*)?)
-### let
-- a binding is (*symbol* *init*); bindings are sequential, like scheme's `let*`
-- a binding can take a `tup` apart: ((*symbol*+) *init*), as `(match init ((tup *symbol*+) ...))` does
- > (let ( (*binding*)* ) *expr*)
-### fn
-- lambda
-- same rules as `defn`: at least one arg, one body form
- > (fn (*args*+) *expr*)
-### tup
-- a fixed-size tuple, typed `(Tup a b)`; at least one item
-- taken apart with a `tup` pattern in `match`, or in a `let` binding
- > (tup *expr*+)
+- in the spec: `spec/30-match.md`
+### defn, do, if, cond, let, fn
+- in the spec: `spec/40-expressions.md`
 ### defmacro
 - define a macro: Candy code that the translator runs on the *forms* of a call, before analysing it; the call is replaced by the form it returns (see `doc/hl_rqmt/macros.md`)
 - top level only; every parameter is a `Form`, and no `sig` is needed

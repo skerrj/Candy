@@ -383,6 +383,19 @@ step's review points at, as that step's tests.
    they check fragments and line and column, a unit level the spec leaves out (question
    11). Learned: a char can't be written in a `format` hole, since the string's escapes
    are read first (`"{\(}"` is a bad escape).
+
+   *As built, commit 2 (`20` and `40`):* `spec/20-types.md` (the types, `sig` and `def`,
+   records, tuples) and `spec/40-expressions.md` (names and calls, the operators, `do`,
+   `if`, `cond`, `let`, `fn` and `defn`, `Unit`). **One addition to the table:** the
+   operators (`special.cdy`'s `op`s) go in `40`, with `short_circuit`, which moved in
+   (its `Bool`s now printed as `yes`/`no`; `tst/cdy/short_circuit.*` removed).
+   `30-match.md` is retitled "Patterns and match". Moved in: 19 more `test_errors` rows,
+   which leaves it the quoting and `format` rows (for `50` and `60`). Found by asking the
+   translator what each rule does: three leaks (`doc/leaks.md`, "Found writing the
+   spec": checks that only mypy or the run make, forms accepted that shouldn't be, and
+   `quot`'s rounding) and two bugs (`doc/tech_debt.md`: `(sig x (List))` crashes the
+   translator, and `(def (x) 1)` gets a message with no name). mypy rejects comparing
+   two different literals (`(!= 1 2)`), so the examples compare names.
 4. **The process** (`doc/process.md`): the lifecycle, "Where notes go", design docs.
 5. **Docs:** CLAUDE.md (the spec, the tests), the iMVP doc, `doc/brainstorm.md` (the SRS
    entry moves here, leaving a pointer).

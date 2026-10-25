@@ -13,7 +13,9 @@ One file per feature, a few hundred lines at most (split one that grows past tha
 |---|---|
 | `00-syntax.md` | forms, comments, literals, names: what the reader accepts and rejects |
 | `10-programs.md` | the top level, `main`, the prelude, `import` |
-| `30-match.md` | sum types (`deft` with variants), `match`, and `tup` patterns |
+| `20-types.md` | the types, `sig`, `def`, records (`deft`, `get`, `assoc`), `tup` |
+| `30-match.md` | patterns and match: sum types (`deft` with variants), `match`, `tup` patterns |
+| `40-expressions.md` | names and calls, the operators, `do`, `if`, `cond`, `let`, `fn`, `defn`, `Unit` |
 
 Until the migration is done, the rest of the language is in `src/cdy/candy-special.md`.
 
