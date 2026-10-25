@@ -352,7 +352,7 @@ step's review points at, as that step's tests.
 3. **The other features**, from `candy-special.md`, one commit per file or two;
    `candy-special.md` goes.
 
-   *Proposed (for the checkpoint, not yet reviewed):* the files, from
+   *Accepted at the checkpoint (2026-10-24):* the files, from
    `candy-special.md`'s sections and the small programs (question 3):
 
    | File | From `candy-special.md` | Programs folded in |
