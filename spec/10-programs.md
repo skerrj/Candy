@@ -5,8 +5,7 @@ status: stable, since: imvp-py-translator
 What a program is: its top-level forms, `main`, the prelude every file gets, and `import`
 (since `modules`). A program of several files can't be an example here (each example is
 one file), so the examples of `import` are the programs in `tst/cdy/cdyc/` (`imports`,
-`modules`); macro files and `import-macros` are in `src/cdy/candy-special.md` until they
-move to `50-macros.md`.
+`modules`); macro files and `import-macros` are in `50-macros.md`.
 
 ```candy
 (import name)

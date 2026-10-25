@@ -40,9 +40,9 @@ python bin/py/cdy_translator.py FILE.cdy [OUT.py]   # the translator on its own
 A program that defines `main`, typed `(Fn ((List String)) Int)`, runs it with its
 command-line arguments and exits with its result. Errors say `file:line:col: message`.
 
-The language is described informally in `src/cdy/candy-special.md`, and in the design docs in
-`doc/hl_rqmt/`; test programs in `tst/cdy/` (`NAME.cdy`, with its output in `NAME.out`) show
-it in use. `editors/vscode-candy/` highlights `.cdy` files in VS Code.
+The language is specified in `spec/` (start at `spec/README.md`), with examples that the
+tests run; the design docs in `doc/hl_rqmt/` record how it got there, and the test
+programs in `tst/cdy/` (`NAME.cdy`, with its output in `NAME.out`) show it in use. `editors/vscode-candy/` highlights `.cdy` files in VS Code.
 
 ## Working on the translator
 

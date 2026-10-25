@@ -19,8 +19,6 @@ One file per feature, a few hundred lines at most (split one that grows past tha
 | `50-macros.md` | `defmacro`, quoting, `gensym`, macro files (`import-macros`), `cond` as a macro |
 | `60-library.md` | the built-ins, the prelude, and `format` |
 
-Until the migration is done, the rest of the language is in `src/cdy/candy-special.md`.
-
 ## Writing a spec file
 
 A spec file starts with a title and a status line:

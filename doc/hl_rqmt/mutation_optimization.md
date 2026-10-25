@@ -8,7 +8,7 @@ design them out by accident. Nothing here is decided.
 
 ### Where the iMVP stands
 
-- `def` is mutable, for now, as the spec says (`src/cdy/candy-special.md`).
+- `def` is mutable, for now, as `candy-special.md` said (now `spec/20-types.md`: no form changes a `def` yet).
 - `deft` records are immutable. They are Python `NamedTuple`s, and `assoc` returns a copy.
   Mutating a record (Carp's `set-x!`) is **skipped for the iMVP**.
 

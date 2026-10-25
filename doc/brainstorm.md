@@ -40,7 +40,7 @@ whenever it comes up; when one turns into real work, move it to a design doc
 - **An SRS for the current design:** a requirements spec of the language and translator
   as they are (the HLDs record decisions, branch by branch, not the whole), pointing at
   functional specs where a part needs one (the symbol table, modules, macros, sum
-  types, `src/cdy/candy-special.md`), and in time at a test suite or test library that
+  types, the spec in `spec/`), and in time at a test suite or test library that
   checks each requirement (`tst/cdy/` is the start). Open: its format, whether the HLDs
   become its functional specs, and how a requirement names its tests. *Moved to*
   `doc/hl_rqmt/executable_spec.md` (draft): a Markdown spec whose examples run.

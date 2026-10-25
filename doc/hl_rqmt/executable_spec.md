@@ -408,6 +408,15 @@ step's review points at, as that step's tests.
    points give the position (`line 2, column 1: `), which the README now allows.
    `candy-special.md` is all pointers now. Learned: a `format` hole can't hold a brace,
    so no `format` in a hole. Tests: 364.
+
+   *Done. As built, commit 4 (the pointers):* `src/cdy/candy-special.md` is removed.
+   `special.cdy`'s comment points at `spec/` ("the file for its feature"), and `bin` was
+   rebuilt: only `bin/py/special.cdy` changed (`cdy_translator.py` is the same), the
+   `boot/32` step. The live pointers moved too, minimally (the docs step does the rest):
+   CLAUDE.md, `README.md`, `doc/process.md`, `doc/brainstorm.md`, `TODOS.md`'s `main`
+   item, `mutation_optimization.md` (whose "`def` is mutable" pointed at a line the spec
+   now states as "no form changes a `def` yet", `spec/20-types.md`), and two spec files.
+   The older HLDs keep the name, as history.
 4. **The process** (`doc/process.md`): the lifecycle, "Where notes go", design docs.
 5. **Docs:** CLAUDE.md (the spec, the tests), the iMVP doc, `doc/brainstorm.md` (the SRS
    entry moves here, leaving a pointer).

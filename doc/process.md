@@ -28,7 +28,7 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
    - records new hacks as leaks or tech debt (see "Where notes go");
    - adds a review item to `TODOS.md` (`- [ ] Review step N as built`).
    A step that turns out not to be wanted is struck through and marked *Dropped*, with why.
-4. **Docs.** A last step brings CLAUDE.md, the spec (`src/cdy/candy-special.md`), the iMVP
+4. **Docs.** A last step brings CLAUDE.md, the spec (`spec/`), the iMVP
    doc and the other HLDs up to date.
 5. **Review.** The owner works through the review items in `TODOS.md`; fixes are more
    commits. The HLD's status becomes *done*, with its scope.
