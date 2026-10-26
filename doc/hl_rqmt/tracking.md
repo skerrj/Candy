@@ -296,6 +296,14 @@ found on `executable-spec` (above) are the first items.
 4. **The process** (`doc/process.md`): the lifecycle's review step (a task goes to
    `review`), starting a branch without archiving, "Where notes go" (the backlog, ids and
    links), and the log.
+
+   *Done. As built:* `doc/process.md`: starting a branch adds a task per HLD step (and a
+   language feature's `feature` item) instead of archiving; a step records what it finds
+   as items, closes the items it fixes, and moves its task to `review` with the index
+   rewritten, instead of a `TODOS.md` item; the review works through the `review` items,
+   the verdict on each; a *for now* links to its item; "The spec" says a gap gets an item
+   and every rule an id; a new section, "The backlog" (kinds, states, priority, ids,
+   links, repros); "Where notes go" points at the backlog and the archives; and the log.
 5. **Docs:** CLAUDE.md, `spec/README.md` (anchors), the HLDs that pointed at the lists.
 
 ## Questions

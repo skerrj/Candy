@@ -98,7 +98,7 @@ The next item is B103.
 | [B88](B88-tracking-step-1.md) | tracking step 1: ids and links | task | review | normal |
 | [B89](B89-tracking-step-2.md) | tracking step 2: the backlog's format | task | review | normal |
 | [B90](B90-tracking-step-3.md) | tracking step 3: the migration | task | review | normal |
-| [B91](B91-tracking-step-4.md) | tracking step 4: the process | task | open | normal |
+| [B91](B91-tracking-step-4.md) | tracking step 4: the process | task | review | normal |
 | [B92](B92-tracking-step-5.md) | tracking step 5: docs | task | open | normal |
 | [B93](B93-curried-types.md) | Curried function types, and partial application | idea | open | normal |
 | [B94](B94-doc-strings.md) | Doc strings and other metadata | idea | open | normal |
