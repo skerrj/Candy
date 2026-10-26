@@ -1,8 +1,8 @@
 # Process
 
-How work on Candy is done: the branch lifecycle, commits and tags, design docs, and where
-notes go. The owner reviews everything before it goes into history; Claude Code does most
-of the writing. Changes to the process itself go in the log at the end.
+How work on Candy is done: the branch lifecycle, commits and tags, design docs, the spec,
+and where notes go. The owner reviews everything before it goes into history; Claude Code
+does most of the writing. Changes to the process itself go in the log at the end.
 
 ## The branch lifecycle
 
@@ -11,7 +11,9 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
 
 1. **HLD draft.** A design doc in `doc/hl_rqmt/` (see "Design docs"), often written on the
    branch before (the follow-up of its work). Its questions are answered by the owner,
-   usually with "the simplest option for the MVP".
+   usually with "the simplest option for the MVP". An HLD for a language feature includes,
+   or points at, the feature's spec file, `status: draft` (see "The spec"), whose
+   examples say what the feature will do.
 2. **Start the branch.** The first commit, "Start branch X: ...":
    - marks the HLD accepted (with its scope);
    - archives the previous branch's lists: `doc/leaks.md` to
@@ -26,10 +28,14 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
    - adds a *Done. As built:* note under the step in the HLD: what was built, how it
      differs from the plan, its bootstrap, its tests;
    - records new hacks as leaks or tech debt (see "Where notes go");
+   - changes the spec with the language: a step that adds or changes a rule adds or
+     changes its examples in `spec/` (a draft file's examples pass as the steps build
+     the feature);
    - adds a review item to `TODOS.md` (`- [ ] Review step N as built`).
    A step that turns out not to be wanted is struck through and marked *Dropped*, with why.
-4. **Docs.** A last step brings CLAUDE.md, the spec (`src/cdy/candy-special.md`), the iMVP
-   doc and the other HLDs up to date.
+4. **Docs.** A last step brings CLAUDE.md, the spec (`spec/`), the iMVP doc and the
+   other HLDs up to date, and marks the branch's spec files `stable`, `since:` the
+   branch's tag.
 5. **Review.** The owner works through the review items in `TODOS.md`; fixes are more
    commits. The HLD's status becomes *done*, with its scope.
 6. **Merge and tag.** `git merge --no-ff refs/heads/X` into `master`, with the message
@@ -91,7 +97,7 @@ HLDs live in `doc/hl_rqmt/`, one per piece of work, named for it.
 - **Kinds:** most HLDs design the language or the translator. A *process HLD* designs how
   work is done (the lifecycle, the spec and its tests, reviews): its title says
   "(process HLD)" and its status line starts "**Kind: process**" (`executable_spec.md`,
-  `review.md`). Its changes land in this file, and its log.
+  `backlog.md`). Its changes land in this file, and its log.
 
 - **Layout:** a status line; "Where things stand"; "Goals" (and "Not goals"); "Proposal"
   (or "Design"); "Pros and cons" (with the timing: why now, or why wait); "Steps";
@@ -108,6 +114,26 @@ HLDs live in `doc/hl_rqmt/`, one per piece of work, named for it.
 - `doc/hl_rqmt/iMVP_py_translator.md` is the iMVP's requirements and decisions; keep it up
   to date as decisions are made.
 
+## The spec
+
+`spec/` is the language as it is now, rule by rule, each with examples that the tests run
+(`spec/README.md` says how to read and write it; the design is
+`doc/hl_rqmt/executable_spec.md`). The HLDs are the record of how it got there: their
+decisions and what each branch built. So a rule's current form is looked up in the spec,
+and its reasons in the HLDs (the spec file's `since:` names the branch).
+
+- **A spec file's status:** `draft` (written with its HLD; its examples may fail),
+  `stable` (they must pass; set by the docs step), `deprecated` (they pass until the
+  feature goes).
+- **The spec says what the translator does.** A gap found writing it (a check missing, a
+  form accepted that shouldn't be, Python showing through) isn't fixed in passing: the
+  rule says *for now*, and the gap goes in the leaks or the tech debt, to be fixed on a
+  branch of its own.
+- **What stays in `tst/`:** programs of several files, whole programs, the translator's
+  own tests (its parts, its driver, the fixpoint and the bootstrap chain), and most
+  checks of where an error points (a spec row gives the position only for a rule about
+  it). How these test levels are defined is open (`executable_spec.md`, "Test levels").
+
 ## Where notes go
 
 | What | Where |
@@ -117,6 +143,7 @@ HLDs live in `doc/hl_rqmt/`, one per piece of work, named for it.
 | An undecided design idea | `doc/brainstorm.md` (move it to an HLD when it becomes work, leaving a pointer) |
 | An optimization or mutation idea | `doc/hl_rqmt/mutation_optimization.md` |
 | Something to do or review on this branch | `TODOS.md` (earlier branches' in `doc/archive/TODOS_*.md`) |
+| A language rule, with its examples | `spec/`, the file for its feature (`spec/README.md` lists them) |
 | A design, its decisions and what was built | its HLD in `doc/hl_rqmt/` |
 | Guidance for Claude Code (layout, commands, conventions) | `CLAUDE.md` |
 
@@ -132,6 +159,10 @@ HLDs live in `doc/hl_rqmt/`, one per piece of work, named for it.
 
 Changes to the process, newest first.
 
+- **2026-10-24:** the executable spec (`doc/hl_rqmt/executable_spec.md`): "The spec"; a
+  language feature's HLD comes with its draft spec file, its steps change the spec with
+  the language, and the docs step marks it stable; a row for the spec in "Where notes
+  go".
 - **2026-10-23:** HLDs get a "Pros and cons" section; process HLDs, marked apart from design HLDs ("Design docs", "Kinds").
 - **2026-10-22:** tags are annotated, with the command and a check before pushing.
 

@@ -40,10 +40,11 @@ whenever it comes up; when one turns into real work, move it to a design doc
 - **An SRS for the current design:** a requirements spec of the language and translator
   as they are (the HLDs record decisions, branch by branch, not the whole), pointing at
   functional specs where a part needs one (the symbol table, modules, macros, sum
-  types, `src/cdy/candy-special.md`), and in time at a test suite or test library that
+  types, the spec in `spec/`), and in time at a test suite or test library that
   checks each requirement (`tst/cdy/` is the start). Open: its format, whether the HLDs
   become its functional specs, and how a requirement names its tests. *Moved to*
-  `doc/hl_rqmt/executable_spec.md` (draft): a Markdown spec whose examples run.
+  `doc/hl_rqmt/executable_spec.md`, built on branch `executable-spec`: `spec/`, a Markdown
+  spec whose examples run.
 - **An I/O refactor** (the owner, 2026-10-23: "I/O is total crap at the moment"; expect a
   big one): `print`, `display` and `put` are all Python's `print`, typed `Any`, showing
   values with Python's `str()` (`True`, `None`, `(1, 2)`: the leaks in
@@ -56,7 +57,8 @@ whenever it comes up; when one turns into real work, move it to a design doc
   label must come from the commit's files (`git diff --cached --name-only`), since it skips
   checks.
 - **A better way to review items and tasks:** no ideas yet (the owner, 2026-10-23). *Moved
-  to* `doc/hl_rqmt/review.md` (draft), linked from `doc/hl_rqmt/executable_spec.md`.
+  to* `doc/hl_rqmt/review.md` (draft), linked from `doc/hl_rqmt/executable_spec.md`; since
+  folded into `doc/hl_rqmt/backlog.md` (draft), where a review is a state of an item.
 - **Build a host and target(s) from their own library files:** a host's and each
   target's `system.cdy` and `prelude.cdy`, and probably another set of files, or a
   completely separate set of spec files that give a system and prelude for each spec
@@ -82,3 +84,17 @@ whenever it comes up; when one turns into real work, move it to a design doc
 - **`and` and `or` as macros?** Short-circuiting needn't make them operators: macros over
   `if` (as in Scheme, and like `cond`), or functions with lazy arguments (`doc/leaks.md`,
   "Some of `special.cdy`'s entries are there for want of a type")
+- **An interpreter, and what it does to the spec** (from *dump*: interpreter, repl, jit;
+  2026-10-24): the spec's examples vs the programs in `tst/cdy/` isn't a cost line, so an
+  interpreter wouldn't erase it: an example states one rule, and the programs left in
+  `tst/` test whole things (modules importing each other, `main` with arguments, macro
+  files, the self-host), integration tests for the test-levels HLD
+  (`doc/hl_rqmt/executable_spec.md`, question 11). What it would change:
+  - REPL-style examples (`> (+ 1 2)` then `3`), an expression at a time, like doctests;
+  - a printer in Candy syntax, which is question 12's deferred show built-in, retiring the
+    numbers-and-text rule;
+  - a second implementation: every example runs on both, and the spec becomes a
+    conformance suite (as for more targets, `doc/hl_rqmt/multi_target.md`).
+  It wouldn't type-check: until Candy has a checker, mypy on the translation is the check,
+  so the examples still go through the translator. A JIT is speed only, and speed isn't
+  the problem (the whole suite is about 20 s).

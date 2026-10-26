@@ -1,7 +1,8 @@
 # iMVP Candy → Python translator
 
 High-level requirements and design notes for the initial MVP (iMVP) translator, on branch
-`py-py-translator`. This summarises the discussion that followed `src/cdy/candy-special.md`.
+`py-py-translator`. This summarises the discussion that followed `src/cdy/candy-special.md` (since branch
+`executable-spec`, the language is specified in `spec/`, and `candy-special.md` is gone).
 Items are marked **decided** (agreed by the owner), **proposed** (suggested and not yet
 agreed) or **open** (needs an answer).
 

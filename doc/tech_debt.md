@@ -7,6 +7,11 @@ take one, and remove an entry once it is fixed.
 
 ## Translator
 
+- **`(sig x (List))` crashes the translator** with Python's `IndexError` (in `emit-tcon`,
+  `emit.cdy`), instead of failing with a Candy error: a type constructor's arguments
+  aren't counted. Found writing the spec (`doc/hl_rqmt/executable_spec.md`, step 3).
+- **`(def (x) 1)` says " needs a (sig  Type) before its definition"**, with no name: a
+  `def` whose name isn't a name gets the missing-`sig` message. Found as above.
 - **`match` is an `isinstance` chain in Python**, not Python's `match`, because mypy (2.4)
   loses a generic variant's type arguments in a class pattern (`case Node(l, v, r):` makes
   `v` `Any`). pyright handles class patterns; switch back if mypy catches up
@@ -84,8 +89,6 @@ take one, and remove an entry once it is fixed.
   `form.cdy` for a translator that had none next to it, until `expand.cdy` checked with
   `file-exists` first.
 
-- **`mangle` lives in the runtime** (`py_mangle`, with `PY_RESERVED`) so the self-hosted
-  translator could use it (the library HLD moves it into `emit.cdy`, as Candy).
 - **`at` and `slice_` helpers are only used as values** now that `at` and `slice` are
   emitted as subscripts. They still return `object`/`Sequence`, so passing them as values
   loses the element type.
@@ -98,13 +101,16 @@ take one, and remove an entry once it is fixed.
   from scratch anywhere else yet. Fix: publish it (and record where), or vendor a copy
   (MIT) that the script puts on the path for that step.
 
-- **Test programs run mypy once each** (`test_mypy_strict` in `tst/py_cdy/test_self_host.py`).
-  One mypy run over all of them would be faster.
 - **Repo naming.** The default branch is `master`, while some notes and tools assume
   `main`.
 - **`py-str` is close to `repr`, not equal** (`emit.cdy`, `doc/hl_rqmt/library.md` step
   1a): it escapes control characters (below 32, and 127 to 160) but leaves other
   characters Python's `repr` would escape (such as U+00AD or U+2028) as they are, since
   Candy can't ask whether a character is printable. The output is still valid Python.
+- **The test programs' `mypy --strict` runs one program at a time**
+  (`test_mypy_strict` in `tst/py_cdy/test_self_host.py`): about 8.7 s for 17 programs.
+  One batched run, as `tst/py_cdy/test_spec.py` does per spec file, measured 0.4 s for 40
+  small files (`doc/hl_rqmt/executable_spec.md`, step 1); a failure then names the run,
+  not the program.
 - **`PY_RESERVED` is Python 3.14's** keywords and built-ins, written out in `emit.cdy`;
   `test_py_reserved_is_this_python` fails when another Python adds one.

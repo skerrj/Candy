@@ -26,10 +26,14 @@ acceptable for bootstrapping. Each entry says what leaks, and what a proper fix 
 
 ## Python semantics showing through
 
-- **The symbol table is an opaque `Any`** in the self-hosted translator, read only through
-  the `table-*` built-ins. Candy has no type for it, nor for `TableEntry`.
-- **Python-specific helpers in the runtime** (`py-mangle`, `py-repr`) are the Candy
-  translator's Python backend; `py-repr` writes Python literals with Python's `repr`.
+- ~~**The symbol table is an opaque `Any`** in the self-hosted translator, read only through
+  the `table-*` built-ins. Candy has no type for it, nor for `TableEntry`.~~ Fixed on
+  `symbol-table` (`doc/hl_rqmt/symbol_table.md`, steps 2 to 4): the built-ins are a Candy
+  map, and the spellings Candy data (`py-spellings`). Struck 2026-10-25.
+- ~~**Python-specific helpers in the runtime** (`py-mangle`, `py-repr`) are the Candy
+  translator's Python backend; `py-repr` writes Python literals with Python's `repr`.~~
+  Fixed on `library` (`doc/hl_rqmt/library.md`, step 1): they are Candy in `emit.cdy`
+  (`py-mangle`, `py-str`). Struck 2026-10-25.
 
 ## Translator shortcuts
 

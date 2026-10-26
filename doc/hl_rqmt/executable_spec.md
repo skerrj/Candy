@@ -1,13 +1,16 @@
 # The executable spec: spec by example (process HLD)
 
 **Kind: process** (how work is done: the spec, its tests, the lifecycle), not a design of
-the language or translator. **Status: proposal (2026-10-23); questions answered
-(2026-10-23): the proposals, with question 3 changed (the small test programs move into
-the spec).** For a branch `executable-spec`, after tag `runtime-names`. From a chat with
-the owner (2026-10-23, "Twine, spec-by-example, and the HLD plan"), mapped onto what Candy
-already has; where the chat and the process or the code disagree, the conflict is flagged
-here (**Conflict**) rather than settled. It also takes in `doc/brainstorm.md`'s "An SRS
-for the current design" (its open format question).
+the language or translator. **Status: done (2026-10-25), on branch `executable-spec` (tag
+`executable-spec`): `spec/` (seven files and the index) and its runner replace
+`candy-special.md`, the six small programs and the Python error tables' language cases
+moved in, and `doc/process.md` has "The spec". Accepted 2026-10-23, with the proposed
+answers to its questions, question 3 changed (the small test programs move into the
+spec).** For a branch `executable-spec`, after tag `runtime-names`. From a chat with the
+owner (2026-10-23, "Twine, spec-by-example, and the HLD plan"), mapped onto what Candy
+already has; where the chat and the process or the code disagree, the conflict is flagged here
+(**Conflict**) rather than settled. It also takes in `doc/brainstorm.md`'s "An SRS for the
+current design" (its open format question).
 
 ## The idea (from the chat)
 
@@ -76,7 +79,7 @@ rewritten in Candy.
 - **The process says when the spec is written** (a feature's examples with its HLD, or
   before its code).
 - **A better way to review items and tasks:** its own HLD, `doc/hl_rqmt/review.md`
-  (question 9).
+  (question 9), since folded into `doc/hl_rqmt/backlog.md`.
 
 **Not goals (for now):** generated docs (mdBook or the like: "After the MVP"); porting the
 runner to Candy; a second target's runner (`doc/hl_rqmt/multi_target.md`).
@@ -248,7 +251,7 @@ half, *stable* before the translator uses it, is new (question 5).
   untested `candy-special.md`, or none.
 - **Opportunity cost:** a branch with no language progress.
 - **More process:** each feature branch writes its spec; reviews and test levels are
-  still open (`doc/hl_rqmt/review.md`, question 11), so the process changes again.
+  still open (`doc/hl_rqmt/backlog.md`; question 11), so the process changes again.
 
 **Timing:** now, before the next language branches, with a checkpoint: after step 2 (the
 runner, and `deft` and `match`) the owner reviews how the spec reads before the rest of
@@ -281,12 +284,13 @@ Today, by level:
 Open: whether these levels are the right ones; where each lives (one directory each, or
 markers); and each one's process: who writes its tests and when (in an HLD's steps, like
 the spec's draft examples?), when it runs (every step, or before a merge, as the chain
-does), and how its results are reviewed (`doc/hl_rqmt/review.md`). Possibly a process HLD
+does), and how its results are reviewed (`doc/hl_rqmt/backlog.md`). Possibly a process HLD
 of its own.
 
 ## Reviewing items and tasks
 
-Its own HLD: `doc/hl_rqmt/review.md` (draft; question 9). A spec example could be what a
+Its own HLD: `doc/hl_rqmt/review.md` (draft; question 9), since folded into
+`doc/hl_rqmt/backlog.md` (draft), where a review is a state of an item. A spec example could be what a
 step's review points at, as that step's tests.
 
 ## Conflicts with the process and the code (flagged)
@@ -310,14 +314,132 @@ step's review points at, as that step's tests.
 
 1. **The runner** (`tst/py_cdy/test_spec.py`) and `spec/README.md` (the index), with one
    example to prove it; `mypy` batched per file, and its time measured ("Scale").
+
+   *Done. As built:* `tst/py_cdy/test_spec.py` scans `spec/*.md` for fences (three or
+   more backticks, closed by as many or more, possibly indented in a list item, whose
+   lines then lose the indent), pairs `candy run` with `expect` and `candy error` with
+   `expect-error`, reads `candy errors` rows, and fails at collection, naming `file:line`,
+   on a block that doesn't pair up. Tests: `test_run` and `test_error`, one per example
+   (`README.md:51`); per file, `test_mypy_strict` (all its `run` examples in one mypy run)
+   and `test_t1_and_t2_agree`; `test_spec_files_have_a_status` (every file but the
+   index); and the runner's own tests. A `status: draft` file's tests are `xfail`. The
+   T1 and T2 fixtures moved from `test_self_host.py` into `tst/py_cdy/conftest.py`, so
+   both share one T1 per session. `spec/README.md` is the index (no files yet), the guide
+   to writing a spec file (the status line, rules before examples, *for now* rules with
+   their leak, numbers and text for output) and an example of each block kind, which are
+   the step's proof (4 examples). Measured (2026-10-23), 40 small examples: `mypy --strict`
+   one file at a time 22.5 s (0.56 s each), in one batched run 0.4 s, so the spec's mypy
+   time is negligible and question 10's `pytest-xdist` stays unneeded. Tests: 279 (15
+   new). No `bin` change.
 2. **`deft` and `match`** as the first spec file; `test_match_errors` moves into it.
    **Checkpoint:** the owner reviews how the spec reads before step 3 ("Pros and cons",
    timing).
+
+   *Done. As built:* `spec/30-match.md` (`status: stable, since: self-host-py`): the
+   grammar lines, then "Declaring a sum type", "Taking it apart: match" and "Taking a
+   tuple apart" (since `self-host-cleanup`), each rule in prose before its examples: 10
+   `candy run` examples, one `candy error`, and four `candy errors` tables (30 tests).
+   The examples use `Int` fields, so their output is numbers and text. Two rules say
+   *for now*: types and values share a namespace, and patterns are flat. Moved in:
+   `test_match_errors` (20 cases, and its `SHAPES`), `test_errors`' `Box` row, and
+   `tst/cdy/cdyc/tup_match` (its `True` now a string). Records, `get` and `assoc` stay in
+   `candy-special.md` for `20-types.md`; its `deft` section keeps the record and points
+   at the spec for sums, its `match` section is a pointer. The runner gained **setup
+   lines** for a `candy errors` table (before a `---` line, put before each row), since
+   the match table repeated its `deft` on every row; `spec/README.md` shows them. The
+   setup is a test of its own (`test_setup`: it must translate alone, so a broken setup
+   can't make a row pass on a matching message); one `---` per table (a second is a
+   `SpecError`), surrounding spaces allowed. The
+   first setup example in the README was wrong (calling an `Int` isn't an error the
+   translator catches, only mypy would: no type checker yet). Tests: 291 (312 less the
+   24 moved, all now in the spec, plus the two setups and a runner test).
 3. **The other features**, from `candy-special.md`, one commit per file or two;
    `candy-special.md` goes.
+
+   *Accepted at the checkpoint (2026-10-24):* the files, from
+   `candy-special.md`'s sections and the small programs (question 3):
+
+   | File | From `candy-special.md` | Programs folded in |
+   |---|---|---|
+   | `00-syntax.md` | literals, comments, `'` reserved; the reader is the authority (question 6) | — |
+   | `10-programs.md` | programs, `main`, `import`, `import-macros` | — (`imports`, `modules` stay in `tst/`: multi-module) |
+   | `20-types.md` | types, `sig`, `def`, records, `get`, `assoc`, `tup` | — |
+   | `30-match.md` | done (step 2) | `tup_match` (done) |
+   | `40-expressions.md` | `do`, `if`, `cond`, `let`, `defn`, `fn`; `Unit` and `nil` | `short_circuit` |
+   | `50-macros.md` | `defmacro`, `quo`, `quasi`, `unq`, `unq-sp` | — |
+   | `60-library.md` | `system.cdy`'s built-ins, the prelude, `format` | `lists`, `maps`, `strings`, `prelude` |
+
+   In four commits: `00` and `10`; `20` and `40` (the Python error tables' language rows
+   move with them); `50` and `60`; then the pointers (`candy-special.md` goes,
+   `special.cdy`'s comment points at `spec/`, the `boot/32` step). **Tuples:** `tup` goes
+   in `20-types.md`, pointing at `30-match.md` for taking one apart, so `30-match.md`
+   holds every pattern and is retitled "Patterns and match" (rather than moving its tuple
+   section out).
+
+   *As built, commit 1 (`00` and `10`):* `spec/00-syntax.md` (forms, comments, literals,
+   names: 6 `candy run` examples, 6 `candy errors` tables, with every error the reader
+   gives) and `spec/10-programs.md` (top level, `main`, the prelude, `import`: 4 run
+   examples, 3 tables). **One change to the table:** `import-macros` goes in
+   `50-macros.md`, not `10`, since a macro file is about macros, and its examples need a
+   second file. Moved in: nine `test_errors` rows (`()`, the top-level-only and `import`
+   rows, `main`'s two) and `test_own_definitions_win_over_the_prelude`. The reader's own
+   tests stay (`test_reader_accepts`, `test_reader_errors`, `test_reader_positions`):
+   they check fragments and line and column, a unit level the spec leaves out (question
+   11). Learned: a char can't be written in a `format` hole, since the string's escapes
+   are read first (`"{\(}"` is a bad escape).
+
+   *As built, commit 2 (`20` and `40`):* `spec/20-types.md` (the types, `sig` and `def`,
+   records, tuples) and `spec/40-expressions.md` (names and calls, the operators, `do`,
+   `if`, `cond`, `let`, `fn` and `defn`, `Unit`). **One addition to the table:** the
+   operators (`special.cdy`'s `op`s) go in `40`, with `short_circuit`, which moved in
+   (its `Bool`s now printed as `yes`/`no`; `tst/cdy/short_circuit.*` removed).
+   `30-match.md` is retitled "Patterns and match". Moved in: 19 more `test_errors` rows,
+   which leaves it the quoting and `format` rows (for `50` and `60`). Found by asking the
+   translator what each rule does: three leaks (`doc/leaks.md`, "Found writing the
+   spec": checks that only mypy or the run make, forms accepted that shouldn't be, and
+   `quot`'s rounding) and two bugs (`doc/tech_debt.md`: `(sig x (List))` crashes the
+   translator, and `(def (x) 1)` gets a message with no name). mypy rejects comparing
+   two different literals (`(!= 1 2)`), so the examples compare names.
+
+   *As built, commit 3 (`50` and `60`):* `spec/50-macros.md` (`defmacro`, macro code,
+   errors at the call, quoting, `gensym`, `import-macros`, `cond`) and
+   `spec/60-library.md` (the built-ins by group, lists, strings, maps, the prelude's
+   `rest` and `map-update`, `format`). Folded in: `lists`, `maps`, `strings` and
+   `cdyc/prelude` (their tuples, `True`s and `None`s now printed through `show` and `yes`
+   helpers; the programs removed). Moved in: the rest of `test_errors` (the test is gone),
+   `test_macro_errors`, `test_quoting_errors`, `test_quoting_only_in_macro_code`, and the
+   single-file rows of `test_macro_file_errors`. The rows about where a macro's error
+   points give the position (`line 2, column 1: `), which the README now allows.
+   `candy-special.md` is all pointers now. Learned: a `format` hole can't hold a brace,
+   so no `format` in a hole. Tests: 364.
+
+   *Done. As built, commit 4 (the pointers):* `src/cdy/candy-special.md` is removed.
+   `special.cdy`'s comment points at `spec/` ("the file for its feature"), and `bin` was
+   rebuilt: only `bin/py/special.cdy` changed (`cdy_translator.py` is the same), the
+   `boot/32` step. The live pointers moved too, minimally (the docs step does the rest):
+   CLAUDE.md, `README.md`, `doc/process.md`, `doc/brainstorm.md`, `TODOS.md`'s `main`
+   item, `mutation_optimization.md` (whose "`def` is mutable" pointed at a line the spec
+   now states as "no form changes a `def` yet", `spec/20-types.md`), and two spec files.
+   The older HLDs keep the name, as history.
 4. **The process** (`doc/process.md`): the lifecycle, "Where notes go", design docs.
+
+   *Done. As built:* a section "The spec" (the spec is the current whole, the HLDs the
+   record; the statuses; the spec says what the translator does, and a gap it finds is a
+   leak or tech debt, *for now*, not a fix in passing, as step 3 did; what stays in
+   `tst/`). The lifecycle: a language feature's HLD comes with its draft spec file, each
+   step changes the spec with the language, and the docs step marks the files `stable`.
+   A row in "Where notes go", and the log.
 5. **Docs:** CLAUDE.md (the spec, the tests), the iMVP doc, `doc/brainstorm.md` (the SRS
    entry moves here, leaving a pointer).
+
+   *Done. As built:* CLAUDE.md: a `spec/` entry (what it is, what `test_spec.py` checks,
+   the output rule, "change the spec with the language"), `conftest.py`'s shared T1 and
+   T2, the branch in the history, and how to run the spec or one file of it
+   (`pytest tst/py_cdy/test_spec.py -k 30-match`); its stale `tup` line ("only in
+   `let`") now says `match` takes tuples apart too. The iMVP doc says `candy-special.md`
+   became `spec/`; `doc/brainstorm.md`'s SRS entry, already moved here, says where it was
+   built. The spec files are all `stable` already: this branch moved features in, it
+   added none, so each file's `since:` is the branch that brought its feature.
 
 One `bin` change: `special.cdy`'s pointer (Migration, 4), copied into `bin/py/`, a
 chain step with no staging. The translator's code is untouched.

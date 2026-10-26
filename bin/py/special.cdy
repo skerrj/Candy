@@ -4,7 +4,7 @@
 ;;; The translator reads both into its built-ins (read-builtins in core.cdy) and checks them
 ;;; against the target's spellings (src/cdy_rt/spelling.py).
 ;;;
-;;; (special name): a special form, analysed by its own rule (src/cdy/candy-special.md).
+;;; (special name): a special form, analysed by its own rule (spec/, the file for its feature).
 ;;; (op name variadic): an operator taking two or more arguments; (op name unary): one.
 ;;; This file is read as it is, so it can't use macros.
 
