@@ -1,7 +1,7 @@
 # Rule ids, links, and one backlog (process HLD)
 
 **Kind: process** (how work is done), not a design of the language or translator.
-**Status: draft (2026-10-25), questions open.** For a branch `tracking`, after
+**Status: proposal (2026-10-25): all thirteen questions answered.** For a branch `tracking`, after
 `executable-spec` (this file was `backlog.md`). Two sources:
 
 - **The backlog,** from the owner (2026-10-25): "we could just have an open backlog, with
@@ -10,10 +10,11 @@
   items and tasks"), which it replaces, since a review becomes a state of an item.
 - **Ids and links,** from an updated chat with the owner
   (`doc/archive/chat_spec_by_example.md`, section 4b, "machine spec + generated human
-  spec", 2026-10-24, with a prototype, `tools/specbook.py`, not kept): every rule has a stable id, and everything refers to it by id,
-  never by file path. That chat couldn't see the repo, so its examples aren't Candy (fields
-  without types, `_` for `else`), and some of it reopens questions the executable spec
-  answered; those are flagged here ("Left out of the chat"), not taken.
+  spec", 2026-10-24, with a prototype, `tools/specbook.py`, not kept): every rule has a
+  stable id, and everything refers to it by id, never by file path. That chat couldn't see
+  the repo, so its examples aren't Candy (fields without types, `_` for `else`), and some
+  of it reopens questions the executable spec answered; those are flagged here ("Left out
+  of the chat"), not taken.
 
 The two belong together: a backlog item needs an id, and so do the rules it is about.
 
@@ -94,16 +95,20 @@ every pointer to it, and a pointer that goes stale stays stale. `executable-spec
 
 ### Ids and links
 
-- **A spec rule's id** is an anchor on its heading in the existing `spec/` files:
-  `## Exhaustive {#match.exhaustive}`. The files stay as they are (prose and examples
-  together, `candy errors` tables one line a case); a block belongs to the rule whose
-  heading it is under. Ids are dotted, by feature (`match.exhaustive`, `syntax.char`).
-- **An HLD section's id** is an anchor on its heading too (`{#design.sum-types}`), only
-  where something links to it.
+- **A spec rule's id** is an anchor in the existing `spec/` files, on the line before a
+  heading or a rule's paragraph: `<a id="match.exhaustive"></a>` (invisible when rendered,
+  and a browser can link to `30-match.md#match.exhaustive`; the chat's `{#id}` shows
+  literally on GitHub). The files stay as they are (prose and examples together,
+  `candy errors` tables one line a case); a block belongs to the rule of the anchor above
+  it, up to the next. So ids can be finer than headings ("Taking it apart: match" holds
+  several rules). Ids are dotted, by feature (`match.exhaustive`, `syntax.char`).
+- **An HLD section's id** is an anchor the same way (`<a id="design.sum-types"></a>`),
+  only where something links to it.
 - **A backlog item's id** is its number (`B12`, "An item").
-- **A link** is `[[id]]`, anywhere in `spec/`, `doc/` and the backlog. A test reads them
-  all and fails on an id nothing defines, or one defined twice; an id that is renamed
-  keeps the old one as an alias (question 9).
+- **A link** is `[[id]]`, in any tracked Markdown file (`spec/`, `doc/`, `backlog/`,
+  CLAUDE.md, the READMEs). A test reads them all and fails on an id nothing defines, or
+  one defined twice; an id that is renamed keeps the old one as an alias, for history, and
+  the live links move to the new one (question 9).
 - **The checks from the chat that fit:** an unknown id, a duplicate id, a stable rule with
   no example (an error); a rule no HLD links to (a warning: missing rationale?).
 
@@ -124,7 +129,15 @@ every pointer to it, and a pointer that goes stale stays stale. `executable-spec
     `doc/brainstorm.md` holds. Agreed to, it becomes a `feature`; or it is `dropped`
     (question 3).
 - **state:** `open`, `in-progress`, `review` (built; the owner checks it), `done`,
-  `dropped` (with why).
+  `dropped` (with why), or `kept`: a leak or shortcut kept on purpose, a *lasting* answer,
+  so it describes Candy but isn't work (question 5). A `kept` **leak** is a language rule
+  now: the spec states it, without *for now*, as lasting, and the item refers to the rule
+  (`[[id]]`; the rule may link back for the reason). A `kept` **tech-debt** item has no
+  rule to state (a Candy user can't see it): its reason is in the item. An item goes open → in-progress → review → done (or back to in-progress); no
+  `blocked` (a ref says "needs [[B3]]") and no `deferred` (`open`, priority `low`).
+- **priority:** `high`, `normal` (the default) or `low`; set by the owner (Claude Code may
+  propose one); the index sorts by it (question 13). How bad a defect is (severity) is a
+  reason for its priority, in its text, not a field.
 - **found:** the branch and date; **fixed:** the branch, once `done`.
 - **where:** the files involved; **refs:** the ids it is about (`[[match.exhaustive]]`,
   `[[B3]]`), so a rule's open items can be listed from the rule.
@@ -145,8 +158,8 @@ longer an item of its own. The owner's verdict ("looks ok for now") goes on the 
 
 ### What it replaces (question 2)
 
-`doc/leaks.md` and its archives, `doc/tech_debt.md`, and `TODOS.md`. Not
-`doc/brainstorm.md`, unless its entries move in as `idea`s (question 3).
+`doc/leaks.md` and its archives, `doc/tech_debt.md`, and `TODOS.md`. `doc/brainstorm.md`
+stays, for quick notes; a written-up entry moves in as an `idea` (question 3).
 The archives stay as history; their open entries become items.
 
 ### Left out of the chat (section 4b)
@@ -202,35 +215,109 @@ found on `executable-spec` (above) are the first items.
 
 ## Steps (sketch)
 
-1. Ids and links: the anchors on the spec's headings (and the HLD sections linked to),
-   and the test that checks every `[[id]]`.
-2. The backlog's format, and the test that checks it.
-3. The migration: leaks (current and archived), tech debt, TODOS, with the audit's
-   corrections (the defects reclassified); every pointer to them becomes a link.
-4. The process (`doc/process.md`): the lifecycle's review step, "Where notes go", the
-   start of a branch (no more archiving), ids and links.
-5. Docs.
+1. **Ids and links:** an `<a id>` anchor on every rule in `spec/` (about 60; questions 7
+   and 8), and a test that reads every tracked `.md`: an unknown or duplicate id fails, a
+   stable rule with no example fails, a block outside any rule fails, an alias used in a
+   live doc fails, and an id gone from `master` with no alias warns (question 9).
+2. **The backlog's format:** `backlog/B<n>-<slug>.md` with its fields (kind, state,
+   priority, found, fixed, where, refs), the script that writes `backlog/README.md` (by
+   state, kind and priority, and open items by the rule ids they refer to: question 12),
+   and the test that checks every item and that the index is current. The spec runner
+   also collects defect repros from `backlog/`, as expected failures (question 4).
+3. **The migration:** the open entries of `doc/leaks.md` and its archives,
+   `doc/tech_debt.md` and `TODOS.md` become items (the audit's defects as `defect`s; every
+   leak `open`, unless the owner keeps it, when its rule goes into the spec), and
+   `brainstorm.md`'s written-up entries as `idea`s, its settled ones removed (question 3).
+   The three files go (question 2); every pointer to them becomes a link. First items
+   besides: `def`'s mutability (a `task`), the Markdown injection for `candy` fences (a
+   `task`, `low`: question 10), the book (an `idea`: question 12).
+4. **The process** (`doc/process.md`): the lifecycle's review step (a task goes to
+   `review`), starting a branch without archiving, "Where notes go" (the backlog, ids and
+   links), and the log.
+5. **Docs:** CLAUDE.md, `spec/README.md` (anchors), the HLDs that pointed at the lists.
 
 ## Questions
 
 1. **One file or a directory** (A or B, "Where it lives")?
+   *Answered (2026-10-25):* B, a directory `backlog/`, one file per item, with a generated
+   index checked by a test (the scale argument: finding an item doesn't mean reading them
+   all). *Lasting.*
 2. **What it replaces:** leaks, tech debt and TODOS (proposed), or also `brainstorm.md`?
+   *Answered (2026-10-25):* all three: `doc/leaks.md`, `doc/tech_debt.md` and `TODOS.md`
+   become items, and the files are removed (no pointers left behind); the archives
+   (`doc/archive/leaks_*.md`, `TODOS_*.md`) stay as history, and starting a branch no
+   longer archives anything. "What's left on this branch" comes from the index (by
+   `found:`, or a branch field). `brainstorm.md` is question 3. *Lasting.*
 3. **`brainstorm.md`:** move its entries in as `idea`s (so an idea agreed to becomes a
    `feature` in place), or keep it as a file of its own?
+   *Answered (2026-10-25):* both. `brainstorm.md` stays, a scratchpad for quick notes; an
+   entry moves into the backlog as an `idea` once it is written up (a second sentence, or
+   something links to it), or as a `feature` once the owner agrees to it. The migration
+   moves the written-up entries and removes the settled ones (special forms in the symbol
+   table, done on `symbol-table`; the SRS and reviews, moved to HLDs). *Lasting.*
 4. **Defect repros as expected failures:** run them (a `candy defect` block, or spec
    examples marked by item id), or keep them as text?
+   *Answered (2026-10-25):* run them where the correct behaviour is clear: the item holds a
+   spec block (`candy run` or `candy error`) of what *should* happen, which the runner
+   collects from `backlog/` and marks as an expected failure; when it passes, the fix has
+   landed, the example moves into its spec file and the item goes to `done`. Where the fix
+   is still a decision (`nil` redefinable), the repro is text until it is decided.
+   *Lasting.*
 5. **States:** are `open`, `in-progress`, `review`, `done` and `dropped` the right ones?
+   *Answered (2026-10-25):* those five, and `kept` (a leak or shortcut kept on purpose, so
+   a lasting one isn't open forever); no `blocked` or `deferred`. A leak that goes to
+   `kept` becomes a rule in the spec, stated as lasting, which the item refers to (the
+   owner, 2026-10-25: "do `kept` items get into the `spec`?"). *Lasting.*
 6. **Ids:** a plain number (`B12`), or a prefix by kind (`D3`, `L12`)? A prefix says the
    kind, but an item reclassified (as the audit's defects are) would change its id.
+   *Answered (2026-10-25):* a plain number, `B1`, `B2`, ..., never reused; the kind is a
+   field, and the file name carries a slug (`B12-sig-list-crash.md`). Item ids (`B` and a
+   number) and rule ids (dotted, lowercase) can't collide. The audit's defect numbers
+   (1 to 13) get B-numbers in the migration. *Lasting.*
 7. **Rule ids:** anchors on the headings of today's spec files (proposed), or the chat's
    one rule per file with front matter?
+   *Answered (2026-10-25):* anchors in today's files, as `<a id="..."></a>` before a
+   heading or a rule's paragraph (not `{#id}`, which GitHub shows literally); a block
+   belongs to the anchor above it. `[[id]]` links stay plain text, checked by the test.
+   *Lasting.*
 8. **What gets an id:** every spec section, or only those something links to? Every
    section makes "a stable rule with no example" checkable everywhere.
+   *Answered (2026-10-25):* links can be written in any tracked `.md` (the test reads them
+   all); as targets, every rule in `spec/` has an anchor (about 60), so every stable rule
+   has an example (or says where it is tested) and every block belongs to a rule; every
+   backlog item has its number; any other doc (HLDs, `process.md`, the archives, the
+   READMEs, CLAUDE.md) gets an anchor only where something links to it. *Lasting.*
 9. **Renames:** keep the old id as an alias (the chat's `aliases:`), or rewrite the links
    (a test finds them all)?
+   *Answered (2026-10-25):* both: the live docs' links are rewritten to the new id, and the
+   old id stays as a second anchor beside the new one, so commit messages, chats and
+   archives still resolve; the test fails on an alias used in a live doc. (Backlog item
+   numbers never change, question 6.) A **rename warning:** a check compares the ids
+   defined on `master` (the branch's merge base) with today's, and warns, without failing,
+   when one is gone with no alias left, so a rename is always deliberate and visible.
+   Rule ids stay readable names, not opaque numbers (`R17` says nothing in a link, and a
+   wrong link can't be seen), so renames happen, and the warning and aliases pay for them.
+   *Lasting.*
 10. **Examples as `.cdy` files** for highlighting, or a Markdown injection for `candy`
     fences in `editors/vscode-candy/`?
+    *Answered (2026-10-25):* the injection, later: a `task` in the backlog, priority `low`
+    (one of its first items, a small test of the format). GitHub won't highlight Candy
+    either way. *For now.*
 11. **The four conflicts** ("Left out of the chat"): `grammar.ebnf`, error codes, a
     changelog, printing values. Proposed: keep the executable spec's answers; reopen one
     only on its own (each has a *for now* to revisit).
+    *Answered (2026-10-25):* keep all four (the reader as authority, substrings, no
+    changelog, numbers and text). One note for when substrings stop being enough
+    (`executable_spec.md`, question 4): an error's code could be its rule's id
+    (`match.exhaustive: no clause for Rect`), so `expect-error` matches the id and messages
+    can be reworded, cheaper than an `E0012` scheme. *Lasting* (each answer keeps its own
+    *for now*).
 12. **The book:** in this HLD's steps, or later?
+    *Answered (2026-10-25):* only its smallest part now: the backlog's generated index also
+    lists open items by the rule ids in their refs, so a rule's defects and leaks are in one
+    place ("from a rule, its open items"). The book itself (a page per rule) is an `idea`
+    in the backlog, for once the ids have been used a while. *For now.*
+13. **A priority** (the owner, 2026-10-25)?
+    *Answered (2026-10-25):* yes, one field, `high`, `normal` (default) or `low`, set by
+    the owner; no separate severity (it is a reason, in the item's text). *For now*: a
+    finer scale, or severity, if three values stop being enough.
