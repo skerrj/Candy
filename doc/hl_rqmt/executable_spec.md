@@ -76,7 +76,7 @@ rewritten in Candy.
 - **The process says when the spec is written** (a feature's examples with its HLD, or
   before its code).
 - **A better way to review items and tasks:** its own HLD, `doc/hl_rqmt/review.md`
-  (question 9).
+  (question 9), since folded into `doc/hl_rqmt/backlog.md`.
 
 **Not goals (for now):** generated docs (mdBook or the like: "After the MVP"); porting the
 runner to Candy; a second target's runner (`doc/hl_rqmt/multi_target.md`).
@@ -248,7 +248,7 @@ half, *stable* before the translator uses it, is new (question 5).
   untested `candy-special.md`, or none.
 - **Opportunity cost:** a branch with no language progress.
 - **More process:** each feature branch writes its spec; reviews and test levels are
-  still open (`doc/hl_rqmt/review.md`, question 11), so the process changes again.
+  still open (`doc/hl_rqmt/backlog.md`; question 11), so the process changes again.
 
 **Timing:** now, before the next language branches, with a checkpoint: after step 2 (the
 runner, and `deft` and `match`) the owner reviews how the spec reads before the rest of
@@ -281,12 +281,13 @@ Today, by level:
 Open: whether these levels are the right ones; where each lives (one directory each, or
 markers); and each one's process: who writes its tests and when (in an HLD's steps, like
 the spec's draft examples?), when it runs (every step, or before a merge, as the chain
-does), and how its results are reviewed (`doc/hl_rqmt/review.md`). Possibly a process HLD
+does), and how its results are reviewed (`doc/hl_rqmt/backlog.md`). Possibly a process HLD
 of its own.
 
 ## Reviewing items and tasks
 
-Its own HLD: `doc/hl_rqmt/review.md` (draft; question 9). A spec example could be what a
+Its own HLD: `doc/hl_rqmt/review.md` (draft; question 9), since folded into
+`doc/hl_rqmt/backlog.md` (draft), where a review is a state of an item. A spec example could be what a
 step's review points at, as that step's tests.
 
 ## Conflicts with the process and the code (flagged)

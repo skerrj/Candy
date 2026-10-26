@@ -19,15 +19,15 @@ Done and earlier items are in `doc/archive/TODOS_runtime_names.md`,
 - [ ] system-prelude: review step 1 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/system.cdy`'s types), and the new leaks and tech debt.
 - [ ] system-prelude: review step 3 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/prelude.cdy`).
 - [ ] system-prelude: review step 5 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note).
-- [ ] Review `doc/hl_rqmt/review.md` (draft HLD, a goal only): a better way to review items and tasks.
+- [ ] Review `doc/hl_rqmt/backlog.md` (draft process HLD, questions open): one backlog of items with a kind and a state, which takes in `review.md`'s goal (a better way to review items and tasks).
 
 ## executable-spec
 
 - [x] Review step 1 as built (`doc/hl_rqmt/executable_spec.md`, its "Done" note: the runner, `spec/README.md`, the fixtures in `conftest.py`, and the mypy measurement).
 - [x] **Checkpoint:** review how `spec/30-match.md` reads (step 2's "Done" note), before step 3 writes the rest of the spec in its style. Step 3 is `doc/hl_rqmt/executable_spec.md` → "Steps (sketch)" → "3. The other features" (migrating the rest of `candy-special.md`); review its proposed file list and the tuples note there too.
-- [ ] Review step 3, commit 1 as built (`spec/00-syntax.md`, `spec/10-programs.md`; the HLD's step 3 "As built, commit 1" note, with its one change to the table: `import-macros` in `50-macros.md`).
-- [ ] Review step 3, commit 2 as built (`spec/20-types.md`, `spec/40-expressions.md`; the HLD's "As built, commit 2" note), and the new leaks (`doc/leaks.md`) and tech debt (two bugs).
-- [ ] Review step 3, commit 3 as built (`spec/50-macros.md`, `spec/60-library.md`; the HLD's "As built, commit 3" note).
-- [ ] Review step 3, commit 4 as built (`candy-special.md` removed, the pointers, `boot/32`; the HLD's "Done. As built, commit 4" note).
-- [ ] Review step 4 as built (`doc/process.md`: "The spec", the lifecycle, "Where notes go"; the HLD's step 4 "Done" note).
-- [ ] Review step 5 as built (CLAUDE.md's `spec/` entry, history and command; the iMVP doc and `brainstorm.md` pointers; the HLD's step 5 "Done" note).
+- [x] Review step 3, commit 1 as built (`spec/00-syntax.md`, `spec/10-programs.md`; the HLD's step 3 "As built, commit 1" note, with its one change to the table: `import-macros` in `50-macros.md`).
+- [x] Review step 3, commit 2 as built (`spec/20-types.md`, `spec/40-expressions.md`; the HLD's "As built, commit 2" note), and the new leaks (`doc/leaks.md`) and tech debt (two bugs).
+- [x] Review step 3, commit 3 as built (`spec/50-macros.md`, `spec/60-library.md`; the HLD's "As built, commit 3" note).
+- [x] Review step 3, commit 4 as built (`candy-special.md` removed, the pointers, `boot/32`; the HLD's "Done. As built, commit 4" note).
+- [x] Review step 4 as built (`doc/process.md`: "The spec", the lifecycle, "Where notes go"; the HLD's step 4 "Done" note).
+- [x] Review step 5 as built (CLAUDE.md's `spec/` entry, history and command; the iMVP doc and `brainstorm.md` pointers; the HLD's step 5 "Done" note).

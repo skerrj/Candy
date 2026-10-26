@@ -89,8 +89,6 @@ take one, and remove an entry once it is fixed.
   `form.cdy` for a translator that had none next to it, until `expand.cdy` checked with
   `file-exists` first.
 
-- **`mangle` lives in the runtime** (`py_mangle`, with `PY_RESERVED`) so the self-hosted
-  translator could use it (the library HLD moves it into `emit.cdy`, as Candy).
 - **`at` and `slice_` helpers are only used as values** now that `at` and `slice` are
   emitted as subscripts. They still return `object`/`Sequence`, so passing them as values
   loses the element type.
@@ -103,8 +101,6 @@ take one, and remove an entry once it is fixed.
   from scratch anywhere else yet. Fix: publish it (and record where), or vendor a copy
   (MIT) that the script puts on the path for that step.
 
-- **Test programs run mypy once each** (`test_mypy_strict` in `tst/py_cdy/test_self_host.py`).
-  One mypy run over all of them would be faster.
 - **Repo naming.** The default branch is `master`, while some notes and tools assume
   `main`.
 - **`py-str` is close to `repr`, not equal** (`emit.cdy`, `doc/hl_rqmt/library.md` step

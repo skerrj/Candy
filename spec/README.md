@@ -7,7 +7,11 @@ translates every example with the translator and checks what it does
 
 ## The files
 
-One file per feature, a few hundred lines at most (split one that grows past that):
+One file per feature, a few hundred lines at most (split one that grows past that). The
+numbers are a reading order, roughly bottom-up, but there can be order issues: a file's
+examples use features a later file specifies (`00-syntax.md` uses `defn`, `if` and
+`format`), and some point ahead (`10-programs.md` to `50-macros.md`). The tests don't care
+(each example runs on its own), but a reader may.
 
 | File | What it covers |
 |---|---|
