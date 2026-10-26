@@ -19,7 +19,7 @@ Done and earlier items are in `doc/archive/TODOS_runtime_names.md`,
 - [ ] system-prelude: review step 1 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/system.cdy`'s types), and the new leaks and tech debt.
 - [ ] system-prelude: review step 3 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note; `src/cdy/prelude.cdy`).
 - [ ] system-prelude: review step 5 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note).
-- [ ] Review `doc/hl_rqmt/backlog.md` (draft process HLD, questions open): one backlog of items with a kind and a state, which takes in `review.md`'s goal (a better way to review items and tasks).
+- [ ] Review `doc/hl_rqmt/tracking.md` (draft process HLD, questions open; was `backlog.md`): rule ids and links (from the spec chat's section 4b), and one backlog of items with a kind and a state, which takes in `review.md`'s goal (a better way to review items and tasks).
 
 ## executable-spec
 

@@ -13,7 +13,7 @@ design them out by accident. Nothing here is decided.
   `def` is neither a constant nor a variable yet (`spec/20-types.md` says it is open). It
   becomes an issue once a form that changes a value arrives, or a target where the two
   differ (a C constant, a JavaScript `const`): open question 4, and an item for the
-  backlog (`doc/hl_rqmt/backlog.md`).
+  backlog (`doc/hl_rqmt/tracking.md`).
 - `deft` records are immutable. They are Python `NamedTuple`s, and `assoc` returns a copy.
   Mutating a record (Carp's `set-x!`) is **skipped for the iMVP**.
 

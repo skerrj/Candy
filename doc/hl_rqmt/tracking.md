@@ -1,11 +1,21 @@
-# One backlog: items with a kind and a state (process HLD)
+# Rule ids, links, and one backlog (process HLD)
 
 **Kind: process** (how work is done), not a design of the language or translator.
-**Status: draft (2026-10-25), questions open.** For a branch of its own, after
-`executable-spec`. From the owner (2026-10-25): "we could just have an open backlog, with
-`leaks`, `tech_debt`, `defect`, `task`, and others... `open` being a `state` of the
-item". It takes in `review.md` (a draft with a goal only: "an improved way to review items
-and tasks"), which it replaces, since a review becomes a state of an item.
+**Status: draft (2026-10-25), questions open.** For a branch `tracking`, after
+`executable-spec` (this file was `backlog.md`). Two sources:
+
+- **The backlog,** from the owner (2026-10-25): "we could just have an open backlog, with
+  `leaks`, `tech_debt`, `defect`, `task`, and others... `open` being a `state` of the
+  item". It takes in `review.md` (a draft with a goal only: "an improved way to review
+  items and tasks"), which it replaces, since a review becomes a state of an item.
+- **Ids and links,** from an updated chat with the owner
+  (`doc/archive/chat_spec_by_example.md`, section 4b, "machine spec + generated human
+  spec", 2026-10-24, with a prototype, `tools/specbook.py`, not kept): every rule has a stable id, and everything refers to it by id,
+  never by file path. That chat couldn't see the repo, so its examples aren't Candy (fields
+  without types, `_` for `else`), and some of it reopens questions the executable spec
+  answered; those are flagged here ("Left out of the chat"), not taken.
+
+The two belong together: a backlog item needs an id, and so do the rules it is about.
 
 ## Where things stand
 
@@ -60,6 +70,12 @@ undefined as either we should track it". A `task` (decide it), open.
 The cause is the same each time: an entry's kind is where it is filed, and its state is a
 strike-through, so a kind can be wrong and a state can be stale without anything noticing.
 
+**References are file paths.** The spec's *for now* lines point at `doc/leaks.md` and
+`doc/archive/leaks_*.md`, the HLDs at each other's sections by heading, and nothing checks
+any of it. So moving a leak (as the backlog's migration would) means finding and rewriting
+every pointer to it, and a pointer that goes stale stays stale. `executable-spec` moved
+`candy-special.md` this way, by `git grep`.
+
 ## Goals
 
 - One backlog: each item has a **kind** and a **state**, kept apart.
@@ -69,8 +85,27 @@ strike-through, so a kind can be wrong and a state can be stale without anything
 - Cheap for Claude Code to read (the scale lesson of `doc/hl_rqmt/executable_spec.md`):
   finding an item doesn't mean reading them all.
 - Checked: a test that every item has a known kind and state.
+- **Stable ids** for spec rules, backlog items and HLD sections, and links by id
+  (`[[match.exhaustive]]`) instead of by file path, checked by a test: an unknown id is an
+  error.
+- From a rule, its open items: the defects, leaks and tasks against it.
 
 ## Proposal
+
+### Ids and links
+
+- **A spec rule's id** is an anchor on its heading in the existing `spec/` files:
+  `## Exhaustive {#match.exhaustive}`. The files stay as they are (prose and examples
+  together, `candy errors` tables one line a case); a block belongs to the rule whose
+  heading it is under. Ids are dotted, by feature (`match.exhaustive`, `syntax.char`).
+- **An HLD section's id** is an anchor on its heading too (`{#design.sum-types}`), only
+  where something links to it.
+- **A backlog item's id** is its number (`B12`, "An item").
+- **A link** is `[[id]]`, anywhere in `spec/`, `doc/` and the backlog. A test reads them
+  all and fails on an id nothing defines, or one defined twice; an id that is renamed
+  keeps the old one as an alias (question 9).
+- **The checks from the chat that fit:** an unknown id, a duplicate id, a stable rule with
+  no example (an error); a rule no HLD links to (a warning: missing rationale?).
 
 ### An item
 
@@ -91,7 +126,8 @@ strike-through, so a kind can be wrong and a state can be stale without anything
 - **state:** `open`, `in-progress`, `review` (built; the owner checks it), `done`,
   `dropped` (with why).
 - **found:** the branch and date; **fixed:** the branch, once `done`.
-- **where:** the files involved; **refs:** the spec file, HLD or other item.
+- **where:** the files involved; **refs:** the ids it is about (`[[match.exhaustive]]`,
+  `[[B3]]`), so a rule's open items can be listed from the rule.
 - **repro**, for a defect: the smallest program that shows it. It could be a spec-style
   example of the *correct* behaviour, run as an expected failure until the defect is fixed,
   so a fix is reported as it lands (question 4).
@@ -113,6 +149,29 @@ longer an item of its own. The owner's verdict ("looks ok for now") goes on the 
 `doc/brainstorm.md`, unless its entries move in as `idea`s (question 3).
 The archives stay as history; their open entries become items.
 
+### Left out of the chat (section 4b)
+
+- **One rule per file, examples as separate `.cdy` + `.out`/`.err` files.** The spec has
+  201 examples, many a one-line row of a `candy errors` table: that would be hundreds of
+  files, with a rule's prose in one folder and its examples in another (a con the chat
+  lists itself). Ids on the headings of today's files give the links without the move.
+  Real `.cdy` files would get the editor's highlighting; so would a Markdown injection in
+  `editors/vscode-candy/` (question 10).
+- **Four conflicts with the executable spec's answers** (`doc/hl_rqmt/executable_spec.md`),
+  each a question here, not taken:
+  - `grammar.ebnf` as the syntax authority: question 6 there, the reader is the authority,
+    *for now* (question 11);
+  - coded errors (`E0012`): question 4 there, substrings, *for now* (question 11);
+  - a `CHANGELOG.md` for each rule's history: question 7 there, none, *lasting*; a rule's
+    history can be the HLDs that link to it, and its `since:` (question 11);
+  - examples printing values (`Square(2)`): question 12 there, numbers and text, *for
+    now* (question 11).
+- **The stage 0/1/2 gate** is what Candy has: `bin` (stage 0), T1 and T2, the fixpoint,
+  and the bootstrap chain (`doc/hl_rqmt/bootstrap.md`).
+- **The generated book** (a page per rule: the rule, its syntax, examples, "why" from the
+  HLDs that link to it, history, backlinks): later, once the ids exist; the check matters
+  more than the site (question 12).
+
 ## Pros and cons
 
 **Pros:**
@@ -121,6 +180,9 @@ The archives stay as history; their open entries become items.
 - No archiving, so nothing open is lost in an archive (ten leak files today).
 - Defects get a name, and with a repro, a test.
 - Reviews have a place in the lifecycle that isn't a list carried from branch to branch.
+- Links that can't go stale unnoticed, and a move that rewrites no pointers: an id stays
+  where its target goes.
+- A rule's page (or a search for its id) finds its rationale and its open items.
 
 **Cons:**
 
@@ -129,19 +191,24 @@ The archives stay as history; their open entries become items.
   The old HLDs keep theirs, as history.
 - A new format for both the owner and Claude Code to learn, and a test to keep.
 - Option B is more files to navigate by hand.
+- Id discipline: naming, no reuse, aliases for renames (a con the chat lists too).
+- Two migrations at once (ids on the spec and HLDs, and the backlog), though the ids make
+  the backlog's cheaper.
 
 **Timing:** after `executable-spec` merges, as its own branch. The spec now cites leaks by
-file; doing this before more features cite more of them keeps the move small. The defects
+file; doing this before more features cite more of them keeps the move small, and ids
+first means the backlog's migration rewrites each pointer once, to an id. The defects
 found on `executable-spec` (above) are the first items.
 
 ## Steps (sketch)
 
-1. The format, and the test that checks it.
-2. The migration: leaks (current and archived), tech debt, TODOS, with the audit's
-   corrections (the defects reclassified).
-3. The pointers: the spec, CLAUDE.md, `doc/process.md`.
+1. Ids and links: the anchors on the spec's headings (and the HLD sections linked to),
+   and the test that checks every `[[id]]`.
+2. The backlog's format, and the test that checks it.
+3. The migration: leaks (current and archived), tech debt, TODOS, with the audit's
+   corrections (the defects reclassified); every pointer to them becomes a link.
 4. The process (`doc/process.md`): the lifecycle's review step, "Where notes go", the
-   start of a branch (no more archiving).
+   start of a branch (no more archiving), ids and links.
 5. Docs.
 
 ## Questions
@@ -155,3 +222,15 @@ found on `executable-spec` (above) are the first items.
 5. **States:** are `open`, `in-progress`, `review`, `done` and `dropped` the right ones?
 6. **Ids:** a plain number (`B12`), or a prefix by kind (`D3`, `L12`)? A prefix says the
    kind, but an item reclassified (as the audit's defects are) would change its id.
+7. **Rule ids:** anchors on the headings of today's spec files (proposed), or the chat's
+   one rule per file with front matter?
+8. **What gets an id:** every spec section, or only those something links to? Every
+   section makes "a stable rule with no example" checkable everywhere.
+9. **Renames:** keep the old id as an alias (the chat's `aliases:`), or rewrite the links
+   (a test finds them all)?
+10. **Examples as `.cdy` files** for highlighting, or a Markdown injection for `candy`
+    fences in `editors/vscode-candy/`?
+11. **The four conflicts** ("Left out of the chat"): `grammar.ebnf`, error codes, a
+    changelog, printing values. Proposed: keep the executable spec's answers; reopen one
+    only on its own (each has a *for now* to revisit).
+12. **The book:** in this HLD's steps, or later?

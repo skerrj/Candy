@@ -120,7 +120,7 @@ stopgap is destructuring. A `let` binding can destructure a tuple:
   an error when both appear in one scope, but doesn't rename.~~ *Corrected (2026-10-25,
   `executable-spec`):* that was the Python translator; the Candy translator doesn't check,
   so `(sig a-b Int) (def a-b 1) (sig a_b Int) (def a_b 2) (put a-b a_b)` prints `2 2`,
-  wrong output with no error. A defect, for the backlog (`doc/hl_rqmt/backlog.md`).
+  wrong output with no error. A defect, for the backlog (`doc/hl_rqmt/tracking.md`).
 - **Operators can't be values yet.** `(put +)` or passing `<` to a function is an error;
   wrap it: `(fn (a b) (< a b))`.
 - **Record fields can't start with `_`** (or `-`, which mangles to `_`), because

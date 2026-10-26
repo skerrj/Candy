@@ -58,7 +58,7 @@ whenever it comes up; when one turns into real work, move it to a design doc
   checks.
 - **A better way to review items and tasks:** no ideas yet (the owner, 2026-10-23). *Moved
   to* `doc/hl_rqmt/review.md` (draft), linked from `doc/hl_rqmt/executable_spec.md`; since
-  folded into `doc/hl_rqmt/backlog.md` (draft), where a review is a state of an item.
+  folded into `doc/hl_rqmt/tracking.md` (draft), where a review is a state of an item.
 - **Build a host and target(s) from their own library files:** a host's and each
   target's `system.cdy` and `prelude.cdy`, and probably another set of files, or a
   completely separate set of spec files that give a system and prelude for each spec
