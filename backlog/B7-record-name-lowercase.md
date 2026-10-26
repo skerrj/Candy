@@ -6,7 +6,7 @@ priority: normal
 found: executable-spec, 2026-10-24
 fixed:
 where: `src/cdy/core.cdy`
-refs: [[types.records]], [[types.names]]
+refs: [[types.records]], [[types.table]]
 
 `(deft v ((x Int)))` translates, though type names are Capitalised (a variant's name is
 checked: "deft: variant names are Capitalised, not c"). From

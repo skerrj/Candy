@@ -11,13 +11,24 @@ one ``name: value`` line each, then its text::
     found: executable-spec, 2026-10-24
     fixed:
     where: `src/cdy/emit.cdy` (`emit-tcon`)
-    refs: [[types.names]]
+    refs: [[types.table]]
 
 The fields are all there, in that order; ``fixed`` and ``where`` may be empty, ``refs`` is
 links only (``[[id]]``, or empty). A defect's repro is a spec block (``candy run`` or
 ``candy error``, with its ``expect``) of what *should* happen: the spec runner
 (``tst/py_cdy/test_spec.py``) runs it as an expected failure until the fix lands, when it
-moves into its spec file. ``python script/backlog.py`` writes the index,
+moves into its spec file.
+
+An item may end with its notes, its history, apart from its text: a ``## Notes`` section of
+dated bullets, oldest first, each saying who (a review's verdict, a caveat, why a priority
+changed)::
+
+    ## Notes
+
+    - 2026-10-25, the owner: ticked.
+
+A ``dropped`` or ``kept`` item has at least one, its reason. ``python script/backlog.py``
+writes the index,
 ``backlog/README.md``; ``--check`` only says whether it is current.
 """
 
@@ -41,6 +52,10 @@ NAME = re.compile(r"(B([1-9][0-9]*))-[a-z0-9]+(-[a-z0-9]+)*\.md")
 TITLE = re.compile(r"# (B[1-9][0-9]*): (.+)")
 FIELD = re.compile(r"([a-z]+):(?: (.*))?")
 REPROS = ("candy run", "candy error")
+NOTES = "## Notes"
+NOTE = re.compile(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}, [^:]+: .+")
+# The states that need a note, saying why.
+EXPLAINED = ("dropped", "kept")
 INDEX = "backlog/README.md"
 
 
@@ -62,6 +77,7 @@ class Item(NamedTuple):
     fixed: str
     where: str
     refs: tuple[str, ...]
+    notes: int
 
 
 def item(path: str, text: str) -> Item:
@@ -85,6 +101,9 @@ def item(path: str, text: str) -> Item:
         raise BacklogError(f"{path}: a done item says where it was fixed")
     if fields["state"] not in OPEN and any(b.info in REPROS for b in blocks(text)):
         raise BacklogError(f"{path}: a closed item has a repro left (move it to the spec)")
+    notes = notes_of(path, lines)
+    if fields["state"] in EXPLAINED and not notes:
+        raise BacklogError(f"{path}: a {fields['state']} item has a note saying why")
     refs = tuple(link.id for link in links(path, f"{fields['refs']}\n"))
     if LINK.sub("", fields["refs"]).strip(" ,"):
         raise BacklogError(f"{path}: refs are links only, [[id]]")
@@ -100,7 +119,24 @@ def item(path: str, text: str) -> Item:
         fields["fixed"],
         fields["where"],
         refs,
+        notes,
     )
+
+
+def notes_of(path: str, lines: list[str]) -> int:
+    """The number of notes in an item's ``## Notes`` section (none if it has none)."""
+    if NOTES not in lines:
+        return 0
+    start = lines.index(NOTES) + 1
+    count = 0
+    for offset, line in enumerate(lines[start:], start=start + 1):
+        if line.startswith("## "):
+            break
+        if NOTE.fullmatch(line):
+            count += 1
+        elif line and not (count and line.startswith("  ")):
+            raise BacklogError(f"{path}:{offset}: a note is - YYYY-MM-DD, who: what")
+    return count
 
 
 def fields_of(path: str, lines: list[str]) -> dict[str, str]:
@@ -156,7 +192,14 @@ def index(found: tuple[Item, ...], rules: dict[str, str]) -> str:
         "",
         "## Open",
         "",
-        *table(live),
+        "By kind, then priority.",
+        "",
+        *(
+            row
+            for kind in KINDS
+            if any(i.kind == kind for i in live)
+            for row in (f"### {kind}", "", *table([i for i in live if i.kind == kind]))
+        ),
         "## By rule",
         "",
         "The open items, by the ids in their refs (spec rules, and sections of other docs).",

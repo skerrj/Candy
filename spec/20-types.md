@@ -16,7 +16,7 @@ in `30-match.md`.
 (tup expr+)
 ```
 
-<a id="types.names"></a>
+<a id="types.table"></a>
 ## Types
 
 | Type | Values |
@@ -55,7 +55,7 @@ used as a function, translates, and only mypy or the run rejects it. The transla
 checks a type's shape where it needs it (a function type for `defn`, below). *Tested in*
 `tst/py_cdy/test_spec.py`'s `test_mypy_strict`, which runs on every example.
 
-<a id="types.sig-def"></a>
+<a id="types.sig"></a>
 ## sig and def
 
 `(sig name Type)` gives a top-level name its type. Every top-level `def` and `defn` needs

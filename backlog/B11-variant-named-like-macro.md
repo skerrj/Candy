@@ -6,7 +6,7 @@ priority: normal
 found: macros, 2026-10-18
 fixed:
 where: `src/cdy/expand.cdy`
-refs: [[macros.names]], [[match.sum-types]], [[B61]]
+refs: [[macros.binding]], [[match.sum-types]], [[B61]]
 
 A macro's name can't be bound or defined, but a variant can take it:
 `(defmacro M (a) a) (deft S (M ((x Int))))` translates, and a later `(M 1)` is expanded as

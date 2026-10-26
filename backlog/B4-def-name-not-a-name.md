@@ -6,7 +6,7 @@ priority: normal
 found: executable-spec, 2026-10-24
 fixed:
 where: `src/cdy/core.cdy`
-refs: [[types.sig-def]]
+refs: [[types.sig]]
 
 A `def` whose name isn't a name gets the missing-`sig` message, with an empty name. With a
 `sig` before it, `(sig x Int) (def (x) 1)` says "sig for x, but no def or defn of x"; a

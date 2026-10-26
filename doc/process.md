@@ -40,7 +40,7 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
    other HLDs up to date, and marks the branch's spec files `stable`, `since:` the
    branch's tag.
 5. **Review.** The owner works through the items in `review` (`backlog/README.md`); the
-   verdict goes on the item ("looks ok for now"), which becomes `done` (`fixed:` the
+   verdict goes in the item's notes ("looks ok for now"), which becomes `done` (`fixed:` the
    branch), or goes back to `in-progress`; fixes are more commits. The HLD's status
    becomes *done*, with its scope.
 6. **Merge and tag.** `git merge --no-ff refs/heads/X` into `master`, with the message
@@ -153,11 +153,15 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
   `kept`: a leak kept on purpose, whose rule the spec then states as lasting (a kept
   tech-debt item keeps its reason in the item).
 - **Priority:** `high`, `normal` or `low`, set by the owner (Claude Code may propose one).
+- **Notes:** an item's history goes in a `## Notes` section at its end, apart from its
+  text: dated bullets, oldest first, each saying who (`- 2026-10-25, the owner: ...`). A
+  review's verdict goes there, and a `dropped` or `kept` item's reason (checked).
 - **Ids** are never reused. A new item takes the next one (`backlog/README.md` says
   which); then `python script/backlog.py` rewrites the index, which a test checks is
   current.
 - **Links:** `[[B12]]` or `[[match.exhaustive]]`, in any tracked `.md`, outside code; a
-  test fails on one to nothing. A renamed id keeps the old one as an alias, the anchor
+  test fails on one to nothing. The test reads the files git tracks, so `git add` a new
+  item (or doc) before its id counts as a link target. A renamed id keeps the old one as an alias, the anchor
   after the first on its line, and the live links move to the new one (a warning names
   an id that is gone since `master`).
 - **A defect's repro** is a `candy run` or `candy error` block of what *should* happen,

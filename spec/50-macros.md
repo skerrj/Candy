@@ -55,7 +55,7 @@ hello
 3
 ```
 
-<a id="macros.names"></a>
+<a id="macros.binding"></a>
 A macro's name can't be bound or defined, and a macro is defined once; a special form
 can't be a macro.
 

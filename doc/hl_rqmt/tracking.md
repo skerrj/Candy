@@ -1,7 +1,10 @@
 # Rule ids, links, and one backlog (process HLD)
 
 **Kind: process** (how work is done), not a design of the language or translator.
-**Status: accepted (2026-10-25), with all thirteen questions answered; branch `tracking`.** For a branch `tracking`, after
+**Status: done (2026-10-26), on branch `tracking` (tag `tracking`): every spec rule has an
+id and the docs link by id, `backlog/` (B1 to B103) replaces `doc/leaks.md`,
+`doc/tech_debt.md` and `TODOS.md`, and `doc/process.md` uses it. Accepted 2026-10-25,
+with all thirteen questions answered.** For a branch `tracking`, after
 `executable-spec` (this file was `backlog.md`). Two sources:
 
 - **The backlog,** from the owner (2026-10-25): "we could just have an open backlog, with
@@ -259,6 +262,10 @@ found on `executable-spec` (above) are the first items.
    extension's README (its "Not yet" got an anchor, `editor.not-yet`), and [[B2]], the
    audit's defect 2, `(sig x (List))`, with a repro (its `doc/tech_debt.md` entry now
    points at it). The rest of the migration is step 3.
+
+   *Changed in review:* an item may end with `## Notes`, dated bullets saying who (a
+   verdict, a caveat, why a priority changed); a `dropped` or `kept` item needs one, its
+   reason. The index's open items are grouped by kind, then sorted by priority.
 3. **The migration:** the open entries of `doc/leaks.md` and its archives,
    `doc/tech_debt.md` and `TODOS.md` become items (the audit's defects as `defect`s; every
    leak `open`, unless the owner keeps it, when its rule goes into the spec), and

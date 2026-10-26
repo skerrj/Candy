@@ -79,7 +79,7 @@ Constructors take exactly their fields:
 (deft Shape (Rect ((w Int) (h Int))) (Dot)) (put (Dot)) => it is a value
 ```
 
-<a id="match.match"></a>
+<a id="match.form"></a>
 ## Taking it apart: match
 
 A clause is `(pattern expr)`. A pattern `(Variant name ...)` matches that variant and binds

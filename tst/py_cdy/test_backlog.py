@@ -29,7 +29,7 @@ def test_index_is_current() -> None:
 
 FIELDS = (
     "kind: defect\nstate: open\npriority: normal\nfound: tracking, 2026-10-25\nfixed:\n"
-    "where: `src/cdy/emit.cdy`\nrefs: [[types.names]], [[B1]]\n"
+    "where: `src/cdy/emit.cdy`\nrefs: [[types.table]], [[B1]]\n"
 )
 GOOD = f"# B3: a thing\n\n{FIELDS}\nWhat it is.\n"
 
@@ -46,8 +46,18 @@ def test_an_item() -> None:
         "tracking, 2026-10-25",
         "",
         "`src/cdy/emit.cdy`",
-        ("types.names", "B1"),
+        ("types.table", "B1"),
+        0,
     )
+
+
+NOTES = "## Notes\n\n- 2026-10-25, the owner: one,\n  two lines.\n- 2026-10-26, Claude Code: x.\n"
+
+
+def test_notes() -> None:
+    assert item("backlog/B3-a-thing.md", GOOD + "\n" + NOTES).notes == 2
+    dropped = GOOD.replace("state: open", "state: dropped") + "\n" + NOTES
+    assert item("backlog/B3-a-thing.md", dropped).state == "dropped"
 
 
 REPRO = "```candy error\n(put x)\n```\n```expect-error\nunknown\n```\n"
@@ -72,6 +82,8 @@ REPRO = "```candy error\n(put x)\n```\n```expect-error\nunknown\n```\n"
             "a closed item has a repro left",
         ),
         ("backlog/B3-a-thing.md", GOOD.replace(", [[B1]]", ", B1"), "refs are links only"),
+        ("backlog/B3-a-thing.md", GOOD.replace("state: open", "state: kept"), "saying why"),
+        ("backlog/B3-a-thing.md", GOOD + "\n## Notes\n\n- ticked\n", ":15: a note is"),
     ],
     ids=[
         "lowercase-name",
@@ -86,6 +98,8 @@ REPRO = "```candy error\n(put x)\n```\n```expect-error\nunknown\n```\n"
         "done-unfixed",
         "closed-repro",
         "refs",
+        "kept-no-note",
+        "undated-note",
     ],
 )
 def test_items_that_arent(path: str, text: str, message: str) -> None:
@@ -104,12 +118,13 @@ def test_the_index() -> None:
         .replace("state: open", "state: done")
         .replace("fixed:", "fixed: x"),
     )
-    text = index((first, done, second), {"types.names": "spec/20-types.md"})
+    text = index((first, done, second), {"types.table": "spec/20-types.md"})
     assert "The next item is B4." in text
     open_rows = text.split("## Open")[1].split("## By rule")[0]
+    assert "### defect" in open_rows and "### task" not in open_rows
     assert open_rows.index("[B3]") < open_rows.index("[B1]")
     assert "[B2]" not in open_rows and "[B2](B2-done.md)" in text.split("## Closed")[1]
-    assert "- [types.names](../spec/20-types.md#types.names): [B3](B3-a-thing.md)" in text
+    assert "- [types.table](../spec/20-types.md#types.table): [B3](B3-a-thing.md)" in text
 
 
 def test_two_items_with_one_number(tmp_path: Path) -> None:

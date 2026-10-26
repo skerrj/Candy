@@ -6,7 +6,7 @@ priority: normal
 found: py-py-translator, 2026-10-15
 fixed:
 where: `src/cdy/core.cdy`
-refs: [[types.records]], [[match.match]]
+refs: [[types.records]], [[match.form]]
 
 `get` works on any Python object with that attribute, not only records; a field the
 record doesn't have, or `(get s r)` on a `Shape` that might be a `Rect` (after no

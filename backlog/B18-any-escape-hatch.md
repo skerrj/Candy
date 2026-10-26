@@ -6,7 +6,7 @@ priority: normal
 found: py-py-translator, 2026-10-15
 fixed:
 where: `.cdy` files that use `Any`
-refs: [[types.names]], [[B34]], [[B48]], [[B49]]
+refs: [[types.table]], [[B34]], [[B48]], [[B49]]
 
 `Any` is the escape hatch for a type Candy can't write yet, and becomes Python's `Any`, so
 mypy checks nothing that passes through it. Every use is a leak; grep `.cdy` files for

@@ -6,7 +6,7 @@ priority: normal
 found: py-py-translator, 2026-10-15
 fixed:
 where: `src/cdy/system.cdy`, `src/cdy_rt/primitives.py`
-refs: [[types.names]], [[library.lists]], [[B25]], [[B51]]
+refs: [[types.table]], [[library.lists]], [[B25]], [[B51]]
 
 A `Maybe` is Python's `Optional`, not a sum to be unwrapped: mypy's narrowing
 (`if x is not None`) is all there is, and `nil` tests use truthiness
