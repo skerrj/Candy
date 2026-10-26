@@ -1,11 +1,14 @@
 # The executable spec: spec by example (process HLD)
 
 **Kind: process** (how work is done: the spec, its tests, the lifecycle), not a design of
-the language or translator. **Status: accepted (2026-10-23), with the proposed answers to
-its questions, question 3 changed (the small test programs move into the spec).** For a
-branch `executable-spec`, after tag `runtime-names`. From a chat with the owner
-(2026-10-23, "Twine, spec-by-example, and the HLD plan"), mapped onto what Candy already
-has; where the chat and the process or the code disagree, the conflict is flagged here
+the language or translator. **Status: done (2026-10-25), on branch `executable-spec` (tag
+`executable-spec`): `spec/` (seven files and the index) and its runner replace
+`candy-special.md`, the six small programs and the Python error tables' language cases
+moved in, and `doc/process.md` has "The spec". Accepted 2026-10-23, with the proposed
+answers to its questions, question 3 changed (the small test programs move into the
+spec).** For a branch `executable-spec`, after tag `runtime-names`. From a chat with the
+owner (2026-10-23, "Twine, spec-by-example, and the HLD plan"), mapped onto what Candy
+already has; where the chat and the process or the code disagree, the conflict is flagged here
 (**Conflict**) rather than settled. It also takes in `doc/brainstorm.md`'s "An SRS for the
 current design" (its open format question).
 
