@@ -17,6 +17,10 @@ is translated by T1 and run, one test each, named ``file:line``. Each file's ``r
 examples also pass ``mypy --strict`` together, in one mypy run, and T2 translates them as
 T1 does. A file whose status line says
 ``status: draft`` has its examples marked as expected failures (a passing one is reported).
+
+A backlog item's ``candy run`` and ``candy error`` blocks (``backlog/``, ``script/backlog.py``)
+are its repro: what *should* happen, run the same way as a strict expected failure, so the
+test fails once the defect is fixed, until the example moves into its spec file.
 """
 
 import re
@@ -29,6 +33,7 @@ from typing import Literal, NamedTuple
 import pytest
 from mypy import api as mypy_api
 
+from backlog import item_files
 from cdy_rt.primitives import CandyFail
 from doc_links import Block, blocks, status
 from self_host import load, translate_with
@@ -102,11 +107,14 @@ def error_table(block: Block, name: str) -> tuple[Example, ...]:
 
 
 FILES = sorted(SPEC_DIR.glob("*.md"))
-TEXTS = {path: path.read_text(encoding="utf-8") for path in FILES}
+ITEMS = list(item_files(ROOT))
+TEXTS = {path: path.read_text(encoding="utf-8") for path in (*FILES, *ITEMS)}
 
 
 def marks(path: Path) -> tuple[pytest.MarkDecorator, ...]:
-    """A draft file's examples may fail."""
+    """A draft file's examples may fail; a backlog item's repro must."""
+    if path in ITEMS:
+        return (pytest.mark.xfail(reason=f"{path.name}: not fixed yet", strict=True),)
     return (pytest.mark.xfail(reason="draft"),) if status(TEXTS[path]) == "draft" else ()
 
 
@@ -114,7 +122,7 @@ def cases(kind: str) -> list[object]:
     """Each example of ``kind`` in the spec, as a test case named ``file:line``."""
     return [
         pytest.param(example, id=f"{path.name}:{example.line}", marks=marks(path))
-        for path in FILES
+        for path in (*FILES, *ITEMS)
         for example in examples(TEXTS[path], path.name)
         if example.kind == kind
     ]

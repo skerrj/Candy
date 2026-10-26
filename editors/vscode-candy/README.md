@@ -35,6 +35,7 @@ parser, when it was here):
   and the hole's escaped strings (`\"s\"`) as strings;
 - `'` (reserved) and a stray `)` as invalid.
 
+<a id="editor.not-yet"></a>
 ## Not yet
 
 - Parameters (`defn`, `fn`) and `let` binding names (`x` in `(x 1)`, `a b` in
@@ -42,4 +43,5 @@ parser, when it was here):
   of its form: a parameter list or a binding name on the next line falls back to the
   colours of a call.
 - A `format` inside a hole isn't recognised.
-- No snippets, no Markdown code-block support (the docs use ```` ```clojure ```` fences).
+- No snippets, and no highlighting of the `candy` fences in Markdown (the spec's examples:
+  [[B1]]).

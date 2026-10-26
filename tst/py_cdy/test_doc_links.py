@@ -3,10 +3,11 @@
 Every Markdown file git tracks is read. An id (``<a id="match.exhaustive"></a>``) is
 defined once, and dotted and lowercase; every link (``[[match.exhaustive]]``) is to an id
 that exists, and a live doc (not in ``doc/archive/``) links to an id, not to one of its
-aliases. In ``spec/``, every rule has an id: each example belongs to the rule whose anchor
-is above it, and a stable rule has an example, or says where it is *Tested in*. An id that
-was on ``master`` (at this branch's merge base) and is gone, with no alias left, is a
-warning: a rename keeps the old id as an alias.
+aliases. A backlog item's id is its number, from its file's name (``backlog/B2-...md``,
+``script/backlog.py``). In ``spec/``, every rule has an id: each example belongs to the
+rule whose anchor is above it, and a stable rule has an example, or says where it is
+*Tested in*. An id that was on ``master`` (at this branch's merge base) and is gone, with
+no alias left, is a warning: a rename keeps the old id as an alias.
 """
 
 import subprocess
@@ -15,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from backlog import NAME
 from doc_links import (
     ID,
     Anchor,
@@ -32,7 +34,13 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCS = tracked_docs(ROOT)
 ANCHORS = tuple(a for path, text in DOCS.items() for a in anchors(path, text))
 LINKS = tuple(link for path, text in DOCS.items() for link in links(path, text))
-DEFINED = {a.id: a for a in ANCHORS}
+# Each item's id, as an anchor on its title line.
+ITEMS = tuple(
+    Anchor(name.group(1), path, 1, "")
+    for path in DOCS
+    if path.startswith("backlog/") and (name := NAME.fullmatch(Path(path).name))
+)
+DEFINED = {a.id: a for a in (*ANCHORS, *ITEMS)}
 # The spec's feature files (the index, spec/README.md, has examples of the blocks, no rules).
 SPEC = {p: t for p, t in DOCS.items() if p.startswith("spec/") and p != "spec/README.md"}
 EXAMPLES = ("candy run", "candy error", "candy errors")

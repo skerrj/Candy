@@ -240,6 +240,25 @@ found on `executable-spec` (above) are the first items.
    state, kind and priority, and open items by the rule ids they refer to: question 12),
    and the test that checks every item and that the index is current. The spec runner
    also collects defect repros from `backlog/`, as expected failures (question 4).
+
+   *Done. As built:* an item is `backlog/B<n>-<slug>.md`: a title line, `# B<n>: what it
+   is`, a blank line, then its seven fields, one `name: value` line each, in order (kind,
+   state, priority, found, fixed, where, refs; `fixed` and `where` may be empty, `refs` is
+   links only), then its text, like a spec file's status line. `script/backlog.py` reads
+   the items (`item`, `items`), and writes `backlog/README.md` (`--check` only checks it):
+   the next free id, the open items (open, in-progress, review) by priority, then the
+   open items by the ids in their refs, each a link to the rule's file, then the closed
+   ones. It fails on a bad file name or title, a missing or out-of-order field, an unknown
+   kind, state or priority, a `done` item with no `fixed`, a closed item that still has a
+   repro, and two items with one number. `tst/py_cdy/test_backlog.py` checks every item
+   and that the index is current; `test_doc_links.py` takes an item's id from its file
+   name, so `[[B2]]` is checked like any link; `test_spec.py` runs each item's `candy run`
+   and `candy error` blocks as strict expected failures (`xfail(strict=True)`), so a fix
+   fails the test until its example moves into the spec. The first two items:
+   [[B1]], the Markdown injection (question 10, a `task`, `low`), linked from the
+   extension's README (its "Not yet" got an anchor, `editor.not-yet`), and [[B2]], the
+   audit's defect 2, `(sig x (List))`, with a repro (its `doc/tech_debt.md` entry now
+   points at it). The rest of the migration is step 3.
 3. **The migration:** the open entries of `doc/leaks.md` and its archives,
    `doc/tech_debt.md` and `TODOS.md` become items (the audit's defects as `defect`s; every
    leak `open`, unless the owner keeps it, when its rule goes into the spec), and

@@ -7,9 +7,7 @@ take one, and remove an entry once it is fixed.
 
 ## Translator
 
-- **`(sig x (List))` crashes the translator** with Python's `IndexError` (in `emit-tcon`,
-  `emit.cdy`), instead of failing with a Candy error: a type constructor's arguments
-  aren't counted. Found writing the spec (`doc/hl_rqmt/executable_spec.md`, step 3).
+- **`(sig x (List))` crashes the translator:** now [[B2]], a defect.
 - **`(def (x) 1)` says " needs a (sig  Type) before its definition"**, with no name: a
   `def` whose name isn't a name gets the missing-`sig` message. Found as above.
 - **`match` is an `isinstance` chain in Python**, not Python's `match`, because mypy (2.4)
