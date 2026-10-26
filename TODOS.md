@@ -23,3 +23,7 @@ is the last archive: branch `tracking` moves the open items into `backlog/`
 - [ ] system-prelude: review step 5 as built (`doc/hl_rqmt/system_prelude.md`, its "Done" note).
 
 ## tracking
+
+- [ ] Review step 1 as built (`doc/hl_rqmt/tracking.md`, its "Done" note): the rule ids
+  in `spec/` (their names and where they sit), `script/doc_links.py`, and
+  `tst/py_cdy/test_doc_links.py`.

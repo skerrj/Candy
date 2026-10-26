@@ -134,7 +134,7 @@ every pointer to it, and a pointer that goes stale stays stale. `executable-spec
   now: the spec states it, without *for now*, as lasting, and the item refers to the rule
   (`[[id]]`; the rule may link back for the reason). A `kept` **tech-debt** item has no
   rule to state (a Candy user can't see it): its reason is in the item. An item goes open → in-progress → review → done (or back to in-progress); no
-  `blocked` (a ref says "needs [[B3]]") and no `deferred` (`open`, priority `low`).
+  `blocked` (a ref says "needs `[[B3]]`") and no `deferred` (`open`, priority `low`).
 - **priority:** `high`, `normal` (the default) or `low`; set by the owner (Claude Code may
   propose one); the index sorts by it (question 13). How bad a defect is (severity) is a
   reason for its priority, in its text, not a field.
@@ -219,6 +219,22 @@ found on `executable-spec` (above) are the first items.
    and 8), and a test that reads every tracked `.md`: an unknown or duplicate id fails, a
    stable rule with no example fails, a block outside any rule fails, an alias used in a
    live doc fails, and an id gone from `master` with no alias warns (question 9).
+
+   *Done. As built:* `script/doc_links.py` reads a doc's fences (moved out of
+   `tst/py_cdy/test_spec.py`, which now imports it), its prose (outside fences, with code
+   spans blanked), its anchors (the first on a line the id, the rest its aliases) and its
+   links, and lists the tracked `.md` files (at a commit too). `spec/` has 51 anchors,
+   one before each heading, or before each rule's paragraph in a section with several;
+   a rule's examples run to the next anchor. `tst/py_cdy/test_doc_links.py` checks that
+   ids are dotted and lowercase and defined once, that links are to ids, and that a live
+   doc (not `doc/archive/`) links to an id, not an alias; in `spec/`, that no example
+   comes before the first anchor and that each rule of a stable file has an example or
+   says where it is "*Tested in*"; and it warns of an id on `master` (the merge base)
+   that is gone. The check found four rules with no example: the operators' arity and
+   the shape of `fn` got a sentence over their error tables, flat patterns an error
+   table, the library's other built-ins a run example, and type checking (mypy) a
+   *Tested in*. `spec/README.md` says how ids, aliases and links are written. There are
+   no links yet: the backlog (step 2) is the first to use them.
 2. **The backlog's format:** `backlog/B<n>-<slug>.md` with its fields (kind, state,
    priority, found, fixed, where, refs), the script that writes `backlog/README.md` (by
    state, kind and priority, and open items by the rule ids they refer to: question 12),

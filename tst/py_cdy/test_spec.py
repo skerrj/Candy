@@ -10,11 +10,12 @@ A spec file's fenced blocks are its examples:
   must translate on their own;
 - any other fence (``candy`` alone, ``markdown``): an illustration, not run.
 
-A fence is three or more backticks, closed by as many or more, so a block of four can show
-a spec file's blocks without running them; it may be indented (in a list item), and its
-lines lose that indent. Each example is translated by T1 and run, one
-test each, named ``file:line``. Each file's ``run`` examples also pass ``mypy --strict``
-together, in one mypy run, and T2 translates them as T1 does. A file whose status line says
+The fences are read by ``script/doc_links.py`` (three or more backticks, closed by as many
+or more, so a block of four can show blocks without running them; indented ones lose their
+indent), which also reads the spec's ids (``tst/py_cdy/test_doc_links.py``). Each example
+is translated by T1 and run, one test each, named ``file:line``. Each file's ``run``
+examples also pass ``mypy --strict`` together, in one mypy run, and T2 translates them as
+T1 does. A file whose status line says
 ``status: draft`` has its examples marked as expected failures (a passing one is reported).
 """
 
@@ -29,26 +30,17 @@ import pytest
 from mypy import api as mypy_api
 
 from cdy_rt.primitives import CandyFail
+from doc_links import Block, blocks, status
 from self_host import load, translate_with
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC_DIR = ROOT / "spec"
 # The index, which needs no status line (its examples show the block kinds).
 INDEX = "README.md"
-FENCE = re.compile(r"( *)(`{3,})\s*(.*?)\s*")
-STATUS = re.compile(r"^status: (draft|stable|deprecated)(?:, since: (\S+))?\s*$", re.MULTILINE)
 
 
 class SpecError(Exception):
     """A spec file whose blocks don't pair up."""
-
-
-class Block(NamedTuple):
-    """A fenced block: its info string (``candy run``), its text, and its opening line."""
-
-    info: str
-    text: str
-    line: int
 
 
 class Example(NamedTuple):
@@ -59,32 +51,6 @@ class Example(NamedTuple):
     source: str
     expected: str
     line: int
-
-
-def blocks(text: str) -> tuple[Block, ...]:
-    """The fenced blocks of the Markdown ``text``, in order."""
-    lines = text.splitlines()
-    found: tuple[Block, ...] = ()
-    i = 0
-    while i < len(lines):
-        opening = FENCE.fullmatch(lines[i])
-        if opening is None:
-            i += 1
-            continue
-        indent = len(opening.group(1))
-        closing = re.compile(f" *`{{{len(opening.group(2))},}}\\s*")
-        j = i + 1
-        while j < len(lines) and closing.fullmatch(lines[j]) is None:
-            j += 1
-        body = "".join(dedent(line, indent) + "\n" for line in lines[i + 1 : j])
-        found = (*found, Block(opening.group(3), body, i + 1))
-        i = j + 1
-    return found
-
-
-def dedent(line: str, indent: int) -> str:
-    """``line`` without up to ``indent`` leading spaces (its fence's indent)."""
-    return line[min(indent, len(line) - len(line.lstrip(" "))) :]
 
 
 def examples(text: str, name: str) -> tuple[Example, ...]:
@@ -133,12 +99,6 @@ def error_table(block: Block, name: str) -> tuple[Example, ...]:
         example = Example("error", setup + source.strip(), message.strip(), block.line + offset)
         found = (*found, example)
     return found
-
-
-def status(text: str) -> str:
-    """The status of a spec file (``draft``, ``stable`` or ``deprecated``), or ``""``."""
-    found = STATUS.search(text)
-    return found.group(1) if found is not None else ""
 
 
 FILES = sorted(SPEC_DIR.glob("*.md"))

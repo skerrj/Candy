@@ -14,6 +14,7 @@ in `20-types.md`.
 (match expr ((tup name+) expr))
 ```
 
+<a id="match.sum-types"></a>
 ## Declaring a sum type
 
 `deft` with one or more variants, each a Capitalised name and, unless it has none, its
@@ -60,6 +61,7 @@ A sum can be generic and recursive:
 3
 ```
 
+<a id="match.namespace"></a>
 Types and values share one namespace *for now* (so a type and a variant can't both be
 named `Box`), and variant names must be Capitalised:
 
@@ -69,6 +71,7 @@ named `Box`), and variant names must be Capitalised:
 (deft S2 (A ())) => variant must be
 ```
 
+<a id="match.constructors"></a>
 Constructors take exactly their fields:
 
 ```candy errors
@@ -76,6 +79,7 @@ Constructors take exactly their fields:
 (deft Shape (Rect ((w Int) (h Int))) (Dot)) (put (Dot)) => it is a value
 ```
 
+<a id="match.match"></a>
 ## Taking it apart: match
 
 A clause is `(pattern expr)`. A pattern `(Variant name ...)` matches that variant and binds
@@ -99,6 +103,7 @@ the chosen clause's.
 100
 ```
 
+<a id="match.exhaustive"></a>
 **Exhaustive:** without `else`, every variant needs a clause, and each variant gets at most
 one. The optional last clause `(else expr)` matches whatever is left.
 
@@ -124,6 +129,7 @@ not round
 match on Shape: no clause for Rect, Dot (or add else)
 ```
 
+<a id="match.clauses"></a>
 The clauses, case by case:
 
 ```candy errors
@@ -142,9 +148,18 @@ The clauses, case by case:
 (deft B (T) (F)) (put (match s ((Dot) 1) ((T) 2) (else 3))) => mix variants of Shape and B
 ```
 
+<a id="match.flat-patterns"></a>
 Patterns are flat *for now*: a pattern names a variant and its fields' names, with no
 nested patterns, literals or guards (`doc/hl_rqmt/sum_types.md`).
 
+```candy errors
+(deft Shape (Circle ((r Int))) (Dot))
+---
+(put (match Dot ((Circle (x)) 1) (else 2))) => match name must be a name
+(put (match Dot ((Circle 3) 1) (else 2))) => match name must be a name
+```
+
+<a id="match.tup"></a>
 ## Taking a tuple apart
 
 A `tup` pattern binds a tuple's items by position (`_` skips one). A tuple has one shape,

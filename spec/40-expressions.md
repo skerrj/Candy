@@ -14,6 +14,7 @@ Names and calls, the operators, `do`, `if`, `cond`, `let`, `fn` and `defn`, and 
 (defn name (arg+) expr)
 ```
 
+<a id="expr.calls"></a>
 ## Names and calls
 
 A name is a local (a `let` binding, an argument, a pattern's), a top-level definition, an
@@ -38,6 +39,7 @@ prints them with a space between.
 (put (len 1 2)) => takes 1 argument(s), got 2
 ```
 
+<a id="expr.arithmetic"></a>
 ## Operators
 
 The operators are declared in `src/cdy/special.cdy`. `+`, `-`, `*`, `/` and `quot` take
@@ -54,6 +56,7 @@ two or more arguments and fold left; `+` also joins strings. `/` divides into a
 3.5 3 -4
 ```
 
+<a id="expr.comparisons"></a>
 The comparisons, `=`, `!=`, `<`, `>`, `<=` and `>=`, take two or more and chain:
 `(< a b c)` is `a < b` and `b < c`.
 
@@ -70,6 +73,7 @@ The comparisons, `=`, `!=`, `<`, `>`, `<=` and `>=`, take two or more and chain:
 yes no yes yes
 ```
 
+<a id="expr.logic"></a>
 `and` and `or` take two or more and short-circuit: they stop at the first argument that
 decides the result, and don't evaluate the rest, even when one needs statements first
 (a `do`, whose earlier forms run for effect). `not` takes one.
@@ -108,12 +112,17 @@ out
 in
 ```
 
+<a id="expr.operator-arity"></a>
+Each operator takes the number of arguments `special.cdy` declares: two or more, and one
+for `not`.
+
 ```candy errors
 (put (+ 1)) => needs at least 2 arguments
 (put (and true)) => (and ...) needs at least 2 arguments, got 1
 (put (not 1 2)) => (not ...) takes 1 argument(s), got 2
 ```
 
+<a id="expr.conditionals"></a>
 ## do, if and cond
 
 `(do expr ...)` evaluates its forms in order; its value is the last one's. `(if test then
@@ -142,6 +151,7 @@ then zero positive
 (put (cond (else 1) (true 2))) => must be the last clause
 ```
 
+<a id="expr.let"></a>
 ## let
 
 `(let ((name init) ...) expr)` binds each name to its `init`'s value, in order, so an
@@ -169,6 +179,7 @@ tuple apart, as a `tup` pattern does (`30-match.md`).
 (put (let ((x 1)) 1 2)) => let: expected (let ((name init)*) body)
 ```
 
+<a id="expr.functions"></a>
 ## fn and defn
 
 `(fn (arg ...) expr)` is a function, closing over the names it uses. `(defn name (arg
@@ -194,6 +205,7 @@ ML: `(defn run (_) ...)`, called as `(run nil)`. `defn` may become a macro over 
 7
 ```
 
+<a id="expr.tail-calls"></a>
 A `defn` that calls itself in tail position runs as a loop, so it can recur any number of
 times. Other recursion (not in tail position, mutual, or in a `defn` that makes a `fn`)
 uses the host's stack, about 1000 calls deep (*for now*:
@@ -208,6 +220,9 @@ uses the host's stack, about 1000 calls deep (*for now*:
 100000
 ```
 
+<a id="expr.function-shape"></a>
+A `fn` or `defn` with no argument, or a body of more than one form, is an error:
+
 ```candy errors
 (put (fn () 1)) => at least one
 (put (fn (x) 1 2)) => fn: expected (fn (args+) body), with exactly one body form
@@ -215,6 +230,7 @@ uses the host's stack, about 1000 calls deep (*for now*:
 (sig f (Fn (Int) Int)) (defn f (x) 1 2) => with exactly one body form
 ```
 
+<a id="expr.unit"></a>
 ## Unit and nil
 
 `Unit` is the type with one value, `nil`. It is the value of an `if` with no `else` whose
