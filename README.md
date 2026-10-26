@@ -85,6 +85,9 @@ See `doc/hl_rqmt/bootstrap.md`.
 - `src/cdy_rt/`: the runtime generated Python imports;
 - `src/py_cdy/`: the Python driver (`main.py`, `self_host.py`);
 - `bin/`: the checked-in translators, one directory per target;
-- `script/bootstrap.py`: the bootstrap chain;
+- `script/bootstrap.py`: the bootstrap chain; `script/backlog.py`: the backlog's index;
+- `backlog/`: everything not done yet, one file per item (defects, leaks, tech debt, tasks,
+  features, ideas), with its index, `backlog/README.md`;
 - `tst/`: tests and test programs;
-- `doc/`: design docs (`hl_rqmt/`), the process (`process.md`), leaks, tech debt and ideas.
+- `doc/`: design docs (`hl_rqmt/`), the process (`process.md`), and quick ideas
+  (`brainstorm.md`).

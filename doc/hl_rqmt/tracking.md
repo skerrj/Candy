@@ -306,6 +306,16 @@ found on `executable-spec` (above) are the first items.
    links, repros); "Where notes go" points at the backlog and the archives; and the log.
 5. **Docs:** CLAUDE.md, `spec/README.md` (anchors), the HLDs that pointed at the lists.
 
+   *Done. As built:* CLAUDE.md: `backlog/` (the item format, kinds, states, repros, the
+   index) and the two new scripts in the layout; spec ids and `[[id]]` links in the
+   `spec/` entry; branch `tracking` in the history; the leaks paragraph (hacks are `leak`
+   items, the archives are history, *for now* links to its item); `python
+   script/backlog.py` under "Running". `README.md`'s layout lists `backlog/`.
+   `spec/README.md` got its ids in step 1, and its pointers in step 3. The HLDs of
+   merged branches keep their pointers to the old lists, as history ("Pros and cons":
+   each entry open on 2026-10-25 is an item, and `doc/process.md`'s "Where notes go"
+   says so); only this HLD's own are live.
+
 ## Questions
 
 1. **One file or a directory** (A or B, "Where it lives")?

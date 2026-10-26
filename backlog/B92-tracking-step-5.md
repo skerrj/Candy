@@ -1,7 +1,7 @@
 # B92: tracking step 5: docs
 
 kind: task
-state: open
+state: review
 priority: normal
 found: tracking, 2026-10-25
 fixed:
