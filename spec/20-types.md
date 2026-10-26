@@ -48,7 +48,7 @@ function can be generic:
 
 <a id="types.checking"></a>
 **Types are checked by mypy, not by the translator** (*for now*: Candy has no type checker
-yet, `doc/archive/leaks_imvp_py_translator.md`). The translator turns each type into a
+yet, [[B15]]). The translator turns each type into a
 Python annotation, and `mypy --strict` checks the translation: the spec runner checks
 every `candy run` example that way. So a type error, an unknown type name, or a value
 used as a function, translates, and only mypy or the run rejects it. The translator
@@ -67,7 +67,7 @@ variable is undefined (*for now*: `doc/hl_rqmt/mutation_optimization.md`, open q
 
 A top-level function can call one defined after it, but a value is only there once its
 `def` has run (forms run in order), so using it earlier fails at run time with Python's
-`NameError` (*for now*: `doc/leaks.md`).
+`NameError` (*for now*: [[B31]]).
 
 ```candy run
 (sig double (Fn (Int) Int))
@@ -135,7 +135,7 @@ boxed
 ```
 
 The translator doesn't check a record constructor's arguments, or the fields `get` and
-`assoc` name (*for now*: `doc/leaks.md`): a wrong number of arguments, or a field the
+`assoc` name (*for now*: [[B10]], [[B30]]): a wrong number of arguments, or a field the
 record doesn't have, fails only in mypy or at run time, with Python's error.
 
 <a id="types.tuples"></a>

@@ -45,7 +45,7 @@ prints them with a space between.
 The operators are declared in `src/cdy/special.cdy`. `+`, `-`, `*`, `/` and `quot` take
 two or more arguments and fold left; `+` also joins strings. `/` divides into a
 `Double`, and `quot` divides whole numbers rounding down, toward minus infinity (both
-*for now*, Python's: `doc/archive/leaks_imvp_py_translator.md` and `doc/leaks.md`).
+*for now*, Python's: [[B23]] and [[B24]]).
 
 ```candy run
 (put (- 10 2 3) (* 2 3 4) (+ "a" "b" "c"))
@@ -209,7 +209,7 @@ ML: `(defn run (_) ...)`, called as `(run nil)`. `defn` may become a macro over 
 A `defn` that calls itself in tail position runs as a loop, so it can recur any number of
 times. Other recursion (not in tail position, mutual, or in a `defn` that makes a `fn`)
 uses the host's stack, about 1000 calls deep (*for now*:
-`doc/archive/leaks_imvp_py_translator.md`, "Only self tail calls are loops").
+[[B37]]).
 
 ```candy run
 (sig count (Fn (Int Int) Int))
@@ -236,7 +236,7 @@ A `fn` or `defn` with no argument, or a body of more than one form, is an error:
 `Unit` is the type with one value, `nil`. It is the value of an `if` with no `else` whose
 test is false, of a `cond` with no match, of `(do)`, and of a `def` form itself. `nil`
 also stands for a missing value in a `(Maybe a)` (*for now*: one `None` for both,
-`doc/archive/leaks_imvp_py_translator.md`).
+[[B20]], [[B21]]).
 
 ```candy run
 (sig m (Maybe Int))

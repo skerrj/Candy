@@ -50,12 +50,11 @@ id="old.id"></a>` (`tst/py_cdy/test_doc_links.py` checks all of this;
 In each section, the rule comes first, in prose, so it reads on its own; then its examples.
 Every rule that is meant to stay has at least one example; edge cases go in a `candy
 errors` table, or stay in `tst/`. A rule that holds only *for now* says so, and points at
-its leak (`doc/leaks.md` and `doc/archive/leaks_*.md`).
+its backlog item, a `leak` (`backlog/`, linked as `[[B15]]`).
 
 **Output is numbers and text** (*for now*): an example prints numbers, and strings it
 builds with `format`, never a raw list, `Bool`, `nil` or record, since those print the way
-Python prints them (`doc/archive/leaks_imvp_py_translator.md`, "How each value is shown
-is Python's `str()`"; `doc/hl_rqmt/executable_spec.md`, question 12).
+Python prints them ([[B36]]; `doc/hl_rqmt/executable_spec.md`, question 12).
 
 ## The blocks
 

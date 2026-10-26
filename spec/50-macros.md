@@ -41,7 +41,7 @@ unless: yes
 A macro's body is **macro code**: it can use the built-ins, `Form` with its helpers
 (`form.cdy`: `sym-name`, `list-items`, `rest-of`, `gensym`, and the variants, such as
 `Sym` and `Txt`), and the helpers of the macro files it imports; not the program's own
-definitions, and not the prelude (*for now*: `doc/archive/leaks_library.md`).
+definitions, and not the prelude (*for now*: [[B52]]).
 
 ```candy run
 (defmacro name-of (s) (Txt (sym-name s)))

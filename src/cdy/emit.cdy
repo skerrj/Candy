@@ -125,7 +125,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 ;; The string `s` as a Python literal, as Python's repr writes it: in single quotes, or in
 ;; double quotes if it has a single quote and no double quote; the quote, backslash,
 ;; newline, return and tab escaped, and other control characters as `\xhh`. Unlike repr, it
-;; leaves other characters as they are (doc/tech_debt.md).
+;; leaves other characters as they are (backlog [[B74]]).
 (sig py-str (Fn (String) String))
 (defn py-str (s)
   (let ((q (if (and (in "'" s) (not (in "\"" s))) "\"" "'")))

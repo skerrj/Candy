@@ -18,7 +18,7 @@ prints the way Python prints it (*for now*: `spec/README.md`).
 provides it, with that type. Only there may a `sig` have no definition. A built-in's
 arity is its type's (`40-expressions.md`). A built-in typed `Any` takes any number of
 arguments, or works on lists, strings and maps alike, or returns a host object (*for
-now*: Candy can't write those types yet, `doc/archive/leaks_system_prelude.md`).
+now*: Candy can't write those types yet, [[B34]], [[B48]], [[B49]]).
 
 | Group | Built-ins |
 |---|---|
@@ -158,7 +158,7 @@ ann bo 31
 
 `(format "text {form} ...")` is a string with Candy forms in `{...}` holes, one form per
 hole, each shown as text; `{{` and `}}` are literal braces. It is a hack from smz (*for
-now*: `doc/archive/leaks_imvp_py_translator.md`). A hole is read from the string's text,
+now*: [[B16]]). A hole is read from the string's text,
 after its escapes, so a form in a hole writes a `"` as `\"`, can't use a char literal
 (`00-syntax.md`), and can't hold a brace (so no `format` inside a hole).
 

@@ -180,8 +180,15 @@ def table(found: list[Item]) -> list[str]:
     """A table of ``found``'s items, or a line saying there are none."""
     if not found:
         return ["None.", ""]
-    rows = [f"| {item_link(i)} | {i.title} | {i.kind} | {i.state} | {i.priority} |" for i in found]
+    rows = [
+        f"| {item_link(i)} | {cell(i.title)} | {i.kind} | {i.state} | {i.priority} |" for i in found
+    ]
     return ["| Item | | Kind | State | Priority |", "|---|---|---|---|---|", *rows, ""]
+
+
+def cell(text: str) -> str:
+    """``text`` for a table cell, its ``|`` escaped."""
+    return text.replace("|", "\\|")
 
 
 def item_link(found: Item) -> str:

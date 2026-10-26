@@ -266,6 +266,33 @@ found on `executable-spec` (above) are the first items.
    The three files go (question 2); every pointer to them becomes a link. First items
    besides: `def`'s mutability (a `task`), the Markdown injection for `candy` fences (a
    `task`, `low`: question 10), the book (an `idea`: question 12).
+
+   *Done. As built:* 100 items, `B3` to `B102`, written by a one-off script (not kept),
+   each with its `found:` from the commit that first recorded it:
+   - **12 defects,** the rest of the audit's 13 (`B3` to `B14`); 8 have a repro that runs
+     (`B2`, `B4` to `B8`, `B10`, `B11`), whose expected message is what the nearest
+     existing check says (`must be different`, `Capitalised, not v`, `takes 1 field(s)`);
+     the others are text, since their fix is a decision (`B3`, `B9`) or the repro needs
+     two files or 200 lines;
+   - **40 leaks** (`B15` to `B54`), merged where two lists said the same thing (records
+     and variants as `NamedTuple`s; `Maybe` as `Optional`, with its collapse; the
+     operators', `tup`'s and `put`'s missing variadic type; `get` and `assoc`), with the
+     two tech-debt entries a user sees (`B53`, `B54`); every one `open`, none kept;
+   - **25 tech-debt items** (`B55` to `B79`), with three iMVP leaks a user can't see
+     (`B77`, `B78`, and `B79`, what is left of "Forms are `Any`");
+   - **13 tasks:** `def`'s mutability (`B80`), the carried-over `TODOS.md` items (`B81` to
+     `B87`; the reviews in state `review`), and this HLD's five steps (`B88` to `B92`;
+     1 to 3 in `review`). "Check the iMVP's and pre-self-host's leak lists" is in step
+     3's review, since every entry in them is now an item;
+   - **10 ideas:** `brainstorm.md`'s nine written-up entries (`B93` to `B101`) and the
+     book (`B102`).
+
+   `doc/leaks.md`, `doc/tech_debt.md` and `TODOS.md` are removed; `brainstorm.md` keeps
+   its one-line notes, loses the three settled entries, and says when an entry moves. The
+   pointers in `spec/`, `README.md` and the `.cdy` comments (`system.cdy`, so `bin/py/`'s
+   copy too, and `emit.cdy`) are now links to items. `doc/process.md` and CLAUDE.md still
+   describe the old lists: steps 4 and 5. Every priority is `normal` (`B1` `low`), for the
+   owner to set. The index escapes a `|` in a title.
 4. **The process** (`doc/process.md`): the lifecycle's review step (a task goes to
    `review`), starting a branch without archiving, "Where notes go" (the backlog, ids and
    links), and the log.

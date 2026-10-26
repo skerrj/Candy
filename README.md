@@ -27,7 +27,7 @@ module in it, run the `pip install -e .` line again.
 To run the bootstrap chain (below) you also need **parsec.py v4**, a typed, functional
 rewrite of sighingnow/parsec.py (not the PyPI release, 3.x): only the chain's first step
 uses it, where the original Python translator parses. *It isn't published yet*, so for now
-the chain's first step runs only where that rewrite is installed (`doc/tech_debt.md`).
+the chain's first step runs only where that rewrite is installed (`backlog/`, [[B72]]).
 
 ## Using it
 
