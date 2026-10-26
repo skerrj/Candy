@@ -13,6 +13,7 @@ list    = "(" form* ")"
 literal = int | long | byte | double | float | bool | char | string
 ```
 
+<a id="syntax.forms"></a>
 ## Forms
 
 A program is a sequence of forms. A list is forms between parentheses, separated by
@@ -37,6 +38,7 @@ so a form can span lines. `()` reads, but isn't code: it is an empty form.
 (put ()) => empty form
 ```
 
+<a id="syntax.comments"></a>
 ## Comments
 
 `;` starts a comment, to the end of the line. By convention, `;` is a comment beside code,
@@ -54,6 +56,7 @@ alike.
 2
 ```
 
+<a id="syntax.literals"></a>
 ## Literals
 
 | Literal | Type | Written |
@@ -81,6 +84,7 @@ A literal must end at a delimiter: whitespace, a parenthesis, `;`, or the end of
 1 0
 ```
 
+<a id="syntax.numbers"></a>
 A number has digits on both sides of its `.`, and its suffix comes last; anything else
 that starts with a digit is an error. A word that starts with `.` or `-` and isn't a
 number is a name (`.5`, `-x`):
@@ -92,6 +96,7 @@ number is a name (`.5`, `-x`):
 (put .5) => unknown name .5
 ```
 
+<a id="syntax.chars"></a>
 A char is `\` and exactly one character, which may be a delimiter's (`\(` is the char
 `(`), then a delimiter:
 
@@ -110,6 +115,7 @@ e
 (put \) => ( is never closed
 ```
 
+<a id="syntax.strings"></a>
 A string's escapes are `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`, and `\u` with four
 hex digits. A string can span lines.
 
@@ -134,6 +140,7 @@ lines
 (put "\u00g1") => bad escape sequence
 ```
 
+<a id="syntax.names"></a>
 ## Names
 
 A name is any word that isn't a literal and doesn't start with a digit, `'`, `#`, `"` or
@@ -151,6 +158,7 @@ other languages reserve: `set-x!`, `empty?`, `->`, `a.b`, `a#b`.
 1 <5>
 ```
 
+<a id="syntax.reserved"></a>
 `'` is reserved for a quote shorthand (a reader macro, later), and a name can't start
 with `#`. A name can't contain `__`: only `gensym` makes such names, for macros, so they
 can't clash with a program's.

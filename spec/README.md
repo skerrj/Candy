@@ -38,15 +38,23 @@ status: stable, since: sum-types
   feature goes; the file says what replaces it);
 - **since** is the feature branch that brought it, by its tag (Candy has no versions).
 
+**Every rule has an id:** an anchor on the line before its heading, or before its paragraph
+when a section holds several rules, `<a id="match.exhaustive"></a>` (dotted, lowercase,
+by feature; invisible when rendered). The examples below an anchor are that rule's, up to
+the next anchor. Anything else links to a rule as `[[match.exhaustive]]`. A rule whose
+examples can't be written here says where it is tested, as "*Tested in* `test_x`". An id
+that is renamed keeps the old one beside it, as an alias: `<a id="new.id"></a><a
+id="old.id"></a>` (`tst/py_cdy/test_doc_links.py` checks all of this;
+`doc/hl_rqmt/tracking.md`).
+
 In each section, the rule comes first, in prose, so it reads on its own; then its examples.
 Every rule that is meant to stay has at least one example; edge cases go in a `candy
 errors` table, or stay in `tst/`. A rule that holds only *for now* says so, and points at
-its leak (`doc/leaks.md` and `doc/archive/leaks_*.md`).
+its backlog item, a `leak` (`backlog/`, linked as `[[B15]]`).
 
 **Output is numbers and text** (*for now*): an example prints numbers, and strings it
 builds with `format`, never a raw list, `Bool`, `nil` or record, since those print the way
-Python prints them (`doc/archive/leaks_imvp_py_translator.md`, "How each value is shown
-is Python's `str()`"; `doc/hl_rqmt/executable_spec.md`, question 12).
+Python prints them ([[B36]]; `doc/hl_rqmt/executable_spec.md`, question 12).
 
 ## The blocks
 

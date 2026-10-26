@@ -16,6 +16,7 @@ in `30-match.md`.
 (tup expr+)
 ```
 
+<a id="types.table"></a>
 ## Types
 
 | Type | Values |
@@ -45,13 +46,16 @@ function can be generic:
 3 three
 ```
 
+<a id="types.checking"></a>
 **Types are checked by mypy, not by the translator** (*for now*: Candy has no type checker
-yet, `doc/archive/leaks_imvp_py_translator.md`). The translator turns each type into a
+yet, [[B15]]). The translator turns each type into a
 Python annotation, and `mypy --strict` checks the translation: the spec runner checks
 every `candy run` example that way. So a type error, an unknown type name, or a value
 used as a function, translates, and only mypy or the run rejects it. The translator
-checks a type's shape where it needs it (a function type for `defn`, below).
+checks a type's shape where it needs it (a function type for `defn`, below). *Tested in*
+`tst/py_cdy/test_spec.py`'s `test_mypy_strict`, which runs on every example.
 
+<a id="types.sig"></a>
 ## sig and def
 
 `(sig name Type)` gives a top-level name its type. Every top-level `def` and `defn` needs
@@ -63,7 +67,7 @@ variable is undefined (*for now*: `doc/hl_rqmt/mutation_optimization.md`, open q
 
 A top-level function can call one defined after it, but a value is only there once its
 `def` has run (forms run in order), so using it earlier fails at run time with Python's
-`NameError` (*for now*: `doc/leaks.md`).
+`NameError` (*for now*: [[B31]]).
 
 ```candy run
 (sig double (Fn (Int) Int))
@@ -93,6 +97,7 @@ A top-level function can call one defined after it, but a value is only there on
 (sig f (Fn (Int) Int)) (defn f (x y) x) => one type per argument
 ```
 
+<a id="types.records"></a>
 ## Records
 
 A record is a `deft` with one field list: each field a name and its type. The type's
@@ -130,9 +135,10 @@ boxed
 ```
 
 The translator doesn't check a record constructor's arguments, or the fields `get` and
-`assoc` name (*for now*: `doc/leaks.md`): a wrong number of arguments, or a field the
+`assoc` name (*for now*: [[B10]], [[B30]]): a wrong number of arguments, or a field the
 record doesn't have, fails only in mypy or at run time, with Python's error.
 
+<a id="types.tuples"></a>
 ## Tuples
 
 `(tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`. `at`

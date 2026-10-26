@@ -27,7 +27,7 @@ module in it, run the `pip install -e .` line again.
 To run the bootstrap chain (below) you also need **parsec.py v4**, a typed, functional
 rewrite of sighingnow/parsec.py (not the PyPI release, 3.x): only the chain's first step
 uses it, where the original Python translator parses. *It isn't published yet*, so for now
-the chain's first step runs only where that rewrite is installed (`doc/tech_debt.md`).
+the chain's first step runs only where that rewrite is installed (`backlog/`, [[B72]]).
 
 ## Using it
 
@@ -85,6 +85,9 @@ See `doc/hl_rqmt/bootstrap.md`.
 - `src/cdy_rt/`: the runtime generated Python imports;
 - `src/py_cdy/`: the Python driver (`main.py`, `self_host.py`);
 - `bin/`: the checked-in translators, one directory per target;
-- `script/bootstrap.py`: the bootstrap chain;
+- `script/bootstrap.py`: the bootstrap chain; `script/backlog.py`: the backlog's index;
+- `backlog/`: everything not done yet, one file per item (defects, leaks, tech debt, tasks,
+  features, ideas), with its index, `backlog/README.md`;
 - `tst/`: tests and test programs;
-- `doc/`: design docs (`hl_rqmt/`), the process (`process.md`), leaks, tech debt and ideas.
+- `doc/`: design docs (`hl_rqmt/`), the process (`process.md`), and quick ideas
+  (`brainstorm.md`).

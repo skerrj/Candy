@@ -13,6 +13,7 @@ one file), so the examples of `import` are the programs in `tst/cdy/cdyc/` (`imp
 (defn main (args) expr)
 ```
 
+<a id="programs.top-level"></a>
 ## Top level
 
 A program runs its top-level forms in order. The definitions (`sig`, `def`, `defn`,
@@ -38,6 +39,7 @@ first
 (put (do (import x))) => import is only allowed at top level
 ```
 
+<a id="programs.main"></a>
 ## main (since `self-host-cleanup`)
 
 A program that defines `main`, typed `(Fn ((List String)) Int)`, runs it after its
@@ -63,11 +65,12 @@ main: 0 argument(s)
 (sig main (Fn (Int) Int)) (defn main (n) n) => main must be typed
 ```
 
+<a id="programs.prelude"></a>
 ## The prelude (since `system-prelude`)
 
 Every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: what is built
 on the built-ins (declared in `src/cdy/system.cdy`), `rest` and `map-update` so far.
-Macro code doesn't get it (`doc/archive/leaks_library.md`). A file's own definition of a
+Macro code doesn't get it ([[B52]]). A file's own definition of a
 prelude or built-in name wins over it; a module the file imports that defines one is a
 clash, as between any two imports.
 
@@ -89,6 +92,7 @@ clash, as between any two imports.
 7 8
 ```
 
+<a id="programs.import"></a>
 ## import (since `modules`)
 
 `(import name)` imports the module `name.cdy`, found in the importing file's directory;

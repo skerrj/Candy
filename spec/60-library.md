@@ -11,13 +11,14 @@ the runtime provides (`src/cdy_rt/primitives.py`); the prelude holds what is bui
 them. The examples print lists and `Bool`s through small helpers, since a list or a `Bool`
 prints the way Python prints it (*for now*: `spec/README.md`).
 
+<a id="library.builtins"></a>
 ## Built-ins
 
 `system.cdy` declares each built-in with a `sig` that has no definition: the runtime
 provides it, with that type. Only there may a `sig` have no definition. A built-in's
 arity is its type's (`40-expressions.md`). A built-in typed `Any` takes any number of
 arguments, or works on lists, strings and maps alike, or returns a host object (*for
-now*: Candy can't write those types yet, `doc/archive/leaks_system_prelude.md`).
+now*: Candy can't write those types yet, [[B34]], [[B48]], [[B49]]).
 
 | Group | Built-ins |
 |---|---|
@@ -31,10 +32,18 @@ now*: Candy can't write those types yet, `doc/archive/leaks_system_prelude.md`).
 | math | `PI`, `sin`, `cos`, `tan` |
 | the program | `SYS_ARGS`, `fail`, `nil` |
 
+```candy run
+(put (path-stem "dir/file.cdy") (to-int "7") (len (range 0 3)))
+```
+```expect
+file 7 3
+```
+
 `fail` stops the program with a message (Candy has no exceptions yet); in `main` it
 prints `candy: ` and the message (`10-programs.md`). Five built-ins are only for the
 translator: `py-spellings`, `load-macros`, `call-macro`, `module-dir` and `fresh-name`.
 
+<a id="library.lists"></a>
 ## Lists
 
 A list is typed `(List a)`; `tup` and `range` make one, and `empty-list` is the empty
@@ -79,6 +88,7 @@ yes no yes
 yes no
 ```
 
+<a id="library.zip"></a>
 `zip` pairs two lists' items into tuples, up to the shorter one's length:
 
 ```candy run
@@ -90,6 +100,7 @@ yes no
 3 1a 2b 3c
 ```
 
+<a id="library.rest"></a>
 The prelude's `rest` is all of a list but its first item:
 
 ```candy run
@@ -99,6 +110,7 @@ The prelude's `rest` is all of a list but its first item:
 2 0
 ```
 
+<a id="library.strings"></a>
 ## Strings
 
 ```candy run
@@ -119,6 +131,7 @@ ababab 0
 42 65 an
 ```
 
+<a id="library.maps"></a>
 ## Maps
 
 A map is typed `(Map k v)`, and immutable: `map-set` returns a new one. `map-from` makes
@@ -140,11 +153,12 @@ ann bo 31
 7 no cy
 ```
 
+<a id="library.format"></a>
 ## format
 
 `(format "text {form} ...")` is a string with Candy forms in `{...}` holes, one form per
 hole, each shown as text; `{{` and `}}` are literal braces. It is a hack from smz (*for
-now*: `doc/archive/leaks_imvp_py_translator.md`). A hole is read from the string's text,
+now*: [[B16]]). A hole is read from the string's text,
 after its escapes, so a form in a hole writes a `"` as `\"`, can't use a char literal
 (`00-syntax.md`), and can't hold a brace (so no `format` inside a hole).
 

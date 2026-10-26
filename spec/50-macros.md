@@ -15,6 +15,7 @@ status: stable, since: macros
 (import-macros name)
 ```
 
+<a id="macros.defmacro"></a>
 ## defmacro
 
 A macro is Candy code that the translator runs on the *forms* of a call, before analysing
@@ -36,10 +37,11 @@ unless: yes
 10 42
 ```
 
+<a id="macros.macro-code"></a>
 A macro's body is **macro code**: it can use the built-ins, `Form` with its helpers
 (`form.cdy`: `sym-name`, `list-items`, `rest-of`, `gensym`, and the variants, such as
 `Sym` and `Txt`), and the helpers of the macro files it imports; not the program's own
-definitions, and not the prelude (*for now*: `doc/archive/leaks_library.md`).
+definitions, and not the prelude (*for now*: [[B52]]).
 
 ```candy run
 (defmacro name-of (s) (Txt (sym-name s)))
@@ -53,6 +55,7 @@ hello
 3
 ```
 
+<a id="macros.binding"></a>
 A macro's name can't be bound or defined, and a macro is defined once; a special form
 can't be a macro.
 
@@ -69,6 +72,7 @@ can't be a macro.
 (defmacro m (a) a) (sig m Int) (def m 1) => m is a macro, so it can't be defined
 ```
 
+<a id="macros.errors-at-call"></a>
 **Errors point at the call:** a wrong number of arguments, a `fail` in the macro, an
 error the host raises while it runs, and an error in the form it returns are all
 reported at the call (so these rows give the position):
@@ -82,6 +86,7 @@ reported at the call (so these rows give the position):
 (defmacro f (a) (at (list-items a) 5)) (f x) => line 2, column 40: f: IndexError
 ```
 
+<a id="macros.quoting"></a>
 ## Quoting
 
 Quoting is only for macro code (*for now*). `(quo form)` is `form` unevaluated, as a
@@ -117,6 +122,7 @@ reserved for later, as a reader macro (`00-syntax.md`).
 (defmacro m () (quasi (f (unq nope)))) => unknown name nope
 ```
 
+<a id="macros.gensym"></a>
 ## gensym
 
 `(gensym "x")` returns a new symbol, such as `x__1`, which no program can write, since
@@ -136,6 +142,7 @@ capture the program's:
 12
 ```
 
+<a id="macros.import-macros"></a>
 ## Macro files: import-macros
 
 `(import-macros name)`, top level only, finds `name.cdy` as `import` does
@@ -157,6 +164,7 @@ The examples need a second file, so they are `tst/cdy/cdyc/macro_files.cdy` and
 (put (import-macros m)) => import-macros is only allowed at top level
 ```
 
+<a id="macros.cond"></a>
 ## cond
 
 `cond` (`40-expressions.md`) is a macro, from the prelude's macros

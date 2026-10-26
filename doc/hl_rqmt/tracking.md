@@ -1,7 +1,10 @@
 # Rule ids, links, and one backlog (process HLD)
 
 **Kind: process** (how work is done), not a design of the language or translator.
-**Status: proposal (2026-10-25): all thirteen questions answered.** For a branch `tracking`, after
+**Status: done (2026-10-26), on branch `tracking` (tag `tracking`): every spec rule has an
+id and the docs link by id, `backlog/` (B1 to B103) replaces `doc/leaks.md`,
+`doc/tech_debt.md` and `TODOS.md`, and `doc/process.md` uses it. Accepted 2026-10-25,
+with all thirteen questions answered.** For a branch `tracking`, after
 `executable-spec` (this file was `backlog.md`). Two sources:
 
 - **The backlog,** from the owner (2026-10-25): "we could just have an open backlog, with
@@ -134,7 +137,7 @@ every pointer to it, and a pointer that goes stale stays stale. `executable-spec
   now: the spec states it, without *for now*, as lasting, and the item refers to the rule
   (`[[id]]`; the rule may link back for the reason). A `kept` **tech-debt** item has no
   rule to state (a Candy user can't see it): its reason is in the item. An item goes open → in-progress → review → done (or back to in-progress); no
-  `blocked` (a ref says "needs [[B3]]") and no `deferred` (`open`, priority `low`).
+  `blocked` (a ref says "needs `[[B3]]`") and no `deferred` (`open`, priority `low`).
 - **priority:** `high`, `normal` (the default) or `low`; set by the owner (Claude Code may
   propose one); the index sorts by it (question 13). How bad a defect is (severity) is a
   reason for its priority, in its text, not a field.
@@ -219,11 +222,50 @@ found on `executable-spec` (above) are the first items.
    and 8), and a test that reads every tracked `.md`: an unknown or duplicate id fails, a
    stable rule with no example fails, a block outside any rule fails, an alias used in a
    live doc fails, and an id gone from `master` with no alias warns (question 9).
+
+   *Done. As built:* `script/doc_links.py` reads a doc's fences (moved out of
+   `tst/py_cdy/test_spec.py`, which now imports it), its prose (outside fences, with code
+   spans blanked), its anchors (the first on a line the id, the rest its aliases) and its
+   links, and lists the tracked `.md` files (at a commit too). `spec/` has 51 anchors,
+   one before each heading, or before each rule's paragraph in a section with several;
+   a rule's examples run to the next anchor. `tst/py_cdy/test_doc_links.py` checks that
+   ids are dotted and lowercase and defined once, that links are to ids, and that a live
+   doc (not `doc/archive/`) links to an id, not an alias; in `spec/`, that no example
+   comes before the first anchor and that each rule of a stable file has an example or
+   says where it is "*Tested in*"; and it warns of an id on `master` (the merge base)
+   that is gone. The check found four rules with no example: the operators' arity and
+   the shape of `fn` got a sentence over their error tables, flat patterns an error
+   table, the library's other built-ins a run example, and type checking (mypy) a
+   *Tested in*. `spec/README.md` says how ids, aliases and links are written. There are
+   no links yet: the backlog (step 2) is the first to use them.
 2. **The backlog's format:** `backlog/B<n>-<slug>.md` with its fields (kind, state,
    priority, found, fixed, where, refs), the script that writes `backlog/README.md` (by
    state, kind and priority, and open items by the rule ids they refer to: question 12),
    and the test that checks every item and that the index is current. The spec runner
    also collects defect repros from `backlog/`, as expected failures (question 4).
+
+   *Done. As built:* an item is `backlog/B<n>-<slug>.md`: a title line, `# B<n>: what it
+   is`, a blank line, then its seven fields, one `name: value` line each, in order (kind,
+   state, priority, found, fixed, where, refs; `fixed` and `where` may be empty, `refs` is
+   links only), then its text, like a spec file's status line. `script/backlog.py` reads
+   the items (`item`, `items`), and writes `backlog/README.md` (`--check` only checks it):
+   the next free id, the open items (open, in-progress, review) by priority, then the
+   open items by the ids in their refs, each a link to the rule's file, then the closed
+   ones. It fails on a bad file name or title, a missing or out-of-order field, an unknown
+   kind, state or priority, a `done` item with no `fixed`, a closed item that still has a
+   repro, and two items with one number. `tst/py_cdy/test_backlog.py` checks every item
+   and that the index is current; `test_doc_links.py` takes an item's id from its file
+   name, so `[[B2]]` is checked like any link; `test_spec.py` runs each item's `candy run`
+   and `candy error` blocks as strict expected failures (`xfail(strict=True)`), so a fix
+   fails the test until its example moves into the spec. The first two items:
+   [[B1]], the Markdown injection (question 10, a `task`, `low`), linked from the
+   extension's README (its "Not yet" got an anchor, `editor.not-yet`), and [[B2]], the
+   audit's defect 2, `(sig x (List))`, with a repro (its `doc/tech_debt.md` entry now
+   points at it). The rest of the migration is step 3.
+
+   *Changed in review:* an item may end with `## Notes`, dated bullets saying who (a
+   verdict, a caveat, why a priority changed); a `dropped` or `kept` item needs one, its
+   reason. The index's open items are grouped by kind, then sorted by priority.
 3. **The migration:** the open entries of `doc/leaks.md` and its archives,
    `doc/tech_debt.md` and `TODOS.md` become items (the audit's defects as `defect`s; every
    leak `open`, unless the owner keeps it, when its rule goes into the spec), and
@@ -231,10 +273,55 @@ found on `executable-spec` (above) are the first items.
    The three files go (question 2); every pointer to them becomes a link. First items
    besides: `def`'s mutability (a `task`), the Markdown injection for `candy` fences (a
    `task`, `low`: question 10), the book (an `idea`: question 12).
+
+   *Done. As built:* 100 items, `B3` to `B102`, written by a one-off script (not kept),
+   each with its `found:` from the commit that first recorded it:
+   - **12 defects,** the rest of the audit's 13 (`B3` to `B14`); 8 have a repro that runs
+     (`B2`, `B4` to `B8`, `B10`, `B11`), whose expected message is what the nearest
+     existing check says (`must be different`, `Capitalised, not v`, `takes 1 field(s)`);
+     the others are text, since their fix is a decision (`B3`, `B9`) or the repro needs
+     two files or 200 lines;
+   - **40 leaks** (`B15` to `B54`), merged where two lists said the same thing (records
+     and variants as `NamedTuple`s; `Maybe` as `Optional`, with its collapse; the
+     operators', `tup`'s and `put`'s missing variadic type; `get` and `assoc`), with the
+     two tech-debt entries a user sees (`B53`, `B54`); every one `open`, none kept;
+   - **25 tech-debt items** (`B55` to `B79`), with three iMVP leaks a user can't see
+     (`B77`, `B78`, and `B79`, what is left of "Forms are `Any`");
+   - **13 tasks:** `def`'s mutability (`B80`), the carried-over `TODOS.md` items (`B81` to
+     `B87`; the reviews in state `review`), and this HLD's five steps (`B88` to `B92`;
+     1 to 3 in `review`). "Check the iMVP's and pre-self-host's leak lists" is in step
+     3's review, since every entry in them is now an item;
+   - **10 ideas:** `brainstorm.md`'s nine written-up entries (`B93` to `B101`) and the
+     book (`B102`).
+
+   `doc/leaks.md`, `doc/tech_debt.md` and `TODOS.md` are removed; `brainstorm.md` keeps
+   its one-line notes, loses the three settled entries, and says when an entry moves. The
+   pointers in `spec/`, `README.md` and the `.cdy` comments (`system.cdy`, so `bin/py/`'s
+   copy too, and `emit.cdy`) are now links to items. `doc/process.md` and CLAUDE.md still
+   describe the old lists: steps 4 and 5. Every priority is `normal` (`B1` `low`), for the
+   owner to set. The index escapes a `|` in a title.
 4. **The process** (`doc/process.md`): the lifecycle's review step (a task goes to
    `review`), starting a branch without archiving, "Where notes go" (the backlog, ids and
    links), and the log.
+
+   *Done. As built:* `doc/process.md`: starting a branch adds a task per HLD step (and a
+   language feature's `feature` item) instead of archiving; a step records what it finds
+   as items, closes the items it fixes, and moves its task to `review` with the index
+   rewritten, instead of a `TODOS.md` item; the review works through the `review` items,
+   the verdict on each; a *for now* links to its item; "The spec" says a gap gets an item
+   and every rule an id; a new section, "The backlog" (kinds, states, priority, ids,
+   links, repros); "Where notes go" points at the backlog and the archives; and the log.
 5. **Docs:** CLAUDE.md, `spec/README.md` (anchors), the HLDs that pointed at the lists.
+
+   *Done. As built:* CLAUDE.md: `backlog/` (the item format, kinds, states, repros, the
+   index) and the two new scripts in the layout; spec ids and `[[id]]` links in the
+   `spec/` entry; branch `tracking` in the history; the leaks paragraph (hacks are `leak`
+   items, the archives are history, *for now* links to its item); `python
+   script/backlog.py` under "Running". `README.md`'s layout lists `backlog/`.
+   `spec/README.md` got its ids in step 1, and its pointers in step 3. The HLDs of
+   merged branches keep their pointers to the old lists, as history ("Pros and cons":
+   each entry open on 2026-10-25 is an item, and `doc/process.md`'s "Where notes go"
+   says so); only this HLD's own are live.
 
 ## Questions
 
