@@ -1,7 +1,7 @@
 # Rule ids, links, and one backlog (process HLD)
 
 **Kind: process** (how work is done), not a design of the language or translator.
-**Status: proposal (2026-10-25): all thirteen questions answered.** For a branch `tracking`, after
+**Status: accepted (2026-10-25), with all thirteen questions answered; branch `tracking`.** For a branch `tracking`, after
 `executable-spec` (this file was `backlog.md`). Two sources:
 
 - **The backlog,** from the owner (2026-10-25): "we could just have an open backlog, with
