@@ -98,8 +98,6 @@ By kind, then priority.
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B80](B80-def-mutability.md) | Decide whether a `def` is a constant or a variable | task | open | normal |
-| [B106](B106-name-checks-step-2.md) | name-checks step 2: built-in types | task | review | normal |
-| [B107](B107-name-checks-step-3.md) | name-checks step 3: docs | task | review | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -191,3 +189,5 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B92](B92-tracking-step-5.md) | tracking step 5: docs | task | done | normal |
 | [B103](B103-triage-migrated-items.md) | Triage the migrated items: priorities, and which leaks are kept | task | done | normal |
 | [B105](B105-name-checks-step-1.md) | name-checks step 1: Python-name clashes | task | done | normal |
+| [B106](B106-name-checks-step-2.md) | name-checks step 2: built-in types | task | done | normal |
+| [B107](B107-name-checks-step-3.md) | name-checks step 3: docs | task | done | normal |

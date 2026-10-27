@@ -1,7 +1,9 @@
 # Name checks (HLD)
 
-**Status: accepted (2026-10-26), with the proposed answers to its questions; branch
-`name-checks`.** For a branch `name-checks`, after tag
+**Status: done (2026-10-26), on branch `name-checks` (tag `name-checks`): two names that
+are one Python name are an error ([[B3]], [[B12]]), and the built-in types are declared in
+`system.cdy`, so every type's name and number of arguments is checked ([[B2]], and
+[[B53]] with it). Accepted 2026-10-26, with the proposed answers to its questions.** For a branch `name-checks`, after tag
 `triage`. From the triage ([[B103]]): three of its `high` defects, [[B3]], [[B12]] and
 [[B2]], are names the translator doesn't check.
 
