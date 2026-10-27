@@ -2,7 +2,7 @@
 
 kind: defect
 state: open
-priority: normal
+priority: low
 found: executable-spec, 2026-10-24
 fixed:
 where: `src/cdy/core.cdy`
@@ -22,3 +22,7 @@ Translates, and prints `1`:
 (def nil 1)
 (put nil)
 ```
+
+## Notes
+
+- 2026-10-26, the owner: `low` in triage ([[B103]]): waits on a decision (a literal, or a reserved name).

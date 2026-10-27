@@ -44,8 +44,10 @@ prints them with a space between.
 
 The operators are declared in `src/cdy/special.cdy`. `+`, `-`, `*`, `/` and `quot` take
 two or more arguments and fold left; `+` also joins strings. `/` divides into a
-`Double`, and `quot` divides whole numbers rounding down, toward minus infinity (both
-*for now*, Python's: [[B23]] and [[B24]]).
+`Double` (*for now*, Python's: [[B23]]), and `quot` divides whole numbers rounding down,
+toward minus infinity, as Haskell's `div` and Python's `//` do (*lasting*: [[B24]]; a
+target whose division truncates spells it otherwise). There is no unary minus: a
+negative number is a literal (`-5`), and `(- 0 x)` negates (*lasting*: [[B33]]).
 
 ```candy run
 (put (- 10 2 3) (* 2 3 4) (+ "a" "b" "c"))
@@ -118,6 +120,7 @@ for `not`.
 
 ```candy errors
 (put (+ 1)) => needs at least 2 arguments
+(put (- 5)) => needs at least 2 arguments
 (put (and true)) => (and ...) needs at least 2 arguments, got 1
 (put (not 1 2)) => (not ...) takes 1 argument(s), got 2
 ```

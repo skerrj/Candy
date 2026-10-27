@@ -2,7 +2,7 @@
 
 kind: idea
 state: open
-priority: normal
+priority: low
 found: macros, 2026-10-18
 fixed:
 where:
@@ -22,3 +22,7 @@ How should a definition carry its documentation, and other data about it? Today 
   metadata, `Pos`.
 
 From `doc/brainstorm.md`.
+
+## Notes
+
+- 2026-10-26, the owner: `low` in triage ([[B103]]): an idea to think about later.

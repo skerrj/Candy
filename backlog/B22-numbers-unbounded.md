@@ -2,7 +2,7 @@
 
 kind: leak
 state: open
-priority: normal
+priority: low
 found: py-py-translator, 2026-10-15
 fixed:
 where: `src/cdy/emit.cdy`, `doc/hl_rqmt/multi_target.md`
@@ -11,3 +11,7 @@ refs: [[syntax.numbers]], [[expr.arithmetic]]
 All three integer types are Python `int`s, and `Float` is a 64-bit `float` like `Double`,
 with no range checks (`300b` is accepted). A second target will have sizes. From `doc/archive/leaks_imvp_py_translator.md`
 ("Numbers").
+
+## Notes
+
+- 2026-10-26, the owner: `low` in triage ([[B103]]): matters once there is a second target.

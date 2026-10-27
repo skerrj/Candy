@@ -2,7 +2,7 @@
 
 kind: idea
 state: open
-priority: normal
+priority: low
 found: executable-spec, 2026-10-24
 fixed:
 where:
@@ -22,3 +22,7 @@ would change:
 
 It wouldn't type-check: until Candy has a checker, mypy on the translation is the check.
 A JIT is speed only, and speed isn't the problem (the whole suite is about 20 s). From `doc/brainstorm.md`.
+
+## Notes
+
+- 2026-10-26, the owner: `low` in triage ([[B103]]): an idea to think about later.

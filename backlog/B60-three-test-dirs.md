@@ -2,7 +2,7 @@
 
 kind: tech-debt
 state: open
-priority: normal
+priority: low
 found: bootstrap, 2026-10-20
 fixed:
 where: `tst/cdy/`
@@ -12,3 +12,7 @@ refs:
 programs only the Candy translator could handle. With the Python translator gone
 (`doc/hl_rqmt/bootstrap.md`) the split means nothing; they could be one directory. Files
 the programs import live in subdirectories (`lib/`). From `doc/tech_debt.md`.
+
+## Notes
+
+- 2026-10-26, the owner: `low` in triage ([[B103]]): cosmetic or harmless.

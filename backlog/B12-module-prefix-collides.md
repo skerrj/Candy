@@ -2,7 +2,7 @@
 
 kind: defect
 state: open
-priority: normal
+priority: high
 found: modules, 2026-10-19
 fixed:
 where: `src/cdy/emit.cdy`, `src/cdy/include.cdy`
@@ -12,3 +12,7 @@ refs: [[programs.import]], [[B3]]
 `util--greet`. Nothing checks. The reader rejects `__` in a name, but not `--`. The repro
 needs two files, so it is text. From `doc/tech_debt.md`; the audit's defect 11 (`doc/hl_rqmt/tracking.md`). Related:
 [[B3]].
+
+## Notes
+
+- 2026-10-26, the owner: `high` in triage ([[B103]]): silent wrong output, as [[B3]].

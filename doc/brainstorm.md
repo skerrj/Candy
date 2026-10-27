@@ -12,7 +12,6 @@ question 3).
 - **type checker**: *lean4*?
   - fork and start rewriting with lean4? 
 - **rust host**: *pulled from dump*
-- **up, down, down-splice, meta-template**: (`up`, `dwn`, `dwn*`, `mt`); replacements for quote, unquote, quasiquote, and quasi-splice (low pri)
 - **dump** (i.e. needs expansion): IO, interpreter, reader improvements, repl, jit
 - **Map, reduce, fold, etc**: optimized target implementations
 - **Joy like recursive macros**: optimized target implementations
