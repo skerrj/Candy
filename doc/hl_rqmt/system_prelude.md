@@ -4,6 +4,13 @@
 `system-prelude`, after tag `modules`. The owner chose the simplest option on every
 question ("Questions", at the end); the proposal below is the first pass.
 
+*Since (reviewed 2026-10-26):* "the 66 that aren't special forms or operators" means
+all 14 operators (`+ - * / quot`, `= != < > <= >=`, `and or not`), which `special.cdy`
+declares untyped ([[B48]]); `symbol-table` made the built-ins one map (`special.cdy`,
+`system.cdy`), `library` made the list, string and map operations built-ins (75 `sig`s;
+the prelude is `rest` and `map-update`), and `runtime-names` renamed `table.py` and
+`table_defs.py` to `spelling.py` and `primitives.py`. The rest is kept as history.
+
 ## Where things stand
 
 - **Built-ins live in Python.** `src/cdy_rt/table.py` lists 100 entries:

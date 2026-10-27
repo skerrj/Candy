@@ -71,6 +71,10 @@ result is still one program and one Python module.
   import is found next to the importing file, not in the current directory.
 - **Leak:** no namespaces (`doc/leaks.md`). **Tech debt:** errors don't name their file.
 
+*Since (reviewed 2026-10-26):* the leak was fixed by modules (branch `modules`,
+`doc/hl_rqmt/modules.md`; macro files still use inclusion), and errors name their file
+(later on this branch: `file:line:col: msg`).
+
 ### Step B: modules (later)
 
 *Now planned in `doc/hl_rqmt/modules.md`.*
