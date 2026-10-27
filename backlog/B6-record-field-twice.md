@@ -2,7 +2,7 @@
 
 kind: defect
 state: open
-priority: normal
+priority: high
 found: executable-spec, 2026-10-24
 fixed:
 where: `src/cdy/core.cdy`
@@ -24,3 +24,7 @@ The translator should fail:
 ```expect-error
 must be different
 ```
+
+## Notes
+
+- 2026-10-26, the owner: `high` in triage ([[B103]]): silent wrong output.

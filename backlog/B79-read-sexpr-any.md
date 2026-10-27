@@ -2,7 +2,7 @@
 
 kind: tech-debt
 state: open
-priority: normal
+priority: low
 found: py-py-translator, 2026-10-17
 fixed:
 where: `tst/cdy/read_sexpr.cdy`
@@ -12,3 +12,7 @@ Written before Candy had sum types, it tells a symbol from a number or a list on
 Python's runtime types. The translator's own `Form` is a sum (`src/cdy/form.cdy`); this
 test program could be too. Partly fixed: the leak "Forms are `Any`" (`doc/archive/leaks_imvp_py_translator.md`) is left only
 here.
+
+## Notes
+
+- 2026-10-26, the owner: `low` in triage ([[B103]]): cosmetic or harmless.

@@ -2,7 +2,7 @@
 
 kind: leak
 state: open
-priority: normal
+priority: high
 found: py-py-translator, 2026-10-15
 fixed:
 where: `src/cdy/core.cdy`, `src/cdy/emit.cdy`
@@ -15,3 +15,7 @@ rejects it; and what mypy can't see, because Python's types are looser than Cand
 (`Char` and `String` are both `str`), nothing checks. Fix: Candy's type checker. From
 `doc/archive/leaks_imvp_py_translator.md` ("Type checking in the iMVP", "Using a `Unit` value") and
 `doc/archive/leaks_executable_spec.md` ("What the translator doesn't check").
+
+## Notes
+
+- 2026-10-26, the owner: `high` in triage ([[B103]]): the root of [[B18]], [[B19]], [[B25]], [[B30]], [[B42]], [[B51]], [[B53]].

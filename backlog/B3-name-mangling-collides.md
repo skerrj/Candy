@@ -2,7 +2,7 @@
 
 kind: defect
 state: open
-priority: normal
+priority: high
 found: py-py-translator, 2026-10-15
 fixed:
 where: `src/cdy/emit.cdy` (`py-mangle`)
@@ -26,3 +26,7 @@ Prints `2 2`. Whether the fix is an error or a renaming is still to decide, so t
 (def a_b 2)
 (put a-b a_b)
 ```
+
+## Notes
+
+- 2026-10-26, the owner: `high` in triage ([[B103]]): silent wrong output.

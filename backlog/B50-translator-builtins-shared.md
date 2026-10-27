@@ -2,7 +2,7 @@
 
 kind: leak
 state: open
-priority: normal
+priority: low
 found: system-prelude, 2026-10-19
 fixed:
 where: `src/cdy/system.cdy`
@@ -13,3 +13,7 @@ refs: [[library.builtins]]
 them (a program's own definition of one wins). The rest were dropped or rewritten in Candy
 (`doc/hl_rqmt/library.md`, "The translator's built-ins become Candy"). Fix: a declaration
 file only the translator imports. From `doc/archive/leaks_system_prelude.md`.
+
+## Notes
+
+- 2026-10-26, the owner: `low` in triage ([[B103]]): matters once there is a second target.

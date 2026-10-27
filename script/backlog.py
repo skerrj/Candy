@@ -81,7 +81,7 @@ class Item(NamedTuple):
 
 
 def item(path: str, text: str) -> Item:
-    """The item in the file ``path`` (``backlog/B2-sig-list-crash.md``), whose text is
+    """The item in the file ``path`` (``backlog/B2-type-unchecked.md``), whose text is
     ``text``."""
     name = NAME.fullmatch(Path(path).name)
     if name is None:
