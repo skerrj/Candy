@@ -402,7 +402,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((TVar name) (py-mangle name))
     ((TFn params ret)
       (format "_cdy_Callable[[{(comma-join (emit-types params env empty-list))}], {(emit-type ret env)}]"))
-    ((TCon name args) (emit-tcon name (emit-types args env empty-list)))))
+    ((TCon name args) (emit-tcon name (emit-types args env empty-list) (get env spellings)))))
 
 (sig emit-types (Fn ((List CType) Env (List String)) (List String)))
 (defn emit-types (types env acc)
@@ -410,9 +410,13 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     acc
     (emit-types (rest types) env (+ acc (to-list (emit-type (at types 0) env))))))
 
-(sig emit-tcon (Fn (String (List String)) String))
-(defn emit-tcon (name args)
+;; A built-in type's spelling.py entry (kind "type") is its Python text, with `{}` for its
+;; arguments.
+(sig emit-tcon (Fn (String (List String) (Map String (Tup String String))) String))
+(defn emit-tcon (name args spellings)
   (cond
+    ((and (map-has spellings name) (= (at (map-get spellings name) 1) "type"))
+      (replace (at (map-get spellings name) 0) "{}" (comma-join args)))
     ((in name (tup "Int" "Long" "Byte")) "int")
     ((in name (tup "Float" "Double")) "float")
     ((= name "Bool") "bool")

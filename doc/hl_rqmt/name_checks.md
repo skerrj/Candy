@@ -105,6 +105,14 @@ working (one rebuild, `boot/NN`); then `system.cdy` (and `bin/py/system.cdy`) ge
    `analyse-type` checks names and arity; the spellings in `spelling.py`; [[B2]]'s repros
    pass and move into `spec/20-types.md` (`[[types.table]]`), with the other cases of its
    table as error rows.
+
+   *Done, in two commits (see "Bootstrap").* As built, the first (`boot/35`):
+   - **`core.cdy`:** a `Builtin` variant `BType` (its arity); `read-sigs` reads a
+     bodiless `(deft Name)` or `(deft (Name a ...))` in `system.cdy` (`read-type`), which
+     needs a `type` entry in `spelling.py`; a built-in type isn't a value (`resolve`).
+   - **`emit.cdy`:** `emit-tcon` spells a type with a `type` entry from it, `{}` standing
+     for the arguments, and falls back on its own `cond` for the rest.
+   - Nothing is declared yet, so the output is the same.
 3. **Docs:** CLAUDE.md ("The built-ins"), `symbol_table.md`'s pointer, the spec.
 
 ## Questions (answered: the proposals, 2026-10-26)
