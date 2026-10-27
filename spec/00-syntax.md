@@ -158,6 +158,28 @@ other languages reserve: `set-x!`, `empty?`, `->`, `a.b`, `a#b`.
 1 <5>
 ```
 
+<a id="syntax.python-names"></a>
+In Python a name is spelled with only letters, digits and `_` (`-` becomes `_`, `?` `_p`,
+`!` `_x`, a Python keyword or built-in gets a trailing `_`), so two names can be spelled
+alike: two top-level names that would be one Python name are an error (*lasting*:
+`doc/hl_rqmt/name_checks.md`), as are a module's name and a name of the file importing
+it that is spelled like the module's prefix (`util--greet`, against `util`'s `greet`).
+Locals never clash: they are renamed apart.
+
+```candy errors
+(sig a-b Int) (def a-b 1) (sig a_b Int) (def a_b 2) => a-b and a_b are one name in Python (a_b)
+(sig print_ Int) (def print_ 1) (sig print Int) (def print 2) => print_ and print are one name in Python (print_)
+```
+
+```candy run
+(sig f (Fn (Int) Int))
+(defn f (x) (let ((a-b 1) (a_b 2)) (+ a-b a_b x)))
+(put (f 0))
+```
+```expect
+3
+```
+
 <a id="syntax.reserved"></a>
 `'` is reserved for a quote shorthand (a reader macro, later), and a name can't start
 with `#`. A name can't contain `__`: only `gensym` makes such names, for macros, so they

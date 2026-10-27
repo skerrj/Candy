@@ -1,10 +1,10 @@
 # B12: Module prefixes can collide with mangled names
 
 kind: defect
-state: open
+state: done
 priority: high
 found: modules, 2026-10-19
-fixed:
+fixed: name-checks
 where: `src/cdy/emit.cdy`, `src/cdy/include.cdy`
 refs: [[programs.import]], [[B3]]
 
@@ -16,3 +16,5 @@ needs two files, so it is text. From `doc/tech_debt.md`; the audit's defect 11 (
 ## Notes
 
 - 2026-10-26, the owner: `high` in triage ([[B103]]): silent wrong output, as [[B3]].
+- 2026-10-26, Claude Code: fixed on `name-checks` (step 1): a clash is an error,
+  [[syntax.python-names]].

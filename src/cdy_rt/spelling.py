@@ -36,7 +36,8 @@ SPELLING_MODULE = "cdy_rt.spelling"
 #   value    - a Python expression, used as is (``math.pi``, ``None``)
 #   index    - indexing, ``coll[i]`` (``py`` is the runtime helper, for use as a value)
 #   slice    - slicing, ``coll[i:j]``, so a ``String`` slice stays a ``str`` (likewise)
-Kind = Literal["binop", "compare", "boolop", "unary", "call", "value", "index", "slice"]
+#   type     - a built-in type, ``tuple[{}, ...]``: its arguments, joined, replace ``{}``
+Kind = Literal["binop", "compare", "boolop", "unary", "call", "value", "index", "slice", "type"]
 
 
 class Spelling(NamedTuple):
@@ -63,6 +64,29 @@ def value(py: str) -> Spelling:
     """An entry for a Python expression used as a value."""
     return Spelling(py, "value")
 
+
+def type_(py: str) -> Spelling:
+    """An entry for a built-in type, its arguments in place of ``{}``."""
+    return Spelling(py, "type")
+
+
+# The built-in types (system.cdy's bodiless defts). ``_cdy_Any`` and ``_cdy_Mapping`` are
+# what every generated file imports ``Any`` and ``Mapping`` as.
+TYPES: Spellings = {
+    "Int": type_("int"),
+    "Long": type_("int"),
+    "Byte": type_("int"),
+    "Float": type_("float"),
+    "Double": type_("float"),
+    "Bool": type_("bool"),
+    "Char": type_("str"),
+    "String": type_("str"),
+    "Unit": type_("None"),
+    "Any": type_("_cdy_Any"),
+    "Maybe": type_("{} | None"),
+    "List": type_("tuple[{}, ...]"),
+    "Map": type_("_cdy_Mapping[{}]"),
+}
 
 MATH: Spellings = {
     "PI": value("math.pi"),
@@ -194,6 +218,7 @@ INFRA: Spellings = {
 
 SPELLINGS: Spellings = MappingProxyType(
     {
+        **TYPES,
         **MATH,
         **BOOL,
         **IO,

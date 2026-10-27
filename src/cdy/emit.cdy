@@ -162,11 +162,32 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     env
     (let ((name (at names 0))
           (py (py-mangle name)))
-      (add-globals
-        (rest names)
-        (assoc env
-          globals (map-set (get env globals) name py)
-          taken (map-set (get env taken) py true))))))
+      (if (and (map-has (get env taken) py) (not (map-has (get env globals) name)))
+        (fail
+          (format
+            "{(candy-name (holder py (map-keys (get env globals)) (get env globals)))} and {(candy-name name)} are one name in Python ({py})"))
+        (add-globals
+          (rest names)
+          (assoc env
+            globals (map-set (get env globals) name py)
+            taken (map-set (get env taken) py true)))))))
+
+;; The Candy name in `names` whose Python name in `globals` is `py`.
+(sig holder (Fn (String (List String) (Map String String)) String))
+(defn holder (py names globals)
+  (cond
+    ((= (len names) 0) py)
+    ((= (map-get globals (at names 0)) py) (at names 0))
+    (else (holder py (rest names) globals))))
+
+;; A top-level name as its program wrote it: `util__greet`, module `util`'s `greet`, is
+;; `greet (from module util)` (a name can't hold `__`, so the first `__` ends the module's
+;; prefix).
+(sig candy-name (Fn (String) String))
+(defn candy-name (name)
+  (let ((parts (split name "__"))
+        (own (join (rest parts) "__")))
+    (if (= (len parts) 1) name (format "{own} (from module {(at parts 0)})"))))
 
 ;; The top-level names a definition makes: a sum makes its type and its variants.
 (sig top-names-of (Fn (Top) (List String)))
@@ -382,7 +403,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((TVar name) (py-mangle name))
     ((TFn params ret)
       (format "_cdy_Callable[[{(comma-join (emit-types params env empty-list))}], {(emit-type ret env)}]"))
-    ((TCon name args) (emit-tcon name (emit-types args env empty-list)))))
+    ((TCon name args) (emit-tcon name (emit-types args env empty-list) (get env spellings)))))
 
 (sig emit-types (Fn ((List CType) Env (List String)) (List String)))
 (defn emit-types (types env acc)
@@ -390,19 +411,14 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     acc
     (emit-types (rest types) env (+ acc (to-list (emit-type (at types 0) env))))))
 
-(sig emit-tcon (Fn (String (List String)) String))
-(defn emit-tcon (name args)
+;; A built-in type's spelling.py entry (kind "type") is its Python text, with `{}` for its
+;; arguments; `Tup` isn't declared (system.cdy), and a program's own type is its name.
+(sig emit-tcon (Fn (String (List String) (Map String (Tup String String))) String))
+(defn emit-tcon (name args spellings)
   (cond
-    ((in name (tup "Int" "Long" "Byte")) "int")
-    ((in name (tup "Float" "Double")) "float")
-    ((= name "Bool") "bool")
-    ((in name (tup "Char" "String")) "str")
-    ((= name "Unit") "None")
-    ((= name "Any") "_cdy_Any")
-    ((= name "Maybe") (format "{(at args 0)} | None"))
-    ((= name "List") (format "tuple[{(at args 0)}, ...]"))
+    ((and (map-has spellings name) (= (at (map-get spellings name) 1) "type"))
+      (replace (at (map-get spellings name) 0) "{}" (comma-join args)))
     ((= name "Tup") (format "tuple[{(comma-join args)}]"))
-    ((= name "Map") (format "_cdy_Mapping[{(comma-join args)}]"))
     ((= (len args) 0) (py-mangle name))
     (else (format "{(py-mangle name)}[{(comma-join args)}]"))))
 

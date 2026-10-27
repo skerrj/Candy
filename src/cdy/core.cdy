@@ -77,7 +77,9 @@
    (names (Map String String))
    (elsewhere (Map String String))
    ;; The built-ins, from special.cdy and system.cdy (see read-builtins).
-   (builtins (Map String Builtin))))
+   (builtins (Map String Builtin))
+   ;; The types the program defines or imports, each with its number of type variables.
+   (types (Map String Int))))
 
 ;; `scope` analysing a form at `pos` (unless that's NOWHERE).
 (sig at-pos (Fn (Scope Pos) Scope))
@@ -130,7 +132,8 @@
       (Global (global-name name (get scope names))))
     ((is-special name (get scope builtins))
       (fail (located scope (format "{name} is a special form, not a value"))))
-    ((map-has (get scope builtins) name) (Prim name))
+    ((and (map-has (get scope builtins) name) (not (is-builtin-type name (get scope builtins))))
+      (Prim name))
     ((map-has (get scope elsewhere) name)
       (let ((stem (map-get (get scope elsewhere) name)))
         (fail (located scope (format "{name} is not defined here; {stem} defines it, but this file doesn't import {stem}")))))
@@ -837,19 +840,26 @@
 ;; --- the built-ins (special.cdy and system.cdy, doc/hl_rqmt/symbol_table.md) ---
 
 ;; A built-in as analysis sees it: a special form, analysed by its own rule; an operator,
-;; which takes one argument if `unary` and two or more if not (special.cdy); or a function
-;; or value, with its type (system.cdy).
+;; which takes one argument if `unary` and two or more if not (special.cdy); a function
+;; or value, with its type; or a type, with its number of type arguments (system.cdy).
 (deft Builtin
   (Special)
   (Op ((unary Bool)))
-  (Typed ((type CType))))
+  (Typed ((type CType)))
+  (BType ((arity Int))))
+
+;; Whether `name` is a built-in type (system.cdy's bodiless deft), which isn't a value.
+(sig is-builtin-type (Fn (String (Map String Builtin)) Bool))
+(defn is-builtin-type (name builtins)
+  (and (map-has builtins name) (match (map-get builtins name) ((BType _) true) (else false))))
 
 (sig is-special (Fn (String (Map String Builtin)) Bool))
 (defn is-special (name builtins)
   (and (map-has builtins name) (match (map-get builtins name) ((Special) true) (else false))))
 
 ;; The built-ins, from the forms of special.cdy (`decls`: special forms and operators) and of
-;; system.cdy (`sigs`: each a bodiless (sig name Type)). They are checked against `spellings`,
+;; system.cdy (`sigs`: each a bodiless (sig name Type), or a type, a bodiless (deft Name) or
+;; (deft (Name a ...))). They are checked against `spellings`,
 ;; the target's spellings, both ways: each needs an entry of its kind there, and every
 ;; entry needs a declaration.
 (sig read-builtins (Fn ((List Form) (List Form) (Map String (Tup String String))) (Map String Builtin)))
@@ -873,6 +883,8 @@
 (def UNARY_KINDS (tup "unary"))
 (sig TYPED_KINDS (List String))
 (def TYPED_KINDS (tup "call" "value" "index" "slice"))
+(sig TYPE_KINDS (List String))
+(def TYPE_KINDS (tup "type"))
 
 (sig read-decls (Fn ((List Form) (Map String (Tup String String)) (Map String Builtin)) (Map String Builtin)))
 (defn read-decls (forms spellings acc)
@@ -917,14 +929,40 @@
     acc
     (let ((form (at forms 0))
           (items (list-items form))
-          (name (if (and (= (len items) 3) (= (sym-name (at items 0)) "sig")) (sym-name (at items 1)) ""))
+          (head (if (> (len items) 0) (sym-name (at items 0)) ""))
+          (name (if (and (= (len items) 3) (= head "sig")) (sym-name (at items 1)) ""))
           (where (pos-text (form-pos form))))
       (cond
-        ((= name "") (fail (+ where "system.cdy: expected (sig name Type)")))
+        ((= head "deft") (read-sigs (rest forms) spellings (read-type form items where spellings acc)))
+        ((= name "") (fail (+ where "system.cdy: expected (sig name Type) or (deft Name)")))
         ((map-has acc name) (fail (format "{where}system.cdy: {name} is already declared")))
         ((not (in (spelling-kind spellings name) TYPED_KINDS))
           (fail (format "{where}system.cdy: {name} has no Python mapping in spelling.py")))
         (else (read-sigs (rest forms) spellings (map-set acc name (Typed (analyse-type (at items 2))))))))))
+
+;; `acc` with the built-in type `form`, a bodiless (deft Name) or (deft (Name a ...)): its
+;; arity is its number of type variables.
+(sig read-type (Fn (Form (List Form) String (Map String (Tup String String)) (Map String Builtin)) (Map String Builtin)))
+(defn read-type (form items where spellings acc)
+  (let ((header (if (= (len items) 2) (at items 1) form))
+        (parts (match header ((Sym _ _) (to-list header)) ((Lst xs _) xs) (else empty-list)))
+        (name (if (> (len parts) 0) (sym-name (at parts 0)) ""))
+        (tvars (if (> (len parts) 0) (rest parts) empty-list)))
+    (cond
+      ((or (= name "") (is-lower name) (not (all-lower tvars)))
+        (fail (+ where "system.cdy: expected (deft Name) or (deft (Name a ...))")))
+      ((map-has acc name) (fail (format "{where}system.cdy: {name} is already declared")))
+      ((not (in (spelling-kind spellings name) TYPE_KINDS))
+        (fail (format "{where}system.cdy: {name} has no Python type in spelling.py")))
+      (else (map-set acc name (BType (len tvars)))))))
+
+;; Whether every one of `forms` is a lowercase name (a type variable).
+(sig all-lower (Fn ((List Form)) Bool))
+(defn all-lower (forms)
+  (cond
+    ((= (len forms) 0) true)
+    ((not (is-lower (sym-name (at forms 0)))) false)
+    (else (all-lower (rest forms)))))
 
 ;; Fail unless every one of `names`, the spellings' entries, is a declared built-in.
 (sig all-declared (Fn ((List String) (Map String Builtin)) Bool))
@@ -946,14 +984,30 @@
    (top (Map String Bool))
    (variants (Map String VInfo))
    (sums (Map String (List String)))
-   (names (Map String String))))
+   (names (Map String String))
+   (types (Map String Int))))
 
 ;; What `forms` define, as the module `stem`, whose global names start with `prefix`.
 (sig module-exports (Fn ((List Form) String String) Exports))
 (defn module-exports (forms stem prefix)
   (let ((top (top-names forms empty-map))
         (found (find-variants forms (blank-scope top))))
-    (Exports stem top (get found variants) (get found sums) (prefixed (map-keys top) prefix empty-map))))
+    (Exports
+      stem top (get found variants) (get found sums) (prefixed (map-keys top) prefix empty-map)
+      (type-arities forms empty-map))))
+
+;; The types `forms` define, each with its number of type variables: (deft (Box a) ...) is 1.
+(sig type-arities (Fn ((List Form) (Map String Int)) (Map String Int)))
+(defn type-arities (forms acc)
+  (if (= (len forms) 0)
+    acc
+    (let ((items (list-items (at forms 0)))
+          (head (if (> (len items) 1) (sym-name (at items 0)) "")))
+      (type-arities
+        (rest forms)
+        (if (and (= head "deft") (!= (deft-name (at items 1)) ""))
+          (map-set acc (deft-name (at items 1)) (match (at items 1) ((Lst xs _) (- (len xs) 1)) (else 0)))
+          acc)))))
 
 (sig prefixed (Fn ((List String) String (Map String String)) (Map String String)))
 (defn prefixed (names prefix acc)
@@ -964,7 +1018,7 @@
 ;; A scope with only `top`, for finding variants.
 (sig blank-scope (Fn ((Map String Bool)) Scope))
 (defn blank-scope (top)
-  (Scope empty-map top (fn (text) empty-list) empty-map empty-map NOWHERE empty-map false empty-map empty-map empty-map))
+  (Scope empty-map top (fn (text) empty-list) empty-map empty-map NOWHERE empty-map false empty-map empty-map empty-map empty-map))
 
 ;; `forms`, one program on its own (a macro program), with no imports and no prefix;
 ;; `builtins` are the built-ins (read-builtins).
@@ -979,9 +1033,9 @@
   (Fn ((List Form) Exports (List (Tup Exports Pos)) (Map String String) (Map String Builtin) (Fn (String) (List Form)) (Map String Macro) Bool)
       (List Top)))
 (defn analyse-module (forms own imports elsewhere builtins parse macros quoting)
-  (let ((seen (with-own (with-imports imports (Seen (Exports "" empty-map empty-map empty-map empty-map) empty-map)) own))
+  (let ((seen (with-own (with-imports imports (Seen (Exports "" empty-map empty-map empty-map empty-map empty-map) empty-map)) own))
         (vis (get seen vis))
-        (scope (Scope empty-map (get vis top) parse (get vis variants) (get vis sums) NOWHERE macros quoting (get vis names) elsewhere builtins))
+        (scope (Scope empty-map (get vis top) parse (get vis variants) (get vis sums) NOWHERE macros quoting (get vis names) elsewhere builtins (get vis types)))
         (prog (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms empty-map) empty-map))))
     (rename-tops (get prog out) (get vis names) empty-list)))
 
@@ -1003,7 +1057,8 @@
     (assoc seen vis
       (assoc (get seen vis)
         variants (put-all (get ex variants) (map-keys (get ex variants)) (get (get seen vis) variants))
-        sums (put-all (get ex sums) (map-keys (get ex sums)) (get (get seen vis) sums))))
+        sums (put-all (get ex sums) (map-keys (get ex sums)) (get (get seen vis) sums))
+        types (put-all (get ex types) (map-keys (get ex types)) (get (get seen vis) types))))
     (let ((name (at names 0))
           (stem (get ex stem))
           (from (get seen from))
@@ -1029,7 +1084,8 @@
         top (put-all (get own top) (map-keys (get own top)) (get vis top))
         variants (put-all (get own variants) (map-keys (get own variants)) (get vis variants))
         sums (put-all (get own sums) (map-keys (get own sums)) (get vis sums))
-        names (put-all (get own names) (map-keys (get own names)) (get vis names))))))
+        names (put-all (get own names) (map-keys (get own names)) (get vis names))
+        types (put-all (get own types) (map-keys (get own types)) (get vis types))))))
 
 ;; `acc` with the entries of `m` for `keys`.
 (sig put-all (Fn ((Map String a) (List String) (Map String a)) (Map String a)))
@@ -1147,7 +1203,40 @@
         (fail (located scope (format "sig for {name}, but no def or defn of {name} in this file"))))
       ((map-has (get prog defined) name) (fail (located scope (format "sig for {name} comes after its definition"))))
       ((map-has (get prog sigs) name) (fail (located scope (format "more than one sig for {name}"))))
-      (else (assoc prog sigs (map-set (get prog sigs) name (analyse-type (at items 2))))))))
+      (else
+        (let ((t (analyse-type (at items 2)))
+              (checked (check-type t scope)))
+          (assoc prog sigs (map-set (get prog sigs) name t)))))))
+
+;; Fail unless every type in `t` exists, with as many arguments as it takes: a built-in
+;; type (system.cdy), one the program defines or imports, or `Tup`, which takes any number.
+(sig check-type (Fn (CType Scope) Bool))
+(defn check-type (t scope)
+  (match t
+    ((TVar _) true)
+    ((TFn params ret) (and (check-types params scope) (check-type ret scope)))
+    ((TCon name args)
+      (let ((builtins (get scope builtins))
+            (arity
+              (cond
+                ((= name "Tup") (len args))
+                ((map-has (get scope types) name) (map-get (get scope types) name))
+                ((is-builtin-type name builtins)
+                  (match (map-get builtins name) ((BType n) n) (else 0)))
+                ((map-has (get scope elsewhere) name)
+                  (let ((stem (map-get (get scope elsewhere) name)))
+                    (fail (located scope (format "{name} is not defined here; {stem} defines it, but this file doesn't import {stem}")))))
+                (else (fail (located scope (format "unknown type {name}")))))))
+        (if (!= arity (len args))
+          (fail (located scope (format "{name} takes {arity} type argument(s), got {(len args)}")))
+          (check-types args scope))))))
+
+(sig check-types (Fn ((List CType) Scope) Bool))
+(defn check-types (ts scope)
+  (cond
+    ((= (len ts) 0) true)
+    ((check-type (at ts 0) scope) (check-types (rest ts) scope))
+    (else false)))
 
 ;; (deft Name ((field Type)+)) or (deft (Name a b) ((field Type)+)): a record type.
 ;; A sum, (deft Name variant+), lists its variants instead: (Circle ((r Double))) or (Leaf).
@@ -1160,9 +1249,29 @@
     (cond
       ((= name "") (fail (located scope "deft: expected (deft Name ((field Type)+)) or (deft Name variant+)")))
       ((is-sum-body body)
-        (add-top prog (TDeftSum name tvars (deft-variants body empty-list)) (get prog n)))
+        (let ((variants (deft-variants body empty-list))
+              (checked (check-variants variants scope)))
+          (add-top prog (TDeftSum name tvars variants) (get prog n))))
       ((= (len field-forms) 0) (fail (located scope "deft: expected (deft Name ((field Type)+))")))
-      (else (add-top prog (TDeft name tvars (deft-fields field-forms empty-list)) (get prog n))))))
+      (else
+        (let ((fields (deft-fields field-forms empty-list))
+              (checked (check-fields fields scope)))
+          (add-top prog (TDeft name tvars fields) (get prog n)))))))
+
+;; Fail unless the fields' types check (check-type).
+(sig check-fields (Fn ((List (Tup String CType)) Scope) Bool))
+(defn check-fields (fields scope)
+  (cond
+    ((= (len fields) 0) true)
+    ((check-type (at (at fields 0) 1) scope) (check-fields (rest fields) scope))
+    (else false)))
+
+(sig check-variants (Fn ((List Variant) Scope) Bool))
+(defn check-variants (variants scope)
+  (cond
+    ((= (len variants) 0) true)
+    ((check-fields (get (at variants 0) fields) scope) (check-variants (rest variants) scope))
+    (else false)))
 
 (sig deft-variants (Fn ((List Form) (List Variant)) (List Variant)))
 (defn deft-variants (body acc)
