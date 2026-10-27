@@ -1,7 +1,7 @@
 # B105: name-checks step 1: Python-name clashes
 
 kind: task
-state: open
+state: review
 priority: normal
 found: name-checks, 2026-10-26
 fixed:

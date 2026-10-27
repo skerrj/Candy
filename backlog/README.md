@@ -14,9 +14,7 @@ By kind, then priority.
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B2](B2-type-unchecked.md) | A type's name and number of arguments aren't checked | defect | open | high |
-| [B3](B3-name-mangling-collides.md) | `a-b` and `a_b` are one Python name | defect | open | high |
 | [B6](B6-record-field-twice.md) | A record (or variant) with the same field twice translates | defect | open | high |
-| [B12](B12-module-prefix-collides.md) | Module prefixes can collide with mangled names | defect | open | high |
 | [B4](B4-def-name-not-a-name.md) | `(def (x) 1)` says " needs a (sig  Type)", with no name | defect | open | normal |
 | [B5](B5-record-field-underscore.md) | A record field `_x` translates, and fails at run time | defect | open | normal |
 | [B7](B7-record-name-lowercase.md) | A lowercase record name is accepted | defect | open | normal |
@@ -102,7 +100,7 @@ By kind, then priority.
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B80](B80-def-mutability.md) | Decide whether a `def` is a constant or a variable | task | open | normal |
-| [B105](B105-name-checks-step-1.md) | name-checks step 1: Python-name clashes | task | open | normal |
+| [B105](B105-name-checks-step-1.md) | name-checks step 1: Python-name clashes | task | review | normal |
 | [B106](B106-name-checks-step-2.md) | name-checks step 2: built-in types | task | open | normal |
 | [B107](B107-name-checks-step-3.md) | name-checks step 3: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
@@ -155,13 +153,12 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [match.namespace](../spec/30-match.md#match.namespace): [B40](B40-one-namespace.md)
 - [match.sum-types](../spec/30-match.md#match.sum-types): [B6](B6-record-field-twice.md), [B11](B11-variant-named-like-macro.md), [B29](B29-records-are-tuples.md)
 - [match.tup](../spec/30-match.md#match.tup): [B17](B17-tup-destructuring.md)
-- [programs.import](../spec/10-programs.md#programs.import): [B12](B12-module-prefix-collides.md), [B47](B47-imports-unqualified.md), [B53](B53-unimported-type.md), [B44](B44-macro-cant-make-import.md)
+- [programs.import](../spec/10-programs.md#programs.import): [B47](B47-imports-unqualified.md), [B53](B53-unimported-type.md), [B44](B44-macro-cant-make-import.md)
 - [programs.main](../spec/10-programs.md#programs.main): [B14](B14-errors-without-position.md)
 - [programs.prelude](../spec/10-programs.md#programs.prelude): [B51](B51-with-default-builtin.md), [B52](B52-macro-code-no-prelude.md), [B68](B68-whole-prelude.md)
 - [syntax.chars](../spec/00-syntax.md#syntax.chars): [B28](B28-char-is-str.md)
 - [syntax.comments](../spec/00-syntax.md#syntax.comments): [B94](B94-doc-strings.md)
 - [syntax.literals](../spec/00-syntax.md#syntax.literals): [B9](B9-nil-redefinable.md)
-- [syntax.names](../spec/00-syntax.md#syntax.names): [B3](B3-name-mangling-collides.md)
 - [syntax.numbers](../spec/00-syntax.md#syntax.numbers): [B22](B22-numbers-unbounded.md)
 - [syntax.strings](../spec/00-syntax.md#syntax.strings): [B14](B14-errors-without-position.md), [B74](B74-py-str-not-repr.md)
 - [types.checking](../spec/20-types.md#types.checking): [B15](B15-no-type-checker.md)
@@ -174,6 +171,8 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
+| [B3](B3-name-mangling-collides.md) | `a-b` and `a_b` are one Python name | defect | done | high |
+| [B12](B12-module-prefix-collides.md) | Module prefixes can collide with mangled names | defect | done | high |
 | [B24](B24-quot-floors.md) | `quot` rounds toward minus infinity | leak | kept | normal |
 | [B33](B33-no-unary-minus.md) | No unary minus | leak | kept | normal |
 | [B73](B73-master-not-main.md) | The default branch is `master`; some notes and tools assume `main` | tech-debt | dropped | normal |

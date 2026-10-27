@@ -86,6 +86,21 @@ working (one rebuild, `boot/NN`); then `system.cdy` (and `bin/py/system.cdy`) ge
 1. **Python-name clashes:** the check in `add-globals`, with the module prefix applied
    first; [[B3]] and [[B12]]'s repros pass and move into the spec (`[[syntax.names]]`); a
    two-file case as a test program in `tst/cdy/cdyc/`.
+
+   *Done.* As built:
+   - **`add-globals`** (`emit.cdy`): a Python name already taken by another top-level name
+     fails, naming both as written, a module's own name as `greet (in util)`
+     (`candy-name`; a name can't hold `__`, so the first one ends the prefix):
+     `greet (in util) and util--greet are one name in Python (util__greet)`. The names
+     reach `emit` already prefixed by `analyse`, so one check covers both items. It also
+     catches a reserved name's trailing `_`: `print_` and `print` clash.
+   - **The spec:** `[[syntax.python-names]]` (in `spec/00-syntax.md`, *lasting*), with
+     two error rows and a `candy run` showing locals renamed apart. [[B3]]'s repro was
+     text, so the rows replace it.
+   - **Tests:** the two-file case is a `test_module_errors` row (an error needs no test
+     program).
+   - **Bootstrap:** one rebuild; `bin` gains the check (129 changed lines), and translates
+     itself unchanged otherwise.
 2. **Built-in types:** bodiless `deft`s in `system.cdy`, read with the built-ins;
    `analyse-type` checks names and arity; the spellings in `spelling.py`; [[B2]]'s repros
    pass and move into `spec/20-types.md` (`[[types.table]]`), with the other cases of its

@@ -146,6 +146,14 @@ def test_errors_say_where(
             {"main.cdy": "(import a)", "a.cdy": "(sig rest Int) (def rest 1)"},
             "main.cdy:1:1: import: prelude and a both define rest",
         ),
+        (
+            # A module's prefix against a mangled name (backlog B12).
+            {
+                "main.cdy": "(import a) (sig a--x Int) (def a--x 1)",
+                "a.cdy": "(sig x Int) (def x 2)",
+            },
+            "x (in a) and a--x are one name in Python (a__x)",
+        ),
     ],
 )
 def test_module_errors(
