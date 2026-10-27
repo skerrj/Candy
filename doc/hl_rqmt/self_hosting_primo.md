@@ -1,6 +1,10 @@
 # Self-hosting, first stage ("primo"): the translator in Candy, the parser borrowed
 
-**Status: draft staging plan.** Nothing here is decided. Branch `pre-self-host`, after tag
+**Status: done (2026-10-18), stages 0 to 3, on branch `pre-self-host` (tag `self-host-py`);
+reviewed 2026-10-26.** A record of how Candy got self-hosting, kept as history: later
+branches changed the driver and `import` (`self_host_cleanup.md`, `modules.md`), the
+built-in table (`symbol_table.md`), the Python helpers (`library.md`) and the Python
+translator, now only at tag `self-host-py` (`bootstrap.md`). After tag
 `imvp-py-translator`. Related: `doc/hl_rqmt/sum_types.md` (a prerequisite) and
 `doc/hl_rqmt/iMVP_py_translator.md` (the Python translator this stage builds on).
 

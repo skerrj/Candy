@@ -47,7 +47,9 @@ top-level forms, with the command-line arguments (without the program's name), a
 with its result. `main` runs only when the program is run, not when it is imported (as
 the translator's own `main`, its driver, isn't when the tests load it). A `fail` in
 `main` prints `candy: ` and the message to standard error, and exits with 1
-(`test_self_host.py`'s `test_bin_driver`).
+(`test_self_host.py`'s `test_bin_driver`). Only the top file's `main` is the program's: a `main` in a
+module it imports is an ordinary function (`tst/cdy/cdyc/modules.cdy`, whose `lib/tags`
+defines one).
 
 ```candy run
 (sig main (Fn ((List String)) Int))

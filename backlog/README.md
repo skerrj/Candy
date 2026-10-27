@@ -109,11 +109,6 @@ By kind, then priority.
 | [B80](B80-def-mutability.md) | Decide whether a `def` is a constant or a variable | task | open | normal |
 | [B81](B81-imvp-open-items.md) | Settle the iMVP doc's open items | task | open | normal |
 | [B82](B82-up-down-gist.md) | Add the up, down, down*, meta-template conversation to brainstorm | task | open | normal |
-| [B83](B83-review-packaging.md) | Review the `cdy_rt` packaging | task | review | normal |
-| [B84](B84-review-self-hosting-primo.md) | Review the self-hosting plan as built | task | review | normal |
-| [B85](B85-review-import-step-a.md) | Review `import` step A as built | task | review | normal |
-| [B86](B86-review-main.md) | Review the `main` entry-point convention | task | review | normal |
-| [B87](B87-review-system-prelude.md) | Review system-prelude steps 1, 3 and 5 as built | task | review | normal |
 | [B103](B103-triage-migrated-items.md) | Triage the migrated items: priorities, and which leaks are kept | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
@@ -147,7 +142,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [expr.operator-arity](../spec/40-expressions.md#expr.operator-arity): [B33](B33-no-unary-minus.md), [B38](B38-operators-not-values.md), [B48](B48-operators-no-type.md), [B99](B99-variadic-types.md)
 - [expr.tail-calls](../spec/40-expressions.md#expr.tail-calls): [B37](B37-self-tail-calls-only.md), [B98](B98-trampolines.md)
 - [expr.unit](../spec/40-expressions.md#expr.unit): [B9](B9-nil-redefinable.md), [B15](B15-no-type-checker.md), [B21](B21-missing-is-none.md)
-- [library.builtins](../spec/60-library.md#library.builtins): [B36](B36-values-print-as-python.md), [B39](B39-fail-for-errors.md), [B48](B48-operators-no-type.md), [B49](B49-opaque-host-types.md), [B50](B50-translator-builtins-shared.md), [B54](B54-slurp-fallback.md), [B87](B87-review-system-prelude.md), [B95](B95-io-refactor.md), [B97](B97-library-per-target.md)
+- [library.builtins](../spec/60-library.md#library.builtins): [B36](B36-values-print-as-python.md), [B39](B39-fail-for-errors.md), [B48](B48-operators-no-type.md), [B49](B49-opaque-host-types.md), [B50](B50-translator-builtins-shared.md), [B54](B54-slurp-fallback.md), [B95](B95-io-refactor.md), [B97](B97-library-per-target.md)
 - [library.format](../spec/60-library.md#library.format): [B14](B14-errors-without-position.md), [B16](B16-format-hack.md), [B36](B36-values-print-as-python.md)
 - [library.lists](../spec/60-library.md#library.lists): [B20](B20-maybe-is-optional.md), [B34](B34-no-collection.md), [B35](B35-at-slice-python.md), [B51](B51-with-default-builtin.md)
 - [library.strings](../spec/60-library.md#library.strings): [B32](B32-regexes-python.md), [B34](B34-no-collection.md), [B49](B49-opaque-host-types.md)
@@ -164,9 +159,9 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [match.namespace](../spec/30-match.md#match.namespace): [B40](B40-one-namespace.md)
 - [match.sum-types](../spec/30-match.md#match.sum-types): [B6](B6-record-field-twice.md), [B11](B11-variant-named-like-macro.md), [B29](B29-records-are-tuples.md)
 - [match.tup](../spec/30-match.md#match.tup): [B17](B17-tup-destructuring.md), [B78](B78-tup-temporary-name.md)
-- [programs.import](../spec/10-programs.md#programs.import): [B12](B12-module-prefix-collides.md), [B44](B44-macro-cant-make-import.md), [B47](B47-imports-unqualified.md), [B53](B53-unimported-type.md), [B85](B85-review-import-step-a.md)
-- [programs.main](../spec/10-programs.md#programs.main): [B14](B14-errors-without-position.md), [B86](B86-review-main.md)
-- [programs.prelude](../spec/10-programs.md#programs.prelude): [B51](B51-with-default-builtin.md), [B52](B52-macro-code-no-prelude.md), [B68](B68-whole-prelude.md), [B87](B87-review-system-prelude.md)
+- [programs.import](../spec/10-programs.md#programs.import): [B12](B12-module-prefix-collides.md), [B44](B44-macro-cant-make-import.md), [B47](B47-imports-unqualified.md), [B53](B53-unimported-type.md)
+- [programs.main](../spec/10-programs.md#programs.main): [B14](B14-errors-without-position.md)
+- [programs.prelude](../spec/10-programs.md#programs.prelude): [B51](B51-with-default-builtin.md), [B52](B52-macro-code-no-prelude.md), [B68](B68-whole-prelude.md)
 - [syntax.chars](../spec/00-syntax.md#syntax.chars): [B28](B28-char-is-str.md)
 - [syntax.comments](../spec/00-syntax.md#syntax.comments): [B94](B94-doc-strings.md)
 - [syntax.literals](../spec/00-syntax.md#syntax.literals): [B9](B9-nil-redefinable.md)
@@ -183,6 +178,11 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
+| [B83](B83-review-packaging.md) | Review the `cdy_rt` packaging | task | done | normal |
+| [B84](B84-review-self-hosting-primo.md) | Review the self-hosting plan as built | task | done | normal |
+| [B85](B85-review-import-step-a.md) | Review `import` step A as built | task | done | normal |
+| [B86](B86-review-main.md) | Review the `main` entry-point convention | task | done | normal |
+| [B87](B87-review-system-prelude.md) | Review system-prelude steps 1, 3 and 5 as built | task | done | normal |
 | [B88](B88-tracking-step-1.md) | tracking step 1: ids and links | task | done | normal |
 | [B89](B89-tracking-step-2.md) | tracking step 2: the backlog's format | task | done | normal |
 | [B90](B90-tracking-step-3.md) | tracking step 3: the migration | task | done | normal |
