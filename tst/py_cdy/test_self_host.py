@@ -152,7 +152,7 @@ def test_errors_say_where(
                 "main.cdy": "(import a) (sig a--x Int) (def a--x 1)",
                 "a.cdy": "(sig x Int) (def x 2)",
             },
-            "x (in a) and a--x are one name in Python (a__x)",
+            "x (from module a) and a--x are one name in Python (a__x)",
         ),
     ],
 )

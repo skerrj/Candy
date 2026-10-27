@@ -181,12 +181,13 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     (else (holder py (rest names) globals))))
 
 ;; A top-level name as its program wrote it: `util__greet`, module `util`'s `greet`, is
-;; `greet (in util)` (a name can't hold `__`, so the first `__` ends the module's prefix).
+;; `greet (from module util)` (a name can't hold `__`, so the first `__` ends the module's
+;; prefix).
 (sig candy-name (Fn (String) String))
 (defn candy-name (name)
   (let ((parts (split name "__"))
         (own (join (rest parts) "__")))
-    (if (= (len parts) 1) name (format "{own} (in {(at parts 0)})"))))
+    (if (= (len parts) 1) name (format "{own} (from module {(at parts 0)})"))))
 
 ;; The top-level names a definition makes: a sum makes its type and its variants.
 (sig top-names-of (Fn (Top) (List String)))

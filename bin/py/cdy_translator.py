@@ -3084,7 +3084,7 @@ def emit__candy_name(name: str) -> str:
     if (len(parts) == 1):
         return name
     else:
-        return (str(own) + ' (in ' + str(parts[0]) + ')')
+        return (str(own) + ' (from module ' + str(parts[0]) + ')')
 
 def emit__top_names_of(top: core__Top) -> tuple[str, ...]:
     _cdy_t77: object = top

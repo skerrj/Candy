@@ -89,9 +89,9 @@ working (one rebuild, `boot/NN`); then `system.cdy` (and `bin/py/system.cdy`) ge
 
    *Done.* As built:
    - **`add-globals`** (`emit.cdy`): a Python name already taken by another top-level name
-     fails, naming both as written, a module's own name as `greet (in util)`
+     fails, naming both as written, a module's own name as `greet (from module util)`
      (`candy-name`; a name can't hold `__`, so the first one ends the prefix):
-     `greet (in util) and util--greet are one name in Python (util__greet)`. The names
+     `greet (from module util) and util--greet are one name in Python (util__greet)`. The names
      reach `emit` already prefixed by `analyse`, so one check covers both items. It also
      catches a reserved name's trailing `_`: `print_` and `print` clash.
    - **The spec:** `[[syntax.python-names]]` (in `spec/00-syntax.md`, *lasting*), with
@@ -101,6 +101,8 @@ working (one rebuild, `boot/NN`); then `system.cdy` (and `bin/py/system.cdy`) ge
      program).
    - **Bootstrap:** one rebuild; `bin` gains the check (129 changed lines), and translates
      itself unchanged otherwise.
+   - **Changed in review:** a module's name was `greet (in util)`, which read like part of
+     the source; it is `greet (from module util)` (`boot/37`).
 2. **Built-in types:** bodiless `deft`s in `system.cdy`, read with the built-ins;
    `analyse-type` checks names and arity; the spellings in `spelling.py`; [[B2]]'s repros
    pass and move into `spec/20-types.md` (`[[types.table]]`), with the other cases of its
