@@ -1,10 +1,10 @@
 # B2: A type's name and number of arguments aren't checked
 
 kind: defect
-state: open
+state: done
 priority: high
 found: executable-spec, 2026-10-24
-fixed:
+fixed: name-checks
 where: `src/cdy/core.cdy` (`analyse-type`), `src/cdy/emit.cdy` (`emit-tcon`), `src/cdy/system.cdy`
 refs: [[types.table]], [[B53]], [[B99]]
 
@@ -32,26 +32,6 @@ matches. `Fn` keeps its own form; `Tup` takes any number, so it stays special un
 variadic types ([[B99]]). The Python spellings (`int`, `tuple[a, ...]`) move from
 `emit-tcon` into `spelling.py`, next to the functions'.
 
-## Repro
-
-The translator should fail, naming the type:
-
-```candy error
-(sig x (List))
-(def x 1)
-```
-```expect-error
-List
-```
-
-```candy error
-(sig x Foo)
-(def x 1)
-```
-```expect-error
-Foo
-```
-
 ## Notes
 
 - 2026-10-25, the owner: the repro's message (`List`) is a placeholder; whoever fixes this
@@ -60,3 +40,5 @@ Foo
 - 2026-10-26, the owner: in triage ([[B103]]), `high`; widened from `(List)`'s crash to
   every type's name and arity, with the proposed fix (built-in types declared in
   `system.cdy`).
+- 2026-10-26, Claude Code: fixed on `name-checks` (step 2): every type's name and arity is checked,
+  [[types.exist]]; the repros are its error rows.

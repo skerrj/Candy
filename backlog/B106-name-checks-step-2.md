@@ -1,7 +1,7 @@
 # B106: name-checks step 2: built-in types
 
 kind: task
-state: open
+state: review
 priority: normal
 found: name-checks, 2026-10-26
 fixed:

@@ -350,6 +350,8 @@ def test_py_reserved_is_this_python(t1: ModuleType) -> None:
 def test_py_imports_cover_the_spellings(t1: ModuleType) -> None:
     modules = set(t1.emit__PY_IMPORTS)
     for entry in SPELLINGS.values():
+        if entry.kind == "type":  # a type's text is a template (tuple[{}, ...])
+            continue
         head = entry.py.split("(", 1)[0]
         if "." in head:
             assert head.rsplit(".", 1)[0] in modules, entry.py
@@ -397,7 +399,19 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         ),
         ("system.cdy", ("", "(sig + (Fn (Int Int) Int))\n"), "system.cdy: + is already declared"),
         ("system.cdy", ("", "(sig len (Fn (Any) Int))\n"), "system.cdy: len is already declared"),
-        ("system.cdy", ("", "(def x 1)\n"), "system.cdy: expected (sig name Type)"),
+        ("system.cdy", ("", "(def x 1)\n"), "system.cdy: expected (sig name Type) or (deft Name)"),
+        (
+            "system.cdy",
+            ("(deft Bool)\n", ""),
+            "spelling.py: Bool is declared in neither special.cdy nor system.cdy",
+        ),
+        ("system.cdy", ("", "(deft Nope)\n"), "system.cdy: Nope has no Python type in spelling.py"),
+        ("system.cdy", ("", "(deft (List a))\n"), "system.cdy: List is already declared"),
+        (
+            "system.cdy",
+            ("", "(deft (Pair A))\n"),
+            "system.cdy: expected (deft Name) or (deft (Name",
+        ),
         (
             "special.cdy",
             ("(op not unary)\n", ""),

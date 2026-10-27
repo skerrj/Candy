@@ -46,13 +46,30 @@ function can be generic:
 3 three
 ```
 
+<a id="types.exist"></a>
+Every type a program writes must exist, with as many arguments as it takes: a built-in
+type (declared in `src/cdy/system.cdy`, each as a bodiless `deft`: `(deft (List a))` takes
+one), one the file defines or imports, or `Tup`, which takes any number. A type
+variable needs no declaration.
+
+```candy errors
+(sig x Foo) (def x 1) => unknown type Foo
+(sig x (List)) (def x 1) => List takes 1 type argument(s), got 0
+(sig x (Maybe Int Int)) (def x 1) => Maybe takes 1 type argument(s), got 2
+(sig x (Int String)) (def x 1) => Int takes 0 type argument(s), got 1
+(deft Shape (Circle ((r Double)))) (sig s (Shape Int)) (def s (Circle 1.0)) => Shape takes 0 type argument(s), got 1
+(deft (Box a) ((item a))) (sig b Box) (def b (Box 1)) => Box takes 1 type argument(s), got 0
+(deft P ((x Foo))) => unknown type Foo
+```
+
 <a id="types.checking"></a>
 **Types are checked by mypy, not by the translator** (*for now*: Candy has no type checker
 yet, [[B15]]). The translator turns each type into a
 Python annotation, and `mypy --strict` checks the translation: the spec runner checks
-every `candy run` example that way. So a type error, an unknown type name, or a value
-used as a function, translates, and only mypy or the run rejects it. The translator
-checks a type's shape where it needs it (a function type for `defn`, below). *Tested in*
+every `candy run` example that way. So a type error, or a value used as a function,
+translates, and only mypy or the run rejects it. The translator checks that each type
+exists, with its number of arguments ([[types.exist]]), and a type's shape where it needs
+it (a function type for `defn`, below). *Tested in*
 `tst/py_cdy/test_spec.py`'s `test_mypy_strict`, which runs on every example.
 
 <a id="types.sig"></a>

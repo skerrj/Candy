@@ -113,6 +113,29 @@ working (one rebuild, `boot/NN`); then `system.cdy` (and `bin/py/system.cdy`) ge
    - **`emit.cdy`:** `emit-tcon` spells a type with a `type` entry from it, `{}` standing
      for the arguments, and falls back on its own `cond` for the rest.
    - Nothing is declared yet, so the output is the same.
+
+   The second (`boot/36`):
+   - **`system.cdy`:** 13 bodiless `deft`s, `Int` to `(Map k v)`; **`spelling.py`:** a
+     `type` kind and a `TYPES` group (`"List": type_("tuple[{}, ...]")`). `emit-tcon`'s
+     `cond` keeps only `Tup` and a program's own types. The new `system.cdy` was copied
+     into `bin/py/` before the rebuild, so the translator before (`boot/35`) read it.
+   - **`core.cdy`:** `check-type`, on every `sig` and every field of a `deft`: a type is
+     `Tup` (any number), the file's own or imported (`Exports` and `Scope` gain `types`,
+     each type's number of type variables, from `type-arities`), or built in; else
+     `unknown type Foo`, and a count that doesn't match is `List takes 1 type argument(s),
+     got 0`.
+   - **[[B53]] fell out of it:** a type that another module defines, unimported, says so,
+     as a value does (`Pt is not defined here; a defines it, but this file doesn't import
+     a`), so it is done too, though it was a non-goal.
+   - **The spec:** `[[types.exist]]` in `spec/20-types.md`, seven error rows (B2's two
+     repros among them); `[[types.checking]]` no longer says an unknown type translates.
+     (Not `types.names`, the id `types.table` had before the tracking review.)
+   - **Tests:** four `test_library_errors` rows (a missing, unspelt, duplicate or
+     malformed type declaration); `test_py_imports_cover_the_spellings` skips type
+     entries, which are templates.
+   - **Not checked:** the types in `system.cdy`'s own `sig`s, read before the program.
+   - **Bootstrap:** `bin` changes by about 1,000 lines, mostly renumbered temporaries
+     (`_cdy_tN`, one counter across the translator).
 3. **Docs:** CLAUDE.md ("The built-ins"), `symbol_table.md`'s pointer, the spec.
 
 ## Questions (answered: the proposals, 2026-10-26)

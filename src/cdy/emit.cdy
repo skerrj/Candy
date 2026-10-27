@@ -411,22 +411,13 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     (emit-types (rest types) env (+ acc (to-list (emit-type (at types 0) env))))))
 
 ;; A built-in type's spelling.py entry (kind "type") is its Python text, with `{}` for its
-;; arguments.
+;; arguments; `Tup` isn't declared (system.cdy), and a program's own type is its name.
 (sig emit-tcon (Fn (String (List String) (Map String (Tup String String))) String))
 (defn emit-tcon (name args spellings)
   (cond
     ((and (map-has spellings name) (= (at (map-get spellings name) 1) "type"))
       (replace (at (map-get spellings name) 0) "{}" (comma-join args)))
-    ((in name (tup "Int" "Long" "Byte")) "int")
-    ((in name (tup "Float" "Double")) "float")
-    ((= name "Bool") "bool")
-    ((in name (tup "Char" "String")) "str")
-    ((= name "Unit") "None")
-    ((= name "Any") "_cdy_Any")
-    ((= name "Maybe") (format "{(at args 0)} | None"))
-    ((= name "List") (format "tuple[{(at args 0)}, ...]"))
     ((= name "Tup") (format "tuple[{(comma-join args)}]"))
-    ((= name "Map") (format "_cdy_Mapping[{(comma-join args)}]"))
     ((= (len args) 0) (py-mangle name))
     (else (format "{(py-mangle name)}[{(comma-join args)}]"))))
 

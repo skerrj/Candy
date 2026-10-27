@@ -1,7 +1,10 @@
 ;;; System: the built-ins, declared (doc/hl_rqmt/system_prelude.md). Each bodiless sig
 ;;; gives a built-in its Candy type; the target's runtime provides it, and src/cdy_rt/spelling.py
 ;;; says how Python spells it. The translator checks the two against each other, and a
-;;; built-in's arity is its type's. Only here may a sig have no definition.
+;;; built-in's arity is its type's. Only here may a sig have no definition. Each bodiless
+;;; deft declares a built-in type, whose type variables say how many arguments it takes
+;;; (doc/hl_rqmt/name_checks.md); `Fn` and `Tup` aren't here, since a type can't say "any
+;;; number" yet (backlog [[B99]]).
 ;;;
 ;;; Not here: the special forms, and the operators (+, =, and, not, ...), which take two or
 ;;; more arguments (or one); special.cdy declares those. `Any` marks a type Candy can't write yet: built-ins
@@ -9,6 +12,21 @@
 ;;; later), or return Python objects with no Candy type. Each is a leak (backlog [[B48]],
 ;;; [[B34]], [[B49]]).
 ;;; This file is read as it is, so it can't use macros.
+
+;; --- types ---
+(deft Int)
+(deft Long)
+(deft Byte)
+(deft Float)
+(deft Double)
+(deft Bool)
+(deft Char)
+(deft String)
+(deft Unit)
+(deft Any)
+(deft (Maybe a))
+(deft (List a))
+(deft (Map k v))
 
 ;; --- math ---
 (sig PI Double)
