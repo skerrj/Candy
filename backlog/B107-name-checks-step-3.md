@@ -1,7 +1,7 @@
 # B107: name-checks step 3: docs
 
 kind: task
-state: open
+state: review
 priority: normal
 found: name-checks, 2026-10-26
 fixed:

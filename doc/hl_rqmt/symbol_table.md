@@ -54,7 +54,9 @@ A name is looked up in three places, and the built-ins are described in two file
 
 ### Built-ins described twice
 
-- `system.cdy`: each built-in's **Candy type** (a bodiless `sig`), which gives its arity;
+- `system.cdy`: each built-in's **Candy type** (a bodiless `sig`), which gives its arity
+  (and, since `name-checks`, the built-in types, as bodiless `deft`s:
+  `doc/hl_rqmt/name_checks.md`);
 - `table.py`: its **Python spelling and kind**;
 - **kept in step** only by the check both ways (`system-sigs`: `built-in x has no sig in
   system.cdy`, `system.cdy: x has no Python mapping in table.py`).

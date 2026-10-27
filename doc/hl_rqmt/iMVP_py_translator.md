@@ -518,7 +518,8 @@ Modules: `core_cdy.py` (nodes and `analyse`) and `lower_cdy.py` (IR nodes and `l
 
 - Types from `sig` and `deft` are `TCon`, `TVar` and `TFn` (the union is `CdyType`).
   `BUILTIN_TYPES` lists the built-in type names with their argument counts; `deft` adds
-  its own. Unknown type names and wrong argument counts are errors.
+  its own. Unknown type names and wrong argument counts are errors. (The Candy
+  translator lost this check, and got it back on `name-checks`: [[types.exist]].)
 - Name resolution: a local first, then a top-level name defined anywhere in the file (so
   forward references and recursion work), then the `cdy_rt` table. An unknown name is an
   error. Special-form names can't be bound (as parameters, `let` names or definitions).

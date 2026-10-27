@@ -138,6 +138,12 @@ working (one rebuild, `boot/NN`); then `system.cdy` (and `bin/py/system.cdy`) ge
      (`_cdy_tN`, one counter across the translator).
 3. **Docs:** CLAUDE.md ("The built-ins"), `symbol_table.md`'s pointer, the spec.
 
+   *Done.* As built: CLAUDE.md (the built-in types in "The built-ins", the clash rule under
+   modules, the type check beside mypy's, the branch in "History"); pointers in
+   `symbol_table.md`, `multi_target.md` and the iMVP doc (whose Python translator had the
+   type check, which the Candy translator lost until now). The spec changed with steps 1
+   and 2.
+
 ## Questions (answered: the proposals, 2026-10-26)
 
 1. **A clash: reject, or mangle so names can't collide?** Mangling injectively (`-` to

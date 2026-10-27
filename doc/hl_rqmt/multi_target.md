@@ -80,7 +80,9 @@ Core refers to built-ins by Candy name (`Prim("+")`), so it never sees a target'
 
 Later, the target-neutral half becomes Candy code. `system.cdy` (and the files it imports)
 declares each built-in with a bodiless `sig`, the way Carp's `register` does, and
-`prelude.cdy` defines more on top of it.
+`prelude.cdy` defines more on top of it. (Since `name-checks`, it declares the built-in
+types too, as bodiless `deft`s, each target spelling them in its own spellings:
+`doc/hl_rqmt/name_checks.md`.)
 
 *Started on branch `system-prelude`* (`doc/hl_rqmt/system_prelude.md`):
 - `src/cdy/system.cdy` holds the Candy type of every built-in but the special forms and
