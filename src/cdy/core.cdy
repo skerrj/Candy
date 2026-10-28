@@ -1243,18 +1243,24 @@
 (sig top-deft (Fn ((List Form) Scope Prog) Prog))
 (defn top-deft (items scope prog)
   (let ((name (if (> (len items) 1) (deft-name (at items 1)) ""))
-        (tvars (if (> (len items) 1) (syms (rest (list-items (at items 1))) empty-list) empty-list))
+        (tvar-forms (if (> (len items) 1) (rest (list-items (at items 1))) empty-list))
+        (tvars (syms tvar-forms empty-list))
+        (dup (repeated tvar-forms empty-list 0))
         (body (slice items 2 (len items)))
         (field-forms (if (= (len items) 3) (list-items (at items 2)) empty-list)))
     (cond
       ((= name "") (fail (located scope "deft: expected (deft Name ((field Type)+)) or (deft Name variant+)")))
+      ((>= dup 0)
+        (fail
+          (+ (pos-text (form-pos (at tvar-forms dup)))
+             (format "deft {name}: type variables must be different ({(at tvars dup)})"))))
       ((is-sum-body body)
-        (let ((variants (deft-variants body empty-list))
+        (let ((variants (deft-variants name body empty-list))
               (checked (check-variants variants scope)))
           (add-top prog (TDeftSum name tvars variants) (get prog n))))
       ((= (len field-forms) 0) (fail (located scope "deft: expected (deft Name ((field Type)+))")))
       (else
-        (let ((fields (deft-fields field-forms empty-list))
+        (let ((fields (deft-fields (format "deft {name}") field-forms empty-list))
               (checked (check-fields fields scope)))
           (add-top prog (TDeft name tvars fields) (get prog n)))))))
 
@@ -1273,19 +1279,22 @@
     ((check-fields (get (at variants 0) fields) scope) (check-variants (rest variants) scope))
     (else false)))
 
-(sig deft-variants (Fn ((List Form) (List Variant)) (List Variant)))
-(defn deft-variants (body acc)
+(sig deft-variants (Fn (String (List Form) (List Variant)) (List Variant)))
+(defn deft-variants (sum body acc)
   (if (= (len body) 0)
     acc
     (let ((v-items (list-items (at body 0)))
           (name (sym-name (at v-items 0))))
       (cond
         ((not (is-upper name)) (fail (+ (pos-text (form-pos (at body 0))) (format "deft: variant names are Capitalised, not {name}"))))
-        ((= (len v-items) 1) (deft-variants (rest body) (+ acc (to-list (Variant name empty-list)))))
+        ((= (len v-items) 1) (deft-variants sum (rest body) (+ acc (to-list (Variant name empty-list)))))
         ((and (= (len v-items) 2) (> (len (list-items (at v-items 1))) 0))
           (deft-variants
+            sum
             (rest body)
-            (+ acc (to-list (Variant name (deft-fields (list-items (at v-items 1)) empty-list))))))
+            (+ acc
+               (to-list
+                 (Variant name (deft-fields (format "deft {sum}, variant {name}") (list-items (at v-items 1)) empty-list))))))
         (else (fail (+ (pos-text (form-pos (at body 0))) "deft: variant must be (Name) or (Name ((field Type)+))")))))))
 
 (sig is-upper (Fn (String) Bool))
@@ -1296,16 +1305,37 @@
 (defn syms (forms acc)
   (if (= (len forms) 0) acc (syms (rest forms) (+ acc (to-list (sym-name (at forms 0)))))))
 
-(sig deft-fields (Fn ((List Form) (List (Tup String CType))) (List (Tup String CType))))
-(defn deft-fields (forms acc)
+;; The fields of `owner` ("deft V", or "deft S, variant A", for its errors).
+(sig deft-fields (Fn (String (List Form) (List (Tup String CType))) (List (Tup String CType))))
+(defn deft-fields (owner forms acc)
   (if (= (len forms) 0)
     acc
     (let ((items (list-items (at forms 0))))
-      (if (or (!= (len items) 2) (= (sym-name (at items 0)) ""))
-        (fail (+ (pos-text (form-pos (at forms 0))) "deft: field must be (name Type)"))
-        (deft-fields
+      (cond
+        ((or (!= (len items) 2) (= (sym-name (at items 0)) ""))
+          (fail (+ (pos-text (form-pos (at forms 0))) "deft: field must be (name Type)")))
+        ((has-field (sym-name (at items 0)) acc)
+          (fail (+ (pos-text (form-pos (at forms 0))) (format "{owner}: field names must be different ({(sym-name (at items 0))})"))))
+        (else (deft-fields
+          owner
           (rest forms)
-          (+ acc (to-list (tup (sym-name (at items 0)) (analyse-type (at items 1))))))))))
+          (+ acc (to-list (tup (sym-name (at items 0)) (analyse-type (at items 1)))))))))))
+
+;; Whether `fields` has one named `name`.
+(sig has-field (Fn (String (List (Tup String CType))) Bool))
+(defn has-field (name fields)
+  (cond
+    ((= (len fields) 0) false)
+    ((= (at (at fields 0) 0) name) true)
+    (else (has-field name (rest fields)))))
+
+;; The index of the first of `forms` (from `i`) whose name one before it has, or -1.
+(sig repeated (Fn ((List Form) (List String) Int) Int))
+(defn repeated (forms seen i)
+  (cond
+    ((= i (len forms)) -1)
+    ((contains (sym-name (at forms i)) seen) i)
+    (else (repeated forms (+ seen (to-list (sym-name (at forms i)))) (+ i 1)))))
 
 (sig needs-sig (Fn (String Prog Scope) CType))
 (defn needs-sig (name prog scope)

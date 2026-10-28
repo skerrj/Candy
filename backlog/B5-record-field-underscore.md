@@ -1,10 +1,10 @@
 # B5: A record field `_x` translates, and fails at run time
 
 kind: defect
-state: open
+state: done
 priority: normal
 found: py-py-translator, 2026-10-17
-fixed:
+fixed: field-checks
 where: `src/cdy/core.cdy`
 refs: [[types.records]]
 
@@ -14,14 +14,9 @@ iMVP's leak list says such a field "can't" be written, but nothing rejects it. F
 it in `core.cdy` (or mangle field names). From `doc/archive/leaks_imvp_py_translator.md`;
 the audit's defect 4 (`doc/hl_rqmt/tracking.md`).
 
-## Repro
+## Notes
 
-The translator should fail:
-
-```candy error
-(deft V ((_x Int)))
-(put 1)
-```
-```expect-error
-_x
-```
+- 2026-10-27, field-checks step 2: an error at translation (`check-py-fields` in
+  `emit.cdy`), rejected rather than mangled (the HLD's Question 1); the limit itself is a
+  leak, [[B113]]. The repro is now this row of `[[types.records]]`: `(deft V ((_x Int)))
+  => deft V: field _x can't start with _ in Python (_x)`.

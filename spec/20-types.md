@@ -120,7 +120,10 @@ A top-level function can call one defined after it, but a value is only there on
 A record is a `deft` with one field list: each field a name and its type. The type's
 name is also its constructor, taking the fields in order. `get` reads a field, and
 `assoc` makes a copy with fields replaced, written as flat `field value` pairs; neither
-evaluates the field's name. A record is immutable (*for now*:
+evaluates the field's name. A record's (or a variant's) fields have different names, and
+so do a type's type variables (*lasting*). Two fields can't be one name in Python (`a-b`
+and `a_b`, as for top-level names, `[[syntax.python-names]]`), and a field can't start
+with `_` in Python (`_x`, `-x`; *for now*: [[B113]]). A record is immutable (*for now*:
 `doc/hl_rqmt/mutation_optimization.md`). A record can be generic.
 
 ```candy run
@@ -146,6 +149,12 @@ boxed
 (deft V) => deft: expected (deft Name ((field Type)+))
 (deft V ((x))) => deft: field must be (name Type)
 (deft V ((x Int))) (deft V ((y Int))) => defined more than once: V
+(deft V ((x Int) (x Int))) => deft V: field names must be different (x)
+(deft S (A ((x Int) (y Int) (x Int))) (B)) => deft S, variant A: field names must be different (x)
+(deft (P a a) ((x a))) => deft P: type variables must be different (a)
+(deft V ((a-b Int) (a_b Int))) => deft V: fields a-b and a_b are one name in Python (a_b)
+(deft V ((_x Int))) => deft V: field _x can't start with _ in Python (_x)
+(deft S (A) (B ((-x Int)))) => deft S, variant B: field -x can't start with _ in Python (_x)
 (put (get 1)) => expected (get obj field)
 (put (assoc 1 x)) => expected (assoc obj field value
 (put (assoc 1 x 2 y)) => expected (assoc obj field value
