@@ -98,7 +98,6 @@ By kind, then priority.
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B80](B80-def-mutability.md) | Decide whether a `def` is a constant or a variable | task | open | normal |
-| [B111](B111-field-checks-step-3.md) | field-checks step 3: docs | task | review | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -197,4 +196,5 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B107](B107-name-checks-step-3.md) | name-checks step 3: docs | task | done | normal |
 | [B109](B109-field-checks-step-1.md) | field-checks step 1: repeated names | task | done | normal |
 | [B110](B110-field-checks-step-2.md) | field-checks step 2: Python names | task | done | normal |
+| [B111](B111-field-checks-step-3.md) | field-checks step 3: docs | task | done | normal |
 | [B112](B112-deft-repeated-type-variable.md) | A `deft` with the same type variable twice fails in Python | defect | done | normal |

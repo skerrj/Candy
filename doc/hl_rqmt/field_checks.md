@@ -1,7 +1,10 @@
 # Field checks (HLD)
 
-**Status: accepted (2026-10-27), with the proposed answers to its questions, on branch
-`field-checks`, after tag `name-checks`.**
+**Status: done (2026-10-27), on branch `field-checks` (tag `field-checks`): a `deft` that
+repeats a field or a type variable is an error ([[B6]], [[B112]]), and so is a field
+Python can't spell, two fields that are one Python name or one starting with `_` ([[B5]];
+the limit is the leak [[B113]]). Accepted 2026-10-27, with the proposed answers to its
+questions.** For a branch `field-checks`, after tag `name-checks`.
 [[B6]], the backlog's next small `high` defect, with the checks next to it: the names a
 `deft` declares (its fields, and its type variables) aren't checked against each other,
 or against what Python allows.
