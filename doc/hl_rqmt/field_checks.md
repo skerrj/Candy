@@ -100,6 +100,12 @@ new `leak` item for it (or Question 1's other answer).
 3. **Docs:** CLAUDE.md (the `deft` checks, a History sentence), the iMVP doc's leak list
    if it still names `_x`.
 
+   *Done.* As built: CLAUDE.md (the `deft` checks under "Sum types", the branch in
+   "History"); the iMVP doc, whose Python translator rejected a field starting with `_`
+   (as `CandyError`), notes that the Candy translator lost the check until now. Its leak
+   lists are archived (`doc/archive/`), so they stay as they were. The spec changed with
+   steps 1 and 2.
+
 ## Questions (answered: the proposals, 2026-10-27)
 
 1. **A leading `_`: reject, or mangle field names so Python accepts them?** Mangling

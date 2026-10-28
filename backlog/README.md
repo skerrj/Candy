@@ -100,7 +100,7 @@ By kind, then priority.
 | [B80](B80-def-mutability.md) | Decide whether a `def` is a constant or a variable | task | open | normal |
 | [B109](B109-field-checks-step-1.md) | field-checks step 1: repeated names | task | review | normal |
 | [B110](B110-field-checks-step-2.md) | field-checks step 2: Python names | task | review | normal |
-| [B111](B111-field-checks-step-3.md) | field-checks step 3: docs | task | open | normal |
+| [B111](B111-field-checks-step-3.md) | field-checks step 3: docs | task | review | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea

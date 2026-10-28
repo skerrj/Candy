@@ -1,7 +1,7 @@
 # B111: field-checks step 3: docs
 
 kind: task
-state: open
+state: review
 priority: normal
 found: field-checks, 2026-10-27
 fixed:

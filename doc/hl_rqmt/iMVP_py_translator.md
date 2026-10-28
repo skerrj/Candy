@@ -625,7 +625,9 @@ for the other targets.
 - **Records.** A `deft` becomes `class Name[...](NamedTuple)`. `get` becomes `obj.field`,
   `assoc` becomes `obj._replace(field=...)`.
 - **Errors.** A built-in operator used as a value (`(put +)`) and a record field that
-  would start with `_` (which `NamedTuple` forbids) are `CandyError`s.
+  would start with `_` (which `NamedTuple` forbids) are `CandyError`s. (The Candy
+  translator lost the field check until branch `field-checks`: `check-py-fields` in
+  `emit.cdy`, [[B5]], `doc/hl_rqmt/field_checks.md`.)
 
 A `defn` whose `sig` returns `Unit` is lowered in `effect` mode (in `lower`, not here): its
 body runs for its effect, and there is no `return`. Otherwise Python would get
