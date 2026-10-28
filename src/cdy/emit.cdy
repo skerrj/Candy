@@ -440,10 +440,11 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn emit-stmt (s level env)
   (match s
     ((SRecord name tvars fields)
-      (+ "\n"
-         (line level
-           (format "class {(map-get (get env globals) name)}{(type-params tvars)}(_cdy_NamedTuple):"))
-         (emit-record-fields fields (+ level 1) env "")))
+      (let ((checked (check-py-fields name fields empty-map)))
+        (+ "\n"
+           (line level
+             (format "class {(map-get (get env globals) name)}{(type-params tvars)}(_cdy_NamedTuple):"))
+           (emit-record-fields fields (+ level 1) env ""))))
     ((SSum name tvars variants)
       (+ (emit-variants variants tvars level env "")
          (line level
@@ -522,6 +523,22 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
         env
         (+ acc (line level (format "{(py-mangle f)}: {(emit-type t env)}")))))))
 
+;; Fail unless a record's or variant's fields (`owner`'s) are Python fields: no two are one
+;; Python name, and none starts with `_`, which NamedTuple forbids (for now, a leak: B113).
+;; `seen` maps each Python name so far to its field.
+(sig check-py-fields (Fn (String (List (Tup String CType)) (Map String String)) Bool))
+(defn check-py-fields (owner fields seen)
+  (if (= (len fields) 0)
+    true
+    (let ((f (at (at fields 0) 0))
+          (py (py-mangle f)))
+      (cond
+        ((map-has seen py)
+          (fail (format "{(candy-name owner)}: fields {(map-get seen py)} and {f} are one name in Python ({py})")))
+        ((= (slice py 0 1) "_")
+          (fail (format "{(candy-name owner)}: field {f} can't start with _ in Python ({py})")))
+        (else (check-py-fields owner (rest fields) (map-set seen py f)))))))
+
 ;; --- sums and match ---
 
 ;; The type variables of the sum that a variant's fields use, in the sum's order.
@@ -551,6 +568,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
   (if (= (len variants) 0)
     acc
     (let ((v (at variants 0))
+          (checked (check-py-fields (get v name) (get v fields) empty-map))
           (head (format "class {(map-get (get env globals) (get v name))}{(type-params (variant-tvars v tvars))}(_cdy_NamedTuple):"))
           (body (if (= (len (get v fields)) 0)
                   (line (+ level 1) "pass")

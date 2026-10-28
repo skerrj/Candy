@@ -1,7 +1,7 @@
 # B110: field-checks step 2: Python names
 
 kind: task
-state: open
+state: review
 priority: normal
 found: field-checks, 2026-10-27
 fixed:

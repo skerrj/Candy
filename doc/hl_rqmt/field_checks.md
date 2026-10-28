@@ -82,6 +82,21 @@ new `leak` item for it (or Question 1's other answer).
    - **Bootstrap:** one rebuild.
 2. **Python names:** the clash and leading-`_` checks in `emit.cdy`; [[B5]]'s repro passes
    and moves into the spec; the leak recorded; the tuple-method leak recorded.
+
+   *Done.* As built:
+   - **`emit.cdy`:** `check-py-fields`, before a record's or a variant's class is
+     written: two fields that `py-mangle` makes one name fail, `V: fields a-b and a_b are
+     one name in Python (a_b)` (the first field as written, as `add-globals` does); a field
+     whose Python name starts with `_` fails, `V: field -x can't start with _ in Python
+     (_x)`. It reads the Python name, so `?x` (`_px`) is caught too. The type is named as
+     `candy-name` writes it (`V (from module util)`), since `emit`'s errors have no
+     position. Fields of different variants are different classes, so they don't clash.
+   - **The spec:** `[[types.records]]` says both, the leading `_` *for now*, with three
+     error rows.
+   - **Backlog:** [[B5]] is done; the leading-`_` limit is the leak [[B113]], and a field
+     named like a tuple method (`count`), which fails mypy, is the leak [[B114]] (both
+     `low`, with [[B29]]).
+   - **Bootstrap:** one rebuild.
 3. **Docs:** CLAUDE.md (the `deft` checks, a History sentence), the iMVP doc's leak list
    if it still names `_x`.
 
