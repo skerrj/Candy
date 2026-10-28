@@ -73,30 +73,35 @@ new `leak` item for it (or Question 1's other answer).
 
    *Done.* As built:
    - **`core.cdy`:** `deft-fields` fails on a field whose name an earlier one has
-     (`has-field`), at that field: `deft: field names must be different (x)`, for a
-     record and a variant alike; `top-deft` fails on a repeated type variable
-     (`repeated`), at the `deft`: `deft: type variables must be different (a)`. Neither
-     names the type (the position does), unlike the HLD's `deft V: ...`.
+     (`has-field`), at that field: `deft V: field names must be different (x)`, or `deft
+     S, variant A: ...` in a variant; `top-deft` fails on a repeated type variable
+     (`repeated`), at that variable: `deft P: type variables must be different (a)`.
    - **The spec:** a sentence in `[[types.records]]` (*lasting*) and three error rows; the
      type-variable defect is [[B112]], closed.
    - **Bootstrap:** one rebuild.
+   - **Changed in review:** the messages name the type (`deft V:`, `deft S, variant A:`;
+     they said only `deft:`), and the type-variable error points at the repeated variable,
+     not at the `deft` (a `Sym` has its own position).
 2. **Python names:** the clash and leading-`_` checks in `emit.cdy`; [[B5]]'s repro passes
    and moves into the spec; the leak recorded; the tuple-method leak recorded.
 
    *Done.* As built:
    - **`emit.cdy`:** `check-py-fields`, before a record's or a variant's class is
-     written: two fields that `py-mangle` makes one name fail, `V: fields a-b and a_b are
-     one name in Python (a_b)` (the first field as written, as `add-globals` does); a field
-     whose Python name starts with `_` fails, `V: field -x can't start with _ in Python
-     (_x)`. It reads the Python name, so `?x` (`_px`) is caught too. The type is named as
-     `candy-name` writes it (`V (from module util)`), since `emit`'s errors have no
-     position. Fields of different variants are different classes, so they don't clash.
+     written: two fields that `py-mangle` makes one name fail, `deft V: fields a-b and
+     a_b are one name in Python (a_b)` (the first field as written, as `add-globals`
+     does); a field whose Python name starts with `_` fails, `deft S, variant B: field -x
+     can't start with _ in Python (_x)`. It reads the Python name, so `?x` (`_px`) is
+     caught too. The type is named as `candy-name` writes it (`deft S (from module
+     util), variant B`), since `emit`'s errors have no position ([[B14]]). Fields of
+     different variants are different classes, so they don't clash.
    - **The spec:** `[[types.records]]` says both, the leading `_` *for now*, with three
      error rows.
    - **Backlog:** [[B5]] is done; the leading-`_` limit is the leak [[B113]], and a field
      named like a tuple method (`count`), which fails mypy, is the leak [[B114]] (both
      `low`, with [[B29]]).
    - **Bootstrap:** one rebuild.
+   - **Changed in review:** the messages start `deft V:` and `deft S, variant B:`, as step
+     1's do (they started `V:` and `B:`, the variant without its sum).
 3. **Docs:** CLAUDE.md (the `deft` checks, a History sentence), the iMVP doc's leak list
    if it still names `_x`.
 

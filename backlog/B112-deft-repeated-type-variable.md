@@ -13,5 +13,5 @@ duplicate type parameter 'a'`. Found writing `doc/hl_rqmt/field_checks.md`.
 
 ## Notes
 
-- 2026-10-27, field-checks step 1: an error (`top-deft` in `core.cdy`), `deft: type
-  variables must be different (a)`; a row of `[[types.records]]`.
+- 2026-10-27, field-checks step 1: an error (`top-deft` in `core.cdy`), at the repeated
+  variable, `deft P: type variables must be different (a)`; a row of `[[types.records]]`.

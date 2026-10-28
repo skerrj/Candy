@@ -19,4 +19,4 @@ the audit's defect 4 (`doc/hl_rqmt/tracking.md`).
 - 2026-10-27, field-checks step 2: an error at translation (`check-py-fields` in
   `emit.cdy`), rejected rather than mangled (the HLD's Question 1); the limit itself is a
   leak, [[B113]]. The repro is now this row of `[[types.records]]`: `(deft V ((_x Int)))
-  => V: field _x can't start with _ in Python (_x)`.
+  => deft V: field _x can't start with _ in Python (_x)`.

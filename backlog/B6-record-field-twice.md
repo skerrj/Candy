@@ -18,5 +18,5 @@ the audit's defect 5 (`doc/hl_rqmt/tracking.md`).
 - 2026-10-26, the owner: `high` in triage ([[B103]]): silent wrong output.
 - 2026-10-27, field-checks step 1: a repeated field is an error (`deft-fields` in
   `core.cdy`), in a record or a variant. The repro is now this row of
-  `[[types.records]]`: `(deft V ((x Int) (x Int))) => deft: field names must be different
-  (x)`.
+  `[[types.records]]`: `(deft V ((x Int) (x Int))) => deft V: field names must be
+  different (x)`.
