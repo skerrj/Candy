@@ -120,7 +120,8 @@ A top-level function can call one defined after it, but a value is only there on
 A record is a `deft` with one field list: each field a name and its type. The type's
 name is also its constructor, taking the fields in order. `get` reads a field, and
 `assoc` makes a copy with fields replaced, written as flat `field value` pairs; neither
-evaluates the field's name. A record is immutable (*for now*:
+evaluates the field's name. A record's (or a variant's) fields have different names, and
+so do a type's type variables (*lasting*). A record is immutable (*for now*:
 `doc/hl_rqmt/mutation_optimization.md`). A record can be generic.
 
 ```candy run
@@ -146,6 +147,9 @@ boxed
 (deft V) => deft: expected (deft Name ((field Type)+))
 (deft V ((x))) => deft: field must be (name Type)
 (deft V ((x Int))) (deft V ((y Int))) => defined more than once: V
+(deft V ((x Int) (x Int))) => deft: field names must be different (x)
+(deft S (A ((x Int) (y Int) (x Int))) (B)) => deft: field names must be different (x)
+(deft (P a a) ((x a))) => deft: type variables must be different (a)
 (put (get 1)) => expected (get obj field)
 (put (assoc 1 x)) => expected (assoc obj field value
 (put (assoc 1 x 2 y)) => expected (assoc obj field value

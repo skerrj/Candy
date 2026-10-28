@@ -2000,6 +2000,8 @@ def core__top_deft(items: tuple[form__Form, ...], scope: core__Scope, prog: core
     field_forms = (form__list_items(items[2]) if (len(items) == 3) else ())
     if (name == ''):
         return cdy_rt.primitives.fail(core__located(scope, 'deft: expected (deft Name ((field Type)+)) or (deft Name variant+)'))
+    elif (core__repeated(tvars, ()) != ''):
+        return cdy_rt.primitives.fail(core__located(scope, ('deft: type variables must be different (' + str(core__repeated(tvars, ())) + ')')))
     elif core__is_sum_body(body):
         variants = core__deft_variants(body, ())
         checked = core__check_variants(variants, scope)
@@ -2068,9 +2070,31 @@ def core__deft_fields(forms: tuple[form__Form, ...], acc: tuple[tuple[str, core_
             items = form__list_items(forms[0])
             if ((len(items) != 2) or (form__sym_name(items[0]) == '')):
                 return cdy_rt.primitives.fail((form__pos_text(form__form_pos(forms[0])) + 'deft: field must be (name Type)'))
+            elif core__has_field(form__sym_name(items[0]), acc):
+                return cdy_rt.primitives.fail((form__pos_text(form__form_pos(forms[0])) + ('deft: field names must be different (' + str(form__sym_name(items[0])) + ')')))
             else:
                 forms, acc = (prelude__rest(forms), (acc + cdy_rt.primitives.to_list((form__sym_name(items[0]), core__analyse_type(items[1])))))
                 continue
+
+def core__has_field(name: str, fields: tuple[tuple[str, core__CType], ...]) -> bool:
+    while True:
+        if (len(fields) == 0):
+            return False
+        elif (fields[0][0] == name):
+            return True
+        else:
+            fields = prelude__rest(fields)
+            continue
+
+def core__repeated(names: tuple[str, ...], seen: tuple[str, ...]) -> str:
+    while True:
+        if (len(names) == 0):
+            return ''
+        elif cdy_rt.primitives.list_contains(names[0], seen):
+            return names[0]
+        else:
+            names, seen = (prelude__rest(names), (seen + cdy_rt.primitives.to_list(names[0])))
+            continue
 
 def core__needs_sig(name: str, prog: core__Prog, scope: core__Scope) -> core__CType:
     if cdy_rt.primitives.map_has(prog.sigs, name):
@@ -2100,9 +2124,9 @@ def core__top_defn(items: tuple[form__Form, ...], scope: core__Scope, prog: core
         params = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_603 = core__analyse_expr(items[3], inner, n1)
-        body = _cdy__tup_603[0]
-        n2 = _cdy__tup_603[1]
+        _cdy__tup_607 = core__analyse_expr(items[3], inner, n1)
+        body = _cdy__tup_607[0]
+        n2 = _cdy__tup_607[1]
         if (len(params) == 0):
             return cdy_rt.primitives.fail(core__located(scope, ('defn ' + str(name) + ': at least one argument is needed')))
         elif (len(params) != core__fn_arity(t)):
@@ -2154,8 +2178,8 @@ def core__is_main(top: core__Top) -> bool:
         else:
             return cdy_rt.primitives.fail('main must be typed (Fn ((List String)) Int)')
     elif isinstance(_cdy_t47, core__TDef):
-        _cdy_name_618 = _cdy_t47.name
-        if (_cdy_name_618 == 'main'):
+        _cdy_name_622 = _cdy_t47.name
+        if (_cdy_name_622 == 'main'):
             return cdy_rt.primitives.fail('main must be a defn')
         else:
             return False

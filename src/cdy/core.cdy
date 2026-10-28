@@ -1248,6 +1248,8 @@
         (field-forms (if (= (len items) 3) (list-items (at items 2)) empty-list)))
     (cond
       ((= name "") (fail (located scope "deft: expected (deft Name ((field Type)+)) or (deft Name variant+)")))
+      ((!= (repeated tvars empty-list) "")
+        (fail (located scope (format "deft: type variables must be different ({(repeated tvars empty-list)})"))))
       ((is-sum-body body)
         (let ((variants (deft-variants body empty-list))
               (checked (check-variants variants scope)))
@@ -1301,11 +1303,30 @@
   (if (= (len forms) 0)
     acc
     (let ((items (list-items (at forms 0))))
-      (if (or (!= (len items) 2) (= (sym-name (at items 0)) ""))
-        (fail (+ (pos-text (form-pos (at forms 0))) "deft: field must be (name Type)"))
-        (deft-fields
+      (cond
+        ((or (!= (len items) 2) (= (sym-name (at items 0)) ""))
+          (fail (+ (pos-text (form-pos (at forms 0))) "deft: field must be (name Type)")))
+        ((has-field (sym-name (at items 0)) acc)
+          (fail (+ (pos-text (form-pos (at forms 0))) (format "deft: field names must be different ({(sym-name (at items 0))})"))))
+        (else (deft-fields
           (rest forms)
-          (+ acc (to-list (tup (sym-name (at items 0)) (analyse-type (at items 1))))))))))
+          (+ acc (to-list (tup (sym-name (at items 0)) (analyse-type (at items 1)))))))))))
+
+;; Whether `fields` has one named `name`.
+(sig has-field (Fn (String (List (Tup String CType))) Bool))
+(defn has-field (name fields)
+  (cond
+    ((= (len fields) 0) false)
+    ((= (at (at fields 0) 0) name) true)
+    (else (has-field name (rest fields)))))
+
+;; The first of `names` that one before it repeats, or "".
+(sig repeated (Fn ((List String) (List String)) String))
+(defn repeated (names seen)
+  (cond
+    ((= (len names) 0) "")
+    ((contains (at names 0) seen) (at names 0))
+    (else (repeated (rest names) (+ seen (to-list (at names 0)))))))
 
 (sig needs-sig (Fn (String Prog Scope) CType))
 (defn needs-sig (name prog scope)

@@ -70,6 +70,16 @@ new `leak` item for it (or Question 1's other answer).
 1. **Repeated names:** the field and type-variable checks in `top-deft`; [[B6]]'s repro
    passes and moves into `spec/20-types.md` (`[[types.records]]`), with a variant row and a
    type-variable row; the type-variable defect recorded as an item and closed.
+
+   *Done.* As built:
+   - **`core.cdy`:** `deft-fields` fails on a field whose name an earlier one has
+     (`has-field`), at that field: `deft: field names must be different (x)`, for a
+     record and a variant alike; `top-deft` fails on a repeated type variable
+     (`repeated`), at the `deft`: `deft: type variables must be different (a)`. Neither
+     names the type (the position does), unlike the HLD's `deft V: ...`.
+   - **The spec:** a sentence in `[[types.records]]` (*lasting*) and three error rows; the
+     type-variable defect is [[B112]], closed.
+   - **Bootstrap:** one rebuild.
 2. **Python names:** the clash and leading-`_` checks in `emit.cdy`; [[B5]]'s repro passes
    and moves into the spec; the leak recorded; the tuple-method leak recorded.
 3. **Docs:** CLAUDE.md (the `deft` checks, a History sentence), the iMVP doc's leak list
