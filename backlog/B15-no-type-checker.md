@@ -1,7 +1,7 @@
 # B15: Types are checked by mypy, not by Candy
 
 kind: leak
-state: open
+state: in-progress
 priority: high
 found: py-py-translator, 2026-10-15
 fixed:

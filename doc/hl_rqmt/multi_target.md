@@ -142,6 +142,21 @@ None of this is designed yet. Questions to answer:
    `lower`). This is about what its *runtime library* provides. The two may end up in one
    target description.
 
+### Open: showing values
+
+`put`, `print` and `format` show a value with the target's own printing (Python's
+`str()`: `True`, `None`, `(1, 2)`), so the spec's `expect` blocks avoid printing a
+`Bool`, a list or `nil`, and a second target would print them differently again
+([[B36]]). The same goes for the host, where macros run (`doc/hl_rqmt/macros.md`, "Terms:
+host and target"). A `show` in Candy's syntax (`true`, `nil`, `(1 2 3)`) would make the
+output Candy's on every target and host. Two ways to know what it shows:
+
+- **At run time**, with primitives that test a value's type (`is-str`, `is-coll`): a set
+  every target and host must supply, and not enough on Python, where a `Char` and a
+  `String` are both `str`, an `Int` and a `Byte` both `int`.
+- **From the static type**, the translator choosing a `show` per type: portable and
+  exact, but it needs Candy's own type checker ([[B15]]).
+
 ### Modules and output units
 
 A **Candy module** (a file, `doc/hl_rqmt/modules.md`) is a namespace: what it defines,
