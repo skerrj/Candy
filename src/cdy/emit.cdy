@@ -367,7 +367,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn emit-lit (form)
   (match form
     ((Txt v) (py-str v))
-    ((CharLit v) (py-str v))
+    ((CharLit v) (py-str (format "{v}")))
     ((IntLit v) (format "{v}"))
     ((LongLit v) (format "{v}"))
     ((ByteLit v) (format "{v}"))

@@ -13,6 +13,7 @@
 (import expand)
 (import lower)
 (import emit)
+(import check)
 
 ;; --- the whole translator: forms in, Python source out ---
 
@@ -25,12 +26,22 @@
 ;; their definitions are lowered and emitted together. `parse` reads the forms in `format`
 ;; holes: read-forms (see translate-text).
 (sig translate-modules (Fn ((List Module) (Fn (String) (List Form))) String))
-(defn translate-modules (modules parse)
+(defn translate-modules (modules parse) (python-of (program-tops modules parse (library-builtins nil))))
+
+;; The definitions of the program `modules`, analysed (see translate-modules).
+(sig program-tops (Fn ((List Module) (Fn (String) (List Form)) (Map String Builtin)) (List Top)))
+(defn program-tops (modules parse builtins)
   (let ((ready (expand-modules modules (- (len modules) 1) empty-list))
         (by-key (exports-by-key ready empty-map))
-        (elsewhere (elsewhere-names (exports-of ready empty-list) empty-map))
-        (builtins (library-builtins nil)))
-    (python-of (analyse-modules ready by-key elsewhere builtins parse empty-list))))
+        (elsewhere (elsewhere-names (exports-of ready empty-list) empty-map)))
+    (analyse-modules ready by-key elsewhere builtins parse empty-list)))
+
+;; What the type checker (check.cdy) reports on the Candy file at `path`: for now, its
+;; survey (doc/hl_rqmt/type_checker.md, step 1), not yet part of translating.
+(sig type-survey (Fn (String) (List String)))
+(defn type-survey (path)
+  (let ((builtins (library-builtins nil)))
+    (check-program (program-tops (read-modules path) read-forms builtins) builtins)))
 
 ;; Each of `modules` with its macros expanded; `top` is the top module's index.
 (sig expand-modules (Fn ((List Module) Int (List Ready)) (List Ready)))

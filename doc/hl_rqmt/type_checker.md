@@ -165,6 +165,41 @@ first fixes whatever in the translator it rejects.
    translator, the test programs and the spec; what it rejects is sorted into the
    checker's bugs, rules to change here, and real type errors (fixed, or recorded as
    items). Nothing changes for a user yet.
+
+   *Done.* As built:
+   - **`check.cdy`** (about 800 lines): unification over Core's `CType`, a variable the
+     checker makes named `?N` (shown `t1`), a `sig`'s own variables rigid; the
+     substitution, the next N and the messages threaded as `St`. It checks against the
+     expected type where there is one (`check-expr`: an `if`'s branches, a `do`'s last
+     form, a `let`'s body, a `fn` against a function type), and infers otherwise. For now
+     it returns its messages (`check-program`), without positions: each names the
+     definition (`defn f: ...`).
+   - **The survey:** `type-survey` in `cdyc.cdy` checks a file's program
+     (`program-tops`, split out of `translate-modules`, which doesn't call the checker
+     yet). Run over the translator (all 4,000 lines), the test programs and every spec
+     example. Two tests keep its result: `test_the_translator_type_checks`, and
+     `test_programs_type_check` with the two known messages below.
+   - **What it found, the translator:** one real error, which mypy can't see: `emit-lit`
+     passed a `CharLit`'s `Char` to `py-str`, a `String` function (fixed:
+     `(py-str (format "{v}"))`).
+   - **Rules changed:** `+` joins lists too (the translator does it everywhere; the
+     stable spec says only strings, so `[[expr.arithmetic]]` gets it in step 3); a `(Tup
+     t ...)` of one type is accepted as a `(List t)` (*for now*, [[B29]]: there is no
+     list literal, and the translator writes lists with `tup`). Both are in
+     `spec/25-checking.md` (`checking.operators`, the new `checking.tup-lists`).
+   - **Rules confirmed:** checking `fn` arguments last is enough: "the type of p isn't
+     known here" never fires on the translator or the tests (Question 4). No program
+     mixes number types.
+   - **To settle in step 3:** a test program's `(or false nil)` (`tst/cdy/t1/basics.cdy`,
+     truthiness: [[B25]]); `get` on a variant's value (Question 8); the messages' wording
+     (16 of the 31 error rows of `25-checking.md` differ only in it: `if: the test:
+     expected Bool, got Int` for `if: the test is Int, not Bool`, `+ are Int and
+     String` for `+: expected Int, got String`).
+   - **Tried and dropped:** a variant's constructor giving the variant, a type of its
+     own accepted as its sum (as mypy has it). Inside other types it needs variance:
+     `(List SAssign)` where `(List Stmt)` is expected, `(Tup Lst Int)` for `(Tup Form
+     Int)`, 60 places in the translator.
+   - **Bootstrap:** one rebuild (`emit-lit`; the checker is in `bin`, unused).
 2. **Positions in Core:** the `pos` fields, set by `analyse`, matched through `lower` and
    `emit`; no output changes.
 3. **The checker on:** its errors fail translation, with positions; the spec's
@@ -213,3 +248,19 @@ first fixes whatever in the translator it rejects.
    too. **Proposed: one branch**, with the survey first, so the checker's design meets
    the translator's code before anything else is built on it.
    *Answered:* the proposal.
+
+### From the survey (answered: the proposal, 2026-10-29)
+
+8. **`get` on a variant's value.** A constructor gives the sum, so `(get (Rect 4 5) h)`
+   is `get` on a `Shape`, and not every variant has an `h`: rejected, though
+   `30-match.md` shows it ("A variant's fields are named, as a record's are, so `get`
+   reads one") and `tst/cdy/sums.cdy` does it. The options:
+   - **A.** `get` on a sum needs a field every variant has, with one type; the example
+     and the test change to read a field inside `match` (*lasting*: a sum's value is one
+     of its variants, unknown until matched).
+   - **B.** A variant is its own type, accepted as its sum, as in mypy: needs variance
+     inside lists and tuples (the survey's 60 places), a larger checker.
+   - **C.** A for now, B later with real subtyping (a backlog item).
+   **Proposed: A** (*lasting*); `match` is how a sum is taken apart.
+   *Answered:* A (*lasting*); the example and the test change in step 3, when the
+   checker is on.

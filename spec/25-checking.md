@@ -112,16 +112,18 @@ branches have one type, the `if`'s. With no `else`, an `if` whose `then` is a `t
 ## Operators
 
 The operators have fixed rules (Candy has no overloading). `+` takes arguments of one
-type, a number type or `String`; `-`, `*` and `quot` one number type; `/` numbers of one
-type, and gives a `Double`. The comparisons take arguments of one type and give a
+type, a number type, `String` or a list (`+` joins lists, as it joins strings); `-`, `*`
+and `quot` one number type; `/` numbers of one type, and gives a `Double`. The comparisons take arguments of one type and give a
 `Bool`; `and`, `or` and `not` take `Bool`s. The number types don't mix: `(+ 1 1.0)` is
 an error.
 
 ```candy run
 (put (+ 1 2) (+ "a" "b") (/ 7 2) (if (< 1 2 3) "yes" "no"))
+(put (len (+ (to-list 1) (to-list 2) (to-list 3))))
 ```
 ```expect
 3 ab 3.5 yes
+3
 ```
 
 ```candy errors
@@ -131,6 +133,26 @@ an error.
 (put (< 1 "a")) => <: expected Int, got String
 (put (and 1 true)) => and: expected Bool, got Int
 (put (not "a")) => not: expected Bool, got String
+```
+
+<a id="checking.tup-lists"></a>
+## Tuples as lists
+
+A `(Tup t ...)` whose items are all `t`s is accepted where a `(List t)` is expected, so
+`tup` writes a list (*for now*: Candy has no list literal, and a tuple is a list in
+Python, [[B29]]).
+
+```candy run
+(sig names (List String))
+(def names (tup "ann" "bo"))
+(put (len names) (join names ","))
+```
+```expect
+2 ann,bo
+```
+
+```candy errors
+(sig xs (List Int)) (def xs (tup 1 "a")) => def xs: expected (List Int), got (Tup Int String)
 ```
 
 <a id="checking.records"></a>

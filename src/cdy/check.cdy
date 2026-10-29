@@ -1,0 +1,791 @@
+;;; Check: Candy's type checker, on Core (doc/hl_rqmt/type_checker.md). Every top-level
+;;; name has its sig, every built-in its type (system.cdy); locals get fresh type
+;;; variables, solved by unification (no let-polymorphism). A type variable the checker
+;;; makes is named ?N; one a sig writes (a) is rigid in its definition and instantiated
+;;; with fresh ones at each use. `Any` unifies with everything.
+;;; For now (the survey, step 1) it reports: check-program returns the messages.
+
+(import form)
+(import core)
+
+;; What the checker knows, read-only while it checks a definition: each global's type,
+;; each record's and variant's type variables and fields, each variant's sum, each sum's
+;; type variables and variants, the built-ins, the definition being checked (for the
+;; messages), and the locals' types, by local-key.
+(deft Ctx
+  ((globals (Map String CType))
+   (shapes (Map String Shape))
+   (sums (Map String Shape))
+   (builtins (Map String Builtin))
+   (where String)
+   (env (Map String CType))))
+
+;; A record's, variant's or sum's type variables, its fields (none for a sum) and, for a
+;; variant, its sum (else "").
+(deft Shape ((tvars (List String)) (fields (List (Tup String CType))) (sum String)))
+
+;; The checker's state, threaded through: the substitution (each ?N's type), the next N,
+;; and the messages so far.
+(deft St ((subst (Map String CType)) (n Int) (errors (List String))))
+
+;; An expression's type, and the state after it.
+(deft Res ((t CType) (st St)))
+
+(sig ANY CType)
+(def ANY (TCon "Any" empty-list))
+
+(sig tcon (Fn (String) CType))
+(defn tcon (name) (TCon name empty-list))
+
+;; --- the program ---
+
+;; The messages for `tops`, a whole program (every module's, by global name).
+(sig check-program (Fn ((List Top) (Map String Builtin)) (List String)))
+(defn check-program (tops builtins)
+  (let ((ctx (Ctx (top-types tops empty-map) (top-shapes tops empty-map) (top-sums tops empty-map) builtins "" empty-map)))
+    (get (check-tops tops ctx (St empty-map 0 empty-list) 0) errors)))
+
+(sig check-tops (Fn ((List Top) Ctx St Int) St))
+(defn check-tops (tops ctx st i)
+  (if (= i (len tops))
+    st
+    (check-tops tops ctx (check-top (at tops i) ctx (assoc st subst empty-map)) (+ i 1))))
+
+(sig check-top (Fn (Top Ctx St) St))
+(defn check-top (top ctx st)
+  (match top
+    ((TDef name init t)
+      (check-expr init t "" (assoc ctx where (format "def {(shown-name name)}")) st))
+    ((TDefn name params body t)
+      (let ((c (assoc ctx where (format "defn {(shown-name name)}"))))
+        (match t
+          ((TFn ptypes ret)
+            (check-expr body ret "" (assoc c env (bind-all params ptypes (get c env) 0)) st))
+          (else st))))
+    ((TExpr e) (get (infer e (assoc ctx where "a top-level form") st) st))
+    (else st)))
+
+;; `env` with each of `params` (Locals) bound to the type at its index in `types`.
+(sig bind-all (Fn ((List Expr) (List CType) (Map String CType) Int) (Map String CType)))
+(defn bind-all (params types env i)
+  (if (or (= i (len params)) (= i (len types)))
+    env
+    (bind-all params types (map-set env (local-key (at params i)) (at types i)) (+ i 1))))
+
+(sig local-key (Fn (Expr) String))
+(defn local-key (e)
+  (match e
+    ((Local name id) (format "{name}#{id}"))
+    (else "")))
+
+;; The type of each def and defn (its sig), record and variant (its constructor).
+(sig top-types (Fn ((List Top) (Map String CType)) (Map String CType)))
+(defn top-types (tops acc)
+  (if (= (len tops) 0)
+    acc
+    (top-types
+      (rest tops)
+      (match (at tops 0)
+        ((TDef name _ t) (map-set acc name t))
+        ((TDefn name _ _ t) (map-set acc name t))
+        ((TDeft name tvars fields) (map-set acc name (TFn (fields-types fields) (TCon name (tvar-types tvars)))))
+        ((TDeftSum name tvars variants) (variant-types variants (TCon name (tvar-types tvars)) acc))
+        (else acc)))))
+
+(sig variant-types (Fn ((List Variant) CType (Map String CType)) (Map String CType)))
+(defn variant-types (variants sum acc)
+  (if (= (len variants) 0)
+    acc
+    (let ((v (at variants 0)))
+      (variant-types (rest variants) sum (map-set acc (get v name) (TFn (fields-types (get v fields)) sum))))))
+
+(sig fields-types (Fn ((List (Tup String CType))) (List CType)))
+(defn fields-types (fields) (map (fn (f) (at f 1)) fields))
+
+(sig tvar-types (Fn ((List String)) (List CType)))
+(defn tvar-types (names) (map (fn (name) (TVar name)) names))
+
+(sig top-shapes (Fn ((List Top) (Map String Shape)) (Map String Shape)))
+(defn top-shapes (tops acc)
+  (if (= (len tops) 0)
+    acc
+    (top-shapes
+      (rest tops)
+      (match (at tops 0)
+        ((TDeft name tvars fields) (map-set acc name (Shape tvars fields "")))
+        ((TDeftSum name tvars variants) (variant-shapes variants tvars name acc))
+        (else acc)))))
+
+(sig variant-shapes (Fn ((List Variant) (List String) String (Map String Shape)) (Map String Shape)))
+(defn variant-shapes (variants tvars sum acc)
+  (if (= (len variants) 0)
+    acc
+    (let ((v (at variants 0)))
+      (variant-shapes (rest variants) tvars sum (map-set acc (get v name) (Shape tvars (get v fields) sum))))))
+
+;; Each sum's type variables, its variants' names as its "fields" (with no types).
+(sig top-sums (Fn ((List Top) (Map String Shape)) (Map String Shape)))
+(defn top-sums (tops acc)
+  (if (= (len tops) 0)
+    acc
+    (top-sums
+      (rest tops)
+      (match (at tops 0)
+        ((TDeftSum name tvars variants)
+          (map-set acc name (Shape tvars (map (fn (v) (tup (get v name) ANY)) variants) "")))
+        (else acc)))))
+
+;; --- expressions ---
+
+;; `e` checked against the type `want`: an if's branches, a do's last form, a let's body
+;; and a match's clauses each against it, a fn as check-lambda does, anything else
+;; inferred and then accepted (accepts).
+(sig check-expr (Fn (Expr CType String Ctx St) St))
+(defn check-expr (e want what ctx st)
+  (match e
+    ((If test then other)
+      (let ((rt (infer test ctx st))
+            (st1 (expect (tcon "Bool") (get rt t) "if: the test" ctx (get rt st))))
+        (check-expr other want what ctx (check-expr then want what ctx st1))))
+    ((Do body)
+      (if (= (len body) 0)
+        (expect want (tcon "Unit") what ctx st)
+        (check-expr (at body (- (len body) 1)) want what ctx (get (infer-do (slice body 0 (- (len body) 1)) ctx (Res ANY st)) st))))
+    ((Call callee args)
+      (match callee
+        ((Lambda params body)
+          (if (= (len params) (len args))
+            (let ((r (infer-all args ctx st empty-list)))
+              (check-expr body want what (assoc ctx env (bind-all params (at r 0) (get ctx env) 0)) (at r 1)))
+            (infer-expect e want what ctx st)))
+        (else (infer-expect e want what ctx st))))
+    ((Lambda _ _) (check-lambda e want what ctx st))
+    ((MatchE subject clauses default)
+      (if (is-any (prune want (get st subst)))
+        (get (infer e ctx st) st)
+        (infer-expect e want what ctx st)))
+    (else (infer-expect e want what ctx st))))
+
+(sig infer-expect (Fn (Expr CType String Ctx St) St))
+(defn infer-expect (e want what ctx st)
+  (let ((r (infer e ctx st))) (expect want (get r t) what ctx (get r st))))
+
+(sig infer (Fn (Expr Ctx St) Res))
+(defn infer (e ctx st)
+  (match e
+    ((Lit form) (Res (literal-type form) st))
+    ((Local name _)
+      (let ((key (local-key e)))
+        (Res (if (map-has (get ctx env) key) (map-get (get ctx env) key) ANY) st)))
+    ((Global name)
+      (if (map-has (get ctx globals) name) (instantiate (map-get (get ctx globals) name) st) (Res ANY st)))
+    ((Prim name) (prim-type name ctx st))
+    ((Call callee args) (infer-call callee args ctx st))
+    ((If test then other)
+      (let ((rt (infer test ctx st))
+            (st1 (expect (tcon "Bool") (get rt t) "if: the test" ctx (get rt st)))
+            (ra (infer then ctx st1))
+            (rb (infer other ctx (get ra st))))
+        (join-types (get ra t) (get rb t) "if: the branches" ctx (get rb st))))
+    ((Do body) (infer-do body ctx (Res (tcon "Unit") st)))
+    ((Lambda params body) (infer-lambda params body ctx st))
+    ((Tuple items)
+      (let ((r (infer-all items ctx st empty-list)))
+        (Res (TCon "Tup" (at r 0)) (at r 1))))
+    ((Fmt parts) (Res (tcon "String") (infer-holes parts ctx st)))
+    ((Field obj field) (infer-field obj field ctx st))
+    ((Assoc obj fields) (infer-assoc obj fields ctx st))
+    ((MatchE subject clauses default) (infer-match subject clauses default ctx st))
+    (else (Res ANY st))))
+
+(sig literal-type (Fn (Form) CType))
+(defn literal-type (form)
+  (match form
+    ((Txt _) (tcon "String"))
+    ((IntLit _) (tcon "Int"))
+    ((LongLit _) (tcon "Long"))
+    ((ByteLit _) (tcon "Byte"))
+    ((FloatLit _) (tcon "Float"))
+    ((DoubleLit _) (tcon "Double"))
+    ((CharLit _) (tcon "Char"))
+    ((BoolLit _) (tcon "Bool"))
+    (else ANY)))
+
+;; A built-in as a value: its type, instantiated; an operator is Any (it isn't a function
+;; Candy can type: it takes any number of arguments).
+(sig prim-type (Fn (String Ctx St) Res))
+(defn prim-type (name ctx st)
+  (if (map-has (get ctx builtins) name)
+    (match (map-get (get ctx builtins) name)
+      ((Typed type) (instantiate type st))
+      (else (Res ANY st)))
+    (Res ANY st)))
+
+(sig infer-all (Fn ((List Expr) Ctx St (List CType)) (Tup (List CType) St)))
+(defn infer-all (es ctx st acc)
+  (if (= (len es) 0)
+    (tup acc st)
+    (let ((r (infer (at es 0) ctx st)))
+      (infer-all (rest es) ctx (get r st) (+ acc (to-list (get r t)))))))
+
+(sig infer-do (Fn ((List Expr) Ctx Res) Res))
+(defn infer-do (body ctx last)
+  (if (= (len body) 0) last (infer-do (rest body) ctx (infer (at body 0) ctx (get last st)))))
+
+(sig infer-holes (Fn ((List FPart) Ctx St) St))
+(defn infer-holes (parts ctx st)
+  (if (= (len parts) 0)
+    st
+    (infer-holes
+      (rest parts)
+      ctx
+      (match (at parts 0)
+        ((FHole e) (get (infer e ctx st) st))
+        (else st)))))
+
+;; A fn as a value: fresh types for its parameters.
+(sig infer-lambda (Fn ((List Expr) Expr Ctx St) Res))
+(defn infer-lambda (params body ctx st)
+  (let ((fr (fresh-types (len params) st empty-list))
+        (ptypes (at fr 0))
+        (inner (assoc ctx env (bind-all params ptypes (get ctx env) 0)))
+        (r (infer body inner (at fr 1))))
+    (Res (TFn ptypes (get r t)) (get r st))))
+
+(sig fresh-types (Fn (Int St (List CType)) (Tup (List CType) St)))
+(defn fresh-types (count st acc)
+  (if (= count 0)
+    (tup acc st)
+    (fresh-types (- count 1) (assoc st n (+ (get st n) 1)) (+ acc (to-list (TVar (format "?{(get st n)}")))))))
+
+(sig fresh (Fn (St) Res))
+(defn fresh (st) (Res (TVar (format "?{(get st n)}")) (assoc st n (+ (get st n) 1))))
+
+;; --- calls ---
+
+(sig infer-call (Fn (Expr (List Expr) Ctx St) Res))
+(defn infer-call (callee args ctx st)
+  (match callee
+    ((Lambda params body)
+      (if (= (len params) (len args)) (infer-applied params body args ctx st) (infer-called callee args ctx st)))
+    ((Prim name)
+      (cond
+        ((is-op name ctx) (infer-op name args ctx st))
+        ((and (= name "at") (is-tup-item args)) (infer-tup-item args ctx st))
+        (else (infer-called callee args ctx st))))
+    (else (infer-called callee args ctx st))))
+
+(sig is-op (Fn (String Ctx) Bool))
+(defn is-op (name ctx)
+  (and (map-has (get ctx builtins) name)
+       (match (map-get (get ctx builtins) name) ((Op _) true) (else false))))
+
+;; A let's binding, ((fn (x) body) init): x has init's type (no let-polymorphism).
+(sig infer-applied (Fn ((List Expr) Expr (List Expr) Ctx St) Res))
+(defn infer-applied (params body args ctx st)
+  (let ((r (infer-all args ctx st empty-list))
+        (inner (assoc ctx env (bind-all params (at r 0) (get ctx env) 0))))
+    (infer body inner (at r 1))))
+
+;; A call of anything else: its type is a function, Any, or not known yet.
+(sig infer-called (Fn (Expr (List Expr) Ctx St) Res))
+(defn infer-called (callee args ctx st)
+  (let ((rc (infer callee ctx st))
+        (ct (prune (get rc t) (get (get rc st) subst)))
+        (name (callee-name callee)))
+    (match ct
+      ((TFn params ret)
+        (if (!= (len params) (len args))
+          (let ((st1 (report (format "{name} takes {(len params)} argument(s), got {(len args)}") ctx (get rc st))))
+            (Res ret (at (infer-all args ctx st1 empty-list) 1)))
+          (Res ret (check-args args params name ctx (get rc st)))))
+      ((TVar v)
+        (if (is-flexible v)
+          (let ((r (infer-all args ctx (get rc st) empty-list))
+                (rr (fresh (at r 1)))
+                (u (unify ct (TFn (at r 0) (get rr t)) (get (get rr st) subst))))
+            (Res (get rr t) (assoc (get rr st) subst (at u 1))))
+          (Res ANY (report (format "expected a function, got {(show ct (get (get rc st) subst))}") ctx (get rc st)))))
+      (else
+        (if (is-any ct)
+          (Res ANY (at (infer-all args ctx (get rc st) empty-list) 1))
+          (Res ANY (report (format "expected a function, got {(show ct (get (get rc st) subst))}") ctx (get rc st))))))))
+
+;; The arguments against the parameter types: the ones that aren't fns first, then the
+;; fns, so their parameters' types are known when their bodies are read.
+(sig check-args (Fn ((List Expr) (List CType) String Ctx St) St))
+(defn check-args (args params name ctx st)
+  (check-fn-args args params name ctx (check-plain-args args params name ctx st 0) 0))
+
+(sig check-plain-args (Fn ((List Expr) (List CType) String Ctx St Int) St))
+(defn check-plain-args (args params name ctx st i)
+  (cond
+    ((= i (len args)) st)
+    ((is-lambda (at args i)) (check-plain-args args params name ctx st (+ i 1)))
+    (else
+      (check-plain-args args params name ctx (check-expr (at args i) (at params i) (arg-what i name) ctx st) (+ i 1)))))
+
+(sig check-fn-args (Fn ((List Expr) (List CType) String Ctx St Int) St))
+(defn check-fn-args (args params name ctx st i)
+  (cond
+    ((= i (len args)) st)
+    ((is-lambda (at args i))
+      (check-fn-args args params name ctx (check-lambda (at args i) (at params i) (arg-what i name) ctx st) (+ i 1)))
+    (else (check-fn-args args params name ctx st (+ i 1)))))
+
+(sig arg-what (Fn (Int String) String))
+(defn arg-what (i name) (format "argument {(+ i 1)} of {name}"))
+
+(sig is-lambda (Fn (Expr) Bool))
+(defn is-lambda (e)
+  (match e
+    ((Lambda _ _) true)
+    (else false)))
+
+;; A fn checked against the type it is expected to have: a function type of its arity
+;; gives its parameters their types.
+(sig check-lambda (Fn (Expr CType String Ctx St) St))
+(defn check-lambda (lam expected what ctx st)
+  (match lam
+    ((Lambda params body)
+      (match (prune expected (get st subst))
+        ((TFn ptypes ret)
+          (if (= (len ptypes) (len params))
+            (check-expr body ret (format "{what}'s result") (assoc ctx env (bind-all params ptypes (get ctx env) 0)) st)
+            (let ((r (infer lam ctx st))) (expect expected (get r t) what ctx (get r st)))))
+        (else (let ((r (infer lam ctx st))) (expect expected (get r t) what ctx (get r st))))))
+    (else st)))
+
+(sig callee-name (Fn (Expr) String))
+(defn callee-name (e)
+  (match e
+    ((Global name) (shown-name name))
+    ((Prim name) name)
+    ((Local name _) name)
+    (else "the function")))
+
+;; A tup pattern's item, (at tmp i) on the pattern's _tup Local.
+(sig is-tup-item (Fn ((List Expr)) Bool))
+(defn is-tup-item (args)
+  (and (= (len args) 2) (= (tup-name (at args 0)) "_tup") (>= (int-lit (at args 1)) 0)))
+
+(sig tup-name (Fn (Expr) String))
+(defn tup-name (e)
+  (match e
+    ((Local name _) name)
+    (else "")))
+
+;; The value of an Int literal, or -1.
+(sig int-lit (Fn (Expr) Int))
+(defn int-lit (e)
+  (match e
+    ((Lit form)
+      (match form
+        ((IntLit k) k)
+        (else -1)))
+    (else -1)))
+
+(sig infer-tup-item (Fn ((List Expr) Ctx St) Res))
+(defn infer-tup-item (args ctx st)
+  (let ((r (infer (at args 0) ctx st))
+        (i (int-lit (at args 1)))
+        (tt (prune (get r t) (get (get r st) subst)))
+        (items (tup-items tt)))
+    (cond
+      ((!= (tcon-name tt) "Tup") (Res ANY (get r st)))
+      ((< i (len items)) (Res (at items i) (get r st)))
+      (else (Res ANY (report (format "a {(show tt (get (get r st) subst))} has {(len items)} items, not {(+ i 1)}") ctx (get r st)))))))
+
+(sig tup-items (Fn (CType) (List CType)))
+(defn tup-items (t)
+  (match t
+    ((TCon _ args) args)
+    (else empty-list)))
+
+;; --- operators (special.cdy) ---
+
+(sig NUMBERS (List String))
+(def NUMBERS (tup "Int" "Long" "Byte" "Float" "Double"))
+
+;; `+` takes one type, a number type or String; `-`, `*`, `/` and `quot` one number type
+;; (`/` gives Double); the comparisons one type, giving Bool; `and`, `or`, `not` Bools.
+(sig infer-op (Fn (String (List Expr) Ctx St) Res))
+(defn infer-op (name args ctx st)
+  (let ((r (infer-all args ctx st empty-list))
+        (types (at r 0))
+        (st1 (at r 1)))
+    (cond
+      ((in name (tup "and" "or" "not")) (Res (tcon "Bool") (expect-all (tcon "Bool") types name ctx st1)))
+      (else
+        (let ((one (join-all types name ctx (Res (at types 0) st1)))
+              (t1 (prune (get one t) (get (get one st) subst))))
+          (cond
+            ((in name (tup "=" "!=" "<" ">" "<=" ">=")) (Res (tcon "Bool") (get one st)))
+            ((= name "+")
+              (Res t1
+                (if (= (tcon-name t1) "List")
+                  (get one st)
+                  (needs-kind t1 (+ NUMBERS (to-list "String")) "a number, String or a list" name ctx (get one st)))))
+            ((= name "/") (Res (tcon "Double") (needs-kind t1 NUMBERS "a number" name ctx (get one st))))
+            (else (Res t1 (needs-kind t1 NUMBERS "a number" name ctx (get one st))))))))))
+
+;; Report unless `t` is one of `names`, Any, or not known yet.
+(sig needs-kind (Fn (CType (List String) String String Ctx St) St))
+(defn needs-kind (t names what name ctx st)
+  (match t
+    ((TCon tn args) (if (or (= tn "Any") (and (= (len args) 0) (contains tn names))) st (report (format "{name}: expected {what}, got {(show t (get st subst))}") ctx st)))
+    ((TVar v) (if (is-flexible v) st (report (format "{name}: expected {what}, got {v}") ctx st)))
+    (else (report (format "{name}: expected {what}, got {(show t (get st subst))}") ctx st))))
+
+(sig expect-all (Fn (CType (List CType) String Ctx St) St))
+(defn expect-all (want types what ctx st)
+  (if (= (len types) 0) st (expect-all want (rest types) what ctx (expect want (at types 0) what ctx st))))
+
+(sig join-all (Fn ((List CType) String Ctx Res) Res))
+(defn join-all (types what ctx acc)
+  (if (<= (len types) 1)
+    acc
+    (join-all (rest types) what ctx (join-types (get acc t) (at types 1) what ctx (get acc st)))))
+
+;; --- records, get and assoc ---
+
+;; The shape of the record or variant `name`, and the types its type variables take in
+;; `t`'s arguments: the field types, with them put in.
+(sig field-of (Fn (CType String Ctx) (Tup Bool CType)))
+(defn field-of (t field ctx)
+  (match t
+    ((TCon name args)
+      (cond
+        ((map-has (get ctx shapes) name)
+          (let ((s (map-get (get ctx shapes) name)))
+            (find-field (get s fields) field (zip-map (get s tvars) args empty-map))))
+        ((map-has (get ctx sums) name) (sum-field (map-get (get ctx sums) name) args field ctx))
+        (else (tup false ANY))))
+    (else (tup false ANY))))
+
+;; A field of a sum: every variant has it, with one type.
+(sig sum-field (Fn (Shape (List CType) String Ctx) (Tup Bool CType)))
+(defn sum-field (sum args field ctx)
+  (let ((found (map (fn (v) (field-of (TCon (at v 0) args) field ctx)) (get sum fields))))
+    (if (and (> (len found) 0) (all (fn (f) (and (at f 0) (= (at f 1) (at (at found 0) 1)))) found))
+      (at found 0)
+      (tup false ANY))))
+
+(sig find-field (Fn ((List (Tup String CType)) String (Map String CType)) (Tup Bool CType)))
+(defn find-field (fields field vars)
+  (cond
+    ((= (len fields) 0) (tup false ANY))
+    ((= (at (at fields 0) 0) field) (tup true (put-vars (at (at fields 0) 1) vars)))
+    (else (find-field (rest fields) field vars))))
+
+(sig zip-map (Fn ((List String) (List CType) (Map String CType)) (Map String CType)))
+(defn zip-map (names types acc)
+  (if (or (= (len names) 0) (= (len types) 0))
+    acc
+    (zip-map (rest names) (rest types) (map-set acc (at names 0) (at types 0)))))
+
+;; `t` with each type variable in `vars` replaced.
+(sig put-vars (Fn (CType (Map String CType)) CType))
+(defn put-vars (t vars)
+  (match t
+    ((TVar name) (if (map-has vars name) (map-get vars name) t))
+    ((TCon name args) (TCon name (map (fn (a) (put-vars a vars)) args)))
+    ((TFn params ret) (TFn (map (fn (p) (put-vars p vars)) params) (put-vars ret vars)))))
+
+(sig infer-field (Fn (Expr String Ctx St) Res))
+(defn infer-field (obj field ctx st)
+  (let ((r (infer obj ctx st))
+        (ot (prune (get r t) (get (get r st) subst))))
+    (field-type ot obj field "get" ctx (get r st))))
+
+;; The type of `field` of a value of type `ot`, or a report.
+(sig field-type (Fn (CType Expr String String Ctx St) Res))
+(defn field-type (ot obj field what ctx st)
+  (match ot
+    ((TVar v)
+      (Res ANY
+        (report
+          (if (is-flexible v)
+            (format "{what}: the type of {(callee-name obj)} isn't known here ({field})")
+            (format "{what}: {v} has no fields"))
+          ctx st)))
+    (else
+      (let ((f (field-of ot field ctx)))
+        (cond
+          ((is-any ot) (Res ANY st))
+          ((at f 0)
+          (Res (at f 1) st))
+          (else
+            (Res ANY
+              (report
+                (if (or (map-has (get ctx shapes) (tcon-name ot)) (map-has (get ctx sums) (tcon-name ot)))
+                  (format "{what}: {(show ot (get st subst))} has no field {field}")
+                  (format "{what}: {(show ot (get st subst))} has no fields"))
+                ctx st))))))))
+
+(sig tcon-name (Fn (CType) String))
+(defn tcon-name (t)
+  (match t
+    ((TCon name _) name)
+    (else "")))
+
+(sig infer-assoc (Fn (Expr (List (Tup String Expr)) Ctx St) Res))
+(defn infer-assoc (obj fields ctx st)
+  (let ((r (infer obj ctx st))
+        (ot (prune (get r t) (get (get r st) subst))))
+    (Res (get r t) (assoc-values ot obj fields ctx (get r st)))))
+
+(sig assoc-values (Fn (CType Expr (List (Tup String Expr)) Ctx St) St))
+(defn assoc-values (ot obj fields ctx st)
+  (if (= (len fields) 0)
+    st
+    (let (((field val) (at fields 0))
+          (ft (field-type ot obj field "assoc" ctx st))
+          (st1 (check-expr val (get ft t) (format "assoc: field {field}") ctx (get ft st))))
+      (assoc-values ot obj (rest fields) ctx st1))))
+
+;; --- match ---
+
+(sig infer-match (Fn (Expr (List Clause) (List Expr) Ctx St) Res))
+(defn infer-match (subject clauses default ctx st)
+  (let ((rs (infer subject ctx st))
+        (variant (get (at clauses 0) variant))
+        (sum (if (map-has (get ctx shapes) variant) (get (map-get (get ctx shapes) variant) sum) ""))
+        (tvars (if (map-has (get ctx sums) sum) (get (map-get (get ctx sums) sum) tvars) empty-list))
+        (fr (fresh-types (len tvars) (get rs st) empty-list))
+        (vars (zip-map tvars (at fr 0) empty-map))
+        (want (TCon sum (at fr 0)))
+        (st1 (expect want (get rs t) "match: the subject" ctx (at fr 1)))
+        (rc (infer-clauses clauses vars ctx st1 empty-list)))
+    (if (= (len default) 0)
+      (join-all (at rc 0) "match: the clauses" ctx (Res (at (at rc 0) 0) (at rc 1)))
+      (let ((rd (infer (at default 0) ctx (at rc 1))))
+        (join-all (+ (at rc 0) (to-list (get rd t))) "match: the clauses" ctx (Res (at (at rc 0) 0) (get rd st)))))))
+
+(sig infer-clauses (Fn ((List Clause) (Map String CType) Ctx St (List CType)) (Tup (List CType) St)))
+(defn infer-clauses (clauses vars ctx st acc)
+  (if (= (len clauses) 0)
+    (tup acc st)
+    (let ((c (at clauses 0))
+          (shape (if (map-has (get ctx shapes) (get c variant)) (map-get (get ctx shapes) (get c variant)) (Shape empty-list empty-list "")))
+          (inner (assoc ctx env (bind-fields (get c binds) (get shape fields) vars (get ctx env))))
+          (r (infer (get c body) inner st)))
+      (infer-clauses (rest clauses) vars ctx (get r st) (+ acc (to-list (get r t)))))))
+
+;; `env` with each (field, Local) of a pattern bound to the field's type.
+(sig bind-fields (Fn ((List (Tup String Expr)) (List (Tup String CType)) (Map String CType) (Map String CType)) (Map String CType)))
+(defn bind-fields (binds fields vars env)
+  (if (= (len binds) 0)
+    env
+    (let (((field loc) (at binds 0))
+          (f (find-field fields field vars)))
+      (bind-fields (rest binds) fields vars (map-set env (local-key loc) (if (at f 0) (at f 1) ANY))))))
+
+;; --- types: unification ---
+
+;; Whether a type variable is one the checker made (?N), which unification may solve;
+;; a sig's (a) is rigid.
+(sig is-flexible (Fn (String) Bool))
+(defn is-flexible (name) (starts-with name "?"))
+
+;; `t` with its solved variables followed, at the top.
+(sig prune (Fn (CType (Map String CType)) CType))
+(defn prune (t subst)
+  (match t
+    ((TVar name) (if (map-has subst name) (prune (map-get subst name) subst) t))
+    (else t)))
+
+;; `t` with every solved variable put in.
+(sig resolve-type (Fn (CType (Map String CType)) CType))
+(defn resolve-type (t subst)
+  (match (prune t subst)
+    ((TCon name args) (TCon name (map (fn (a) (resolve-type a subst)) args)))
+    ((TFn params ret) (TFn (map (fn (p) (resolve-type p subst)) params) (resolve-type ret subst)))
+    (else (prune t subst))))
+
+(sig occurs (Fn (String CType (Map String CType)) Bool))
+(defn occurs (v t subst)
+  (match (prune t subst)
+    ((TVar name) (= name v))
+    ((TCon _ args) (any (fn (a) (occurs v a subst)) args))
+    ((TFn params ret) (or (any (fn (p) (occurs v p subst)) params) (occurs v ret subst)))))
+
+;; Whether `a` and `b` can be one type, and the substitution that makes them so.
+(sig unify (Fn (CType CType (Map String CType)) (Tup Bool (Map String CType))))
+(defn unify (a b subst)
+  (let ((pa (prune a subst))
+        (pb (prune b subst)))
+    (cond
+      ((or (is-any pa) (is-any pb)) (tup true subst))
+      ((is-var pa) (bind-var (tvar-name pa) pb subst))
+      ((is-var pb) (bind-var (tvar-name pb) pa subst))
+      (else
+        (match pa
+          ((TVar name) (tup (match pb ((TVar other) (= name other)) (else false)) subst))
+          ((TCon name args)
+            (match pb
+              ((TCon other bargs)
+                (if (and (= name other) (= (len args) (len bargs))) (unify-all args bargs subst) (tup false subst)))
+              (else (tup false subst))))
+          ((TFn params ret)
+            (match pb
+              ((TFn bparams bret)
+                (if (= (len params) (len bparams))
+                  (let ((u (unify-all params bparams subst)))
+                    (if (at u 0) (unify ret bret (at u 1)) u))
+                  (tup false subst)))
+              (else (tup false subst)))))))))
+
+(sig unify-all (Fn ((List CType) (List CType) (Map String CType)) (Tup Bool (Map String CType))))
+(defn unify-all (xs ys subst)
+  (if (= (len xs) 0)
+    (tup true subst)
+    (let ((u (unify (at xs 0) (at ys 0) subst)))
+      (if (at u 0) (unify-all (rest xs) (rest ys) (at u 1)) u))))
+
+(sig bind-var (Fn (String CType (Map String CType)) (Tup Bool (Map String CType))))
+(defn bind-var (v t subst)
+  (cond
+    ((match t ((TVar other) (= other v)) (else false)) (tup true subst))
+    ((occurs v t subst) (tup false subst))
+    (else (tup true (map-set subst v t)))))
+
+(sig is-any (Fn (CType) Bool))
+(defn is-any (t)
+  (match t
+    ((TCon name _) (= name "Any"))
+    (else false)))
+
+;; Whether `t` is a variable the checker may solve.
+(sig is-var (Fn (CType) Bool))
+(defn is-var (t)
+  (match t
+    ((TVar name) (is-flexible name))
+    (else false)))
+
+(sig tvar-name (Fn (CType) String))
+(defn tvar-name (t)
+  (match t
+    ((TVar name) name)
+    (else "")))
+
+(sig maybe-arg (Fn (CType) (List CType)))
+(defn maybe-arg (t) (if (= (tcon-name t) "Maybe") (tup-items t) empty-list))
+
+(sig is-unit (Fn (CType) Bool))
+(defn is-unit (t)
+  (match t
+    ((TCon name _) (= name "Unit"))
+    (else false)))
+
+;; Whether a value of type `actual` is accepted where `want` is expected: they unify;
+;; `want` is a (Maybe t) and `actual` is a t or Unit (nil); or `want` is a (List t) and
+;; `actual` a (Tup t ...) of one type (for now: Candy has no list literal, B29).
+(sig accepts (Fn (CType CType (Map String CType)) (Tup Bool (Map String CType))))
+(defn accepts (want actual subst)
+  (let ((pw (prune want subst))
+        (pa (prune actual subst))
+        (inner (maybe-arg pw)))
+    (cond
+      ((and (= (tcon-name pw) "List") (= (tcon-name pa) "Tup")) (accepts-each (at (tup-items pw) 0) (tup-items pa) subst))
+      ((or (= (len inner) 0) (is-var pa) (is-any pa)) (unify pw pa subst))
+      ((> (len (maybe-arg pa)) 0) (unify pw pa subst))
+      ((is-unit pa) (tup true subst))
+      (else (unify (at inner 0) pa subst)))))
+
+;; Whether every one of `items` is accepted as `want`.
+(sig accepts-each (Fn (CType (List CType) (Map String CType)) (Tup Bool (Map String CType))))
+(defn accepts-each (want items subst)
+  (if (= (len items) 0)
+    (tup true subst)
+    (let ((u (accepts want (at items 0) subst)))
+      (if (at u 0) (accepts-each want (rest items) (at u 1)) u))))
+
+;; The state with a report unless `actual` is accepted as `want`.
+(sig expect (Fn (CType CType String Ctx St) St))
+(defn expect (want actual what ctx st)
+  (let ((u (accepts want actual (get st subst))))
+    (if (at u 0)
+      (assoc st subst (at u 1))
+      (let ((lead (if (= what "") "" (+ what ": "))))
+        (report (format "{lead}expected {(show want (get st subst))}, got {(show actual (get st subst))}") ctx st)))))
+
+;; Two types that must be one (an if's branches, the operators' arguments): a Unit and a t
+;; are a (Maybe t), as an if with no else is.
+(sig join-types (Fn (CType CType String Ctx St) Res))
+(defn join-types (a b what ctx st)
+  (let ((pa (prune a (get st subst)))
+        (pb (prune b (get st subst))))
+    (cond
+      ((and (is-unit pa) (not (is-unit pb)) (not (is-var pb))) (Res (as-maybe pb) st))
+      ((and (is-unit pb) (not (is-unit pa)) (not (is-var pa))) (Res (as-maybe pa) st))
+      ((and (> (len (maybe-arg pa)) 0) (= (len (maybe-arg pb)) 0) (not (is-var pb)))
+        (Res pa (expect pa pb what ctx st)))
+      ((and (> (len (maybe-arg pb)) 0) (= (len (maybe-arg pa)) 0) (not (is-var pa)))
+        (Res pb (expect pb pa what ctx st)))
+      ((and (= (tcon-name pa) "Tup") (or (= (tcon-name pb) "List") (and (= (tcon-name pb) "Tup") (!= (len (tup-items pa)) (len (tup-items pb))))))
+        (join-types (as-list pa) pb what ctx st))
+      ((and (= (tcon-name pb) "Tup") (= (tcon-name pa) "List")) (join-types pa (as-list pb) what ctx st))
+      (else
+        (let ((u (unify pa pb (get st subst))))
+          (if (at u 0)
+            (Res pa (assoc st subst (at u 1)))
+            (Res ANY
+              (report (format "{what} are {(show pa (get st subst))} and {(show pb (get st subst))}") ctx st))))))))
+
+;; A (Tup t ...) as a (List t); a Tup of mixed types is a (List Any).
+(sig as-list (Fn (CType) CType))
+(defn as-list (t)
+  (let ((items (tup-items t)))
+    (if (= (len items) 0) (TCon "List" (to-list ANY)) (TCon "List" (to-list (tup-list-type items))))))
+
+;; The one type of `items`: the first, unless they differ, then Any.
+(sig tup-list-type (Fn ((List CType)) CType))
+(defn tup-list-type (items) (if (all (fn (x) (= x (at items 0))) items) (at items 0) ANY))
+
+(sig as-maybe (Fn (CType) CType))
+(defn as-maybe (t)
+  (cond
+    ((> (len (maybe-arg t)) 0) t)
+    ((is-any t) t)
+    (else (TCon "Maybe" (to-list t)))))
+
+;; `t` with its rigid (sig) type variables replaced by fresh ones.
+(sig instantiate (Fn (CType St) Res))
+(defn instantiate (t st)
+  (let ((names (rigid-vars t empty-list)))
+    (if (= (len names) 0)
+      (Res t st)
+      (let ((fr (fresh-types (len names) st empty-list)))
+        (Res (put-vars t (zip-map names (at fr 0) empty-map)) (at fr 1))))))
+
+(sig rigid-vars (Fn (CType (List String)) (List String)))
+(defn rigid-vars (t acc)
+  (match t
+    ((TVar name) (if (or (is-flexible name) (contains name acc)) acc (+ acc (to-list name))))
+    ((TCon _ args) (fold (fn (a x) (rigid-vars x a)) acc args))
+    ((TFn params ret) (rigid-vars ret (fold (fn (a x) (rigid-vars x a)) acc params)))))
+
+;; --- messages ---
+
+(sig report (Fn (String Ctx St) St))
+(defn report (msg ctx st)
+  (assoc st errors (+ (get st errors) (to-list (format "{(get ctx where)}: {msg}")))))
+
+;; A type as a program writes it: (List Int), (Fn (a) a); a module's type without its
+;; prefix; a variable the checker made as t1, t2.
+(sig show (Fn (CType (Map String CType)) String))
+(defn show (t subst)
+  (match (resolve-type t subst)
+    ((TCon name args)
+      (if (= (len args) 0)
+        (shown-name name)
+        (format "({(shown-name name)} {(join (map (fn (a) (show a subst)) args) \" \")})")))
+    ((TFn params ret) (format "(Fn ({(join (map (fn (p) (show p subst)) params) \" \")}) {(show ret subst)})"))
+    ((TVar name) (if (is-flexible name) (+ "t" (slice name 1 (len name))) name))))
+
+;; A global name as the program wrote it: util__greet is greet.
+(sig shown-name (Fn (String) String))
+(defn shown-name (name)
+  (let ((parts (split name "__")))
+    (if (= (len parts) 1) name (join (rest parts) "__"))))

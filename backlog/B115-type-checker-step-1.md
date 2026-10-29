@@ -1,7 +1,7 @@
 # B115: type-checker step 1: a survey
 
 kind: task
-state: open
+state: review
 priority: normal
 found: type-checker, 2026-10-28
 fixed:
