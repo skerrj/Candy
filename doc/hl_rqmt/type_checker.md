@@ -202,6 +202,22 @@ first fixes whatever in the translator it rejects.
    - **Bootstrap:** one rebuild (`emit-lit`; the checker is in `bin`, unused).
 2. **Positions in Core:** the `pos` fields, set by `analyse`, matched through `lower` and
    `emit`; no output changes.
+
+   *Done.* As built:
+   - **`core.cdy`:** `Call`, `If`, `Lambda`, `Tuple`, `Fmt`, `Field`, `Assoc` and
+     `MatchE` end with a `pos` (as `Sym` and `Lst` do), `analyse`'s `scope here`: the
+     form's own position. A `let`'s applied `Lambda`s, and a `tup` pattern's `at` reads,
+     get the `let`'s or the `match`'s (`nest` takes a `pos`). The `Expr`s that build a
+     quoted form are `NOWHERE`, as the forms they build are, so in step 3 an error there
+     takes its parent's position.
+   - **`lower.cdy`:** a node it rebuilds keeps its `pos` (`value-call`, `value-if`,
+     `value-fn` and `value-boolop` take it); the `not` it makes for an `or` is
+     `NOWHERE`. It now imports `form`, for `Pos`.
+   - **`emit.cdy`, `check.cdy`:** each pattern gains a `_`; `check` uses the positions in
+     step 3.
+   - **No output changes:** the old `bin` and the new T1 write the same Python, byte for
+     byte, for every test program and for the translator.
+   - **Bootstrap:** one rebuild.
 3. **The checker on:** its errors fail translation, with positions; the spec's
    `[[types.checking]]` and its rows; [[B25]], [[B10]] and [[B30]] closed (or narrowed),
    and [[B15]] narrowed to what is left.

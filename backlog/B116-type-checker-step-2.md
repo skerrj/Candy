@@ -1,7 +1,7 @@
 # B116: type-checker step 2: positions in Core
 
 kind: task
-state: open
+state: review
 priority: normal
 found: type-checker, 2026-10-28
 fixed:
