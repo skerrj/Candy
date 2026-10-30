@@ -16,5 +16,4 @@ question 3).
 - **Map, reduce, fold, etc**: optimized target implementations
 - **Joy like recursive macros**: optimized target implementations
 - **Curry**: could this be a macro?
-- **Generics**: not sure where we are at... so just a note/question
 - **cndy specifice macros**: any boiler plate patterns worth a macro
