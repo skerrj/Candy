@@ -1,6 +1,6 @@
 # Type checking
 
-status: draft, since: type-checker
+status: stable, since: type-checker
 
 The translator checks a program's types before it writes any Python
 (`doc/hl_rqmt/type_checker.md`): every top-level name has its `sig` (`20-types.md`),

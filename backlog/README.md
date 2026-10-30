@@ -101,7 +101,7 @@ By kind, then priority.
 | [B115](B115-type-checker-step-1.md) | type-checker step 1: a survey | task | review | normal |
 | [B116](B116-type-checker-step-2.md) | type-checker step 2: positions in Core | task | review | normal |
 | [B117](B117-type-checker-step-3.md) | type-checker step 3: the checker on | task | review | normal |
-| [B118](B118-type-checker-step-4.md) | type-checker step 4: docs | task | open | normal |
+| [B118](B118-type-checker-step-4.md) | type-checker step 4: docs | task | review | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea

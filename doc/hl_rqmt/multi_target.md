@@ -9,8 +9,9 @@ targets, so that they aren't designed out by accident.
 
 1. **Type distinctions belong to Candy's front end, not to a backend.** The difference
    between `Int`, `Long` and `Byte`, or between `Char` and `String`, lives in the parser's
-   typed AST (each literal type already has its own node) and later in Candy's own type
-   checker. Every backend reads it from there.
+   typed AST (each literal type already has its own node) and in Candy's own type
+   checker (`src/cdy/check.cdy`, since branch `type-checker`), which runs on Core, before
+   any backend. Every backend reads it from there.
    - For that reason the Python backend does **not** use `typing.NewType` to keep Candy
      types apart. NewType would only change how mypy checks the generated Python, and other
      targets would get nothing from it.
@@ -19,7 +20,9 @@ targets, so that they aren't designed out by accident.
      everywhere, or wrapper classes with overloaded operators.
 2. **The translator keeps target-independent stages.** The pipeline is:
    - parser → `SExpr`
-   - `analyse` → Core AST (typed, once Candy's type checker exists)
+   - `analyse` → Core AST, with positions
+   - the type checker, on Core (the front end's, so every target gets it; the types it
+     infers aren't kept in Core yet)
    - `lower` → lowered IR, the "pseudo-AST" (statements vs. expressions)
    - one backend per target, which emits that target's code
 
@@ -155,7 +158,8 @@ output Candy's on every target and host. Two ways to know what it shows:
   every target and host must supply, and not enough on Python, where a `Char` and a
   `String` are both `str`, an `Int` and a `Byte` both `int`.
 - **From the static type**, the translator choosing a `show` per type: portable and
-  exact, but it needs Candy's own type checker ([[B15]]).
+  exact, but it needs Candy's own type checker, which exists since branch `type-checker`,
+  to keep the types it infers ([[B15]]).
 
 ### Modules and output units
 

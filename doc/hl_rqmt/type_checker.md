@@ -254,8 +254,23 @@ first fixes whatever in the translator it rejects.
      taken apart as a tuple, and parameters as patterns, are left); [[B15]] is narrowed
      to what the checker leaves (mypy, let-polymorphism, "isn't known here", one error).
    - **Bootstrap:** one rebuild; the translator type-checks itself.
+   - **From the owner's questions on `get` on a sum** (archived:
+     `doc/archive/chat_get_on_sums.md`): a field every variant has, with different types,
+     says so (`get: field id of S has different types in its variants`);
+     `checking.records` has rows for it, for a variant with no fields, for `get` on the
+     subject inside its clause, and an example of a generic sum; new items [[B119]] (a
+     variant written as a type gets a message about imports), [[B120]] ("isn't known
+     here", out of [[B15]]) and [[B121]] (no narrowing in a `match` clause); [[B18]]'s
+     text says Candy's checker skips `Any` too.
 4. **Docs:** CLAUDE.md, the iMVP doc, `multi_target.md` (the checker is the front end's,
    not the target's).
+
+   *Done.* As built: CLAUDE.md (`check.cdy` in the code list, a "Type checking" bullet
+   in "How the translator works", the `sig` decision saying the translator checks and
+   mypy is a second check, the `tup` pattern's arity, the branch in "History"); the iMVP
+   doc notes, where it expected a Candy type checker later, that it came here; in
+   `multi_target.md` the checker is a front-end stage, on Core, before any backend (the
+   types it infers aren't kept in Core yet). `spec/25-checking.md` is `stable`.
 
 ## Questions (answered: the proposals, 2026-10-28)
 

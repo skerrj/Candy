@@ -18,7 +18,7 @@ examples use features a later file specifies (`00-syntax.md` uses `defn`, `if` a
 | `00-syntax.md` | forms, comments, literals, names: what the reader accepts and rejects |
 | `10-programs.md` | the top level, `main`, the prelude, `import` |
 | `20-types.md` | the types, `sig`, `def`, records (`deft`, `get`, `assoc`), `tup` |
-| `25-checking.md` | type checking: calls, definitions, generics, locals, `if`, the operators, records, `match`, `Maybe`, `Any` (draft) |
+| `25-checking.md` | type checking: calls, definitions, generics, locals, `if`, the operators, records, `match`, `Maybe`, `Any` |
 | `30-match.md` | patterns and match: sum types (`deft` with variants), `match`, `tup` patterns |
 | `40-expressions.md` | names and calls, the operators, `do`, `if`, `cond`, `let`, `fn`, `defn`, `Unit` |
 | `50-macros.md` | `defmacro`, quoting, `gensym`, macro files (`import-macros`), `cond` as a macro |

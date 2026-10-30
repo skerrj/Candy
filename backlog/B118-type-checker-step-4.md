@@ -1,7 +1,7 @@
 # B118: type-checker step 4: docs
 
 kind: task
-state: open
+state: review
 priority: normal
 found: type-checker, 2026-10-28
 fixed:
