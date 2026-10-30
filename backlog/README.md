@@ -88,7 +88,6 @@ By kind, then priority.
 | [B58](B58-reader-appends.md) | The reader builds strings and lists one item at a time | tech-debt | open | low |
 | [B60](B60-three-test-dirs.md) | Three directories of test programs | tech-debt | open | low |
 | [B64](B64-form-cdy-copied.md) | `form.cdy` is copied next to every translator | tech-debt | open | low |
-| [B67](B67-builtin-types-unused.md) | The built-ins' types are read but not used | tech-debt | open | low |
 | [B70](B70-load-macros-prefix.md) | `load-macros` finds `form.cdy`'s names from a Python name | tech-debt | open | low |
 | [B71](B71-at-slice-helpers.md) | The `at` and `slice_` helpers are only used as values | tech-debt | open | low |
 | [B74](B74-py-str-not-repr.md) | `py-str` is close to `repr`, not equal | tech-debt | open | low |
@@ -183,6 +182,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B30](B30-get-assoc-unchecked.md) | `get` and `assoc` field names are checked by mypy, not Candy | leak | done | normal |
 | [B33](B33-no-unary-minus.md) | No unary minus | leak | kept | normal |
 | [B53](B53-unimported-type.md) | A type from a module the file doesn't import isn't caught | leak | done | normal |
+| [B67](B67-builtin-types-unused.md) | The built-ins' types are read but not used | tech-debt | done | low |
 | [B73](B73-master-not-main.md) | The default branch is `master`; some notes and tools assume `main` | tech-debt | dropped | normal |
 | [B77](B77-runtime-all-imported.md) | Every runtime module is imported | tech-debt | dropped | normal |
 | [B78](B78-tup-temporary-name.md) | The destructuring temporary is named `_tup` | tech-debt | dropped | normal |

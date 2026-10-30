@@ -4,7 +4,7 @@
 with an HLD of its own; this one sets their order, their scope, and when the epic is
 done.** Written after tag `type-checker`.
 
-Candy runs on one host and writes one target, Python, and the backlog's 85 open items
+Candy runs on one host and writes one target, Python, and the backlog's 84 open items
 mix what a second target needs with what only Python's backend does. This HLD sorts
 them, and plans the branches that make the Python version *complete*.
 
@@ -161,14 +161,29 @@ The layers, from the bottom, and the revisit each needs:
 ### The interpreter
 
 A tree-walking interpreter over typed Core, written in Candy (so any host that runs
-Candy runs it), using the system built-ins as the Python target does:
+Candy runs it):
 
-- **a second implementation:** `test_spec.py` runs every example on both, and a
-  difference is a borrowed semantic found ([[B101]]: the spec becomes a conformance
-  suite);
+- **a second implementation:** `test_spec.py` runs every example on both, and the
+  spec becomes a conformance suite ([[B101]]);
 - **the macro runner:** macros are interpreted, not compiled to Python and `exec`ed
   ([[B41]], [[B70]]), which is what a second host needs from macros;
 - **a REPL**, later, nearly for free.
+
+What it takes:
+
+- **Its own values:** a sum (`VInt`, `VStr`, `VList`, `VRecord`, `VFn` with its
+  closure, ...), and an environment. A macro's arguments and result cross between its
+  values and the translator's `Form`s, by a conversion each way.
+- **Its own built-ins:** every system built-in, written over its values. Each hands its
+  leaf work to the host (`split` on a `VStr`'s text), but what it means (`=` on records,
+  `/` on `Int`s, printing) is written from the spec. So it shares nothing with the
+  Python target by design, which is the point of a second implementation, and the
+  system's list is its porting surface too.
+- **A settled language:** it implements the spec as it is, so it comes after the
+  branches that change the language (semantics, collections, namespaces), and is
+  written once. It doesn't discover borrowed semantics by itself: where it hands the
+  host a meaning, it inherits it as the Python target does. What it checks is that the
+  spec says enough to implement it twice.
 
 It doesn't need to be fast: the suite's programs are small, and the translator stays
 compiled.
@@ -293,8 +308,8 @@ them fast its own way. What changes in this epic:
   them off the quadratic copies ([[B69]]).
 - **Their types:** each takes a `(List a)` today; with `Collection` (Question 4) they
   would take any collection.
-- **In the interpreter,** they are its built-ins too, so the interpreter and the
-  Python target agree by sharing them, not by accident.
+- **In the interpreter,** they are its own built-ins, over its values, so the two
+  implementations agree because the spec says what each does.
 
 ### The branches
 
@@ -303,41 +318,49 @@ brackets:
 
 1. **`typed-core`:** the checker writes each `Expr`'s type into Core; nested `fn`s get
    their types ([[B19]]); the checker's own leaks as wanted ([[B120]], [[B121]],
-   [[B122]]); whether mypy stays ([[B15]], Question 3). (T)
-2. **`interpreter`:** the interpreter over Core; the spec runs on both; differences are
-   recorded as S items, not fixed here. (S, found)
-3. **`semantics`:** the borrowed semantics, one by one, the interpreter checking each:
-   `show` and printing, `=`, `/`, `and`/`or`, `Maybe` and missing values, `at` and
-   `slice`, numbers' bounds, `Char`, `def` order and constancy ([[B80]]), errors
-   ([[B39]]); `=` and `show` on a type variable (Question 12). (S)
-4. **`collections`:** the list literal, tuple types, variadics (typed rest
-   parameters; `put` and `format` as macros), `Any` cut down to what is still needed,
-   `Collection` (as Question 4 decides); the list operations' set, and the translator
-   moved onto them ([[B123]]). (T)
-5. **`namespaces`:** qualified names, the import forms, types and values, macros'
-   names, shadowing, private names, each target's mapping. (L)
-6. **`library`** (perhaps two branches: the layering first, then the modules): the
-   system revisited, the prelude trimmed, the standard library's
-   first modules, the I/O refactor, the target-extension mechanism and the `py`
-   extension; the `test` module. (L)
-7. **`host-macros`:** macros run on the interpreter; their results checked ([[B42]]);
-   macro files as modules ([[B45]]); hygiene ([[B46]]); the macro leaks that remain
-   ([[B43]], [[B44]]). (M)
+   [[B122]]). First, since `show`, `format`, `Any`'s cut and the translator's loops
+   ([[B123]]) all need it. (T)
+2. **`semantics`:** the borrowed semantics, one by one, each decided in the spec and
+   fixed in the Python target: `show` and printing ([[B36]], the backlog's other
+   `high`), `=`, `/`, `and`/`or`, `Maybe` and missing values, `at` and `slice`, numbers'
+   bounds, `Char`, `def` order and constancy ([[B80]]), errors ([[B39]]); `=` and
+   `show` on a type variable (Question 12). (S)
+3. **`collections`:** the list literal, tuple types, variadics (typed rest
+   parameters; `put` and `format` as macros over `semantics`' `show`; the operators as
+   values, [[B38]]), `Any` cut down to what is still needed, `Collection` (as Question 4
+   decides); the list operations' set, and the translator moved onto them ([[B123]]).
+   (T)
+4. **`namespaces`:** qualified names, the import forms, types and values, macros'
+   names, shadowing, private names, each target's mapping. Independent of 2 and 3, so
+   it could swap with them. (L)
+5. **`library`** (perhaps two branches: the layering first, then the modules): the
+   system revisited, each built-in specified; the prelude trimmed, the standard
+   library's first modules, the I/O refactor, the target-extension mechanism and the
+   `py` extension; the `test` module. (L)
+6. **`interpreter`:** the interpreter over typed Core, written once against the
+   language as the branches before it leave it; the spec runs on both, and a
+   difference is a gap in the spec or a bug in one of them. (S, checked)
+7. **`host-macros`:** macros run on the interpreter; macro code gets the prelude
+   ([[B52]]); their results checked ([[B42]]); macro files as modules ([[B45]]);
+   hygiene ([[B46]]); the macro leaks that remain ([[B43]], [[B44]]). (M)
 8. **`test-runner`:** the spec's runner in Candy, on the interpreter, called from
    `test_spec.py`; the spec runs on both implementations through it. (X)
 9. **`porting-surface`:** the per-target files (`system`, spelling, runtime, spec
-   extensions) in a layout a second target fills in; the porting surface's own doc; the
-   exit test checked. (L, P)
+   extensions) in a layout a second target fills in; the porting surface's own doc;
+   whether mypy stays ([[B15]], Question 3); the exit test checked. (L, P)
 
 Defects (D) and the translator's own items (X) go into whichever branch is near them.
 
 ## Pros and cons
 
 - **For:** the backlog gets an order and an end; each branch is the size the last ones
-  were; the interpreter pays for itself three ways (conformance, macros, a REPL); the
-  library gets a design before it grows, rather than after.
+  were; the language settles before its second implementation is written, so that is
+  written once; the interpreter pays for itself three ways (conformance, macros, a
+  REPL); the library gets a design before it grows, rather than after.
 - **Against:** it is long, nine or more branches, before anything runs on Rust; some
-  answers (interfaces, `Maybe` as a sum) may change many programs, the translator most.
+  answers (interfaces, `Maybe` as a sum, qualified names) change many programs, the
+  translator most, and the semantics are checked by one implementation until the
+  sixth branch.
 - **Why now:** the type checker was what the rest waited on (typed Core, `show`, `Any`).
   And the longer the translator is the only big Candy program, the more of it is written
   against Python's semantics.
@@ -358,14 +381,19 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
    in "Goals"? Or less (no interpreter: the second implementation waits for Rust), or
    more (the standard library's modules written, not just designed)? **Proposed: the
    draft, and the four.**
-2. **The order:** typed Core, the interpreter, semantics, collections, namespaces,
-   library, host macros, test runner, porting surface? The library could come earlier (it is independent of
-   typed Core but for `show`), and macros could move to the interpreter in its own
-   branch. **Proposed: as listed**, since the interpreter finds the S items the
-   semantics branch fixes.
+2. **The order:** typed Core, semantics, collections, namespaces, library, the
+   interpreter, host macros, test runner, porting surface? The other order puts the
+   interpreter second, as a probe before the semantics are fixed; but it can't find a
+   borrowed semantic by itself (it would hand the host the same meaning), and it would
+   be rewritten for each language change after it. **Proposed: as listed**: the
+   language changes first, `typed-core` first of all (what the rest needs) and
+   `semantics` next (with [[B36]], `high`); the second implementation once, against the
+   settled spec. `namespaces` could go before `semantics` and `collections`, if
+   qualified names are wanted sooner.
 3. **mypy:** keep it as a second check through the epic, or drop it once Core is typed?
-   **Proposed: keep it** until `semantics` is done, then decide (it catches the
-   backend's mistakes, which the interpreter doesn't).
+   **Proposed: keep it through the epic**, and decide in `porting-surface`, once two
+   implementations check the semantics: it catches the Python backend's mistakes, which
+   neither the checker nor the interpreter sees.
 4. **Overloading:** `+` on numbers and strings, `=` on everything, `Collection`: special
    rules per operator (as now), interfaces (traits, type classes), or plain
    per-type functions (`str-concat`)? Rust has traits, so interfaces map well, but they
@@ -379,14 +407,14 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
    stays hand-written), as a proving ground for generics and closures? **Proposed: yes,
    as `parse`, in the `library` branch's second half, if it is cheap there.**
 7. **`Maybe`:** a real sum (`(Some x)`, `None`), changing programs, or `a | None` kept
-   *lasting* with narrowing? It is the biggest S item ([[B20]], [[B21]]). **Proposed:
-   decided in the `semantics` HLD**, with the interpreter's evidence.
+   *lasting* with narrowing? It is the biggest S item ([[B20]], [[B21]]), and changes
+   the most programs if it changes. **Proposed: decided in the `semantics` HLD.**
 8. **Testing in Candy: how far?** The `test` module only; or that and the spec's
    runner (the conformance suite, which a second host needs); or everything, pytest
    kept for the Python-only checks. **Proposed: the `test` module and the spec's
-   runner**, the rest when a second host needs it. The spec's runner could move into
-   `interpreter` (its first user), or wait for `library`'s `string` module; as listed
-   it comes after both.
+   runner**, the rest when a second host needs it. The spec's runner needs the
+   interpreter, `library`'s `string` module and `semantics`' errors as values, so it
+   comes after all three.
 
 9. **Variadics or currying?** Typed rest parameters (`(Fn (Int ...) Int)`, user
    `defn`s with `&`), or curried types and partial application ([[B93]]), which need a
@@ -399,6 +427,7 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
    its own branch; one namespace, *lasting*,** since the translator and the tests rely on
    it and two would make `A` mean two things; [[B40]] and [[B119]] become a rule and a
    message.
+
 11. **The list operations:** add `map-acc` (a `map` threading a state), a right fold,
    `reduce` (no start value)? **Proposed: `map-acc` only**, as the translator's loops
    need it; `reduce` needs a non-empty list, which Candy can't type; a right fold isn't
@@ -411,7 +440,8 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
 
 ## The triage
 
-Every open item on 2026-10-29, by group; the branch is where it is expected to close.
+Every open item on 2026-10-29, in branch order; the branch is where it is expected to
+close. ([[B67]], the built-ins' types unused, was closed by `type-checker`.)
 
 | Item | Group | Branch |
 |---|---|---|
@@ -421,8 +451,8 @@ Every open item on 2026-10-29, by group; the branch is where it is expected to c
 | [[B121]] no narrowing in a clause | T | `typed-core` |
 | [[B122]] a leaf's error at its parent | X | `typed-core` |
 | [[B59]] only symbols and lists carry positions | X | `typed-core` |
-| [[B67]] the built-ins' types unused | X | `typed-core` (likely done already) |
-| [[B101]] an interpreter | I → taken up | `interpreter` |
+| [[B14]] errors without positions | D | `typed-core` |
+| [[B119]] a variant written as a type | D | `typed-core` |
 | [[B36]] values print as Python's | S | `semantics` |
 | [[B27]] `=` is `==` | S | `semantics` |
 | [[B23]] `/` is true division | S | `semantics` |
@@ -436,8 +466,8 @@ Every open item on 2026-10-29, by group; the branch is where it is expected to c
 | [[B31]] a value used before its `def` | S | `semantics` |
 | [[B80]] `def`: constant or variable | S | `semantics` |
 | [[B39]] `fail` stands in for errors | S | `semantics` |
-| [[B38]] operators aren't values | S | `semantics` or `collections` |
-| [[B40]] types and values share a namespace | S | `namespaces` |
+| [[B71]] `at` and `slice_` helpers | P | `semantics` (with B35) |
+| [[B38]] operators aren't values | S | `collections` |
 | [[B16]] `format` is an f-string hack | T | `collections` |
 | [[B17]] taking a `tup` apart | T | `collections` |
 | [[B48]] operators, `tup`, `put` untyped | T | `collections` |
@@ -445,12 +475,16 @@ Every open item on 2026-10-29, by group; the branch is where it is expected to c
 | [[B99]] variadic types | I → taken up | `collections` |
 | [[B18]] `Any` turns checking off | T | `collections` (cut down; *lasting* for what stays) |
 | [[B34]] no `Collection` | T | `collections` (Question 4) |
-| [[B49]] host objects untyped | T | `library` (the `py` extension) |
 | [[B93]] curried types, partial application | I | `collections` (Question 9) |
+| [[B69]] building a list is quadratic | X | `collections` (with B123) |
+| [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
+| [[B40]] types and values share a namespace | S | `namespaces` |
 | [[B47]] only `(import m)` | L | `namespaces` |
 | [[B108]] one flat namespace | L | `namespaces`, `library` |
+| [[B65]] tests reach internals by Python names | X | `namespaces` |
+| [[B11]] a variant named like a macro | D | `namespaces` |
+| [[B49]] host objects untyped | T | `library` (the `py` extension) |
 | [[B51]] `with-default` is a built-in | L | `library` |
-| [[B52]] macro code has no prelude | L | `library` |
 | [[B50]] the translator's host built-ins | L | `library` |
 | [[B95]] the I/O refactor | L | `library` |
 | [[B32]] regexes are Python's | L | `library` (the `py` extension) |
@@ -459,7 +493,8 @@ Every open item on 2026-10-29, by group; the branch is where it is expected to c
 | [[B66]] the built-ins read every time | L | `library` |
 | [[B62]] every module compiles the prelude's macros | L | `library` |
 | [[B97]] a library per target | L | `library`, `porting-surface` |
-| [[B72]] parsec.py v4 unpublished | X | not this epic (the bootstrap chain) |
+| [[B101]] an interpreter | I → taken up | `interpreter` |
+| [[B52]] macro code has no prelude | L | `host-macros` |
 | [[B41]] macros run with `exec` | M | `host-macros` |
 | [[B70]] `load-macros` finds names by Python name | M | `host-macros` |
 | [[B64]] `form.cdy` copied next to every translator | M | `host-macros` |
@@ -470,7 +505,6 @@ Every open item on 2026-10-29, by group; the branch is where it is expected to c
 | [[B44]] a macro can't expand into `import` | M | `host-macros` |
 | [[B61]] `expand.cdy` knows special forms' shapes | M | `host-macros` |
 | [[B63]] a macro file compiled per importer | M | `host-macros` |
-| [[B104]] `up`, `down` for quoting | I | later |
 | [[B29]] records are `NamedTuple`s | P | stays (the `tup` part: `collections`) |
 | [[B113]] a field can't start with `_` | P | stays, or `porting-surface` |
 | [[B114]] a field named like a tuple method | P | stays, or `porting-surface` |
@@ -479,24 +513,19 @@ Every open item on 2026-10-29, by group; the branch is where it is expected to c
 | [[B57]] the translator's Python is plain | P | stays |
 | [[B74]] `py-str` is close to `repr` | P | stays |
 | [[B76]] `PY_RESERVED` is 3.14's | P | stays |
-| [[B71]] `at` and `slice_` helpers | P | `semantics` (with B35) |
-| [[B37]] only self tail calls are loops | P | not this epic |
-| [[B98]] trampolines, `loop`/`recur` | I | not this epic |
-| [[B69]] building a list is quadratic | X | `collections` (with B123) |
-| [[B58]] the reader builds one item at a time | X | not this epic |
-| [[B65]] tests reach internals by Python names | X | `namespaces` |
-| [[B75]] `mypy --strict` one program at a time | X | `typed-core` (Question 3) |
+| [[B75]] `mypy --strict` one program at a time | X | any (Question 3) |
 | [[B60]] three directories of test programs | X | any |
-| [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
 | [[B1]] highlight `candy` fences | X | any |
-| [[B94]] doc strings and metadata | I | later |
 | [[B96]] "no code changes" commits | I | any (process) |
-| [[B102]] the book | I | later |
 | [[B4]] `(def (x) 1)`'s message | D | any |
 | [[B7]] a lowercase record name | D | any |
 | [[B8]] the same argument twice | D | any |
 | [[B9]] `nil` can be defined | D | any |
-| [[B11]] a variant named like a macro | D | `namespaces` |
-| [[B13]] a 200-clause `cond` | D | `semantics` (deep nesting) |
-| [[B14]] errors without positions | D | `typed-core` |
-| [[B119]] a variant written as a type | D | `typed-core` |
+| [[B13]] a 200-clause `cond` | D | any |
+| [[B104]] `up`, `down` for quoting | I | later |
+| [[B94]] doc strings and metadata | I | later |
+| [[B102]] the book | I | later |
+| [[B72]] parsec.py v4 unpublished | X | not this epic (the bootstrap chain) |
+| [[B37]] only self tail calls are loops | P | not this epic |
+| [[B98]] trampolines, `loop`/`recur` | I | not this epic |
+| [[B58]] the reader builds one item at a time | X | not this epic |
