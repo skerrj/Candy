@@ -13,6 +13,7 @@
 (import expand)
 (import lower)
 (import emit)
+(import check)
 
 ;; --- the whole translator: forms in, Python source out ---
 
@@ -22,15 +23,21 @@
 
 ;; The program `modules` (doc/hl_rqmt/modules.md), the top module last, as one Python
 ;; module. Each module is expanded and analysed on its own, seeing what it imports; then
-;; their definitions are lowered and emitted together. `parse` reads the forms in `format`
-;; holes: read-forms (see translate-text).
+;; their definitions are type-checked (check.cdy), lowered and emitted together. `parse`
+;; reads the forms in `format` holes: read-forms (see translate-text).
 (sig translate-modules (Fn ((List Module) (Fn (String) (List Form))) String))
 (defn translate-modules (modules parse)
+  (let ((builtins (library-builtins nil)))
+    (python-of (type-check (program-tops modules parse builtins) builtins))))
+
+;; The definitions of the program `modules`, analysed (see translate-modules); not yet
+;; type-checked (check.cdy).
+(sig program-tops (Fn ((List Module) (Fn (String) (List Form)) (Map String Builtin)) (List Top)))
+(defn program-tops (modules parse builtins)
   (let ((ready (expand-modules modules (- (len modules) 1) empty-list))
         (by-key (exports-by-key ready empty-map))
-        (elsewhere (elsewhere-names (exports-of ready empty-list) empty-map))
-        (builtins (library-builtins nil)))
-    (python-of (analyse-modules ready by-key elsewhere builtins parse empty-list))))
+        (elsewhere (elsewhere-names (exports-of ready empty-list) empty-map)))
+    (analyse-modules ready by-key elsewhere builtins parse empty-list)))
 
 ;; Each of `modules` with its macros expanded; `top` is the top module's index.
 (sig expand-modules (Fn ((List Module) Int (List Ready)) (List Ready)))

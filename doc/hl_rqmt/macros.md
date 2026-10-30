@@ -27,6 +27,10 @@ The third point is the one that confuses: macro code is part of the program's so
 behaves like part of the translator. A Candy translator hosted on Python and targeting
 JavaScript would still run its macros in Python.
 
+So what macro code prints, or embeds in a message with `format`, is shown by the
+**host**: today Python's `str()` (`True`, `None`, `(1, 2)`). A `show` written in Candy
+would read the same on every host and target ([[B36]]).
+
 ## Why now
 
 - **The spec plans on them.** `defn` and `cond` are to become macros, `quote` is

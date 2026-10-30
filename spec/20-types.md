@@ -63,13 +63,12 @@ variable needs no declaration.
 ```
 
 <a id="types.checking"></a>
-**Types are checked by mypy, not by the translator** (*for now*: Candy has no type checker
-yet, [[B15]]). The translator turns each type into a
-Python annotation, and `mypy --strict` checks the translation: the spec runner checks
-every `candy run` example that way. So a type error, or a value used as a function,
-translates, and only mypy or the run rejects it. The translator checks that each type
-exists, with its number of arguments ([[types.exist]]), and a type's shape where it needs
-it (a function type for `defn`, below). *Tested in*
+**Types are checked by the translator**, before it writes any Python: a type error is the
+translator's error, at the form where it is found (the rules are in `25-checking.md`). It
+checks that each type exists, with its number of arguments ([[types.exist]]), and a
+type's shape where it needs it (a function type for `defn`, below). mypy checks the
+Python too, as a second check (*for now*: [[B15]]): each type becomes a Python
+annotation, and `mypy --strict` checks the translation. *Tested in*
 `tst/py_cdy/test_spec.py`'s `test_mypy_strict`, which runs on every example.
 
 <a id="types.sig"></a>
@@ -160,9 +159,8 @@ boxed
 (put (assoc 1 x 2 y)) => expected (assoc obj field value
 ```
 
-The translator doesn't check a record constructor's arguments, or the fields `get` and
-`assoc` name (*for now*: [[B10]], [[B30]]): a wrong number of arguments, or a field the
-record doesn't have, fails only in mypy or at run time, with Python's error.
+A record constructor's arguments, and the fields `get` and `assoc` name, are checked with
+the types ([[checking.records]]).
 
 <a id="types.tuples"></a>
 ## Tuples

@@ -27,5 +27,5 @@
 (put ten (fact 5) (sign -3) (sign 0) (sign 7))
 (shout "hey")
 (put (noisy 4) (noisy -1))
-(put (and true (not false)) (or false nil) 2.5 1500l \c (at "abc" 1) (slice "hello" 1 3))
+(put (and true (not false)) (or false true) 2.5 1500l \c (at "abc" 1) (slice "hello" 1 3))
 (put (len "abc") PI)

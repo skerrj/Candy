@@ -37,14 +37,17 @@ no fields is a value, not a call. `deft` is top level only.
 0
 ```
 
-A variant's fields are named, as a record's are, so `get` reads one:
+A variant's fields are named, as a record's are, but a variant's constructor gives the
+sum (a `Shape`, not a `Rect`), so `get` reads only a field that every variant has, with
+one type ([[checking.records]]); any other field is read in its variant's clause of a
+`match`:
 
 ```candy run
-(deft Shape (Circle ((r Int))) (Rect ((w Int) (h Int))))
-(put (get (Rect 4 5) h))
+(deft Shape (Circle ((id String) (r Int))) (Rect ((id String) (w Int) (h Int))))
+(put (get (Rect "a" 4 5) id) (match (Rect "a" 4 5) ((Rect _ _ h) h) (else 0)))
 ```
 ```expect
-5
+a 5
 ```
 
 A sum can be generic and recursive:
@@ -163,8 +166,9 @@ nested patterns, literals or guards (`doc/hl_rqmt/sum_types.md`).
 ## Taking a tuple apart
 
 A `tup` pattern binds a tuple's items by position (`_` skips one). A tuple has one shape,
-so its clause is the only one, with no `else`. It works wherever an expression goes, and
-in a `let` binding as `((a b) init)`.
+so its clause is the only one, with no `else`, and it names as many items as the tuple
+has ([[checking.match]]). It works wherever an expression goes, and in a `let` binding as
+`((a b) init)`.
 
 ```candy run
 (sig divmod (Fn (Int Int) (Tup Int Int)))

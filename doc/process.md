@@ -13,7 +13,8 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
    branch before (the follow-up of its work). Its questions are answered by the owner,
    usually with "the simplest option for the MVP". An HLD for a language feature includes,
    or points at, the feature's spec file, `status: draft` (see "The spec"), whose
-   examples say what the feature will do.
+   examples say what the feature will do, and says which rules of the stable files change.
+   The owner goes over those spec changes, with the questions, before accepting it.
 2. **Start the branch.** The first commit, "Start branch X: ...":
    - marks the HLD accepted (with its scope);
    - adds a `task` item for each of the HLD's steps to the backlog (see "The backlog"),
@@ -106,7 +107,9 @@ HLDs live in `doc/hl_rqmt/`, one per piece of work, named for it.
 
 - **Layout:** a status line; "Where things stand"; "Goals" (and "Not goals"); "Proposal"
   (or "Design"); "Pros and cons" (with the timing: why now, or why wait); "Steps";
-  "Questions". Larger ones add "After the MVP" for what is deliberately left out.
+  "Questions". Larger ones add "After the MVP" for what is deliberately left out. One
+  that changes the language has "The spec" in its Proposal: its draft spec file (each
+  rule's id, in a table), and the rules of the stable files it changes.
 - **Status words:** *draft* (being written), *proposal* (written, questions open),
   *accepted* (questions answered; the branch can start), *done* (built, with its scope).
   The status line says which branch it belongs to and which decisions are in.
@@ -176,6 +179,7 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 | A quick, undecided thought | `doc/brainstorm.md` (once written up, it moves to the backlog as an `idea`) |
 | An optimization or mutation idea | `doc/hl_rqmt/mutation_optimization.md` |
 | History: the lists before the backlog | `doc/archive/leaks_*.md`, `doc/archive/TODOS_*.md` (each entry open on 2026-10-25 is an item) |
+| History: a side conversation worth keeping (the owner asks for it) | `doc/archive/chat_<topic>.md`, verbatim, with a note at its top: when, where, and what came of it |
 | A language rule, with its examples | `spec/`, the file for its feature (`spec/README.md` lists them) |
 | A design, its decisions and what was built | its HLD in `doc/hl_rqmt/` |
 | Guidance for Claude Code (layout, commands, conventions) | `CLAUDE.md` |
@@ -192,6 +196,11 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 
 Changes to the process, newest first.
 
+- **2026-10-29:** a side conversation worth keeping is archived in `doc/archive/chat_*.md`
+  ("Where notes go").
+- **2026-10-28:** an HLD that changes the language says how the spec changes ("The spec":
+  its draft file's rules, the stable rules it changes), and the owner goes over that
+  with the questions, before accepting it.
 - **2026-10-25:** the backlog and ids (`doc/hl_rqmt/tracking.md`): `backlog/`, one file
   per item, replaces `doc/leaks.md`, `doc/tech_debt.md` and `TODOS.md`, and nothing is
   archived when a branch starts; a step's review is its task going to `review`; spec

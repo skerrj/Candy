@@ -5,6 +5,7 @@
 ;;; and a Lambda a lambda.
 ;;; A let arrives as applied Lambdas and becomes assignments again.
 
+(import form)
 (import core)
 
 (deft Stmt
@@ -49,9 +50,9 @@
 (sig is-applied (Fn (Expr) Bool))
 (defn is-applied (e)
   (match e
-    ((Call callee args)
+    ((Call callee args _)
       (match callee
-        ((Lambda params _) (= (len params) (len args)))
+        ((Lambda params _ _) (= (len params) (len args)))
         (else false)))
     (else false)))
 
@@ -59,9 +60,9 @@
 (sig bind-applied (Fn (Expr Int) (Tup (List Stmt) Expr Int)))
 (defn bind-applied (e n)
   (match e
-    ((Call callee args)
+    ((Call callee args _)
       (match callee
-        ((Lambda params body)
+        ((Lambda params body _)
           (let (((stmts vals n1) (value-seq args n)))
             (tup (+ stmts (assigns params vals empty-list)) body n1)))
         (else (fail "lower: not an applied fn"))))
@@ -85,23 +86,23 @@
           (low (value body n1)))
       (Low (+ stmts (get low stmts)) (get low expr) (get low n)))
     (match e
-      ((Call callee args) (value-call callee args n))
-      ((If test then other) (value-if test then other n))
+      ((Call callee args pos) (value-call callee args pos n))
+      ((If test then other pos) (value-if test then other pos n))
       ((Do body) (value-do body n))
-      ((Lambda params body) (value-fn params body n))
-      ((Tuple items)
+      ((Lambda params body pos) (value-fn params body pos n))
+      ((Tuple items pos)
         (let (((stmts vals n1) (value-seq items n)))
-          (Low stmts (Tuple vals) n1)))
-      ((Fmt parts)
+          (Low stmts (Tuple vals pos) n1)))
+      ((Fmt parts pos)
         (let (((stmts vals n1) (value-seq (holes parts empty-list) n)))
-          (Low stmts (Fmt (fill-holes parts vals empty-list)) n1)))
-      ((Field obj field)
+          (Low stmts (Fmt (fill-holes parts vals empty-list) pos) n1)))
+      ((Field obj field pos)
         (let ((low (value obj n)))
-          (Low (get low stmts) (Field (get low expr) field) (get low n))))
-      ((Assoc obj fields)
+          (Low (get low stmts) (Field (get low expr) field pos) (get low n))))
+      ((Assoc obj fields pos)
         (let (((stmts vals n1) (value-seq (+ (to-list obj) (field-vals fields empty-list)) n)))
-          (Low stmts (Assoc (at vals 0) (refill fields (rest vals) empty-list)) n1)))
-      ((MatchE _ _ _)
+          (Low stmts (Assoc (at vals 0) (refill fields (rest vals) empty-list) pos) n1)))
+      ((MatchE _ _ _ _)
         (let ((tmp (Temp n))
               ((stmts n1) (lower-match e "value" tmp (+ n 1))))
           (Low stmts tmp n1)))
@@ -111,7 +112,7 @@
 (sig lower-match (Fn (Expr String Expr Int) (Tup (List Stmt) Int)))
 (defn lower-match (e mode tmp n)
   (match e
-    ((MatchE subject clauses default)
+    ((MatchE subject clauses default _)
       (let ((low (value subject n))
             (temp (Temp (get low n)))
             ((cases n2) (lower-cases clauses mode tmp (+ (get low n) 1) empty-list))
@@ -150,11 +151,11 @@
         (tup (+ (get low stmts) (to-list (SAssign tmp (get low expr)))) (get low n))))))
 
 ;; fn: a lambda if its body is one expression, otherwise a nested function.
-(sig value-fn (Fn ((List Expr) Expr Int) Low))
-(defn value-fn (params body n)
+(sig value-fn (Fn ((List Expr) Expr Pos Int) Low))
+(defn value-fn (params body pos n)
   (let (((stmts n1) (tail body n)))
     (match (if (= (len stmts) 1) (at stmts 0) (SExpr NIL))
-      ((SReturn result) (Low empty-list (Lambda params result) n1))
+      ((SReturn result) (Low empty-list (Lambda params result pos) n1))
       (else
         (Low (to-list (SLocalFunc (Temp n1) params stmts)) (Temp n1) (+ n1 1))))))
 
@@ -192,12 +193,12 @@
     (let (((f _) (at fields 0)))
       (refill (rest fields) (rest vals) (+ acc (to-list (tup f (at vals 0))))))))
 
-(sig value-call (Fn (Expr (List Expr) Int) Low))
-(defn value-call (callee args n)
+(sig value-call (Fn (Expr (List Expr) Pos Int) Low))
+(defn value-call (callee args pos n)
   (if (in (prim-name callee) (tup "and" "or"))
-    (value-boolop callee args n)
+    (value-boolop callee args pos n)
     (let (((stmts items n1) (value-seq (+ (to-list callee) args) n)))
-      (Low stmts (Call (at items 0) (rest items)) n1))))
+      (Low stmts (Call (at items 0) (rest items) pos) n1))))
 
 (sig prim-name (Fn (Expr) String))
 (defn prim-name (e)
@@ -208,8 +209,8 @@
 ;; `and`/`or`: one Call, unless a later argument needs statements. They short-circuit, so
 ;; those statements can't run first: (and a b) becomes t = a; if t: t = b, and `or` tests
 ;; (not t).
-(sig value-boolop (Fn (Expr (List Expr) Int) Low))
-(defn value-boolop (op args n)
+(sig value-boolop (Fn (Expr (List Expr) Pos Int) Low))
+(defn value-boolop (op args pos n)
   (let (((lows n1) (low-all args n empty-list))
         (first (at lows 0))
         (later (rest lows)))
@@ -221,7 +222,7 @@
              (to-list (guard op tmp (guarded op later tmp))))
           tmp
           (+ n1 1)))
-      (Low (get first stmts) (Call op (low-exprs lows empty-list)) n1))))
+      (Low (get first stmts) (Call op (low-exprs lows empty-list) pos) n1))))
 
 ;; The rest of `and`/`or`: each argument's statements, then its value into `tmp`, and the
 ;; ones after it only if that didn't decide the result.
@@ -235,7 +236,7 @@
 
 (sig guard (Fn (Expr Expr (List Stmt)) Stmt))
 (defn guard (op tmp body)
-  (SIf (if (= (prim-name op) "and") tmp (Call (Prim "not") (to-list tmp))) body empty-list))
+  (SIf (if (= (prim-name op) "and") tmp (Call (Prim "not") (to-list tmp) NOWHERE)) body empty-list))
 
 (sig low-exprs (Fn ((List Low) (List Expr)) (List Expr)))
 (defn low-exprs (lows acc)
@@ -278,14 +279,14 @@
           (+ out (to-list (Temp n))))
         (seq-build later n (+ stmts (get low stmts)) (+ out (to-list (get low expr))))))))
 
-(sig value-if (Fn (Expr Expr Expr Int) Low))
-(defn value-if (test then other n)
+(sig value-if (Fn (Expr Expr Expr Pos Int) Low))
+(defn value-if (test then other pos n)
   (let ((t (value test n))
         (a (value then (get t n)))
         (b (value other (get a n))))
     (cond
       ((and (= (len (get a stmts)) 0) (= (len (get b stmts)) 0))
-        (Low (get t stmts) (If (get t expr) (get a expr) (get b expr)) (get b n)))
+        (Low (get t stmts) (If (get t expr) (get a expr) (get b expr) pos) (get b n)))
       ;; The else is itself an if that assigns its Temp (as from a cond's next clause): this
       ;; if assigns the same Temp, so the else holds just that if, which emits as an elif.
       ((is-if-into (get b stmts) (get b expr))
@@ -349,7 +350,7 @@
 (sig tail-plain (Fn (Expr Int) (Tup (List Stmt) Int)))
 (defn tail-plain (e n)
   (match e
-    ((If test then other)
+    ((If test then other _)
       (let ((t (value test n))
             ((a n1) (tail then (get t n)))
             ((b n2) (tail other n1)))
@@ -358,7 +359,7 @@
       (let (((stmts n1) (effect-all (all-but-last body) n empty-list))
             ((last n2) (tail (last-of body) n1)))
         (tup (+ stmts last) n2)))
-    ((MatchE _ _ _) (lower-match e "tail" NIL n))
+    ((MatchE _ _ _ _) (lower-match e "tail" NIL n))
     (else
       (let ((low (value e n)))
         (tup (+ (get low stmts) (to-list (SReturn (get low expr)))) (get low n))))))
@@ -374,13 +375,13 @@
 (sig effect-plain (Fn (Expr Int) (Tup (List Stmt) Int)))
 (defn effect-plain (e n)
   (match e
-    ((If test then other)
+    ((If test then other _)
       (let ((t (value test n))
             ((a n1) (effect then (get t n)))
             ((b n2) (effect other n1)))
         (tup (+ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
     ((Do body) (effect-all body n empty-list))
-    ((MatchE _ _ _) (lower-match e "effect" NIL n))
+    ((MatchE _ _ _ _) (lower-match e "effect" NIL n))
     (else
       (if (is-simple e)
         (tup empty-list n)
@@ -411,10 +412,10 @@
   (match top
     ((TDeft name tvars fields) (tup (to-list (SRecord name tvars fields)) n))
     ((TDeftSum name tvars variants) (tup (to-list (SSum name tvars variants)) n))
-    ((TDef name init t)
+    ((TDef name init t _)
       (let ((low (value init n)))
         (tup (+ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))
-    ((TDefn name params body t)
+    ((TDefn name params body t _)
       (let (((stmts n1) (if (returns-unit t) (effect body n) (tail body n))))
         (tup (to-list (SFunc name params (loop-tail-calls name params stmts (returns-unit t)) t)) n1)))
     ((TExpr e) (effect e n))))
@@ -472,7 +473,7 @@
 (sig is-self-call (Fn (Expr String (List Expr)) Bool))
 (defn is-self-call (e name params)
   (match e
-    ((Call callee args)
+    ((Call callee args _)
       (match callee
         ((Global g) (and (= g name) (= (len args) (len params))))
         (else false)))
@@ -481,7 +482,7 @@
 (sig call-args (Fn (Expr) (List Expr)))
 (defn call-args (e)
   (match e
-    ((Call _ args) args)
+    ((Call _ args _) args)
     (else empty-list)))
 
 ;; Instead of calling the function again: new values for the parameters that change, then
@@ -554,15 +555,15 @@
 (sig has-lambda (Fn (Expr) Bool))
 (defn has-lambda (e)
   (match e
-    ((Lambda _ _) true)
-    ((Call callee args) (or (has-lambda callee) (any-lambda args)))
-    ((If test then other) (or (has-lambda test) (has-lambda then) (has-lambda other)))
+    ((Lambda _ _ _) true)
+    ((Call callee args _) (or (has-lambda callee) (any-lambda args)))
+    ((If test then other _) (or (has-lambda test) (has-lambda then) (has-lambda other)))
     ((Do body) (any-lambda body))
-    ((Tuple items) (any-lambda items))
-    ((Fmt parts) (any-lambda (holes parts empty-list)))
-    ((Field obj _) (has-lambda obj))
-    ((Assoc obj fields) (or (has-lambda obj) (any-lambda (field-vals fields empty-list))))
-    ((MatchE subject _ _) (has-lambda subject))
+    ((Tuple items _) (any-lambda items))
+    ((Fmt parts _) (any-lambda (holes parts empty-list)))
+    ((Field obj _ _) (has-lambda obj))
+    ((Assoc obj fields _) (or (has-lambda obj) (any-lambda (field-vals fields empty-list))))
+    ((MatchE subject _ _ _) (has-lambda subject))
     (else false)))
 
 (sig lower-program (Fn ((List Top) Int (List Stmt)) (List Stmt)))

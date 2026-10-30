@@ -43,7 +43,8 @@ prints them with a space between.
 ## Operators
 
 The operators are declared in `src/cdy/special.cdy`. `+`, `-`, `*`, `/` and `quot` take
-two or more arguments and fold left; `+` also joins strings. `/` divides into a
+two or more arguments and fold left; `+` also joins strings, and lists. Their arguments
+have one type, and the number types don't mix ([[checking.operators]]). `/` divides into a
 `Double` (*for now*, Python's: [[B23]]), and `quot` divides whole numbers rounding down,
 toward minus infinity, as Haskell's `div` and Python's `//` do (*lasting*: [[B24]]; a
 target whose division truncates spells it otherwise). There is no unary minus: a
@@ -52,10 +53,12 @@ negative number is a literal (`-5`), and `(- 0 x)` negates (*lasting*: [[B33]]).
 ```candy run
 (put (- 10 2 3) (* 2 3 4) (+ "a" "b" "c"))
 (put (/ 7 2) (quot 7 2) (quot -7 2))
+(put (len (+ (to-list 1) (to-list 2))))
 ```
 ```expect
 5 24 abc
 3.5 3 -4
+2
 ```
 
 <a id="expr.comparisons"></a>
@@ -129,7 +132,8 @@ for `not`.
 ## do, if and cond
 
 `(do expr ...)` evaluates its forms in order; its value is the last one's. `(if test then
-else)` evaluates `then` or `else`; with no `else`, a false test gives `nil`.
+else)` evaluates `then` or `else`; with no `else`, a false test gives `nil`. The test is a
+`Bool`, and the branches have one type ([[checking.if]]).
 
 `cond` is a macro (in `src/cdy/prelude_macros.cdy`, which every file gets), expanding into
 nested `if`s: the first clause whose test is true gives the value. The last clause may be
@@ -239,7 +243,7 @@ A `fn` or `defn` with no argument, or a body of more than one form, is an error:
 `Unit` is the type with one value, `nil`. It is the value of an `if` with no `else` whose
 test is false, of a `cond` with no match, of `(do)`, and of a `def` form itself. `nil`
 also stands for a missing value in a `(Maybe a)` (*for now*: one `None` for both,
-[[B20]], [[B21]]).
+[[B20]], [[B21]]; how the checker treats them is [[checking.maybe]]).
 
 ```candy run
 (sig m (Maybe Int))

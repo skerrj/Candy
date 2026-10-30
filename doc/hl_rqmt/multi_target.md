@@ -9,8 +9,9 @@ targets, so that they aren't designed out by accident.
 
 1. **Type distinctions belong to Candy's front end, not to a backend.** The difference
    between `Int`, `Long` and `Byte`, or between `Char` and `String`, lives in the parser's
-   typed AST (each literal type already has its own node) and later in Candy's own type
-   checker. Every backend reads it from there.
+   typed AST (each literal type already has its own node) and in Candy's own type
+   checker (`src/cdy/check.cdy`, since branch `type-checker`), which runs on Core, before
+   any backend. Every backend reads it from there.
    - For that reason the Python backend does **not** use `typing.NewType` to keep Candy
      types apart. NewType would only change how mypy checks the generated Python, and other
      targets would get nothing from it.
@@ -19,7 +20,9 @@ targets, so that they aren't designed out by accident.
      everywhere, or wrapper classes with overloaded operators.
 2. **The translator keeps target-independent stages.** The pipeline is:
    - parser → `SExpr`
-   - `analyse` → Core AST (typed, once Candy's type checker exists)
+   - `analyse` → Core AST, with positions
+   - the type checker, on Core (the front end's, so every target gets it; the types it
+     infers aren't kept in Core yet)
    - `lower` → lowered IR, the "pseudo-AST" (statements vs. expressions)
    - one backend per target, which emits that target's code
 
@@ -141,6 +144,22 @@ None of this is designed yet. Questions to answer:
 6. **Relation to `Caps`.** `Caps` describes what a target's *code* can express (for
    `lower`). This is about what its *runtime library* provides. The two may end up in one
    target description.
+
+### Open: showing values
+
+`put`, `print` and `format` show a value with the target's own printing (Python's
+`str()`: `True`, `None`, `(1, 2)`), so the spec's `expect` blocks avoid printing a
+`Bool`, a list or `nil`, and a second target would print them differently again
+([[B36]]). The same goes for the host, where macros run (`doc/hl_rqmt/macros.md`, "Terms:
+host and target"). A `show` in Candy's syntax (`true`, `nil`, `(1 2 3)`) would make the
+output Candy's on every target and host. Two ways to know what it shows:
+
+- **At run time**, with primitives that test a value's type (`is-str`, `is-coll`): a set
+  every target and host must supply, and not enough on Python, where a `Char` and a
+  `String` are both `str`, an `Int` and a `Byte` both `int`.
+- **From the static type**, the translator choosing a `show` per type: portable and
+  exact, but it needs Candy's own type checker, which exists since branch `type-checker`,
+  to keep the types it infers ([[B15]]).
 
 ### Modules and output units
 

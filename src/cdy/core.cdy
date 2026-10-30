@@ -21,16 +21,16 @@
   (Local ((name String) (id Int)))
   (Global ((name String)))
   (Prim ((name String)))
-  (Call ((callee Expr) (args (List Expr))))
-  (If ((test Expr) (then Expr) (other Expr)))
+  (Call ((callee Expr) (args (List Expr)) (pos Pos)))
+  (If ((test Expr) (then Expr) (other Expr) (pos Pos)))
   (Do ((body (List Expr))))
-  (Lambda ((params (List Expr)) (body Expr)))
-  (Tuple ((items (List Expr))))
-  (Fmt ((parts (List FPart))))
-  (Field ((obj Expr) (field String)))
-  (Assoc ((obj Expr) (fields (List (Tup String Expr)))))
+  (Lambda ((params (List Expr)) (body Expr) (pos Pos)))
+  (Tuple ((items (List Expr)) (pos Pos)))
+  (Fmt ((parts (List FPart)) (pos Pos)))
+  (Field ((obj Expr) (field String) (pos Pos)))
+  (Assoc ((obj Expr) (fields (List (Tup String Expr))) (pos Pos)))
   ;; `default` is the else clause: empty, or one expression.
-  (MatchE ((subject Expr) (clauses (List Clause)) (default (List Expr))))
+  (MatchE ((subject Expr) (clauses (List Clause)) (default (List Expr)) (pos Pos)))
   (Temp ((id Int))))
 
 ;; ((Variant a b) body): the (field, Local) pairs it binds (`_` binds nothing).
@@ -48,8 +48,8 @@
 (deft Top
   (TDeft ((name String) (tvars (List String)) (fields (List (Tup String CType)))))
   (TDeftSum ((name String) (tvars (List String)) (variants (List Variant))))
-  (TDef ((name String) (init Expr) (t CType)))
-  (TDefn ((name String) (params (List Expr)) (body Expr) (t CType)))
+  (TDef ((name String) (init Expr) (t CType) (pos Pos)))
+  (TDefn ((name String) (params (List Expr)) (body Expr) (t CType) (pos Pos)))
   (TExpr ((expr Expr))))
 
 (sig NIL Expr)
@@ -127,7 +127,7 @@
   (cond
     ((map-has (get scope env) name) (map-get (get scope env) name))
     ((and (is-variant name scope) (= (len (variant-fields name scope)) 0))
-      (Call (Global (global-name name (get scope names))) empty-list))
+      (Call (Global (global-name name (get scope names))) empty-list (get scope here)))
     ((and (map-has (get scope top) name) (map-get (get scope top) name))
       (Global (global-name name (get scope names))))
     ((is-special name (get scope builtins))
@@ -158,7 +158,7 @@
               ((callee n1) (analyse-expr (at items 0) scope n))
               ((args n2) (analyse-all (rest items) scope n1 empty-list))
               (arity-ok (check-call callee (len args) scope)))
-          (tup (Call callee args) n2))))))
+          (tup (Call callee args (get scope here)) n2))))))
 
 ;; Fail if a built-in is called with the wrong number of arguments: an operator says how
 ;; many it takes (special.cdy), and any other built-in's type (system.cdy), unless that is
@@ -216,8 +216,8 @@
 (defn an-if (args scope n)
   (let (((parts n1) (analyse-all args scope n empty-list)))
     (cond
-      ((= (len parts) 2) (tup (If (at parts 0) (at parts 1) NIL) n1))
-      ((= (len parts) 3) (tup (If (at parts 0) (at parts 1) (at parts 2)) n1))
+      ((= (len parts) 2) (tup (If (at parts 0) (at parts 1) NIL (get scope here)) n1))
+      ((= (len parts) 3) (tup (If (at parts 0) (at parts 1) (at parts 2) (get scope here)) n1))
       (else (fail (located scope "if: expected (if test then else?)"))))))
 
 (sig is-else (Fn (Form) Bool))
@@ -241,7 +241,7 @@
     (else
     (let (((pairs inner n1) (let-bindings (list-items (at args 0)) scope n empty-list))
           ((body n2) (analyse-expr (at args 1) inner n1)))
-      (tup (nest pairs body) n2)))))
+      (tup (nest pairs body (get scope here)) n2)))))
 
 (sig is-list-form (Fn (Form) Bool))
 (defn is-list-form (form)
@@ -284,7 +284,7 @@
     (tup acc scope n)
     (let ((name (sym-name (at names 0)))
           (loc (Local name n))
-          (item (Call (Prim "at") (tup tmp (Lit (IntLit i))))))
+          (item (Call (Prim "at") (tup tmp (Lit (IntLit i))) (get scope here))))
       (if (= name "")
         (fail (located scope "let name must be a name"))
         (destructure
@@ -295,13 +295,13 @@
           (+ n 1)
           (+ acc (to-list (tup loc item))))))))
 
-;; ((fn (a) ((fn (b) body) e2)) e1)
-(sig nest (Fn ((List (Tup Expr Expr)) Expr) Expr))
-(defn nest (pairs body)
+;; ((fn (a) ((fn (b) body) e2)) e1), at `pos`.
+(sig nest (Fn ((List (Tup Expr Expr)) Expr Pos) Expr))
+(defn nest (pairs body pos)
   (if (= (len pairs) 0)
     body
     (let (((loc init) (at pairs 0)))
-      (Call (Lambda (to-list loc) (nest (rest pairs) body)) (to-list init)))))
+      (Call (Lambda (to-list loc) (nest (rest pairs) body pos) pos) (to-list init) pos))))
 
 (sig an-fn (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-fn (args scope n)
@@ -311,21 +311,21 @@
           ((body n2) (analyse-expr (at args 1) inner n1)))
       (if (= (len params) 0)
         (fail (located scope "fn arguments: at least one is needed"))
-        (tup (Lambda params body) n2)))))
+        (tup (Lambda params body (get scope here)) n2)))))
 
 (sig an-tup (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-tup (args scope n)
   (if (= (len args) 0)
     (fail (located scope "tup: needs at least one item"))
     (let (((items n1) (analyse-all args scope n empty-list)))
-      (tup (Tuple items) n1))))
+      (tup (Tuple items (get scope here)) n1))))
 
 (sig an-get (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-get (args scope n)
   (if (or (!= (len args) 2) (= (sym-name (at args 1)) ""))
     (fail (located scope "get: expected (get obj field)"))
     (let (((obj n1) (analyse-expr (at args 0) scope n)))
-      (tup (Field obj (sym-name (at args 1))) n1))))
+      (tup (Field obj (sym-name (at args 1)) (get scope here)) n1))))
 
 (sig an-assoc (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-assoc (args scope n)
@@ -333,7 +333,7 @@
     (fail (located scope "assoc: expected (assoc obj field value ...)"))
     (let (((obj n1) (analyse-expr (at args 0) scope n))
           ((fields n2) (assoc-fields (rest args) scope n1 empty-list)))
-      (tup (Assoc obj fields) n2))))
+      (tup (Assoc obj fields (get scope here)) n2))))
 
 (sig assoc-fields
   (Fn ((List Form) Scope Int (List (Tup String Expr))) (Tup (List (Tup String Expr)) Int)))
@@ -356,7 +356,7 @@
     (match (at args 0)
       ((Txt text)
         (let (((parts n1) (format-parts text 0 "" scope n empty-list)))
-          (tup (Fmt parts) n1)))
+          (tup (Fmt parts (get scope here)) n1)))
       (else (fail (located scope "format: expected one string literal"))))))
 
 ;; The parts of a format string from `pos`; `acc` is the literal text so far.
@@ -403,7 +403,7 @@
 (sig an-match-sum (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-match-sum (args scope n)
   (let (((subject n1) (analyse-expr (at args 0) scope n))
-          ((m n2) (match-clauses (rest args) scope n1 (MatchE subject empty-list empty-list) ""))
+          ((m n2) (match-clauses (rest args) scope n1 (MatchE subject empty-list empty-list (get scope here)) ""))
           (sum (if (> (len (match-clause-list m)) 0) (match-sum (match-clause-list m) scope) "")))
       (tup (global-clauses (check-exhaustive m sum scope) (get scope names)) n2)))
 
@@ -411,7 +411,7 @@
 (sig global-clauses (Fn (Expr (Map String String)) Expr))
 (defn global-clauses (m names)
   (match m
-    ((MatchE subject clauses default) (MatchE subject (rename-clauses clauses names empty-list) default))
+    ((MatchE subject clauses default pos) (MatchE subject (rename-clauses clauses names empty-list) default pos))
     (else m)))
 
 (sig rename-clauses (Fn ((List Clause) (Map String String) (List Clause)) (List Clause)))
@@ -444,7 +444,7 @@
               (tmp (Local "_tup" n1))
               ((pairs inner n2) (tup-binds names tmp 0 scope (+ n1 1) empty-list))
               ((body n3) (analyse-expr (at items 1) inner n2)))
-          (tup (nest (+ (to-list (tup tmp subject)) pairs) body) n3))))))
+          (tup (nest (+ (to-list (tup tmp subject)) pairs) body (get scope here)) n3))))))
 
 ;; The (Local, (at tmp i)) pairs of a tup pattern's names, and the scope with them.
 (sig tup-binds
@@ -454,7 +454,7 @@
     (tup acc scope n)
     (let ((name (sym-name (at names 0)))
           (loc (Local name n))
-          (item (Call (Prim "at") (tup tmp (Lit (IntLit i))))))
+          (item (Call (Prim "at") (tup tmp (Lit (IntLit i))) (get scope here))))
       (cond
         ((= name "") (fail (located scope "match name must be a name")))
         ((= name "_") (tup-binds (rest names) tmp (+ i 1) scope n acc))
@@ -484,7 +484,7 @@
 (sig check-exhaustive (Fn (Expr String Scope) Expr))
 (defn check-exhaustive (m sum scope)
   (match m
-    ((MatchE _ clauses default)
+    ((MatchE _ clauses default _)
       (let ((missing (missing-variants (map-get (get scope sums) sum) clauses empty-list)))
         (if (and (= (len default) 0) (> (len missing) 0))
           (fail (located scope (format "match on {sum}: no clause for {(join missing \", \")} (or add else)")))
@@ -549,19 +549,19 @@
 (sig match-clause-list (Fn (Expr) (List Clause)))
 (defn match-clause-list (m)
   (match m
-    ((MatchE _ clauses _) clauses)
+    ((MatchE _ clauses _ _) clauses)
     (else empty-list)))
 
 (sig add-clause (Fn (Expr Clause) Expr))
 (defn add-clause (m clause)
   (match m
-    ((MatchE subject clauses default) (MatchE subject (+ clauses (to-list clause)) default))
+    ((MatchE subject clauses default pos) (MatchE subject (+ clauses (to-list clause)) default pos))
     (else m)))
 
 (sig set-default (Fn (Expr Expr) Expr))
 (defn set-default (m e)
   (match m
-    ((MatchE subject clauses _) (MatchE subject clauses (to-list e)))
+    ((MatchE subject clauses _ pos) (MatchE subject clauses (to-list e) pos))
     (else m)))
 
 ;; The (field, Local) pairs a pattern's names bind, and the scope with them.
@@ -597,7 +597,8 @@
 
 ;; (quo form): `form` as a Form value, built with Form's constructors (form.cdy). Only
 ;; macro code (expand.cdy) has Form, so only it can quote. Quoted forms are NOWHERE, so
-;; that an expansion takes the position of its call.
+;; that an expansion takes the position of its call; so are the Exprs that build them,
+;; which have no form of their own.
 (sig an-quo (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-quo (args scope n)
   (let ((checked (needs-form "quo" scope)))
@@ -622,9 +623,9 @@
 (sig quoted (Fn (Form) Expr))
 (defn quoted (form)
   (match form
-    ((Sym name _) (Call (Global "Sym") (tup (Lit (Txt name)) (Global "NOWHERE"))))
-    ((Lst items _) (Call (Global "Lst") (tup (form-list (quoted-all items empty-list)) (Global "NOWHERE"))))
-    (else (Call (Global (literal-variant form)) (to-list (Lit form))))))
+    ((Sym name _) (Call (Global "Sym") (tup (Lit (Txt name)) (Global "NOWHERE")) NOWHERE))
+    ((Lst items _) (Call (Global "Lst") (tup (form-list (quoted-all items empty-list)) (Global "NOWHERE")) NOWHERE))
+    (else (Call (Global (literal-variant form)) (to-list (Lit form)) NOWHERE))))
 
 (sig quoted-all (Fn ((List Form) (List Expr)) (List Expr)))
 (defn quoted-all (forms acc)
@@ -632,7 +633,7 @@
 
 ;; A (List Form) of `items` (Exprs that make Forms).
 (sig form-list (Fn ((List Expr)) Expr))
-(defn form-list (items) (if (= (len items) 0) (Prim "empty-list") (Tuple items)))
+(defn form-list (items) (if (= (len items) 0) (Prim "empty-list") (Tuple items NOWHERE)))
 
 (sig literal-variant (Fn (Form) String))
 (defn literal-variant (form)
@@ -676,7 +677,7 @@
 (sig quasi-list (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn quasi-list (items scope n)
   (let (((parts n1) (quasi-parts items scope n empty-list empty-list)))
-    (tup (Call (Global "Lst") (tup (join-parts parts) (Global "NOWHERE"))) n1)))
+    (tup (Call (Global "Lst") (tup (join-parts parts) (Global "NOWHERE")) NOWHERE) n1)))
 
 (sig quasi-parts
   (Fn ((List Form) Scope Int (List Expr) (List Expr)) (Tup (List Expr) Int)))
@@ -691,14 +692,14 @@
           (quasi-parts (rest items) scope n1 (+ run (to-list e)) parts))))))
 
 (sig close-run (Fn ((List Expr) (List Expr)) (List Expr)))
-(defn close-run (run parts) (if (= (len run) 0) parts (+ parts (to-list (Tuple run)))))
+(defn close-run (run parts) (if (= (len run) 0) parts (+ parts (to-list (Tuple run NOWHERE)))))
 
 (sig join-parts (Fn ((List Expr)) Expr))
 (defn join-parts (parts)
   (cond
     ((= (len parts) 0) (Prim "empty-list"))
     ((= (len parts) 1) (at parts 0))
-    (else (Call (Prim "+") parts))))
+    (else (Call (Prim "+") parts NOWHERE))))
 
 ;; --- types ---
 
@@ -1121,8 +1122,8 @@
     ((TDeft name tvars fields) (TDeft (global-name name names) tvars (rename-fields fields names empty-list)))
     ((TDeftSum name tvars variants)
       (TDeftSum (global-name name names) tvars (rename-variants variants names empty-list)))
-    ((TDef name init t) (TDef (global-name name names) init (rename-type t names)))
-    ((TDefn name params body t) (TDefn (global-name name names) params body (rename-type t names)))
+    ((TDef name init t pos) (TDef (global-name name names) init (rename-type t names) pos))
+    ((TDefn name params body t pos) (TDefn (global-name name names) params body (rename-type t names) pos))
     ((TExpr _) top)))
 
 (sig rename-variants (Fn ((List Variant) (Map String String) (List Variant)) (List Variant)))
@@ -1350,7 +1351,7 @@
     (let ((name (sym-name (at items 1)))
           (t (needs-sig name prog scope))
           ((init n) (analyse-expr (at items 2) scope (get prog n))))
-      (mark-defined (add-top prog (TDef name init t) n) name))))
+      (mark-defined (add-top prog (TDef name init t (get scope here)) n) name))))
 
 (sig top-defn (Fn ((List Form) Scope Prog) Prog))
 (defn top-defn (items scope prog)
@@ -1365,7 +1366,7 @@
         ((= (len params) 0) (fail (located scope (format "defn {name}: at least one argument is needed"))))
         ((!= (len params) (fn-arity t))
           (fail (located scope (format "defn {name}: its sig must be a function type with one type per argument"))))
-        (else (mark-defined (add-top prog (TDefn name params body t) n2) name))))))
+        (else (mark-defined (add-top prog (TDefn name params body t (get scope here)) n2) name))))))
 
 ;; How many arguments a function type takes; -1 if it isn't a function type.
 (sig fn-arity (Fn (CType) Int))
@@ -1407,10 +1408,10 @@
 (sig is-main (Fn (Top) Bool))
 (defn is-main (top)
   (match top
-    ((TDefn name _ _ t)
+    ((TDefn name _ _ t _)
       (cond
         ((!= name "main") false)
         ((= t MAIN_TYPE) true)
         (else (fail "main must be typed (Fn ((List String)) Int)"))))
-    ((TDef name _ _) (if (= name "main") (fail "main must be a defn") false))
+    ((TDef name _ _ _) (if (= name "main") (fail "main must be a defn") false))
     (else false)))

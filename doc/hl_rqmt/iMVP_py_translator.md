@@ -129,7 +129,9 @@ Its `ignore` parser (whitespace and `;` comments) is in `doc/hl_rqmt/src/ignore_
   becomes `def sq(x: int) -> int:`. mypy/pyright in strict mode then check the generated
   Python. This gives real static checking straight away, and the self-hosted compiler is
   typed from its first line. Candy's own type checker can replace mypy later without
-  changing the syntax.
+  changing the syntax. (It came on branch `type-checker`, with no syntax change:
+  `src/cdy/check.cdy`, `doc/hl_rqmt/type_checker.md`; mypy stays, as a second check,
+  [[B15]].)
 - **Rejected for the iMVP:**
   - An untyped iMVP with types added later. The self-hosted compiler would need
     retrofitting, and the grammar would change under existing code.
@@ -276,7 +278,8 @@ The iMVP uses only Candy's names. Each backend maps them to its own types (see
 Built-ins need no `sig`s in the iMVP. mypy reads their types from `table_defs.py`'s
 annotations directly. Candy's own type checker will need them later, and will get them from
 the bodiless `sig`s in `system.cdy` (see above; built on branch `system-prelude`, where
-so far they give the Candy translator each built-in's arity).
+so far they give the Candy translator each built-in's arity). (Since branch
+`type-checker` they do: `check.cdy` reads each built-in's type from them.)
 
 **How the translator uses it:**
 
@@ -284,7 +287,8 @@ so far they give the Candy translator each built-in's arity).
   and emits annotations. For `defn`, the number of `Fn` parameters must match the number of
   arguments.
 - In Core, types are their own small node set (`TCon(name, args)`, `TVar(name)`,
-  `TFn(params, ret)`), which a later Candy type checker also uses.
+  `TFn(params, ret)`), which a later Candy type checker also uses. (It does: `check.cdy`
+  unifies `CType`s.)
 - The parser needs no changes: a `sig` is an ordinary list.
 
 **Also decided:**
@@ -339,7 +343,8 @@ through per-type names like Carp's `Vector2.x` or Scheme's `vector2-x`. The name
   and `Assoc(obj, ((field, value), ...))`.
 - **Why generic.** The translator doesn't need to know `v`'s type to write `v.x`, which
   matters while the iMVP has no type checker of its own. mypy still rejects a field that
-  doesn't exist. Later, Candy's type checker resolves the field from `v`'s type, and
+  doesn't exist. Later, Candy's type checker resolves the field from `v`'s type (since
+  branch `type-checker`: [[checking.records]]), and
   backends that need the type (a C `struct`, for example) get it from there. `deft` adds
   no getter or setter names to the table, and the user's namespace stays small.
 - **Later.** `get` could also cover maps, as Clojure's does, once Candy has them.
@@ -543,7 +548,8 @@ Candy-level error messages. It also:
 - gives every binding a unique id. An inner `x` and an outer `x` become `Local("x", 7)` and
   `Local("x", 3)`, so shadowing is settled once, here, instead of again in every backend;
 - attaches signatures. Later, Candy's own type checker runs on this stage and fills in
-  the types.
+  the types. (Since branch `type-checker` it runs on Core, between `analyse` and `lower`,
+  and checks it; the types it infers aren't written into Core yet.)
 
 | Node | Fields |
 |---|---|
