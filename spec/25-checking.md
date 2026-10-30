@@ -8,8 +8,6 @@ every built-in its type (`src/cdy/system.cdy`), and the types of locals are infe
 type error is the translator's error, at the form where it is found. mypy still checks
 the Python the translator writes, as a second check ([[types.checking]]).
 
-The error messages below are sketches until the checker is built.
-
 <a id="checking.calls"></a>
 ## Calls
 
@@ -160,24 +158,38 @@ Python, [[B29]]).
 
 A record's constructor takes its fields' types, in order, and gives the record; `get`
 names a field the record has, and has the field's type; `assoc` names fields it has,
-each with a value of the field's type.
+each with a value of the field's type. A variant's constructor gives its sum, so `get` on
+a sum names a field every variant has, with one type (*lasting*: a sum's value is one of
+its variants, not known until it is matched, [[match.sum-types]]). Inside a `match`
+clause the subject is still the sum, so `get` on it there follows the same rule (*for
+now*: the checker doesn't narrow the subject to the clause's variant, [[B121]]); the
+clause's names read the variant's fields.
 
 ```candy run
 (deft V ((x Int) (y String)))
 (put (get (V 1 "a") y))
 (put (get (assoc (V 1 "a") x 2) x))
+(deft (T a) (L ((v a))) (N ((v a) (n Int))))
+(sig t (T Int))
+(def t (N 3 4))
+(put (+ (get t v) 1) (get (L "b") v))
 ```
 ```expect
 a
 2
+4 b
 ```
 
 ```candy errors
 (deft V ((x Int))) (put (get (V 1 2) x)) => (V ...) takes 1 field(s), got 2
 (deft V ((x Int))) (put (V "a")) => argument 1 of V: expected Int, got String
 (deft V ((x Int))) (put (get (V 1) z)) => get: V has no field z
-(deft V ((x Int))) (put (get (assoc (V 1) x "a") x)) => assoc: field x of V is Int, got String
+(deft V ((x Int))) (put (get (assoc (V 1) x "a") x)) => assoc: field x of V: expected Int, got String
 (put (get 1 x)) => get: Int has no fields
+(deft S (A ((x Int))) (B ((y Int)))) (put (get (A 1) x)) => get: S has no field x
+(deft S (A ((x Int))) (B)) (put (get (A 1) x)) => get: S has no field x
+(deft S (A ((id Int) (x Int))) (B ((id String)))) (put (get (A 1 2) id)) => get: field id of S has different types in its variants
+(deft S (A ((x Int))) (B ((y Int)))) (sig f (Fn (S) Int)) (defn f (s) (match s ((A _) (get s x)) (else 0))) => get: S has no field x
 ```
 
 <a id="checking.order"></a>
@@ -186,7 +198,7 @@ a
 The checker reads a call's arguments that aren't `fn`s first, then its `fn`s, so a
 `fn`'s parameters already have types when its body is read: in `(map (fn (p) ...)
 people)`, `p` is a person. A `get` or `assoc` on a value whose type isn't known yet is
-an error (*for now*: [[B15]]).
+an error (*for now*: [[B120]]).
 
 ```candy run
 (deft P ((name String)))
@@ -220,7 +232,7 @@ pattern takes a `(Tup ...)` with as many items as it has names.
 ```candy errors
 (deft S (A ((x Int))) (B)) (sig f (Fn (S) Int)) (defn f (s) (match s ((A x) x) ((B) "none"))) => match: the clauses are Int and String
 (deft S (A) (B)) (put (match 1 ((A) 1) ((B) 2))) => match: the subject is Int, not S
-(put (match (tup 1 2) ((tup a b c) a))) => match: a (Tup Int Int) has 2 items, not 3
+(put (match (tup 1 2) ((tup a b c) a))) => a (Tup Int Int) has 2 items, not 3
 ```
 
 <a id="checking.maybe"></a>
@@ -242,7 +254,7 @@ no narrowing after `(= m nil)`, and `Maybe` isn't a sum, [[B20]]).
 ```
 
 ```candy errors
-(sig m (Maybe Int)) (def m 5) (put (+ m 1)) => +: expected a number or String, got (Maybe Int)
+(sig m (Maybe Int)) (def m 5) (put (+ m 1)) => +: expected a number, String or a list, got (Maybe Int)
 (sig n Int) (def n nil) => def n: expected Int, got Unit
 ```
 

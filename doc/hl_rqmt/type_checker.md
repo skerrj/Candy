@@ -85,7 +85,7 @@ name has a `sig`:
 - **What is known when:** a call's arguments that aren't `fn`s are checked first, then
   its `fn`s, so in `(map (fn (p) (get p name)) people)` the `fn`'s `p` is already a
   person. A `get` or `assoc` on a value whose type still isn't known is an error, `get:
-  the type of p isn't known here (name)` (*for now*: [[B15]]; a local's type can't be
+  the type of p isn't known here (name)` (*for now*: [[B120]]; a local's type can't be
   written, so the program has to make it known).
 - **`match`:** the subject is the sum, each clause's names get their fields' types, all
   clauses have one type; a `tup` pattern takes a `(Tup ...)` of its arity ([[B17]]).
@@ -221,6 +221,39 @@ first fixes whatever in the translator it rejects.
 3. **The checker on:** its errors fail translation, with positions; the spec's
    `[[types.checking]]` and its rows; [[B25]], [[B10]] and [[B30]] closed (or narrowed),
    and [[B15]] narrowed to what is left.
+
+   *Done.* As built:
+   - **On:** `translate-modules` (`cdyc.cdy`) runs `type-check` (`check.cdy`) on the
+     analysed program, which fails with the first type error (*for now*: [[B15]]).
+     Macro code (`translate-expanded`) isn't checked ([[B42]]). `type-survey` and its two
+     tests are gone: every translation is checked now.
+   - **Positions:** the checker's context has the innermost node with a position
+     (`at-node`), and a message starts with it, as the translator's other errors do.
+     `TDef` and `TDefn` got a `pos` too, for a definition whose value is a leaf (`(def x
+     "a")`).
+   - **The messages,** one shape, `what: expected A, got B` (`argument 2 of pick:`, `def
+     x:`, `assoc: field x of V:`, `+:`, the operators' first argument setting the type);
+     a test or a subject, which has one right type, `if: the test is Int, not Bool`; two
+     that must be one, `if: the branches are Int and String`; a constructor called with
+     too many fields, `(V ...) takes 1 field(s), got 2`, as a variant's was. Three of the
+     draft's rows changed to match: `assoc: field x of V: expected Int, got String`, `a
+     (Tup Int Int) has 2 items, not 3` (no `match:`: a `let` takes a tuple apart too),
+     and `+` lists "a number, String or a list".
+   - **Question 8 (A):** `checking.records` says `get` on a sum needs a field every
+     variant has, with a row; `[[match.sum-types]]`'s example reads a shared field, and
+     the other inside `match`; `tst/cdy/sums.cdy` reads `h` inside `match`.
+   - **The stable spec:** `[[types.checking]]` says the translator checks types, with
+     mypy as a second check; `[[types.records]]` points at `[[checking.records]]` for
+     what [[B10]] and [[B30]] were; `[[expr.conditionals]]`, `[[expr.arithmetic]]` (`+`
+     joins lists, with an example) and `[[expr.unit]]` point at their checking rules;
+     `[[match.tup]]` says a pattern names as many items as the tuple has;
+     `[[macros.macro-code]]` says macro code isn't type-checked ([[B42]]).
+   - **The test programs:** `(or false nil)` in `tst/cdy/t1/basics.cdy` is `(or false
+     true)` ([[B25]]).
+   - **Backlog:** [[B10]], [[B25]] and [[B30]] are done; [[B17]] is narrowed (a record
+     taken apart as a tuple, and parameters as patterns, are left); [[B15]] is narrowed
+     to what the checker leaves (mypy, let-polymorphism, "isn't known here", one error).
+   - **Bootstrap:** one rebuild; the translator type-checks itself.
 4. **Docs:** CLAUDE.md, the iMVP doc, `multi_target.md` (the checker is the front end's,
    not the target's).
 

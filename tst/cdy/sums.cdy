@@ -64,4 +64,4 @@
 (put (size tree))
 (put (leftmost tree 0))
 (show-tree tree)
-(put (get (Rect 4.0 5.0) h))
+(put (match (Rect 4.0 5.0) ((Rect _ h) h) (else 0.0)))

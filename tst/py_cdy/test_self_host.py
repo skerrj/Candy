@@ -371,25 +371,6 @@ def test_programs_cant_see_the_python_helpers(t1: ModuleType, name: str) -> None
         translate_with(t1, f"(put {name})")
 
 
-# --- the type checker's survey (doc/hl_rqmt/type_checker.md, step 1) ---
-
-# What the checker reports on the test programs, until step 3 settles it: `get` on a
-# variant's value, and truthiness (B25).
-SURVEY_KNOWN = {
-    "sums": ("a top-level form: get: Shape has no field h",),
-    "basics": ("a top-level form: or: expected Bool, got Unit",),
-}
-
-
-def test_the_translator_type_checks(t1: ModuleType) -> None:
-    assert t1.type_survey(str(TRANSLATOR)) == ()
-
-
-@pytest.mark.parametrize("program", PROGRAMS, ids=IDS)
-def test_programs_type_check(program: Path, t1: ModuleType) -> None:
-    assert t1.type_survey(str(program)) == SURVEY_KNOWN.get(program.stem, ())
-
-
 def test_list_functions_are_built_in(t1: ModuleType) -> None:
     # Fast: the runtime's, not Candy loops that copy the list for each item.
     source = translate_with(t1, "(put (map (fn (n) n) (tup 1)) (filter (fn (n) true) (tup 1)))")

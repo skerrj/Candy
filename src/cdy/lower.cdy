@@ -412,10 +412,10 @@
   (match top
     ((TDeft name tvars fields) (tup (to-list (SRecord name tvars fields)) n))
     ((TDeftSum name tvars variants) (tup (to-list (SSum name tvars variants)) n))
-    ((TDef name init t)
+    ((TDef name init t _)
       (let ((low (value init n)))
         (tup (+ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))
-    ((TDefn name params body t)
+    ((TDefn name params body t _)
       (let (((stmts n1) (if (returns-unit t) (effect body n) (tail body n))))
         (tup (to-list (SFunc name params (loop-tail-calls name params stmts (returns-unit t)) t)) n1)))
     ((TExpr e) (effect e n))))

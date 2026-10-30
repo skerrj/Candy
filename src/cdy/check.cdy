@@ -3,21 +3,22 @@
 ;;; variables, solved by unification (no let-polymorphism). A type variable the checker
 ;;; makes is named ?N; one a sig writes (a) is rigid in its definition and instantiated
 ;;; with fresh ones at each use. `Any` unifies with everything.
-;;; For now (the survey, step 1) it reports: check-program returns the messages.
+;;; A type error is the translator's error (type-check), at the innermost node with a
+;;; position (a leaf is reported at its parent).
 
 (import form)
 (import core)
 
 ;; What the checker knows, read-only while it checks a definition: each global's type,
 ;; each record's and variant's type variables and fields, each variant's sum, each sum's
-;; type variables and variants, the built-ins, the definition being checked (for the
+;; type variables and variants, the built-ins, where the node being checked is (for the
 ;; messages), and the locals' types, by local-key.
 (deft Ctx
   ((globals (Map String CType))
    (shapes (Map String Shape))
    (sums (Map String Shape))
    (builtins (Map String Builtin))
-   (where String)
+   (here Pos)
    (env (Map String CType))))
 
 ;; A record's, variant's or sum's type variables, its fields (none for a sum) and, for a
@@ -39,10 +40,17 @@
 
 ;; --- the program ---
 
-;; The messages for `tops`, a whole program (every module's, by global name).
+;; `tops`, a whole program (every module's, by global name), if it type-checks; else fail
+;; with the first type error.
+(sig type-check (Fn ((List Top) (Map String Builtin)) (List Top)))
+(defn type-check (tops builtins)
+  (let ((errors (check-program tops builtins)))
+    (if (= (len errors) 0) tops (fail (at errors 0)))))
+
+;; The type errors in `tops`, in order.
 (sig check-program (Fn ((List Top) (Map String Builtin)) (List String)))
 (defn check-program (tops builtins)
-  (let ((ctx (Ctx (top-types tops empty-map) (top-shapes tops empty-map) (top-sums tops empty-map) builtins "" empty-map)))
+  (let ((ctx (Ctx (top-types tops empty-map) (top-shapes tops empty-map) (top-sums tops empty-map) builtins NOWHERE empty-map)))
     (get (check-tops tops ctx (St empty-map 0 empty-list) 0) errors)))
 
 (sig check-tops (Fn ((List Top) Ctx St Int) St))
@@ -54,15 +62,15 @@
 (sig check-top (Fn (Top Ctx St) St))
 (defn check-top (top ctx st)
   (match top
-    ((TDef name init t)
-      (check-expr init t "" (assoc ctx where (format "def {(shown-name name)}")) st))
-    ((TDefn name params body t)
-      (let ((c (assoc ctx where (format "defn {(shown-name name)}"))))
+    ((TDef name init t pos)
+      (check-expr init t (format "def {(shown-name name)}") (assoc ctx here pos) st))
+    ((TDefn name params body t pos)
+      (let ((c (assoc ctx here pos)))
         (match t
           ((TFn ptypes ret)
-            (check-expr body ret "" (assoc c env (bind-all params ptypes (get c env) 0)) st))
+            (check-expr body ret (format "defn {(shown-name name)}") (assoc c env (bind-all params ptypes (get c env) 0)) st))
           (else st))))
-    ((TExpr e) (get (infer e (assoc ctx where "a top-level form") st) st))
+    ((TExpr e) (get (infer e ctx st) st))
     (else st)))
 
 ;; `env` with each of `params` (Locals) bound to the type at its index in `types`.
@@ -86,8 +94,8 @@
     (top-types
       (rest tops)
       (match (at tops 0)
-        ((TDef name _ t) (map-set acc name t))
-        ((TDefn name _ _ t) (map-set acc name t))
+        ((TDef name _ t _) (map-set acc name t))
+        ((TDefn name _ _ t _) (map-set acc name t))
         ((TDeft name tvars fields) (map-set acc name (TFn (fields-types fields) (TCon name (tvar-types tvars)))))
         ((TDeftSum name tvars variants) (variant-types variants (TCon name (tvar-types tvars)) acc))
         (else acc)))))
@@ -141,62 +149,83 @@
 ;; and a match's clauses each against it, a fn as check-lambda does, anything else
 ;; inferred and then accepted (accepts).
 (sig check-expr (Fn (Expr CType String Ctx St) St))
-(defn check-expr (e want what ctx st)
+(defn check-expr (e want what outer st)
+  (let ((ctx (at-node e outer)))
+    (match e
+      ((If test then other _)
+        (let ((rt (infer test ctx st))
+              (st1 (expect-is (tcon "Bool") (get rt t) "if: the test" ctx (get rt st))))
+          (check-expr other want what ctx (check-expr then want what ctx st1))))
+      ((Do body)
+        (if (= (len body) 0)
+          (expect want (tcon "Unit") what ctx st)
+          (check-expr (at body (- (len body) 1)) want what ctx (get (infer-do (slice body 0 (- (len body) 1)) ctx (Res ANY st)) st))))
+      ((Call callee args _)
+        (match callee
+          ((Lambda params body _)
+            (if (= (len params) (len args))
+              (let ((r (infer-all args ctx st empty-list)))
+                (check-expr body want what (assoc ctx env (bind-all params (at r 0) (get ctx env) 0)) (at r 1)))
+              (infer-expect e want what ctx st)))
+          (else (infer-expect e want what ctx st))))
+      ((Lambda _ _ _) (check-lambda e want what ctx st))
+      ((MatchE subject clauses default _)
+        (if (is-any (prune want (get st subst)))
+          (get (infer e ctx st) st)
+          (infer-expect e want what ctx st)))
+      (else (infer-expect e want what ctx st)))))
+
+;; `ctx` at `e`, if `e` has a position.
+(sig at-node (Fn (Expr Ctx) Ctx))
+(defn at-node (e ctx)
+  (let ((pos (node-pos e)))
+    (if (= (get pos line) 0) ctx (assoc ctx here pos))))
+
+(sig node-pos (Fn (Expr) Pos))
+(defn node-pos (e)
   (match e
-    ((If test then other _)
-      (let ((rt (infer test ctx st))
-            (st1 (expect (tcon "Bool") (get rt t) "if: the test" ctx (get rt st))))
-        (check-expr other want what ctx (check-expr then want what ctx st1))))
-    ((Do body)
-      (if (= (len body) 0)
-        (expect want (tcon "Unit") what ctx st)
-        (check-expr (at body (- (len body) 1)) want what ctx (get (infer-do (slice body 0 (- (len body) 1)) ctx (Res ANY st)) st))))
-    ((Call callee args _)
-      (match callee
-        ((Lambda params body _)
-          (if (= (len params) (len args))
-            (let ((r (infer-all args ctx st empty-list)))
-              (check-expr body want what (assoc ctx env (bind-all params (at r 0) (get ctx env) 0)) (at r 1)))
-            (infer-expect e want what ctx st)))
-        (else (infer-expect e want what ctx st))))
-    ((Lambda _ _ _) (check-lambda e want what ctx st))
-    ((MatchE subject clauses default _)
-      (if (is-any (prune want (get st subst)))
-        (get (infer e ctx st) st)
-        (infer-expect e want what ctx st)))
-    (else (infer-expect e want what ctx st))))
+    ((Call _ _ pos) pos)
+    ((If _ _ _ pos) pos)
+    ((Lambda _ _ pos) pos)
+    ((Tuple _ pos) pos)
+    ((Fmt _ pos) pos)
+    ((Field _ _ pos) pos)
+    ((Assoc _ _ pos) pos)
+    ((MatchE _ _ _ pos) pos)
+    (else NOWHERE)))
 
 (sig infer-expect (Fn (Expr CType String Ctx St) St))
 (defn infer-expect (e want what ctx st)
   (let ((r (infer e ctx st))) (expect want (get r t) what ctx (get r st))))
 
 (sig infer (Fn (Expr Ctx St) Res))
-(defn infer (e ctx st)
-  (match e
-    ((Lit form) (Res (literal-type form) st))
-    ((Local name _)
-      (let ((key (local-key e)))
-        (Res (if (map-has (get ctx env) key) (map-get (get ctx env) key) ANY) st)))
-    ((Global name)
-      (if (map-has (get ctx globals) name) (instantiate (map-get (get ctx globals) name) st) (Res ANY st)))
-    ((Prim name) (prim-type name ctx st))
-    ((Call callee args _) (infer-call callee args ctx st))
-    ((If test then other _)
-      (let ((rt (infer test ctx st))
-            (st1 (expect (tcon "Bool") (get rt t) "if: the test" ctx (get rt st)))
-            (ra (infer then ctx st1))
-            (rb (infer other ctx (get ra st))))
-        (join-types (get ra t) (get rb t) "if: the branches" ctx (get rb st))))
-    ((Do body) (infer-do body ctx (Res (tcon "Unit") st)))
-    ((Lambda params body _) (infer-lambda params body ctx st))
-    ((Tuple items _)
-      (let ((r (infer-all items ctx st empty-list)))
-        (Res (TCon "Tup" (at r 0)) (at r 1))))
-    ((Fmt parts _) (Res (tcon "String") (infer-holes parts ctx st)))
-    ((Field obj field _) (infer-field obj field ctx st))
-    ((Assoc obj fields _) (infer-assoc obj fields ctx st))
-    ((MatchE subject clauses default _) (infer-match subject clauses default ctx st))
-    (else (Res ANY st))))
+(defn infer (e outer st)
+  (let ((ctx (at-node e outer)))
+    (match e
+      ((Lit form) (Res (literal-type form) st))
+      ((Local name _)
+        (let ((key (local-key e)))
+          (Res (if (map-has (get ctx env) key) (map-get (get ctx env) key) ANY) st)))
+      ((Global name)
+        (if (map-has (get ctx globals) name) (instantiate (map-get (get ctx globals) name) st) (Res ANY st)))
+      ((Prim name) (prim-type name ctx st))
+      ((Call callee args _) (infer-call callee args ctx st))
+      ((If test then other _)
+        (let ((rt (infer test ctx st))
+              (st1 (expect-is (tcon "Bool") (get rt t) "if: the test" ctx (get rt st)))
+              (ra (infer then ctx st1))
+              (rb (infer other ctx (get ra st))))
+          (join-types (get ra t) (get rb t) "if: the branches" ctx (get rb st))))
+      ((Do body) (infer-do body ctx (Res (tcon "Unit") st)))
+      ((Lambda params body _) (infer-lambda params body ctx st))
+      ((Tuple items _)
+        (let ((r (infer-all items ctx st empty-list)))
+          (Res (TCon "Tup" (at r 0)) (at r 1))))
+      ((Fmt parts _) (Res (tcon "String") (infer-holes parts ctx st)))
+      ((Field obj field _) (infer-field obj field ctx st))
+      ((Assoc obj fields _) (infer-assoc obj fields ctx st))
+      ((MatchE subject clauses default _) (infer-match subject clauses default ctx st))
+      (else (Res ANY st)))))
 
 (sig literal-type (Fn (Form) CType))
 (defn literal-type (form)
@@ -296,7 +325,8 @@
     (match ct
       ((TFn params ret)
         (if (!= (len params) (len args))
-          (let ((st1 (report (format "{name} takes {(len params)} argument(s), got {(len args)}") ctx (get rc st))))
+          (let ((unit (if (map-has (get ctx shapes) (global-of callee)) "field(s)" "argument(s)"))
+                (st1 (report (format "({name} ...) takes {(len params)} {unit}, got {(len args)}") ctx (get rc st))))
             (Res ret (at (infer-all args ctx st1 empty-list) 1)))
           (Res ret (check-args args params name ctx (get rc st)))))
       ((TVar v)
@@ -355,6 +385,13 @@
             (let ((r (infer lam ctx st))) (expect expected (get r t) what ctx (get r st)))))
         (else (let ((r (infer lam ctx st))) (expect expected (get r t) what ctx (get r st))))))
     (else st)))
+
+;; The global name of `e`, or "".
+(sig global-of (Fn (Expr) String))
+(defn global-of (e)
+  (match e
+    ((Global name) name)
+    (else "")))
 
 (sig callee-name (Fn (Expr) String))
 (defn callee-name (e)
@@ -471,6 +508,12 @@
       (at found 0)
       (tup false ANY))))
 
+;; Whether every variant of the sum `name` has `field`, of whatever type.
+(sig in-every-variant (Fn (String String Ctx) Bool))
+(defn in-every-variant (name field ctx)
+  (and (map-has (get ctx sums) name)
+       (all (fn (v) (at (field-of (TCon (at v 0) empty-list) field ctx) 0)) (get (map-get (get ctx sums) name) fields))))
+
 (sig find-field (Fn ((List (Tup String CType)) String (Map String CType)) (Tup Bool CType)))
 (defn find-field (fields field vars)
   (cond
@@ -518,9 +561,12 @@
           (else
             (Res ANY
               (report
-                (if (or (map-has (get ctx shapes) (tcon-name ot)) (map-has (get ctx sums) (tcon-name ot)))
-                  (format "{what}: {(show ot (get st subst))} has no field {field}")
-                  (format "{what}: {(show ot (get st subst))} has no fields"))
+                (cond
+                  ((in-every-variant (tcon-name ot) field ctx)
+                    (format "{what}: field {field} of {(show ot (get st subst))} has different types in its variants"))
+                  ((or (map-has (get ctx shapes) (tcon-name ot)) (map-has (get ctx sums) (tcon-name ot)))
+                    (format "{what}: {(show ot (get st subst))} has no field {field}"))
+                  (else (format "{what}: {(show ot (get st subst))} has no fields")))
                 ctx st))))))))
 
 (sig tcon-name (Fn (CType) String))
@@ -541,7 +587,7 @@
     st
     (let (((field val) (at fields 0))
           (ft (field-type ot obj field "assoc" ctx st))
-          (st1 (check-expr val (get ft t) (format "assoc: field {field}") ctx (get ft st))))
+          (st1 (check-expr val (get ft t) (format "assoc: field {field} of {(show ot (get st subst))}") ctx (get ft st))))
       (assoc-values ot obj (rest fields) ctx st1))))
 
 ;; --- match ---
@@ -555,7 +601,7 @@
         (fr (fresh-types (len tvars) (get rs st) empty-list))
         (vars (zip-map tvars (at fr 0) empty-map))
         (want (TCon sum (at fr 0)))
-        (st1 (expect want (get rs t) "match: the subject" ctx (at fr 1)))
+        (st1 (expect-is want (get rs t) "match: the subject" ctx (at fr 1)))
         (rc (infer-clauses clauses vars ctx st1 empty-list)))
     (if (= (len default) 0)
       (join-all (at rc 0) "match: the clauses" ctx (Res (at (at rc 0) 0) (at rc 1)))
@@ -710,6 +756,14 @@
       (let ((lead (if (= what "") "" (+ what ": "))))
         (report (format "{lead}expected {(show want (get st subst))}, got {(show actual (get st subst))}") ctx st)))))
 
+;; Like expect, for what has one right type: "if: the test is Int, not Bool".
+(sig expect-is (Fn (CType CType String Ctx St) St))
+(defn expect-is (want actual what ctx st)
+  (let ((u (accepts want actual (get st subst))))
+    (if (at u 0)
+      (assoc st subst (at u 1))
+      (report (format "{what} is {(show actual (get st subst))}, not {(show want (get st subst))}") ctx st))))
+
 ;; Two types that must be one (an if's branches, the operators' arguments): a Unit and a t
 ;; are a (Maybe t), as an if with no else is.
 (sig join-types (Fn (CType CType String Ctx St) Res))
@@ -730,8 +784,13 @@
         (let ((u (unify pa pb (get st subst))))
           (if (at u 0)
             (Res pa (assoc st subst (at u 1)))
-            (Res ANY
-              (report (format "{what} are {(show pa (get st subst))} and {(show pb (get st subst))}") ctx st))))))))
+            (Res ANY (report (mismatch what (show pa (get st subst)) (show pb (get st subst)) ctx) ctx st))))))))
+
+;; Two types that aren't one: "if: the branches are Int and String", or for an operator,
+;; whose first argument sets the type, "+: expected Int, got String".
+(sig mismatch (Fn (String String String Ctx) String))
+(defn mismatch (what a b ctx)
+  (if (is-op what ctx) (format "{what}: expected {a}, got {b}") (format "{what} are {a} and {b}")))
 
 ;; A (Tup t ...) as a (List t); a Tup of mixed types is a (List Any).
 (sig as-list (Fn (CType) CType))
@@ -770,7 +829,7 @@
 
 (sig report (Fn (String Ctx St) St))
 (defn report (msg ctx st)
-  (assoc st errors (+ (get st errors) (to-list (format "{(get ctx where)}: {msg}")))))
+  (assoc st errors (+ (get st errors) (to-list (+ (pos-text (get ctx here)) msg)))))
 
 ;; A type as a program writes it: (List Int), (Fn (a) a); a module's type without its
 ;; prefix; a variable the checker made as t1, t2.

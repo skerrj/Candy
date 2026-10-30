@@ -214,8 +214,8 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn top-name (top)
   (match top
     ((TDeft name _ _) name)
-    ((TDef name _ _) name)
-    ((TDefn name _ _ _) name)
+    ((TDef name _ _ _) name)
+    ((TDefn name _ _ _ _) name)
     (else "")))
 
 ;; The variants of the generic sums in `tops`, added to `acc`.

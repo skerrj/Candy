@@ -48,8 +48,8 @@
 (deft Top
   (TDeft ((name String) (tvars (List String)) (fields (List (Tup String CType)))))
   (TDeftSum ((name String) (tvars (List String)) (variants (List Variant))))
-  (TDef ((name String) (init Expr) (t CType)))
-  (TDefn ((name String) (params (List Expr)) (body Expr) (t CType)))
+  (TDef ((name String) (init Expr) (t CType) (pos Pos)))
+  (TDefn ((name String) (params (List Expr)) (body Expr) (t CType) (pos Pos)))
   (TExpr ((expr Expr))))
 
 (sig NIL Expr)
@@ -1122,8 +1122,8 @@
     ((TDeft name tvars fields) (TDeft (global-name name names) tvars (rename-fields fields names empty-list)))
     ((TDeftSum name tvars variants)
       (TDeftSum (global-name name names) tvars (rename-variants variants names empty-list)))
-    ((TDef name init t) (TDef (global-name name names) init (rename-type t names)))
-    ((TDefn name params body t) (TDefn (global-name name names) params body (rename-type t names)))
+    ((TDef name init t pos) (TDef (global-name name names) init (rename-type t names) pos))
+    ((TDefn name params body t pos) (TDefn (global-name name names) params body (rename-type t names) pos))
     ((TExpr _) top)))
 
 (sig rename-variants (Fn ((List Variant) (Map String String) (List Variant)) (List Variant)))
@@ -1351,7 +1351,7 @@
     (let ((name (sym-name (at items 1)))
           (t (needs-sig name prog scope))
           ((init n) (analyse-expr (at items 2) scope (get prog n))))
-      (mark-defined (add-top prog (TDef name init t) n) name))))
+      (mark-defined (add-top prog (TDef name init t (get scope here)) n) name))))
 
 (sig top-defn (Fn ((List Form) Scope Prog) Prog))
 (defn top-defn (items scope prog)
@@ -1366,7 +1366,7 @@
         ((= (len params) 0) (fail (located scope (format "defn {name}: at least one argument is needed"))))
         ((!= (len params) (fn-arity t))
           (fail (located scope (format "defn {name}: its sig must be a function type with one type per argument"))))
-        (else (mark-defined (add-top prog (TDefn name params body t) n2) name))))))
+        (else (mark-defined (add-top prog (TDefn name params body t (get scope here)) n2) name))))))
 
 ;; How many arguments a function type takes; -1 if it isn't a function type.
 (sig fn-arity (Fn (CType) Int))
@@ -1408,10 +1408,10 @@
 (sig is-main (Fn (Top) Bool))
 (defn is-main (top)
   (match top
-    ((TDefn name _ _ t)
+    ((TDefn name _ _ t _)
       (cond
         ((!= name "main") false)
         ((= t MAIN_TYPE) true)
         (else (fail "main must be typed (Fn ((List String)) Int)"))))
-    ((TDef name _ _) (if (= name "main") (fail "main must be a defn") false))
+    ((TDef name _ _ _) (if (= name "main") (fail "main must be a defn") false))
     (else false)))

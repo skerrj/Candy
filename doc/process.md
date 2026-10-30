@@ -179,6 +179,7 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 | A quick, undecided thought | `doc/brainstorm.md` (once written up, it moves to the backlog as an `idea`) |
 | An optimization or mutation idea | `doc/hl_rqmt/mutation_optimization.md` |
 | History: the lists before the backlog | `doc/archive/leaks_*.md`, `doc/archive/TODOS_*.md` (each entry open on 2026-10-25 is an item) |
+| History: a side conversation worth keeping (the owner asks for it) | `doc/archive/chat_<topic>.md`, verbatim, with a note at its top: when, where, and what came of it |
 | A language rule, with its examples | `spec/`, the file for its feature (`spec/README.md` lists them) |
 | A design, its decisions and what was built | its HLD in `doc/hl_rqmt/` |
 | Guidance for Claude Code (layout, commands, conventions) | `CLAUDE.md` |
@@ -195,6 +196,8 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 
 Changes to the process, newest first.
 
+- **2026-10-29:** a side conversation worth keeping is archived in `doc/archive/chat_*.md`
+  ("Where notes go").
 - **2026-10-28:** an HLD that changes the language says how the spec changes ("The spec":
   its draft file's rules, the stable rules it changes), and the owner goes over that
   with the questions, before accepting it.
