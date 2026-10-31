@@ -46,7 +46,8 @@ host is the translator built for that target. The exit test in "Goals" is how to
     [[B15]]);
   - **bounds:** a type variable takes any type, with no way to say "one with `+`"
     (`(+ x 1)` on an `a` is an error, `checking.generics`), so a generic function can't
-    add or compare in order; that is interfaces' job ([[B34]], Question 4);
+    add or compare in order, though the operators themselves can ([[B124]]);
+    constraint variables could, then interfaces ([[B34]], Question 4);
   - **but `=` and `format` take a type variable** (`(= x y)` and `"{x}"` on an `a`
     pass), because Python can compare and show anything: an unwritten bound, which a
     Rust target must make a real one (`PartialEq`, `Display`), or the checker must
@@ -223,7 +224,8 @@ tuple types ([[B48]], [[B99]], [[B29]]):
   ([[B36]], [[B28]]), so it needs typed Core.
 
 Whether `+` and the comparisons stay special (one rule per type, as now), become
-overloaded, or wait for interfaces ([[B34]]) is Question 4.
+separate operators, constraint variables or interfaces ([[B124]], [[B34]]) is
+Question 4.
 
 ### Generics
 
@@ -240,6 +242,9 @@ What this epic does to them, and what it leaves:
   `enum T<A>`), with the derived bounds above; no monomorphising needed in the
   translator. Values are immutable and shared, so a target clones or counts references
   (`Rc`) as it likes: a backend's business, not the language's.
+- **The first bounds come** (`collections`): `number`, `comparable` and `appendable`,
+  constraint variables a `sig` can use (Question 4); Rust's spelling of each is a trait
+  bound (`Add`, `PartialOrd`).
 - **Left:** let-polymorphism ([[B15]]), bounds as interfaces (Question 4), higher kinds.
   None blocks a Rust target; each is a feature for later.
 
@@ -250,8 +255,8 @@ What takes any number of arguments falls in two kinds:
 - **One type for every argument:** `+`, `-`, `*`, the comparisons, `and`, `or`. A typed
   rest parameter covers them: `(Fn (Int ...) Int)`, the rest arriving as a list
   ([[B99]]). It maps to every likely target (Rust: a slice). It would let them be
-  ordinary built-ins in `system.cdy`, with types ([[B48]]), but for `+` on several types,
-  which is overloading (Question 4).
+  ordinary built-ins in `system.cdy`, with types ([[B48]]): with Question 4's proposal,
+  `(Fn (number ...) number)` for `+` and `(Fn (appendable ...) appendable)` for `++`.
 - **Mixed types:** `put`, `format`, `tup`. A rest parameter can't type them. `put` and
   `format` need a `show` per argument's type, so they become macros over a typed `show`
   (see "`tup` and `format`"); `tup`'s type is its arity, so it stays a special form, or
@@ -327,8 +332,10 @@ brackets:
    `show` on a type variable (Question 12). (S)
 3. **`collections`:** the list literal, tuple types, variadics (typed rest
    parameters; `put` and `format` as macros over `semantics`' `show`; the operators as
-   values, [[B38]]), `Any` cut down to what is still needed, `Collection` (as Question 4
-   decides); the list operations' set, and the translator moved onto them ([[B123]]).
+   values, [[B38]]), `++` and the constraint variables `number`, `comparable` and
+   `appendable` ([[B124]], Question 4), `Any` cut down to what is still needed,
+   `Collection` (as Question 4 decides); the list operations' set, and the translator
+   moved onto them ([[B123]]).
    (T)
 4. **`namespaces`:** qualified names, the import forms, types and values, macros'
    names, shadowing, private names, each target's mapping. Independent of 2 and 3, so
@@ -394,12 +401,52 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
    **Proposed: keep it through the epic**, and decide in `porting-surface`, once two
    implementations check the semantics: it catches the Python backend's mistakes, which
    neither the checker nor the interpreter sees.
-4. **Overloading:** `+` on numbers and strings, `=` on everything, `Collection`: special
-   rules per operator (as now), interfaces (traits, type classes), or plain
-   per-type functions (`str-concat`)? Rust has traits, so interfaces map well, but they
-   are a big feature. It is decided with variadics (Question 9): a variadic `+` on
-   several types is overloading either way. **Proposed: special rules for now**
-   ([[B34]]), and an HLD for interfaces of its own, after this epic.
+4. **Overloading:** the operators are polymorphic through rules built into the checker,
+   and a program can't write a polymorphic function ([[B124]]): `+` on numbers, strings
+   and lists, `-` and `*` on numbers, the comparisons and `=` on any one type. Four ways
+   out:
+   1. **Separate operators** (OCaml, Gleam): one per type, each an ordinary `sig`;
+   2. **Constraint variables** (Elm): `number`, `comparable`, `appendable`, type
+      variables a program's `sig`s can use, which take only those types;
+   3. **Interfaces** (traits, type classes): a big feature, which maps well to Rust;
+   4. **Special rules for now**, as today, kept as a leak.
+
+   A survey of option 1, the one with the most churn:
+   - **Elsewhere:** Gleam goes furthest (`+` and `+.`, `<` and `<.`, `<>` for strings,
+     `list.append`), with two number types, and keeps a structural `==` on every type.
+     OCaml has `+` and `+.`, `^`, `@` and `Int64.add`, but `=`, `<` and `compare` stay
+     built-in and polymorphic (failing at run time on functions). Standard ML separates
+     `^` and `@`, overloads `+` with a default to `int` (option 4), and gives `=`
+     equality type variables (option 2). Elm already splits `++` (`appendable`) from
+     `+` (`number`); Haskell has `++` and type classes for numbers. Go before 1.18 had
+     Candy's leak exactly, and its generics added constraints (`Ordered`). Rust has
+     traits (`Add`), and no `+` on `Vec`.
+   - **Churn:** about 300 `+`s in the translator (roughly 140 on lists, 80 on strings,
+     80 on numbers) and 76 in `spec/` and `tst/cdy/`. A rename, and a mechanical one:
+     the checker can list each `+` with its type, and a script rewrite them, in two boot
+     steps (the new operators into `bin`, then the translator's uses).
+   - **For:** no special rules (`infer-op`'s cases and `needs-kind` go; each operator is
+     a `sig`, and can be a value, [[B38]]); `(fn (a b) (+ a b))` infers `Int`; **the
+     porting surface**: Python's `+` works on all three, so `emit` needs no types, but
+     Rust's doesn't, and a polymorphic `+` would make the checker's types an input to
+     every backend, while separate operators have one spelling each per target; and a
+     list's append, O(n) on a tuple, shows in the code ([[B69]], [[B123]]).
+   - **Against:** five number types (`Int`, `Long`, `Byte`, `Float`, `Double`), so five
+     sets of arithmetic, or names qualified by `namespaces` (after `collections`), or
+     fewer number types (a bigger change); `=` and the comparisons aren't covered (even
+     Gleam and OCaml keep a polymorphic `=`, and Candy has 419), so Question 12 stays
+     open; interfaces would usually bring overloaded arithmetic back (Rust's `Add`,
+     Haskell's `Num`), though a separate append survives them (Haskell, Elm); and the
+     spec's operator rules, examples and error tables change.
+
+   **Proposed: Elm's design, in `collections`**: option 1 for append, `++` on strings
+   and lists (`appendable`), most of the churn, and what lasts in every language that
+   has it; option 2 for the rest, `number` across the five number types for `+`, `-`,
+   `*` and `quot`, and `comparable` for the ordering comparisons, usable in a program's
+   `sig`s; `=` for every type (Question 12). Interfaces (option 3, [[B34]]) get an HLD of
+   their own after this epic, without undoing either. It is decided with variadics
+   (Question 9): a variadic `+` over one `number` is a rest parameter of a constraint
+   variable.
 5. **Target extensions:** a module per target (`py.cdy`, found in the target's library
    directory), or reader conditionals in one file? **Proposed: a module per target**:
    simpler, and a program says it isn't portable by importing it.
@@ -435,13 +482,15 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
 
 12. **`=` and `show` on a type variable:** declared for every type, *lasting* (each
    target supplies structural equality and a printer for all its types), or rejected
-   until interfaces come? **Proposed: declared for every type**, in `semantics`; the
-   rest of a type variable's operations wait for interfaces.
+   until interfaces come? **Proposed: declared for every type**, in `semantics`;
+   ordering (`<`) is `comparable`'s, in `collections` (Question 4), and the rest of a
+   type variable's operations wait for interfaces.
 
 ## The triage
 
 Every open item on 2026-10-29, in branch order; the branch is where it is expected to
-close. ([[B67]], the built-ins' types unused, was closed by `type-checker`.)
+close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B124]] was
+added on 2026-10-30.)
 
 | Item | Group | Branch |
 |---|---|---|
@@ -475,6 +524,7 @@ close. ([[B67]], the built-ins' types unused, was closed by `type-checker`.)
 | [[B99]] variadic types | I → taken up | `collections` |
 | [[B18]] `Any` turns checking off | T | `collections` (cut down; *lasting* for what stays) |
 | [[B34]] no `Collection` | T | `collections` (Question 4) |
+| [[B124]] the operators polymorphic, programs not | T | `collections` (Question 4) |
 | [[B93]] curried types, partial application | I | `collections` (Question 9) |
 | [[B69]] building a list is quadratic | X | `collections` (with B123) |
 | [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
