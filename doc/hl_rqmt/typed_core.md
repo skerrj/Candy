@@ -1,7 +1,8 @@
 # Typed Core (HLD)
 
-**Status: proposal (2026-10-30), questions answered (2026-10-31). Epic: `python_complete.md` (its first
-branch). For a branch `typed-core`, after tag `type-checker`.** The checker
+**Status: accepted (2026-10-31), with the proposed answers to its questions and its
+spec changes; on branch `typed-core` (tasks [[B126]] to [[B130]]). Epic:
+`python_complete.md` (its first branch). After tag `type-checker`.** The checker
 (`check.cdy`) works out every expression's type, then throws the types away: `lower` and
 `emit` see the Core `analyse` made, untyped, and a `fn` that becomes a nested Python
 `def` is annotated `Any` ([[B19]]). This HLD keeps the types, writes them into Core, and
