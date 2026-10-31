@@ -50,7 +50,8 @@ function can be generic:
 Every type a program writes must exist, with as many arguments as it takes: a built-in
 type (declared in `src/cdy/system.cdy`, each as a bodiless `deft`: `(deft (List a))` takes
 one), one the file defines or imports, or `Tup`, which takes any number. A type
-variable needs no declaration.
+variable needs no declaration. A sum's variants are its constructors, not types, and a
+value isn't a type either.
 
 ```candy errors
 (sig x Foo) (def x 1) => unknown type Foo
@@ -60,6 +61,8 @@ variable needs no declaration.
 (deft Shape (Circle ((r Double)))) (sig s (Shape Int)) (def s (Circle 1.0)) => Shape takes 0 type argument(s), got 1
 (deft (Box a) ((item a))) (sig b Box) (def b (Box 1)) => Box takes 1 type argument(s), got 0
 (deft P ((x Foo))) => unknown type Foo
+(deft S (A ((x Int))) (B ((y Int)))) (sig a A) (def a (A 1)) => A is a variant of S, not a type
+(sig X Int) (def X 1) (sig a X) (def a 1) => X is a value, not a type
 ```
 
 <a id="types.checking"></a>

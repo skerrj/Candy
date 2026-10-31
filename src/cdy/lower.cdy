@@ -65,8 +65,8 @@
         ((Lambda params body _ _)
           (let (((stmts vals n1) (value-seq args n)))
             (tup (+ stmts (assigns params vals empty-list)) body n1)))
-        (else (fail "lower: not an applied fn"))))
-    (else (fail "lower: not an applied fn"))))
+        (else (fail "internal error: lower: not an applied fn"))))
+    (else (fail "internal error: lower: not an applied fn"))))
 
 (sig assigns (Fn ((List Expr) (List Expr) (List Stmt)) (List Stmt)))
 (defn assigns (targets vals acc)
@@ -118,7 +118,7 @@
             ((cases n2) (lower-cases clauses mode tmp (+ (get low n) 1) empty-list))
             ((default-stmts n3) (lower-default default mode tmp n2)))
         (tup (+ (get low stmts) (to-list (SMatch temp (get low expr) cases default-stmts))) n3)))
-    (else (fail "lower: not a match"))))
+    (else (fail "internal error: lower: not a match"))))
 
 ;; The else clause's statements: none, or one list.
 (sig lower-default (Fn ((List Expr) String Expr Int) (Tup (List (List Stmt)) Int)))

@@ -241,7 +241,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn local-py (name id env)
   (if (map-has (get env locals) id)
     (map-get (get env locals) id)
-    (fail (format "emit: local {name} has no Python name"))))
+    (fail (format "internal error: emit: local {name} has no Python name"))))
 
 ;; Python names for locals bound in a new scope: each its own name, unless that is taken
 ;; here (by a top-level name, an enclosing local or an earlier local of this scope).
@@ -309,12 +309,12 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((Lit form _) (emit-lit form))
     ((Local name id _ _) (local-py name id env))
     ((Global name _ _) (map-get (get env globals) name))
-    ((Prim name _ _) (emit-prim name env))
+    ((Prim name pos _) (emit-prim name pos env))
     ((Call callee args _ _) (emit-call callee args env))
     ((If test then other _ _)
       (format "({(emit-expr then env)} if {(emit-expr test env)} else {(emit-expr other env)})"))
-    ((Do _ _ _) (fail "emit: a do inside an expression (lower should have removed it)"))
-    ((MatchE _ _ _ _ _) (fail "emit: a match inside an expression (lower should have removed it)"))
+    ((Do _ _ _) (fail "internal error: emit: a do inside an expression (lower should have removed it)"))
+    ((MatchE _ _ _ _ _) (fail "internal error: emit: a match inside an expression (lower should have removed it)"))
     ((Lambda params body _ _)
       (let ((inner (bind-locals params env)))
         (format "(lambda {(comma-join (emit-exprs params inner empty-list))}: {(emit-expr body inner)})")))
@@ -374,13 +374,13 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((FloatLit v _) (format "{v}"))
     ((DoubleLit v _) (format "{v}"))
     ((BoolLit v _) (format "{v}"))
-    (else (fail "emit: not a literal"))))
+    (else (fail "internal error: emit: not a literal"))))
 
-(sig emit-prim (Fn (String Env) String))
-(defn emit-prim (name env)
+(sig emit-prim (Fn (String Pos Env) String))
+(defn emit-prim (name pos env)
   (if (in (spelling-kind (get env spellings) name) TYPED_KINDS)
     (at (map-get (get env spellings) name) 0)
-    (fail (format "the operator {name} can't be used as a value yet; wrap it in a fn"))))
+    (fail (+ (pos-text pos) (format "the operator {name} can't be used as a value yet; wrap it in a fn")))))
 
 (sig emit-call (Fn (Expr (List Expr) Env) String))
 (defn emit-call (callee args env)

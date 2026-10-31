@@ -217,6 +217,27 @@ needs the new field: `expand.cdy`, the macro test program
    - **Bootstrap:** one rebuild.
 4. **The messages:** [[B119]]; [[B14]]'s rest (`main`'s position, `format` holes'
    positions, `lower`'s and `emit`'s errors as internal ones).
+
+   *Done.* As built:
+   - **[[B119]]:** `check-type` asks, before the import check, whether the name is a
+     variant (`A is a variant of S, not a type`) or a top-level value the module sees
+     (`X is a value, not a type`); both are examples in [[types.exist]].
+   - **`main`:** its two errors say its definition's position (`TDef`'s and `TDefn`'s
+     `pos`, there since `type-checker`).
+   - **`format` holes:** the parse hook takes a position, `(Fn (String Pos) (List
+     Form))`: `read-hole` reads a hole's text with a `Source` whose `base` is where the
+     text starts, so its forms have real positions; `text-pos` finds the hole in the
+     string from its opening quote, counting the value's newlines. An escape before a hole
+     on its line makes the column one short per escape, *for now* ([[B131]]). The brace
+     errors (`hole-end`) are at the `(format ...)` form.
+   - **Internal errors:** `lower`'s and `emit`'s, which no program should reach, say
+     `internal error: lower: ...`, with no position, *lasting*.
+   - **Also:** the operator-as-value error (`emit-prim`) is at the operator, from its
+     `Prim`'s `pos`. `emit`'s Python-name errors (two names one Python name, a field
+     Python can't spell) still have none: a `TDeft` has no position ([[B131]]).
+   - **Tests:** `test_errors_say_where` gains a hole's error on the hole's line and on a
+     later one, an unmatched brace and the operator; `test_main_errors_say_where`.
+   - **Bootstrap:** one rebuild.
 5. **Docs:** CLAUDE.md ("How the translator works": typed Core), the iMVP doc's
    layers, `multi_target.md` (a backend reads Core's types), `type_checker.md` and
    `python_complete.md`'s triage; [[B15]] as Question 5 decides.

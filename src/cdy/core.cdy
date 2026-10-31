@@ -62,12 +62,12 @@
 
 ;; What a symbol can refer to: locals, the top-level names this module defines or imports,
 ;; and the built-ins. `parse` is the reader (read-forms), which format needs for the forms in
-;; its holes. `variants` maps each variant to its sum and field names; `sums` each sum to
+;; its holes (at a position: read-hole). `variants` maps each variant to its sum and field names; `sums` each sum to
 ;; its variants.
 (deft Scope
   ((env (Map String Expr))
    (top (Map String Bool))
-   (parse (Fn (String) (List Form)))
+   (parse (Fn (String Pos) (List Form)))
    (variants (Map String VInfo))
    (sums (Map String (List String)))
    ;; The innermost form being analysed, for errors (see located).
@@ -366,38 +366,53 @@
   (if (!= (len args) 1)
     (fail (located scope "format: expected one string literal"))
     (match (at args 0)
-      ((Txt text _)
-        (let (((parts n1) (format-parts text 0 "" scope n empty-list)))
+      ((Txt text where)
+        (let (((parts n1) (format-parts text where 0 "" scope n empty-list)))
           (tup (Fmt parts (get scope here) ANY) n1)))
       (else (fail (located scope "format: expected one string literal"))))))
 
-;; The parts of a format string from `pos`; `acc` is the literal text so far.
-(sig format-parts (Fn (String Int String Scope Int (List FPart)) (Tup (List FPart) Int)))
-(defn format-parts (text pos acc scope n parts)
+;; The parts of a format string from `pos`, the string written at `where`; `acc` is the
+;; literal text so far.
+(sig format-parts (Fn (String Pos Int String Scope Int (List FPart)) (Tup (List FPart) Int)))
+(defn format-parts (text where pos acc scope n parts)
   (let ((c (if (< pos (len text)) (slice text pos (+ pos 1)) ""))
         (next (if (< (+ pos 1) (len text)) (slice text (+ pos 1) (+ pos 2)) "")))
     (cond
       ((= c "") (tup (add-text parts acc) n))
-      ((and (= c "{") (= next "{")) (format-parts text (+ pos 2) (+ acc "{") scope n parts))
-      ((and (= c "}") (= next "}")) (format-parts text (+ pos 2) (+ acc "}") scope n parts))
+      ((and (= c "{") (= next "{")) (format-parts text where (+ pos 2) (+ acc "{") scope n parts))
+      ((and (= c "}") (= next "}")) (format-parts text where (+ pos 2) (+ acc "}") scope n parts))
       ((= c "}") (fail (located scope "format: unmatched } (write }} for a brace)")))
       ((= c "{")
-        (let ((end (hole-end text (+ pos 1)))
-              (forms ((get scope parse) (slice text (+ pos 1) end))))
+        (let ((end (hole-end text (+ pos 1) scope))
+              (forms ((get scope parse) (slice text (+ pos 1) end) (text-pos text (+ pos 1) where))))
           (if (!= (len forms) 1)
             (fail (located scope "format: a {hole} must hold exactly one form"))
             (let (((e n1) (analyse-expr (at forms 0) scope n)))
-              (format-parts text (+ end 1) "" scope n1 (+ (add-text parts acc) (to-list (FHole e))))))))
-      (else (format-parts text (+ pos 1) (+ acc c) scope n parts)))))
+              (format-parts text where (+ end 1) "" scope n1 (+ (add-text parts acc) (to-list (FHole e))))))))
+      (else (format-parts text where (+ pos 1) (+ acc c) scope n parts)))))
+
+;; Where offset `pos` of a string's text is in the file, the string written at `where`
+;; (its opening quote; NOWHERE stays NOWHERE). The text is the string's value, so an
+;; escape before `pos` on its line puts the column one short per escape (*for now*: [[B131]]).
+(sig text-pos (Fn (String Int Pos) Pos))
+(defn text-pos (text pos where)
+  (if (= (get where line) 0)
+    where
+    (let ((before (slice text 0 pos))
+          (lines (split before "\n"))
+          (last (at lines (- (len lines) 1))))
+      (if (= (len lines) 1)
+        (Pos (get where file) (get where line) (+ (get where col) 1 pos))
+        (Pos (get where file) (+ (get where line) (- (len lines) 1)) (+ (len last) 1))))))
 
 ;; Where the hole starting at `pos` ends (its closing brace).
-(sig hole-end (Fn (String Int) Int))
-(defn hole-end (text pos)
+(sig hole-end (Fn (String Int Scope) Int))
+(defn hole-end (text pos scope)
   (cond
-    ((>= pos (len text)) (fail "format: unmatched { (write {{ for a brace)"))
+    ((>= pos (len text)) (fail (located scope "format: unmatched { (write {{ for a brace)")))
     ((= (slice text pos (+ pos 1)) "}") pos)
-    ((= (slice text pos (+ pos 1)) "{") (fail "format: a {hole} can't hold a brace"))
-    (else (hole-end text (+ pos 1)))))
+    ((= (slice text pos (+ pos 1)) "{") (fail (located scope "format: a {hole} can't hold a brace")))
+    (else (hole-end text (+ pos 1) scope))))
 
 (sig add-text (Fn ((List FPart) String) (List FPart)))
 (defn add-text (parts text)
@@ -1031,19 +1046,19 @@
 ;; A scope with only `top`, for finding variants.
 (sig blank-scope (Fn ((Map String Bool)) Scope))
 (defn blank-scope (top)
-  (Scope empty-map top (fn (text) empty-list) empty-map empty-map NOWHERE empty-map false empty-map empty-map empty-map empty-map))
+  (Scope empty-map top (fn (text where) empty-list) empty-map empty-map NOWHERE empty-map false empty-map empty-map empty-map empty-map))
 
 ;; `forms`, one program on its own (a macro program), with no imports and no prefix;
 ;; `builtins` are the built-ins (read-builtins).
 (sig analyse-program
-  (Fn ((List Form) (Map String Builtin) (Fn (String) (List Form)) (Map String Macro) Bool) (List Top)))
+  (Fn ((List Form) (Map String Builtin) (Fn (String Pos) (List Form)) (Map String Macro) Bool) (List Top)))
 (defn analyse-program (forms builtins parse macros quoting)
   (analyse-module forms (module-exports forms "" "") empty-list empty-map builtins parse macros quoting))
 
 ;; The module `forms`, which exports `own`. It imports `imports` (each module's exports,
 ;; and where the import is); `elsewhere` has the names the program's other modules define.
 (sig analyse-module
-  (Fn ((List Form) Exports (List (Tup Exports Pos)) (Map String String) (Map String Builtin) (Fn (String) (List Form)) (Map String Macro) Bool)
+  (Fn ((List Form) Exports (List (Tup Exports Pos)) (Map String String) (Map String Builtin) (Fn (String Pos) (List Form)) (Map String Macro) Bool)
       (List Top)))
 (defn analyse-module (forms own imports elsewhere builtins parse macros quoting)
   (let ((seen (with-own (with-imports imports (Seen (Exports "" empty-map empty-map empty-map empty-map empty-map) empty-map)) own))
@@ -1223,6 +1238,7 @@
 
 ;; Fail unless every type in `t` exists, with as many arguments as it takes: a built-in
 ;; type (system.cdy), one the program defines or imports, or `Tup`, which takes any number.
+;; A variant or a value written as a type says what it is.
 (sig check-type (Fn (CType Scope) Bool))
 (defn check-type (t scope)
   (match t
@@ -1236,6 +1252,10 @@
                 ((map-has (get scope types) name) (map-get (get scope types) name))
                 ((is-builtin-type name builtins)
                   (match (map-get builtins name) ((BType n) n) (else 0)))
+                ((map-has (get scope variants) name)
+                  (fail (located scope (format "{name} is a variant of {(get (map-get (get scope variants) name) sum)}, not a type"))))
+                ((map-has (get scope top) name)
+                  (fail (located scope (format "{name} is a value, not a type"))))
                 ((map-has (get scope elsewhere) name)
                   (let ((stem (map-get (get scope elsewhere) name)))
                     (fail (located scope (format "{name} is not defined here; {stem} defines it, but this file doesn't import {stem}")))))
@@ -1420,10 +1440,10 @@
 (sig is-main (Fn (Top) Bool))
 (defn is-main (top)
   (match top
-    ((TDefn name _ _ t _)
+    ((TDefn name _ _ t pos)
       (cond
         ((!= name "main") false)
         ((= t MAIN_TYPE) true)
-        (else (fail "main must be typed (Fn ((List String)) Int)"))))
-    ((TDef name _ _ _) (if (= name "main") (fail "main must be a defn") false))
+        (else (fail (+ (pos-text pos) "main must be typed (Fn ((List String)) Int)")))))
+    ((TDef name _ _ pos) (if (= name "main") (fail (+ (pos-text pos) "main must be a defn")) false))
     (else false)))

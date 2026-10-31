@@ -6,17 +6,26 @@
 (import form)
 
 (sig read-forms (Fn (String) (List Form)))
-(defn read-forms (text) (read-all (Source "" empty-list) text (skip text 0) empty-list))
+(defn read-forms (text) (read-all (Source "" empty-list NOWHERE) text (skip text 0) empty-list))
 
 ;; The forms in `text`, from the file `file` ("" for none), with their positions.
 (sig read-source (Fn (String String) (List Form)))
 (defn read-source (file text)
-  (read-all (Source file (line-starts text 0 (to-list 0))) text (skip text 0) empty-list))
+  (read-all (Source file (line-starts text 0 (to-list 0)) (Pos file 1 1)) text (skip text 0) empty-list))
 
-;; What the reader knows about its text: the file it came from, and where each line starts
-;; (its offsets, in order), to give each form a Pos. No line starts: forms are NOWHERE (as
-;; for read-forms, which also reads format holes).
-(deft Source ((file String) (starts (List Int))))
+;; The forms in a `format` hole's text, whose first character is at `where` (NOWHERE: no
+;; positions, as read-forms).
+(sig read-hole (Fn (String Pos) (List Form)))
+(defn read-hole (text where)
+  (if (= (get where line) 0)
+    (read-forms text)
+    (read-all (Source (get where file) (line-starts text 0 (to-list 0)) where) text (skip text 0) empty-list)))
+
+;; What the reader knows about its text: the file it came from, where each line starts
+;; (its offsets, in order), to give each form a Pos, and where the text starts in the file
+;; (1:1 for a file; a format hole's position for its text). No line starts: forms are
+;; NOWHERE (as for read-forms).
+(deft Source ((file String) (starts (List Int)) (base Pos)))
 
 (sig line-starts (Fn (String Int (List Int)) (List Int)))
 (defn line-starts (text pos acc)
@@ -32,7 +41,10 @@
     (if (= (len starts) 0)
       NOWHERE
       (let ((i (line-of starts pos 0 (len starts))))
-        (Pos (get src file) (+ i 1) (+ (- pos (at starts i)) 1))))))
+        (Pos
+          (get src file)
+          (+ i (get (get src base) line))
+          (+ (- pos (at starts i)) (if (= i 0) (get (get src base) col) 1)))))))
 
 ;; The index of the last line start at or before `pos`, between `lo` and `hi` (binary search).
 (sig line-of (Fn ((List Int) Int Int Int) Int))

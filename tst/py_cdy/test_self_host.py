@@ -97,6 +97,13 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(sig f (Fn (Int) Int))\n(defn f (n) (if 1))", "lib/b.cdy:2:13: if: expected"),
         ("(sig x (Fn Int)) (def x 1)", "lib/b.cdy:1:8: bad function type"),
         ("(deft T (A) (b))", "lib/b.cdy:1:13: deft: variant names are Capitalised"),
+        (
+            '(sig x Int) (def x 1)\n(put (format "a {(+ x \\"b\\")}"))',
+            "lib/b.cdy:2:18: +: expected",
+        ),
+        ('(put (format "a\n  {(f 1)}"))', "lib/b.cdy:2:5: unknown name f"),
+        ('(put\n  (format "{x"))', "lib/b.cdy:2:3: format: unmatched {"),
+        ("(put\n  (map + (tup 1)))", "lib/b.cdy:2:8: the operator + can't be used as a value"),
     ],
 )
 def test_errors_say_where(
@@ -112,6 +119,18 @@ def test_errors_say_where(
     Path("main.cdy").write_text("(put\n", encoding="utf-8")
     with pytest.raises(CandyFail, match=r"^main.cdy:1:1: parse error: \( is never closed"):
         translate_file_with(t1, Path("main.cdy"))
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("(sig main Int)\n(def main 1)", "line 2, column 1: main must be a defn"),
+        ("(sig main (Fn (Int) Int))\n(defn main (n) n)", "line 2, column 1: main must be typed"),
+    ],
+)
+def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
+    with pytest.raises(CandyFail, match="^" + re.escape(message)):
+        translate_with(t1, text)
 
 
 @pytest.mark.parametrize(
@@ -193,7 +212,7 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
 def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
     """``forms`` as Python, translated as macro code (where quoting is allowed), as
     ``expand.cdy`` translates a macro program."""
-    return cast(str, t1.translate_expanded(forms, t1.read__read_forms, {}, True))
+    return cast(str, t1.translate_expanded(forms, t1.read__read_hole, {}, True))
 
 
 def test_quoting_in_macro_code(t1: ModuleType, tmp_path: Path) -> None:
@@ -392,7 +411,7 @@ def test_every_node_is_typed(t1: ModuleType) -> None:
     # the name (?eK) it had while checked, so the checker reached them all.
     library = t1.expand__library_builtins(None)
     modules = t1.include__read_modules(str(ROOT / "src" / "cdy" / "cdyc.cdy"))
-    tops = t1.check__type_check(t1.program_tops(modules, t1.read__read_forms, library), library)
+    tops = t1.check__type_check(t1.program_tops(modules, t1.read__read_hole, library), library)
     nodes = core_nodes(tops, [])
     kinds = {type(n.t).__name__ for n in nodes}
     assert kinds <= {"core__TCon", "core__TVar", "core__TFn"}
