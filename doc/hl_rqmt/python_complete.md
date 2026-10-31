@@ -1,8 +1,8 @@
 # Python complete (epic HLD)
 
-**Status: proposal (2026-10-29), questions answered (2026-10-30). An epic: its steps are branches, each
-with an HLD of its own; this one sets their order, their scope, and when the epic is
-done.** Written after tag `type-checker`.
+**Status: accepted (2026-10-30), questions answered; step 1 done, the branches next,
+`typed-core` first. An epic: its steps are branches, each with an HLD of its own; this
+one sets their order, their scope, and when the epic is done.** Written after tag `type-checker`.
 
 Candy runs on one host and writes one target, Python, and the backlog's 84 open items
 mix what a second target needs with what only Python's backend does. This HLD sorts
@@ -263,10 +263,10 @@ What takes any number of arguments falls in two kinds:
   becomes literal syntax. Rust draws the same line: no variadic functions, and
   `println!` is a macro.
 
-A user's `defn` could take a rest parameter too (`(defn sum (& xs) ...)`), which is the
-same feature. Against it: **currying** ([[B93]]): a curried type, and partial
-application, need a fixed arity, so Candy has variadic functions or curried ones, not
-both (Question 9). Clojure's `map` takes several lists (`(map + xs ys)`); with rest
+A user's `defn` could take a rest parameter too (`(defn sum (& xs) ...)`, the spelling
+open, Question 9), which is the same feature. Against it: **currying** ([[B93]],
+dropped): a curried type, and partial application, need a fixed arity, so Candy has
+variadic functions or curried ones, not both (Question 9). Clojure's `map` takes several lists (`(map + xs ys)`); with rest
 parameters Candy's could, but it would need the function's arity to match the number of
 lists, which a type can't say: `map2` or `zip` is the simpler answer.
 
@@ -378,6 +378,8 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
 1. **Accept this HLD,** with its triage; add to `doc/process.md` what an epic is (an
    HLD whose steps are branches; "Design docs"), and an `epic` reference from each
    branch's HLD back to it.
+   *Done:* accepted 2026-10-30; epics are in `doc/process.md` ("Design docs",
+   "Kinds"). [[B93]] (currying) was dropped by Question 9's answer.
 2. **The branches,** in order, each with its own lifecycle. This HLD gets a *Done* note
    per branch, and its triage is updated as items close or are found.
 3. **The exit test,** checked in the last branch; the HLD becomes *done*.
@@ -479,8 +481,8 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
    comes after all three.
    *Answered:* the proposal.
 9. **Variadics or currying?** Typed rest parameters (`(Fn (Int ...) Int)`, a user
-   `defn`'s rest parameter), or curried types and partial application ([[B93]]), which need a
-   fixed arity; not both. Partial application can be a macro or a `fn` either way.
+   `defn`'s rest parameter), or curried types and partial application ([[B93]]), which
+   need a fixed arity; not both. Partial application can be a macro or a `fn` either way.
    **Proposed: rest parameters**, of one type, in `collections`; currying dropped
    (*lasting*), `fn` covering partial application. `put`, `format` and `tup` are not
    rest parameters in any answer.
@@ -510,7 +512,7 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
 
 Every open item on 2026-10-29, in branch order; the branch is where it is expected to
 close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B124]] and
-[[B125]] were added on 2026-10-30.)
+[[B125]] were added on 2026-10-30, and [[B93]] dropped by Question 9.)
 
 | Item | Group | Branch |
 |---|---|---|
@@ -545,7 +547,6 @@ close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B1
 | [[B18]] `Any` turns checking off | T | `collections` (cut down; *lasting* for what stays) |
 | [[B34]] no `Collection` | T | `collections` (Question 4) |
 | [[B124]] the operators polymorphic, programs not | T | `collections` (Question 4) |
-| [[B93]] curried types, partial application | I | `collections` (Question 9) |
 | [[B69]] building a list is quadratic | X | `collections` (with B123) |
 | [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
 | [[B40]] types and values share a namespace | S | `namespaces` |

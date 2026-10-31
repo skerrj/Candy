@@ -109,7 +109,6 @@ By kind, then priority.
 | [B95](B95-io-refactor.md) | An I/O refactor | idea | open | normal |
 | [B99](B99-variadic-types.md) | Variadic types | idea | open | normal |
 | [B108](B108-flat-builtins.md) | The built-ins are one flat namespace | idea | open | normal |
-| [B93](B93-curried-types.md) | Curried function types, and partial application | idea | open | low |
 | [B94](B94-doc-strings.md) | Doc strings and other metadata | idea | open | low |
 | [B96](B96-no-code-commits.md) | "No code changes" commits | idea | open | low |
 | [B97](B97-library-per-target.md) | Build a host and its targets from their own library files | idea | open | low |
@@ -134,7 +133,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [expr.calls](../spec/40-expressions.md#expr.calls): [B38](B38-operators-not-values.md)
 - [expr.comparisons](../spec/40-expressions.md#expr.comparisons): [B27](B27-equality-is-python.md)
 - [expr.conditionals](../spec/40-expressions.md#expr.conditionals): [B21](B21-missing-is-none.md), [B13](B13-long-cond-value.md)
-- [expr.functions](../spec/40-expressions.md#expr.functions): [B8](B8-fn-argument-twice.md), [B19](B19-nested-fn-any.md), [B93](B93-curried-types.md)
+- [expr.functions](../spec/40-expressions.md#expr.functions): [B8](B8-fn-argument-twice.md), [B19](B19-nested-fn-any.md)
 - [expr.let](../spec/40-expressions.md#expr.let): [B17](B17-tup-destructuring.md)
 - [expr.logic](../spec/40-expressions.md#expr.logic): [B26](B26-and-or-operand.md), [B100](B100-and-or-macros.md)
 - [expr.operator-arity](../spec/40-expressions.md#expr.operator-arity): [B48](B48-operators-no-type.md), [B99](B99-variadic-types.md), [B38](B38-operators-not-values.md)
@@ -202,6 +201,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B90](B90-tracking-step-3.md) | tracking step 3: the migration | task | done | normal |
 | [B91](B91-tracking-step-4.md) | tracking step 4: the process | task | done | normal |
 | [B92](B92-tracking-step-5.md) | tracking step 5: docs | task | done | normal |
+| [B93](B93-curried-types.md) | Curried function types, and partial application | idea | dropped | low |
 | [B103](B103-triage-migrated-items.md) | Triage the migrated items: priorities, and which leaks are kept | task | done | normal |
 | [B105](B105-name-checks-step-1.md) | name-checks step 1: Python-name clashes | task | done | normal |
 | [B106](B106-name-checks-step-2.md) | name-checks step 2: built-in types | task | done | normal |

@@ -104,6 +104,11 @@ HLDs live in `doc/hl_rqmt/`, one per piece of work, named for it.
   work is done (the lifecycle, the spec and its tests, reviews): its title says
   "(process HLD)" and its status line starts "**Kind: process**" (`executable_spec.md`,
   `tracking.md`). Its changes land in this file, and its log.
+  An *epic* is an HLD whose steps are branches, each with an HLD of its own: it sets
+  their order and scope, triages the backlog into them, and says when it is done; its
+  title says "(epic HLD)" (`python_complete.md`). Each branch's HLD names its epic in
+  its status line ("Epic: `python_complete.md`"), and the epic gets a *Done* note per
+  branch.
 
 - **Layout:** a status line; "Where things stand"; "Goals" (and "Not goals"); "Proposal"
   (or "Design"); "Pros and cons" (with the timing: why now, or why wait); "Steps";
@@ -196,6 +201,7 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 
 Changes to the process, newest first.
 
+- **2026-10-30:** epics, HLDs whose steps are branches ("Design docs", "Kinds").
 - **2026-10-29:** a side conversation worth keeping is archived in `doc/archive/chat_*.md`
   ("Where notes go").
 - **2026-10-28:** an HLD that changes the language says how the spec changes ("The spec":
