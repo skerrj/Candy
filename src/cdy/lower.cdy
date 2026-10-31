@@ -20,8 +20,8 @@
   (SReturn ((val Expr)))
   (SIf ((test Expr) (then (List Stmt)) (other (List Stmt))))
   (SFunc ((name String) (params (List Expr)) (body (List Stmt)) (t CType)))
-  ;; A nested function (a fn whose body needs statements), named by a Temp; typed Any.
-  (SLocalFunc ((target Expr) (params (List Expr)) (body (List Stmt))))
+  ;; A nested function (a fn whose body needs statements), named by a Temp, with its fn's type.
+  (SLocalFunc ((target Expr) (params (List Expr)) (body (List Stmt)) (t CType)))
   ;; A self tail call as a loop: `while True:`, the parameters rebound all at once, then
   ;; `continue`.
   (SLoop ((body (List Stmt))))
@@ -157,7 +157,7 @@
     (match (if (= (len stmts) 1) (at stmts 0) (SExpr NIL))
       ((SReturn result) (Low empty-list (Lambda params result pos ty) n1))
       (else
-        (Low (to-list (SLocalFunc (Temp n1 ty) params stmts)) (Temp n1 ty) (+ n1 1))))))
+        (Low (to-list (SLocalFunc (Temp n1 ty) params stmts ty)) (Temp n1 ty) (+ n1 1))))))
 
 (sig holes (Fn ((List FPart) (List Expr)) (List Expr)))
 (defn holes (parts acc)
@@ -528,7 +528,7 @@
 (sig stmt-has-closure (Fn (Stmt) Bool))
 (defn stmt-has-closure (s)
   (match s
-    ((SLocalFunc _ _ _) true)
+    ((SLocalFunc _ _ _ _) true)
     ((SAssign target val) (or (has-lambda target) (has-lambda val)))
     ((SDefAssign _ val _) (has-lambda val))
     ((SExpr e) (has-lambda e))

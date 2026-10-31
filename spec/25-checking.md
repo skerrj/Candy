@@ -83,10 +83,12 @@ checker infers it from how it is made and used. A local has one type, so a `fn` 
 ```candy run
 (put (let ((n 3) (m (* n n))) (+ m 1)))
 (put (join (map (fn (s) (+ s "!")) (to-list "hi")) ""))
+(put (let ((sq (fn (x) (* x x)))) (sq 3)))
 ```
 ```expect
 10
 hi!
+9
 ```
 
 ```candy errors

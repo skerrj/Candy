@@ -1,10 +1,10 @@
 # B19: A nested `fn` gets `Any` annotations
 
 kind: leak
-state: open
+state: done
 priority: normal
 found: py-py-translator, 2026-10-15
-fixed:
+fixed: typed-core
 where: `src/cdy/emit.cdy`
 refs: [[expr.functions]]
 
@@ -17,3 +17,4 @@ From `doc/archive/leaks_imvp_py_translator.md`.
   `(let ((sq (fn (x) (* x x)))) (sq 3))`, translates to a Python lambda that `mypy
   --strict` rejects ("Call to untyped function (unknown) in typed context"), so the spec
   can't show one yet. The type checker ([[B15]]) will know its type.
+- 2026-10-31, Claude: fixed by typed-core step 3 ([[B128]]): a nested `def` and a `let`-bound `lambda` get the checker's type; the spec shows `(let ((sq (fn (x) (* x x)))) (sq 3))`.

@@ -31,7 +31,6 @@ By kind, then priority.
 | [B16](B16-format-hack.md) | `format` is an f-string hack, from smz | leak | open | normal |
 | [B17](B17-tup-destructuring.md) | Taking a `tup` apart is a stopgap | leak | open | normal |
 | [B18](B18-any-escape-hatch.md) | `Any` turns checking off | leak | open | normal |
-| [B19](B19-nested-fn-any.md) | A nested `fn` gets `Any` annotations | leak | open | normal |
 | [B20](B20-maybe-is-optional.md) | `(Maybe a)` is `a \| None` | leak | open | normal |
 | [B21](B21-missing-is-none.md) | Missing values are `None` | leak | open | normal |
 | [B23](B23-true-division.md) | `/` on integers is true division | leak | open | normal |
@@ -100,7 +99,7 @@ By kind, then priority.
 | [B80](B80-def-mutability.md) | Decide whether a `def` is a constant or a variable | task | open | normal |
 | [B126](B126-typed-core-step-1.md) | typed-core step 1: positions on literal forms and Core's leaves | task | review | normal |
 | [B127](B127-typed-core-step-2.md) | typed-core step 2: types in Core | task | review | normal |
-| [B128](B128-typed-core-step-3.md) | typed-core step 3: nested functions typed | task | open | normal |
+| [B128](B128-typed-core-step-3.md) | typed-core step 3: nested functions typed | task | review | normal |
 | [B129](B129-typed-core-step-4.md) | typed-core step 4: the messages | task | open | normal |
 | [B130](B130-typed-core-step-5.md) | typed-core step 5: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
@@ -135,7 +134,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [expr.calls](../spec/40-expressions.md#expr.calls): [B38](B38-operators-not-values.md)
 - [expr.comparisons](../spec/40-expressions.md#expr.comparisons): [B27](B27-equality-is-python.md)
 - [expr.conditionals](../spec/40-expressions.md#expr.conditionals): [B21](B21-missing-is-none.md), [B13](B13-long-cond-value.md)
-- [expr.functions](../spec/40-expressions.md#expr.functions): [B8](B8-fn-argument-twice.md), [B19](B19-nested-fn-any.md)
+- [expr.functions](../spec/40-expressions.md#expr.functions): [B8](B8-fn-argument-twice.md)
 - [expr.let](../spec/40-expressions.md#expr.let): [B17](B17-tup-destructuring.md)
 - [expr.logic](../spec/40-expressions.md#expr.logic): [B26](B26-and-or-operand.md), [B100](B100-and-or-macros.md)
 - [expr.operator-arity](../spec/40-expressions.md#expr.operator-arity): [B48](B48-operators-no-type.md), [B99](B99-variadic-types.md), [B38](B38-operators-not-values.md)
@@ -182,6 +181,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B6](B6-record-field-twice.md) | A record (or variant) with the same field twice translates | defect | done | high |
 | [B10](B10-record-constructor-arity.md) | A record constructor's number of arguments isn't checked | defect | done | normal |
 | [B12](B12-module-prefix-collides.md) | Module prefixes can collide with mangled names | defect | done | high |
+| [B19](B19-nested-fn-any.md) | A nested `fn` gets `Any` annotations | leak | done | normal |
 | [B24](B24-quot-floors.md) | `quot` rounds toward minus infinity | leak | kept | normal |
 | [B25](B25-truthiness.md) | `if` tests use Python truthiness | leak | done | normal |
 | [B30](B30-get-assoc-unchecked.md) | `get` and `assoc` field names are checked by mypy, not Candy | leak | done | normal |

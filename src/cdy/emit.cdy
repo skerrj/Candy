@@ -403,10 +403,11 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 
 ;; --- types ---
 
+;; A type's Python text; a variable the checker never solved (`?N`) is Any.
 (sig emit-type (Fn (CType Env) String))
 (defn emit-type (t env)
   (match t
-    ((TVar name) (py-mangle name))
+    ((TVar name) (if (starts-with name "?") "_cdy_Any" (py-mangle name)))
     ((TFn params ret)
       (format "_cdy_Callable[[{(comma-join (emit-types params env empty-list))}], {(emit-type ret env)}]"))
     ((TCon name args) (emit-tcon name (emit-types args env empty-list) (get env spellings)))))
@@ -469,7 +470,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
           (format "{(comma-join (emit-exprs targets env empty-list))} = ({(comma-join (emit-exprs vals env empty-list))})"))))
     ((SContinue) (line level "continue"))
     ((SAssign target val)
-      (line level (format "{(emit-expr target env)} = {(emit-expr val env)}")))
+      (line level (format "{(emit-expr target env)}{(lambda-annotation target val env)} = {(emit-expr val env)}")))
     ((SDefAssign name val t)
       (line level
         (format "{(map-get (get env globals) name)}: {(emit-type t env)} = {(emit-expr val env)}")))
@@ -477,11 +478,32 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((SReturn e) (line level (format "return {(emit-expr e env)}")))
     ((SIf test then other) (emit-if "if" test then other level env))
     ((SFunc name params body t) (emit-func name params body t level env))
-    ((SLocalFunc target params body)
-      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env))
-            (args (comma-join (emit-any-params params inner empty-list))))
-        (+ (line level (format "def {(emit-expr target env)}({args}) -> _cdy_Any:"))
-           (emit-block body (+ level 1) inner))))))
+    ((SLocalFunc target params body t)
+      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env)))
+        (match t
+          ((TFn types ret)
+            (+ (line level
+                 (format "def {(emit-expr target env)}({(comma-join (emit-params params types inner empty-list))}) -> {(emit-type ret env)}:"))
+               (emit-block body (+ level 1) inner)))
+          ;; Unchecked (macro code, [[B42]]): Any.
+          (else
+            (+ (line level
+                 (format "def {(emit-expr target env)}({(comma-join (emit-any-params params inner empty-list))}) -> _cdy_Any:"))
+               (emit-block body (+ level 1) inner))))))))
+
+;; A local bound to a fn (a Python lambda) is annotated with the fn's type, which mypy
+;; can't infer from a lambda alone; anything else, "".
+(sig lambda-annotation (Fn (Expr Expr Env) String))
+(defn lambda-annotation (target val env)
+  (match target
+    ((Local _ _ _ _)
+      (match val
+        ((Lambda _ _ _ t)
+          (match t
+            ((TFn _ _) (format ": {(emit-type t env)}"))
+            (else "")))
+        (else "")))
+    (else "")))
 
 ;; An if statement, or (`keyword` "elif") the rest of one. An else holding just an if
 ;; becomes an elif, so that a long cond doesn't nest one level deeper per clause (Python

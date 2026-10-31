@@ -201,6 +201,20 @@ needs the new field: `expand.cdy`, the macro test program
    - **Bootstrap:** one rebuild.
 3. **Nested functions typed** ([[B19]]): `SLocalFunc` with its type; `emit`'s
    annotations; what mypy then finds, fixed or recorded.
+
+   *Done.* As built:
+   - **`lower.cdy`:** `SLocalFunc` ends with `t`, its `fn`'s type.
+   - **`emit.cdy`:** a nested `def` is annotated from its `TFn` (`emit-params`, as a
+     `defn`'s), inside a generic `defn` with its type variables, which PEP 695 puts in
+     scope; a `fn` the checker didn't see (macro code, [[B42]]) keeps `Any`. `emit-type`
+     writes a `?N` as `Any` (Question 2). Also, beyond the step as written: a `let`-bound
+     `fn` that stays a Python `lambda` (B19's own repro, "Call to untyped function") gets
+     its type on the assignment, `sq: Callable[[int], int] = (lambda x: ...)`; locals
+     are renamed apart within a function, so no name is annotated twice.
+   - **What mypy found:** nothing; the translator itself has no nested `def` or bound
+     `lambda`, so `bin` changes only in `emit`'s own code. Its spec example,
+     [[checking.locals]], now has a bound `fn` called.
+   - **Bootstrap:** one rebuild.
 4. **The messages:** [[B119]]; [[B14]]'s rest (`main`'s position, `format` holes'
    positions, `lower`'s and `emit`'s errors as internal ones).
 5. **Docs:** CLAUDE.md ("How the translator works": typed Core), the iMVP doc's
