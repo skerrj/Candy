@@ -321,13 +321,14 @@ them fast its own way. What changes in this epic:
 Each is a branch with its own HLD, in this order (Question 2), the groups it closes in
 brackets:
 
-1. **`typed-core`:** the checker writes each `Expr`'s type into Core; nested `fn`s get
-   their types ([[B19]]); the checker's own leaks as wanted ([[B120]], [[B121]],
-   [[B122]]). First, since `show`, `format`, `Any`'s cut and the translator's loops
-   ([[B123]]) all need it. (T)
+1. **`typed-core`** (`typed_core.md`): the checker writes each `Expr`'s type into
+   Core; nested `fn`s get their types ([[B19]]); positions on every node ([[B122]],
+   [[B59]], [[B14]]). First, since `show`, `format`, `Any`'s cut and the translator's
+   loops ([[B123]]) all need it. (T)
 2. **`semantics`:** the borrowed semantics, one by one, each decided in the spec and
    fixed in the Python target: `show` and printing ([[B36]], the backlog's other
-   `high`), `=`, `/`, `and`/`or`, `Maybe` and missing values, `at` and `slice`, numbers'
+   `high`), `=`, `/`, `and`/`or`, `Maybe` and missing values (with the checker's
+   narrowing, [[B121]], and field constraints, [[B120]]), `at` and `slice`, numbers'
    bounds, `Char`, `def` order and constancy ([[B80]]), errors ([[B39]]); `=` and
    `show` on a type variable (Question 12). (S)
 3. **`collections`:** the list literal, tuple types, variadics (typed rest
@@ -518,8 +519,6 @@ close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B1
 |---|---|---|
 | [[B15]] the checker is an MVP | T | `typed-core` |
 | [[B19]] nested `fn`s typed `Any` | T | `typed-core` |
-| [[B120]] `get` before a type is known | T | `typed-core` |
-| [[B121]] no narrowing in a clause | T | `typed-core` |
 | [[B122]] a leaf's error at its parent | X | `typed-core` |
 | [[B59]] only symbols and lists carry positions | X | `typed-core` |
 | [[B14]] errors without positions | D | `typed-core` |
@@ -530,6 +529,8 @@ close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B1
 | [[B26]] `and`/`or` return an operand | S | `semantics` |
 | [[B100]] `and` and `or` as macros | I | `semantics` (with B26) |
 | [[B20]] `Maybe` is `a \| None` | S | `semantics` |
+| [[B121]] no narrowing in a clause | T | `semantics` (with [[B20]]'s narrowing) |
+| [[B120]] `get` before a type is known | T | `semantics` (with B121, in the checker) |
 | [[B21]] missing values are `None` | S | `semantics` |
 | [[B35]] `at` and `slice` are subscripts | S | `semantics` |
 | [[B22]] unbounded integers | S | `semantics` |
