@@ -99,7 +99,7 @@ By kind, then priority.
 |---|---|---|---|---|
 | [B80](B80-def-mutability.md) | Decide whether a `def` is a constant or a variable | task | open | normal |
 | [B126](B126-typed-core-step-1.md) | typed-core step 1: positions on literal forms and Core's leaves | task | review | normal |
-| [B127](B127-typed-core-step-2.md) | typed-core step 2: types in Core | task | open | normal |
+| [B127](B127-typed-core-step-2.md) | typed-core step 2: types in Core | task | review | normal |
 | [B128](B128-typed-core-step-3.md) | typed-core step 3: nested functions typed | task | open | normal |
 | [B129](B129-typed-core-step-4.md) | typed-core step 4: the messages | task | open | normal |
 | [B130](B130-typed-core-step-5.md) | typed-core step 5: docs | task | open | normal |

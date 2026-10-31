@@ -1,7 +1,7 @@
 # B127: typed-core step 2: types in Core
 
 kind: task
-state: open
+state: review
 priority: normal
 found: typed-core, 2026-10-31
 fixed:

@@ -377,6 +377,33 @@ def test_list_functions_are_built_in(t1: ModuleType) -> None:
     assert "cdy_rt.primitives.list_map(" in source and "cdy_rt.primitives.list_filter(" in source
 
 
+def core_nodes(value: object, found: list[Any]) -> list[Any]:
+    """Every Core node in ``value`` (a node has a type, ``t``)."""
+    if isinstance(value, tuple):
+        if type(value).__name__.startswith("core__") and hasattr(value, "t"):
+            found.append(value)
+        for item in value:
+            core_nodes(item, found)
+    return found
+
+
+def test_every_node_is_typed(t1: ModuleType) -> None:
+    # The translator's own Core, checked: every node has the type the checker found, none
+    # the name (?eK) it had while checked, so the checker reached them all.
+    library = t1.expand__library_builtins(None)
+    modules = t1.include__read_modules(str(ROOT / "src" / "cdy" / "cdyc.cdy"))
+    tops = t1.check__type_check(t1.program_tops(modules, t1.read__read_forms, library), library)
+    nodes = core_nodes(tops, [])
+    kinds = {type(n.t).__name__ for n in nodes}
+    assert kinds <= {"core__TCon", "core__TVar", "core__TFn"}
+    unreached = [
+        n for n in nodes if type(n.t).__name__ == "core__TVar" and n.t.name.startswith("?e")
+    ]
+    assert not unreached
+    lambdas = [n for n in nodes if type(n).__name__ == "core__Lambda"]
+    assert lambdas and all(type(n.t).__name__ == "core__TFn" for n in lambdas)
+
+
 def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
     translator = tmp_path / t1_path.name
     shutil.copyfile(t1_path, translator)  # without form.cdy, system.cdy, ...

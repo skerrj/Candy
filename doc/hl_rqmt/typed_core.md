@@ -172,6 +172,33 @@ needs the new field: `expand.cdy`, the macro test program
 2. **Types in Core:** a `t` on every `Expr`; the checker elaborates and puts in the
    final substitution; `type-check` returns the typed `tops`; a test that every node of
    the translator's own Core has a type after checking.
+
+   *Done.* As built:
+   - **`core.cdy`:** every `Expr` variant ends with `t`, a `CType`; `analyse` makes `ANY`
+     (moved here from `check.cdy`). The field was added by a throwaway script that reads
+     the `.cdy` files as forms: `_` in each `match` pattern, `ANY` in each construction
+     (about 180 sites).
+   - **`check.cdy`, not rewritten but extended:** rather than have every `infer` rebuild
+     its node, each definition is first numbered (`retype-top`: each node's `t` becomes a
+     name of its own, `?eK`); the checker records the type it finds under that name
+     (`typed`), in a map of its own in `St` (`types`, not the substitution, which stays
+     small: `map-set` copies); then each node gets its recorded type with the
+     definition's substitution put in (`node-type`). Recorded: every `infer` (now
+     `infer` around `infer-node`); `check-expr`'s check-mode `if`, `do`, applied `fn` and
+     `fn` (the type wanted); every binder (`fn` and `defn` parameters, a `let`'s, a
+     clause's names); a callee the checker doesn't infer (an operator, a `tup`
+     pattern's `at`, a `let`'s `fn`) as the function from its arguments' types to the
+     result's. `type-check` returns the typed `tops`.
+   - **`lower.cdy`:** a node it rebuilds keeps its type (`value-call`, `value-if`,
+     `value-fn` and `value-boolop` take it), and so does the `Temp` that stands for a
+     `match` or a nested `fn`; other `Temp`s, and the `not` it makes, are `ANY`.
+   - **Output:** the same Python, byte for byte, as `boot/44` for every test program.
+   - **Tests:** `test_every_node_is_typed` checks the translator's own Core (23,280
+     nodes): none keeps its `?eK` name, so the checker reached every node, and every
+     `fn` has a function type; three are a `?N` nothing solved, as Question 2 allows.
+     Breaking the callees' recording makes it fail.
+   - **Cost:** `self_host.py` takes 3.6 s, from 3.0 s.
+   - **Bootstrap:** one rebuild.
 3. **Nested functions typed** ([[B19]]): `SLocalFunc` with its type; `emit`'s
    annotations; what mypy then finds, fixed or recorded.
 4. **The messages:** [[B119]]; [[B14]]'s rest (`main`'s position, `format` holes'
