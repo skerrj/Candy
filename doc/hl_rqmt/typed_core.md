@@ -144,6 +144,31 @@ needs the new field: `expand.cdy`, the macro test program
    the reader, `Lit`/`Local`/`Global`/`Prim`/`Do` with positions, the checker reporting
    at the node; the macro code that takes literal forms apart; the spec's position
    example.
+
+   *Done.* As built:
+   - **`form.cdy`, `read.cdy`:** every literal form ends with a `pos`, the reader's (a
+     string's at its opening `"`); `form-pos` gives every form's.
+   - **`core.cdy`:** `Local`, `Global`, `Prim` and `Do` end with a `pos`; `Lit` reads its
+     form's. A `Local` is bound with its name's position and, where it is used, rebuilt
+     with the use's (`at-use`). What the translator makes (`NIL`, a quoted form's
+     builders, `format`'s joins) is `NOWHERE`; a `tup` pattern's `at` reads are at the
+     pattern.
+   - **`check.cdy`:** `node-pos` gives the leaves' positions, so an error is reported at
+     the literal or name it is in: `(f\n  s)` says `2:3: argument 1 of f: ...`.
+   - **`expand.cdy`:** `stamp` gives an expansion's literals the call's position too
+     (`form-at`), as it did its symbols and lists.
+   - **`lower.cdy`:** a self tail call's unchanged parameters are found by name and id
+     (`same-local`), not by comparing whole `Local`s, which now differ in position;
+     without it a loop rebound them all.
+   - **Macro code:** `expand.cdy` and `include.cdy` build literals with a position;
+     `macros.macro-code`'s example writes `(Txt (sym-name s) NOWHERE)`, and the macro
+     test programs (`lib/control.cdy`, `macro_code/quoting.cdy`) take the new field.
+   - **Output:** the old `bin` and the new one write the same Python for every test
+     program but `macro_files.cdy`, whose macro file now builds the new forms (so the
+     old `bin` can't translate it).
+   - **Tests:** a `checking.definitions` example with the error at a string literal;
+     `test_reader_positions` checks literals' positions. [[B59]] and [[B122]] done.
+   - **Bootstrap:** one rebuild.
 2. **Types in Core:** a `t` on every `Expr`; the checker elaborates and puts in the
    final substitution; `type-check` returns the typed `tops`; a test that every node of
    the translator's own Core has a type after checking.

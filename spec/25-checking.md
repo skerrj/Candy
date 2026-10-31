@@ -33,7 +33,17 @@ type. Calling something that isn't a function is an error.
 ## Definitions
 
 A `def`'s value has its `sig`'s type, and a `defn`'s body its return type, its
-parameters the parameter types.
+parameters the parameter types. A type error is reported at the expression it is in,
+literals and names too:
+
+```candy error
+(sig x Int)
+(def x
+  "a")
+```
+```expect-error
+line 3, column 3: def x: expected Int, got String
+```
 
 ```candy errors
 (sig x Int) (def x "a") => def x: expected Int, got String

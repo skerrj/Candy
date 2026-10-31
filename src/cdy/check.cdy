@@ -4,7 +4,7 @@
 ;;; makes is named ?N; one a sig writes (a) is rigid in its definition and instantiated
 ;;; with fresh ones at each use. `Any` unifies with everything.
 ;;; A type error is the translator's error (type-check), at the innermost node with a
-;;; position (a leaf is reported at its parent).
+;;; position.
 
 (import form)
 (import core)
@@ -83,7 +83,7 @@
 (sig local-key (Fn (Expr) String))
 (defn local-key (e)
   (match e
-    ((Local name id) (format "{name}#{id}"))
+    ((Local name id _) (format "{name}#{id}"))
     (else "")))
 
 ;; The type of each def and defn (its sig), record and variant (its constructor).
@@ -156,7 +156,7 @@
         (let ((rt (infer test ctx st))
               (st1 (expect-is (tcon "Bool") (get rt t) "if: the test" ctx (get rt st))))
           (check-expr other want what ctx (check-expr then want what ctx st1))))
-      ((Do body)
+      ((Do body _)
         (if (= (len body) 0)
           (expect want (tcon "Unit") what ctx st)
           (check-expr (at body (- (len body) 1)) want what ctx (get (infer-do (slice body 0 (- (len body) 1)) ctx (Res ANY st)) st))))
@@ -184,6 +184,11 @@
 (sig node-pos (Fn (Expr) Pos))
 (defn node-pos (e)
   (match e
+    ((Lit form) (form-pos form))
+    ((Local _ _ pos) pos)
+    ((Global _ pos) pos)
+    ((Prim _ pos) pos)
+    ((Do _ pos) pos)
     ((Call _ _ pos) pos)
     ((If _ _ _ pos) pos)
     ((Lambda _ _ pos) pos)
@@ -203,12 +208,12 @@
   (let ((ctx (at-node e outer)))
     (match e
       ((Lit form) (Res (literal-type form) st))
-      ((Local name _)
+      ((Local name _ _)
         (let ((key (local-key e)))
           (Res (if (map-has (get ctx env) key) (map-get (get ctx env) key) ANY) st)))
-      ((Global name)
+      ((Global name _)
         (if (map-has (get ctx globals) name) (instantiate (map-get (get ctx globals) name) st) (Res ANY st)))
-      ((Prim name) (prim-type name ctx st))
+      ((Prim name _) (prim-type name ctx st))
       ((Call callee args _) (infer-call callee args ctx st))
       ((If test then other _)
         (let ((rt (infer test ctx st))
@@ -216,7 +221,7 @@
               (ra (infer then ctx st1))
               (rb (infer other ctx (get ra st))))
           (join-types (get ra t) (get rb t) "if: the branches" ctx (get rb st))))
-      ((Do body) (infer-do body ctx (Res (tcon "Unit") st)))
+      ((Do body _) (infer-do body ctx (Res (tcon "Unit") st)))
       ((Lambda params body _) (infer-lambda params body ctx st))
       ((Tuple items _)
         (let ((r (infer-all items ctx st empty-list)))
@@ -230,14 +235,14 @@
 (sig literal-type (Fn (Form) CType))
 (defn literal-type (form)
   (match form
-    ((Txt _) (tcon "String"))
-    ((IntLit _) (tcon "Int"))
-    ((LongLit _) (tcon "Long"))
-    ((ByteLit _) (tcon "Byte"))
-    ((FloatLit _) (tcon "Float"))
-    ((DoubleLit _) (tcon "Double"))
-    ((CharLit _) (tcon "Char"))
-    ((BoolLit _) (tcon "Bool"))
+    ((Txt _ _) (tcon "String"))
+    ((IntLit _ _) (tcon "Int"))
+    ((LongLit _ _) (tcon "Long"))
+    ((ByteLit _ _) (tcon "Byte"))
+    ((FloatLit _ _) (tcon "Float"))
+    ((DoubleLit _ _) (tcon "Double"))
+    ((CharLit _ _) (tcon "Char"))
+    ((BoolLit _ _) (tcon "Bool"))
     (else ANY)))
 
 ;; A built-in as a value: its type, instantiated; an operator is Any (it isn't a function
@@ -297,7 +302,7 @@
   (match callee
     ((Lambda params body _)
       (if (= (len params) (len args)) (infer-applied params body args ctx st) (infer-called callee args ctx st)))
-    ((Prim name)
+    ((Prim name _)
       (cond
         ((is-op name ctx) (infer-op name args ctx st))
         ((and (= name "at") (is-tup-item args)) (infer-tup-item args ctx st))
@@ -390,15 +395,15 @@
 (sig global-of (Fn (Expr) String))
 (defn global-of (e)
   (match e
-    ((Global name) name)
+    ((Global name _) name)
     (else "")))
 
 (sig callee-name (Fn (Expr) String))
 (defn callee-name (e)
   (match e
-    ((Global name) (shown-name name))
-    ((Prim name) name)
-    ((Local name _) name)
+    ((Global name _) (shown-name name))
+    ((Prim name _) name)
+    ((Local name _ _) name)
     (else "the function")))
 
 ;; A tup pattern's item, (at tmp i) on the pattern's _tup Local.
@@ -409,7 +414,7 @@
 (sig tup-name (Fn (Expr) String))
 (defn tup-name (e)
   (match e
-    ((Local name _) name)
+    ((Local name _ _) name)
     (else "")))
 
 ;; The value of an Int literal, or -1.
@@ -418,7 +423,7 @@
   (match e
     ((Lit form)
       (match form
-        ((IntLit k) k)
+        ((IntLit k _) k)
         (else -1)))
     (else -1)))
 

@@ -66,14 +66,12 @@ By kind, then priority.
 | [B114](B114-field-tuple-method.md) | A field named like a tuple method fails mypy | leak | open | low |
 | [B120](B120-get-before-type-known.md) | `get` or `assoc` on a value whose type isn't known yet is an error | leak | open | low |
 | [B121](B121-no-narrowing-in-match-clause.md) | Inside a `match` clause, the subject isn't narrowed to its variant | leak | open | low |
-| [B122](B122-leaf-error-position.md) | A type error in a leaf is reported at its parent | leak | open | low |
 
 ### tech-debt
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B56](B56-match-temporary.md) | Every `match` subject gets a temporary | tech-debt | open | normal |
-| [B59](B59-positions-symbols-lists.md) | Only symbols and lists carry positions | tech-debt | open | normal |
 | [B61](B61-expand-knows-forms.md) | `expand.cdy` knows the shape of some special forms | tech-debt | open | normal |
 | [B62](B62-prelude-macros-per-module.md) | Every module compiles the prelude's macros | tech-debt | open | normal |
 | [B63](B63-macro-file-per-importer.md) | A macro file is compiled once per file that imports it | tech-debt | open | normal |
@@ -100,7 +98,7 @@ By kind, then priority.
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B80](B80-def-mutability.md) | Decide whether a `def` is a constant or a variable | task | open | normal |
-| [B126](B126-typed-core-step-1.md) | typed-core step 1: positions on literal forms and Core's leaves | task | open | normal |
+| [B126](B126-typed-core-step-1.md) | typed-core step 1: positions on literal forms and Core's leaves | task | review | normal |
 | [B127](B127-typed-core-step-2.md) | typed-core step 2: types in Core | task | open | normal |
 | [B128](B128-typed-core-step-3.md) | typed-core step 3: nested functions typed | task | open | normal |
 | [B129](B129-typed-core-step-4.md) | typed-core step 4: the messages | task | open | normal |
@@ -128,7 +126,6 @@ By kind, then priority.
 
 The open items, by the ids in their refs (spec rules, and sections of other docs).
 
-- [checking.definitions](../spec/25-checking.md#checking.definitions): [B122](B122-leaf-error-position.md)
 - [checking.generics](../spec/25-checking.md#checking.generics): [B124](B124-polymorphic-operators.md)
 - [checking.operators](../spec/25-checking.md#checking.operators): [B124](B124-polymorphic-operators.md)
 - [checking.order](../spec/25-checking.md#checking.order): [B120](B120-get-before-type-known.md)
@@ -190,6 +187,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B30](B30-get-assoc-unchecked.md) | `get` and `assoc` field names are checked by mypy, not Candy | leak | done | normal |
 | [B33](B33-no-unary-minus.md) | No unary minus | leak | kept | normal |
 | [B53](B53-unimported-type.md) | A type from a module the file doesn't import isn't caught | leak | done | normal |
+| [B59](B59-positions-symbols-lists.md) | Only symbols and lists carry positions | tech-debt | done | normal |
 | [B67](B67-builtin-types-unused.md) | The built-ins' types are read but not used | tech-debt | done | low |
 | [B73](B73-master-not-main.md) | The default branch is `master`; some notes and tools assume `main` | tech-debt | dropped | normal |
 | [B77](B77-runtime-all-imported.md) | Every runtime module is imported | tech-debt | dropped | normal |
@@ -219,3 +217,4 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B116](B116-type-checker-step-2.md) | type-checker step 2: positions in Core | task | done | normal |
 | [B117](B117-type-checker-step-3.md) | type-checker step 3: the checker on | task | done | normal |
 | [B118](B118-type-checker-step-4.md) | type-checker step 4: docs | task | done | normal |
+| [B122](B122-leaf-error-position.md) | A type error in a leaf is reported at its parent | leak | done | low |

@@ -545,3 +545,7 @@ def test_reader_positions(t1: ModuleType) -> None:
     assert pos(forms[0].items[1].items[1]) == t1.form__Pos("f.cdy", 2, 6)
     assert pos(forms[1]) == t1.form__Pos("f.cdy", 3, 2)
     assert pos(t1.read__read_forms("x")[0]) == t1.form__NOWHERE  # read_forms gives no positions
+    literals = t1.read__read_source("f.cdy", '("s" 1 2.0\n \\c true)')[0].items
+    assert [pos(f) for f in literals] == [t1.form__Pos("f.cdy", 1, col) for col in (2, 6, 8)] + [
+        t1.form__Pos("f.cdy", 2, col) for col in (2, 5)
+    ]

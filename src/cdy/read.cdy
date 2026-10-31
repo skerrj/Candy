@@ -99,7 +99,7 @@
 (sig read-char (Fn (Source String Int) (Tup Form Int)))
 (defn read-char (src text pos)
   (if (and (< (+ pos 1) (len text)) (not (isspace-at text (+ pos 1))) (ends-at text (+ pos 2)))
-    (tup (CharLit (at text (+ pos 1))) (+ pos 2))
+    (tup (CharLit (at text (+ pos 1)) (pos-at src pos)) (+ pos 2))
     (fail (parse-error src text pos "a char is \\ and one character, then a delimiter"))))
 
 ;; A number, boolean or symbol; the word (up to the next delimiter) runs to `end`.
@@ -108,9 +108,9 @@
   (let ((word (slice text pos end))
         (kind (number-kind word)))
     (cond
-      ((!= kind "") (tup (number-form word kind) end))
-      ((= word "true") (tup (BoolLit true) end))
-      ((= word "false") (tup (BoolLit false) end))
+      ((!= kind "") (tup (number-form word kind (pos-at src pos)) end))
+      ((= word "true") (tup (BoolLit true (pos-at src pos)) end))
+      ((= word "false") (tup (BoolLit false (pos-at src pos)) end))
       ((symbol-start (at text pos))
         (let ((stop (symbol-end text (+ pos 1)))
               (name (slice text pos stop)))
@@ -160,15 +160,15 @@
             (else ""))))
       (else ""))))
 
-(sig number-form (Fn (String String) Form))
-(defn number-form (word kind)
+(sig number-form (Fn (String String Pos) Form))
+(defn number-form (word kind where)
   (let ((body (slice word 0 (- (len word) 1))))
     (cond
-      ((= kind "int") (IntLit (to-int word)))
-      ((= kind "long") (LongLit (to-int body)))
-      ((= kind "byte") (ByteLit (to-int body)))
-      ((= kind "double") (DoubleLit (to-float word)))
-      (else (FloatLit (to-float body))))))
+      ((= kind "int") (IntLit (to-int word) where))
+      ((= kind "long") (LongLit (to-int body) where))
+      ((= kind "byte") (ByteLit (to-int body) where))
+      ((= kind "double") (DoubleLit (to-float word) where))
+      (else (FloatLit (to-float body) where)))))
 
 ;; --- strings ---
 
@@ -178,7 +178,7 @@
 (defn read-str (src text pos acc start)
   (cond
     ((>= pos (len text)) (fail (parse-error src text start "string is never closed")))
-    ((= (at text pos) "\"") (tup (Txt acc) (+ pos 1)))
+    ((= (at text pos) "\"") (tup (Txt acc (pos-at src start)) (+ pos 1)))
     ((= (at text pos) "\\")
       (let (((ch next) (escape src text pos)))
         (read-str src text next (+ acc ch) start)))

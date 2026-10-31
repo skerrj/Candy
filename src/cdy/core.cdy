@@ -18,12 +18,12 @@
 ;; is a conditional expression or a lambda.
 (deft Expr
   (Lit ((form Form)))
-  (Local ((name String) (id Int)))
-  (Global ((name String)))
-  (Prim ((name String)))
+  (Local ((name String) (id Int) (pos Pos)))
+  (Global ((name String) (pos Pos)))
+  (Prim ((name String) (pos Pos)))
   (Call ((callee Expr) (args (List Expr)) (pos Pos)))
   (If ((test Expr) (then Expr) (other Expr) (pos Pos)))
-  (Do ((body (List Expr))))
+  (Do ((body (List Expr)) (pos Pos)))
   (Lambda ((params (List Expr)) (body Expr) (pos Pos)))
   (Tuple ((items (List Expr)) (pos Pos)))
   (Fmt ((parts (List FPart)) (pos Pos)))
@@ -53,7 +53,7 @@
   (TExpr ((expr Expr))))
 
 (sig NIL Expr)
-(def NIL (Prim "nil"))
+(def NIL (Prim "nil" NOWHERE))
 
 ;; What a symbol can refer to: locals, the top-level names this module defines or imports,
 ;; and the built-ins. `parse` is the reader (read-forms), which format needs for the forms in
@@ -125,19 +125,26 @@
 (sig resolve (Fn (String Scope) Expr))
 (defn resolve (name scope)
   (cond
-    ((map-has (get scope env) name) (map-get (get scope env) name))
+    ((map-has (get scope env) name) (at-use (map-get (get scope env) name) (get scope here)))
     ((and (is-variant name scope) (= (len (variant-fields name scope)) 0))
-      (Call (Global (global-name name (get scope names))) empty-list (get scope here)))
+      (Call (Global (global-name name (get scope names)) (get scope here)) empty-list (get scope here)))
     ((and (map-has (get scope top) name) (map-get (get scope top) name))
-      (Global (global-name name (get scope names))))
+      (Global (global-name name (get scope names)) (get scope here)))
     ((is-special name (get scope builtins))
       (fail (located scope (format "{name} is a special form, not a value"))))
     ((and (map-has (get scope builtins) name) (not (is-builtin-type name (get scope builtins))))
-      (Prim name))
+      (Prim name (get scope here)))
     ((map-has (get scope elsewhere) name)
       (let ((stem (map-get (get scope elsewhere) name)))
         (fail (located scope (format "{name} is not defined here; {stem} defines it, but this file doesn't import {stem}")))))
     (else (fail (located scope (format "unknown name {name}"))))))
+
+;; The local `e` (a Local) where it is used, at `pos`.
+(sig at-use (Fn (Expr Pos) Expr))
+(defn at-use (e pos)
+  (match e
+    ((Local name id _) (Local name id pos))
+    (else e)))
 
 ;; The global name of the top-level name `name` (itself if `names` doesn't have it).
 (sig global-name (Fn (String (Map String String)) String))
@@ -166,7 +173,7 @@
 (sig check-call (Fn (Expr Int Scope) Bool))
 (defn check-call (callee count scope)
   (match callee
-    ((Prim name)
+    ((Prim name _)
       (let ((builtin (map-get (get scope builtins) name))
             (variadic (match builtin ((Op unary) (not unary)) (else false)))
             (arity
@@ -229,7 +236,7 @@
     (cond
       ((= (len body) 0) (tup NIL n1))
       ((= (len body) 1) (tup (at body 0) n1))
-      (else (tup (Do body) n1)))))
+      (else (tup (Do body (get scope here)) n1)))))
 
 ;; (let ((name init)*) body): sequential bindings, as nested applied Lambdas.
 (sig an-let (Fn ((List Form) Scope Int) (Tup Expr Int)))
@@ -262,12 +269,12 @@
               (target (at items 0)))
           (match target
             ((Lst names _)
-              (let ((tmp (Local "_tup" n1))
+              (let ((tmp (Local "_tup" n1 (get scope here)))
                     ((more inner n2) (destructure names tmp 0 scope (+ n1 1) empty-list)))
                 (let-bindings (rest bindings) inner n2 (+ acc (to-list (tup tmp init)) more))))
             (else
               (let ((name (sym-name target))
-                    (loc (Local name n1)))
+                    (loc (Local name n1 (form-pos target))))
                 (if (or (= name "") (is-special name (get scope builtins)))
                   (fail (located scope "let name must be a name, not a special form"))
                   (let-bindings
@@ -283,8 +290,8 @@
   (if (= (len names) 0)
     (tup acc scope n)
     (let ((name (sym-name (at names 0)))
-          (loc (Local name n))
-          (item (Call (Prim "at") (tup tmp (Lit (IntLit i))) (get scope here))))
+          (loc (Local name n (form-pos (at names 0))))
+          (item (Call (Prim "at" (get scope here)) (tup tmp (Lit (IntLit i (get scope here)))) (get scope here))))
       (if (= name "")
         (fail (located scope "let name must be a name"))
         (destructure
@@ -354,7 +361,7 @@
   (if (!= (len args) 1)
     (fail (located scope "format: expected one string literal"))
     (match (at args 0)
-      ((Txt text)
+      ((Txt text _)
         (let (((parts n1) (format-parts text 0 "" scope n empty-list)))
           (tup (Fmt parts (get scope here)) n1)))
       (else (fail (located scope "format: expected one string literal"))))))
@@ -441,7 +448,7 @@
       ((= (len names) 0) (fail (located scope "match: a (tup name+) pattern needs at least one name")))
       (else
         (let (((subject n1) (analyse-expr (at args 0) scope n))
-              (tmp (Local "_tup" n1))
+              (tmp (Local "_tup" n1 (get scope here)))
               ((pairs inner n2) (tup-binds names tmp 0 scope (+ n1 1) empty-list))
               ((body n3) (analyse-expr (at items 1) inner n2)))
           (tup (nest (+ (to-list (tup tmp subject)) pairs) body (get scope here)) n3))))))
@@ -453,8 +460,8 @@
   (if (= (len names) 0)
     (tup acc scope n)
     (let ((name (sym-name (at names 0)))
-          (loc (Local name n))
-          (item (Call (Prim "at") (tup tmp (Lit (IntLit i))) (get scope here))))
+          (loc (Local name n (form-pos (at names 0))))
+          (item (Call (Prim "at" (get scope here)) (tup tmp (Lit (IntLit i (get scope here)))) (get scope here))))
       (cond
         ((= name "") (fail (located scope "match name must be a name")))
         ((= name "_") (tup-binds (rest names) tmp (+ i 1) scope n acc))
@@ -474,7 +481,7 @@
     false
     (let (((loc _) (at pairs 0)))
       (match loc
-        ((Local other _) (or (= other name) (bound-in-pairs name (rest pairs))))
+        ((Local other _ _) (or (= other name) (bound-in-pairs name (rest pairs))))
         (else (bound-in-pairs name (rest pairs)))))))
 
 ;; The sum that a clause list takes apart (all its clauses are of one sum, checked before).
@@ -571,7 +578,7 @@
   (if (= (len names) 0)
     (tup acc scope n)
     (let ((name (sym-name (at names 0)))
-          (loc (Local name n)))
+          (loc (Local name n (form-pos (at names 0)))))
       (cond
         ((= name "") (fail (located scope "match name must be a name")))
         ((= name "_") (pattern-binds (rest fields) (rest names) scope n acc))
@@ -590,7 +597,7 @@
     false
     (let (((_ loc) (at binds 0)))
       (match loc
-        ((Local other _) (or (= other name) (bound-in name (rest binds))))
+        ((Local other _ _) (or (= other name) (bound-in name (rest binds))))
         (else (bound-in name (rest binds)))))))
 
 ;; --- quoting (doc/hl_rqmt/macros.md) ---
@@ -623,9 +630,9 @@
 (sig quoted (Fn (Form) Expr))
 (defn quoted (form)
   (match form
-    ((Sym name _) (Call (Global "Sym") (tup (Lit (Txt name)) (Global "NOWHERE")) NOWHERE))
-    ((Lst items _) (Call (Global "Lst") (tup (form-list (quoted-all items empty-list)) (Global "NOWHERE")) NOWHERE))
-    (else (Call (Global (literal-variant form)) (to-list (Lit form)) NOWHERE))))
+    ((Sym name _) (Call (Global "Sym" NOWHERE) (tup (Lit (Txt name NOWHERE)) (Global "NOWHERE" NOWHERE)) NOWHERE))
+    ((Lst items _) (Call (Global "Lst" NOWHERE) (tup (form-list (quoted-all items empty-list)) (Global "NOWHERE" NOWHERE)) NOWHERE))
+    (else (Call (Global (literal-variant form) NOWHERE) (tup (Lit form) (Global "NOWHERE" NOWHERE)) NOWHERE))))
 
 (sig quoted-all (Fn ((List Form) (List Expr)) (List Expr)))
 (defn quoted-all (forms acc)
@@ -633,19 +640,19 @@
 
 ;; A (List Form) of `items` (Exprs that make Forms).
 (sig form-list (Fn ((List Expr)) Expr))
-(defn form-list (items) (if (= (len items) 0) (Prim "empty-list") (Tuple items NOWHERE)))
+(defn form-list (items) (if (= (len items) 0) (Prim "empty-list" NOWHERE) (Tuple items NOWHERE)))
 
 (sig literal-variant (Fn (Form) String))
 (defn literal-variant (form)
   (match form
-    ((Txt _) "Txt")
-    ((IntLit _) "IntLit")
-    ((LongLit _) "LongLit")
-    ((ByteLit _) "ByteLit")
-    ((FloatLit _) "FloatLit")
-    ((DoubleLit _) "DoubleLit")
-    ((CharLit _) "CharLit")
-    ((BoolLit _) "BoolLit")
+    ((Txt _ _) "Txt")
+    ((IntLit _ _) "IntLit")
+    ((LongLit _ _) "LongLit")
+    ((ByteLit _ _) "ByteLit")
+    ((FloatLit _ _) "FloatLit")
+    ((DoubleLit _ _) "DoubleLit")
+    ((CharLit _ _) "CharLit")
+    ((BoolLit _ _) "BoolLit")
     (else (fail "quo: not a literal"))))
 
 ;; The head of `form` if it is a list starting with a symbol, else "".
@@ -677,7 +684,7 @@
 (sig quasi-list (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn quasi-list (items scope n)
   (let (((parts n1) (quasi-parts items scope n empty-list empty-list)))
-    (tup (Call (Global "Lst") (tup (join-parts parts) (Global "NOWHERE")) NOWHERE) n1)))
+    (tup (Call (Global "Lst" NOWHERE) (tup (join-parts parts) (Global "NOWHERE" NOWHERE)) NOWHERE) n1)))
 
 (sig quasi-parts
   (Fn ((List Form) Scope Int (List Expr) (List Expr)) (Tup (List Expr) Int)))
@@ -697,9 +704,9 @@
 (sig join-parts (Fn ((List Expr)) Expr))
 (defn join-parts (parts)
   (cond
-    ((= (len parts) 0) (Prim "empty-list"))
+    ((= (len parts) 0) (Prim "empty-list" NOWHERE))
     ((= (len parts) 1) (at parts 0))
-    (else (Call (Prim "+") parts NOWHERE))))
+    (else (Call (Prim "+" NOWHERE) parts NOWHERE))))
 
 ;; --- types ---
 
@@ -1381,7 +1388,7 @@
   (if (= (len forms) 0)
     (tup acc scope n)
     (let ((name (sym-name (at forms 0)))
-          (loc (Local name n)))
+          (loc (Local name n (form-pos (at forms 0)))))
       (if (= name "")
         (fail (located scope "a parameter must be a name"))
         (bind-params

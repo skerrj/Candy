@@ -6,7 +6,7 @@
 (sig guard (Fn (Form) Form))
 (defn guard (test)
   (match test
-    ((BoolLit val) (if-not val (BoolLit true) (BoolLit false)))
+    ((BoolLit val _) (if-not val (BoolLit true NOWHERE) (BoolLit false NOWHERE)))
     (else (quasi (not (unq test))))))
 
 (defmacro unless (test body) (quasi (if (unq (guard test)) (unq body) nil)))

@@ -1,7 +1,7 @@
 # B126: typed-core step 1: positions on literal forms and Core's leaves
 
 kind: task
-state: open
+state: review
 priority: normal
 found: typed-core, 2026-10-31
 fixed:

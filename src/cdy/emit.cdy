@@ -252,7 +252,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     (bind-locals
       (rest locs)
       (match (at locs 0)
-        ((Local name id)
+        ((Local name id _)
           (if (map-has (get env locals) id)
             env
             (let ((base (py-mangle name))
@@ -272,7 +272,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
       (match (at stmts 0)
         ((SAssign target _)
           (match target
-            ((Local _ _) (+ acc (to-list target)))
+            ((Local _ _ _) (+ acc (to-list target)))
             (else acc)))
         ((SIf _ then other) (bound-locals other (bound-locals then acc)))
         ((SMatch _ _ cases default) (bound-in-cases cases (bound-in-lists default acc)))
@@ -307,13 +307,13 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn emit-expr (e env)
   (match e
     ((Lit form) (emit-lit form))
-    ((Local name id) (local-py name id env))
-    ((Global name) (map-get (get env globals) name))
-    ((Prim name) (emit-prim name env))
+    ((Local name id _) (local-py name id env))
+    ((Global name _) (map-get (get env globals) name))
+    ((Prim name _) (emit-prim name env))
     ((Call callee args _) (emit-call callee args env))
     ((If test then other _)
       (format "({(emit-expr then env)} if {(emit-expr test env)} else {(emit-expr other env)})"))
-    ((Do _) (fail "emit: a do inside an expression (lower should have removed it)"))
+    ((Do _ _) (fail "emit: a do inside an expression (lower should have removed it)"))
     ((MatchE _ _ _ _) (fail "emit: a match inside an expression (lower should have removed it)"))
     ((Lambda params body _)
       (let ((inner (bind-locals params env)))
@@ -366,14 +366,14 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (sig emit-lit (Fn (Form) String))
 (defn emit-lit (form)
   (match form
-    ((Txt v) (py-str v))
-    ((CharLit v) (py-str (format "{v}")))
-    ((IntLit v) (format "{v}"))
-    ((LongLit v) (format "{v}"))
-    ((ByteLit v) (format "{v}"))
-    ((FloatLit v) (format "{v}"))
-    ((DoubleLit v) (format "{v}"))
-    ((BoolLit v) (format "{v}"))
+    ((Txt v _) (py-str v))
+    ((CharLit v _) (py-str (format "{v}")))
+    ((IntLit v _) (format "{v}"))
+    ((LongLit v _) (format "{v}"))
+    ((ByteLit v _) (format "{v}"))
+    ((FloatLit v _) (format "{v}"))
+    ((DoubleLit v _) (format "{v}"))
+    ((BoolLit v _) (format "{v}"))
     (else (fail "emit: not a literal"))))
 
 (sig emit-prim (Fn (String Env) String))
@@ -386,7 +386,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn emit-call (callee args env)
   (let ((strs (emit-exprs args env empty-list)))
     (match callee
-      ((Prim name) (emit-prim-call name strs env))
+      ((Prim name _) (emit-prim-call name strs env))
       (else (format "{(emit-expr callee env)}({(comma-join strs)})")))))
 
 (sig emit-prim-call (Fn (String (List String) Env) String))

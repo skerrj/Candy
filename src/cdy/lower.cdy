@@ -38,9 +38,9 @@
 (defn is-simple (e)
   (match e
     ((Lit _) true)
-    ((Local _ _) true)
-    ((Global _) true)
-    ((Prim _) true)
+    ((Local _ _ _) true)
+    ((Global _ _) true)
+    ((Prim _ _) true)
     ((Temp _) true)
     (else false)))
 
@@ -88,7 +88,7 @@
     (match e
       ((Call callee args pos) (value-call callee args pos n))
       ((If test then other pos) (value-if test then other pos n))
-      ((Do body) (value-do body n))
+      ((Do body _) (value-do body n))
       ((Lambda params body pos) (value-fn params body pos n))
       ((Tuple items pos)
         (let (((stmts vals n1) (value-seq items n)))
@@ -203,7 +203,7 @@
 (sig prim-name (Fn (Expr) String))
 (defn prim-name (e)
   (match e
-    ((Prim name) name)
+    ((Prim name _) name)
     (else "")))
 
 ;; `and`/`or`: one Call, unless a later argument needs statements. They short-circuit, so
@@ -236,7 +236,7 @@
 
 (sig guard (Fn (Expr Expr (List Stmt)) Stmt))
 (defn guard (op tmp body)
-  (SIf (if (= (prim-name op) "and") tmp (Call (Prim "not") (to-list tmp) NOWHERE)) body empty-list))
+  (SIf (if (= (prim-name op) "and") tmp (Call (Prim "not" NOWHERE) (to-list tmp) NOWHERE)) body empty-list))
 
 (sig low-exprs (Fn ((List Low) (List Expr)) (List Expr)))
 (defn low-exprs (lows acc)
@@ -355,7 +355,7 @@
             ((a n1) (tail then (get t n)))
             ((b n2) (tail other n1)))
         (tup (+ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
-    ((Do body)
+    ((Do body _)
       (let (((stmts n1) (effect-all (all-but-last body) n empty-list))
             ((last n2) (tail (last-of body) n1)))
         (tup (+ stmts last) n2)))
@@ -380,7 +380,7 @@
             ((a n1) (effect then (get t n)))
             ((b n2) (effect other n1)))
         (tup (+ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
-    ((Do body) (effect-all body n empty-list))
+    ((Do body _) (effect-all body n empty-list))
     ((MatchE _ _ _ _) (lower-match e "effect" NIL n))
     (else
       (if (is-simple e)
@@ -475,7 +475,7 @@
   (match e
     ((Call callee args _)
       (match callee
-        ((Global g) (and (= g name) (= (len args) (len params))))
+        ((Global g _) (and (= g name) (= (len args) (len params))))
         (else false)))
     (else false)))
 
@@ -494,11 +494,21 @@
       (to-list SContinue)
       (+ (to-list (SRebind targets vals)) (to-list SContinue)))))
 
+;; Whether `e` is the local `param` (a Local), wherever each is.
+(sig same-local (Fn (Expr Expr) Bool))
+(defn same-local (param e)
+  (match param
+    ((Local name id _)
+      (match e
+        ((Local other oid _) (and (= name other) (= id oid)))
+        (else false)))
+    (else false)))
+
 (sig changed (Fn ((List Expr) (List Expr) (List Expr) (List Expr)) (Tup (List Expr) (List Expr))))
 (defn changed (params args targets vals)
   (cond
     ((= (len params) 0) (tup targets vals))
-    ((= (at params 0) (at args 0))
+    ((same-local (at params 0) (at args 0))
       (changed (rest params) (rest args) targets vals))
     (else
       (changed
@@ -558,7 +568,7 @@
     ((Lambda _ _ _) true)
     ((Call callee args _) (or (has-lambda callee) (any-lambda args)))
     ((If test then other _) (or (has-lambda test) (has-lambda then) (has-lambda other)))
-    ((Do body) (any-lambda body))
+    ((Do body _) (any-lambda body))
     ((Tuple items _) (any-lambda items))
     ((Fmt parts _) (any-lambda (holes parts empty-list)))
     ((Field obj _ _) (has-lambda obj))
