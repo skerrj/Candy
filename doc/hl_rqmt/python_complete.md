@@ -1,6 +1,6 @@
 # Python complete (epic HLD)
 
-**Status: proposal (2026-10-29), questions open. An epic: its steps are branches, each
+**Status: proposal (2026-10-29), questions answered (2026-10-30). An epic: its steps are branches, each
 with an HLD of its own; this one sets their order, their scope, and when the epic is
 done.** Written after tag `type-checker`.
 
@@ -354,7 +354,8 @@ brackets:
    `test_spec.py`; the spec runs on both implementations through it. (X)
 9. **`porting-surface`:** the per-target files (`system`, spelling, runtime, spec
    extensions) in a layout a second target fills in; the porting surface's own doc;
-   whether mypy stays ([[B15]], Question 3); the exit test checked. (L, P)
+   whether mypy stays ([[B15]], Question 3), and each target's own checker as an
+   option ([[B125]]); the exit test checked. (L, P)
 
 Defects (D) and the translator's own items (X) go into whichever branch is near them.
 
@@ -381,13 +382,14 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
    per branch, and its triage is updated as items close or are found.
 3. **The exit test,** checked in the last branch; the HLD becomes *done*.
 
-## Questions
+## Questions (answered: the proposals, 2026-10-30)
 
 1. **What "complete" means, and its exit test:** "a solid push-off point to a Rust
    target, and eventually a Rust host" (the draft above), tested by the four conditions
    in "Goals"? Or less (no interpreter: the second implementation waits for Rust), or
    more (the standard library's modules written, not just designed)? **Proposed: the
    draft, and the four.**
+   *Answered:* the proposal.
 2. **The order:** typed Core, semantics, collections, namespaces, library, the
    interpreter, host macros, test runner, porting surface? The other order puts the
    interpreter second, as a probe before the semantics are fixed; but it can't find a
@@ -397,10 +399,14 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
    `semantics` next (with [[B36]], `high`); the second implementation once, against the
    settled spec. `namespaces` could go before `semantics` and `collections`, if
    qualified names are wanted sooner.
+   *Answered:* the proposal, as listed.
 3. **mypy:** keep it as a second check through the epic, or drop it once Core is typed?
    **Proposed: keep it through the epic**, and decide in `porting-surface`, once two
    implementations check the semantics: it catches the Python backend's mistakes, which
    neither the checker nor the interpreter sees.
+   *Answered:* the proposal; and a target may name a static checker for its output,
+   which the driver runs as an option (mypy for Python; for Rust, `rustc` checks
+   anyway), part of the porting surface ([[B125]]).
 4. **Overloading:** the operators are polymorphic through rules built into the checker,
    and a program can't write a polymorphic function ([[B124]]): `+` on numbers, strings
    and lists, `-` and `*` on numbers, the comparisons and `=` on any one type. Four ways
@@ -447,50 +453,64 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
    their own after this epic, without undoing either. It is decided with variadics
    (Question 9): a variadic `+` over one `number` is a rest parameter of a constraint
    variable.
+   *Answered:* the proposal.
 5. **Target extensions:** a module per target (`py.cdy`, found in the target's library
    directory), or reader conditionals in one file? **Proposed: a module per target**:
    simpler, and a program says it isn't portable by importing it.
+   *Answered:* the proposal.
 6. **parsec in Candy:** a parser-combinator module in the standard library (the reader
    stays hand-written), as a proving ground for generics and closures? **Proposed: yes,
    as `parse`, in the `library` branch's second half, if it is cheap there.**
+   *Answered:* the proposal; not part of the exit test, and if it isn't cheap there it
+   moves after the epic, as an `idea`.
 7. **`Maybe`:** a real sum (`(Some x)`, `None`), changing programs, or `a | None` kept
    *lasting* with narrowing? It is the biggest S item ([[B20]], [[B21]]), and changes
    the most programs if it changes. **Proposed: decided in the `semantics` HLD.**
+   *Answered:* the proposal, both costed there (the translator's uses counted, as for
+   `+`), leaning to the real sum: `(deft (Maybe a) (Some ((v a))) (None))` in the
+   prelude, an ordinary generic sum taken apart with `match`, the checker's `Maybe`
+   rules gone and `nil` only `Unit`; `(Maybe (Maybe t))` no longer collapses, and it is
+   Rust's `Option`.
 8. **Testing in Candy: how far?** The `test` module only; or that and the spec's
    runner (the conformance suite, which a second host needs); or everything, pytest
    kept for the Python-only checks. **Proposed: the `test` module and the spec's
    runner**, the rest when a second host needs it. The spec's runner needs the
    interpreter, `library`'s `string` module and `semantics`' errors as values, so it
    comes after all three.
-
-9. **Variadics or currying?** Typed rest parameters (`(Fn (Int ...) Int)`, user
-   `defn`s with `&`), or curried types and partial application ([[B93]]), which need a
+   *Answered:* the proposal.
+9. **Variadics or currying?** Typed rest parameters (`(Fn (Int ...) Int)`, a user
+   `defn`'s rest parameter), or curried types and partial application ([[B93]]), which need a
    fixed arity; not both. Partial application can be a macro or a `fn` either way.
    **Proposed: rest parameters**, of one type, in `collections`; currying dropped
    (*lasting*), `fn` covering partial application. `put`, `format` and `tup` are not
    rest parameters in any answer.
+   *Answered:* the proposal; a rest parameter's spelling is the `collections` HLD's
+   (`&`, `(xs ...)` as in the `sig`, `&rest`, or a dotted tail).
 10. **Namespaces' scope:** a branch of its own before `library` (proposed), or the first
    half of `library`? And types and values: one namespace (as now) or two? **Proposed:
    its own branch; one namespace, *lasting*,** since the translator and the tests rely on
    it and two would make `A` mean two things; [[B40]] and [[B119]] become a rule and a
    message.
-
+   *Answered:* the proposal.
 11. **The list operations:** add `map-acc` (a `map` threading a state), a right fold,
    `reduce` (no start value)? **Proposed: `map-acc` only**, as the translator's loops
    need it; `reduce` needs a non-empty list, which Candy can't type; a right fold isn't
    used.
-
+   *Answered:* the proposal; `reduce` can come once Question 7 decides `Maybe`, typed
+   `(Fn ((Fn (a a) a) (List a)) (Maybe a))`.
 12. **`=` and `show` on a type variable:** declared for every type, *lasting* (each
    target supplies structural equality and a printer for all its types), or rejected
    until interfaces come? **Proposed: declared for every type**, in `semantics`;
    ordering (`<`) is `comparable`'s, in `collections` (Question 4), and the rest of a
    type variable's operations wait for interfaces.
+   *Answered:* the proposal, with `=` on function types an error, so that every value
+   compared is data.
 
 ## The triage
 
 Every open item on 2026-10-29, in branch order; the branch is where it is expected to
-close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B124]] was
-added on 2026-10-30.)
+close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B124]] and
+[[B125]] were added on 2026-10-30.)
 
 | Item | Group | Branch |
 |---|---|---|
@@ -543,6 +563,7 @@ added on 2026-10-30.)
 | [[B66]] the built-ins read every time | L | `library` |
 | [[B62]] every module compiles the prelude's macros | L | `library` |
 | [[B97]] a library per target | L | `library`, `porting-surface` |
+| [[B125]] the target's own checker, as an option | I → taken up | `porting-surface` |
 | [[B101]] an interpreter | I → taken up | `interpreter` |
 | [[B52]] macro code has no prelude | L | `host-macros` |
 | [[B41]] macros run with `exec` | M | `host-macros` |
