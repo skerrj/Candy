@@ -191,7 +191,7 @@
     (cond
       ((or (= (len items) 0) (!= (sym-name (at items 0)) "import-macros")) form)
       ((and (= (len items) 2) (!= (sym-name (at items 1)) ""))
-        (Lst (tup (at items 0) (Txt (import-path "import-macros" dir (sym-name (at items 1)) pos))) pos))
+        (Lst (tup (at items 0) (Txt (import-path "import-macros" dir (sym-name (at items 1)) pos) pos)) pos))
       (else (fail (+ (pos-text pos) "import-macros: expected (import-macros name)"))))))
 
 ;; The name in `(import name)`, or "" if `form` isn't an import.

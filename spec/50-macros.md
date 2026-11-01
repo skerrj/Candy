@@ -45,7 +45,7 @@ definitions, and not the prelude (*for now*: [[B52]]). Macro code isn't type-che
 by Candy or by mypy (*for now*: [[B42]]).
 
 ```candy run
-(defmacro name-of (s) (Txt (sym-name s)))
+(defmacro name-of (s) (Txt (sym-name s) NOWHERE))
 (defmacro swap (call) (let ((items (list-items call))) (Lst (reverse items) NOWHERE)))
 
 (put (name-of hello))

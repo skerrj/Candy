@@ -241,7 +241,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn local-py (name id env)
   (if (map-has (get env locals) id)
     (map-get (get env locals) id)
-    (fail (format "emit: local {name} has no Python name"))))
+    (fail (format "internal error: emit: local {name} has no Python name"))))
 
 ;; Python names for locals bound in a new scope: each its own name, unless that is taken
 ;; here (by a top-level name, an enclosing local or an earlier local of this scope).
@@ -252,7 +252,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     (bind-locals
       (rest locs)
       (match (at locs 0)
-        ((Local name id)
+        ((Local name id _ _)
           (if (map-has (get env locals) id)
             env
             (let ((base (py-mangle name))
@@ -272,7 +272,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
       (match (at stmts 0)
         ((SAssign target _)
           (match target
-            ((Local _ _) (+ acc (to-list target)))
+            ((Local _ _ _ _) (+ acc (to-list target)))
             (else acc)))
         ((SIf _ then other) (bound-locals other (bound-locals then acc)))
         ((SMatch _ _ cases default) (bound-in-cases cases (bound-in-lists default acc)))
@@ -306,26 +306,26 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (sig emit-expr (Fn (Expr Env) String))
 (defn emit-expr (e env)
   (match e
-    ((Lit form) (emit-lit form))
-    ((Local name id) (local-py name id env))
-    ((Global name) (map-get (get env globals) name))
-    ((Prim name) (emit-prim name env))
-    ((Call callee args _) (emit-call callee args env))
-    ((If test then other _)
+    ((Lit form _) (emit-lit form))
+    ((Local name id _ _) (local-py name id env))
+    ((Global name _ _) (map-get (get env globals) name))
+    ((Prim name pos _) (emit-prim name pos env))
+    ((Call callee args _ _) (emit-call callee args env))
+    ((If test then other _ _)
       (format "({(emit-expr then env)} if {(emit-expr test env)} else {(emit-expr other env)})"))
-    ((Do _) (fail "emit: a do inside an expression (lower should have removed it)"))
-    ((MatchE _ _ _ _) (fail "emit: a match inside an expression (lower should have removed it)"))
-    ((Lambda params body _)
+    ((Do _ _ _) (fail "internal error: emit: a do inside an expression (lower should have removed it)"))
+    ((MatchE _ _ _ _ _) (fail "internal error: emit: a match inside an expression (lower should have removed it)"))
+    ((Lambda params body _ _)
       (let ((inner (bind-locals params env)))
         (format "(lambda {(comma-join (emit-exprs params inner empty-list))}: {(emit-expr body inner)})")))
-    ((Tuple items _)
+    ((Tuple items _ _)
       (let ((strs (emit-exprs items env empty-list)))
         (if (= (len strs) 1) (format "({(at strs 0)},)") (format "({(comma-join strs)})"))))
-    ((Fmt parts _) (emit-format parts env))
-    ((Field obj field _) (format "{(emit-expr obj env)}.{(py-mangle field)}"))
-    ((Assoc obj fields _)
+    ((Fmt parts _ _) (emit-format parts env))
+    ((Field obj field _ _) (format "{(emit-expr obj env)}.{(py-mangle field)}"))
+    ((Assoc obj fields _ _)
       (format "{(emit-expr obj env)}._replace({(comma-join (emit-fields fields env empty-list))})"))
-    ((Temp id) (format "_cdy_t{id}"))))
+    ((Temp id _) (format "_cdy_t{id}"))))
 
 ;; A format string as a concatenation: literal text, and str() of each hole.
 (sig emit-format (Fn ((List FPart) Env) String))
@@ -366,27 +366,27 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (sig emit-lit (Fn (Form) String))
 (defn emit-lit (form)
   (match form
-    ((Txt v) (py-str v))
-    ((CharLit v) (py-str (format "{v}")))
-    ((IntLit v) (format "{v}"))
-    ((LongLit v) (format "{v}"))
-    ((ByteLit v) (format "{v}"))
-    ((FloatLit v) (format "{v}"))
-    ((DoubleLit v) (format "{v}"))
-    ((BoolLit v) (format "{v}"))
-    (else (fail "emit: not a literal"))))
+    ((Txt v _) (py-str v))
+    ((CharLit v _) (py-str (format "{v}")))
+    ((IntLit v _) (format "{v}"))
+    ((LongLit v _) (format "{v}"))
+    ((ByteLit v _) (format "{v}"))
+    ((FloatLit v _) (format "{v}"))
+    ((DoubleLit v _) (format "{v}"))
+    ((BoolLit v _) (format "{v}"))
+    (else (fail "internal error: emit: not a literal"))))
 
-(sig emit-prim (Fn (String Env) String))
-(defn emit-prim (name env)
+(sig emit-prim (Fn (String Pos Env) String))
+(defn emit-prim (name pos env)
   (if (in (spelling-kind (get env spellings) name) TYPED_KINDS)
     (at (map-get (get env spellings) name) 0)
-    (fail (format "the operator {name} can't be used as a value yet; wrap it in a fn"))))
+    (fail (+ (pos-text pos) (format "the operator {name} can't be used as a value yet; wrap it in a fn")))))
 
 (sig emit-call (Fn (Expr (List Expr) Env) String))
 (defn emit-call (callee args env)
   (let ((strs (emit-exprs args env empty-list)))
     (match callee
-      ((Prim name) (emit-prim-call name strs env))
+      ((Prim name _ _) (emit-prim-call name strs env))
       (else (format "{(emit-expr callee env)}({(comma-join strs)})")))))
 
 (sig emit-prim-call (Fn (String (List String) Env) String))
@@ -403,10 +403,11 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 
 ;; --- types ---
 
+;; A type's Python text; a variable the checker never solved (`?N`) is Any.
 (sig emit-type (Fn (CType Env) String))
 (defn emit-type (t env)
   (match t
-    ((TVar name) (py-mangle name))
+    ((TVar name) (if (starts-with name "?") "_cdy_Any" (py-mangle name)))
     ((TFn params ret)
       (format "_cdy_Callable[[{(comma-join (emit-types params env empty-list))}], {(emit-type ret env)}]"))
     ((TCon name args) (emit-tcon name (emit-types args env empty-list) (get env spellings)))))
@@ -469,7 +470,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
           (format "{(comma-join (emit-exprs targets env empty-list))} = ({(comma-join (emit-exprs vals env empty-list))})"))))
     ((SContinue) (line level "continue"))
     ((SAssign target val)
-      (line level (format "{(emit-expr target env)} = {(emit-expr val env)}")))
+      (line level (format "{(emit-expr target env)}{(lambda-annotation target val env)} = {(emit-expr val env)}")))
     ((SDefAssign name val t)
       (line level
         (format "{(map-get (get env globals) name)}: {(emit-type t env)} = {(emit-expr val env)}")))
@@ -477,11 +478,32 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((SReturn e) (line level (format "return {(emit-expr e env)}")))
     ((SIf test then other) (emit-if "if" test then other level env))
     ((SFunc name params body t) (emit-func name params body t level env))
-    ((SLocalFunc target params body)
-      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env))
-            (args (comma-join (emit-any-params params inner empty-list))))
-        (+ (line level (format "def {(emit-expr target env)}({args}) -> _cdy_Any:"))
-           (emit-block body (+ level 1) inner))))))
+    ((SLocalFunc target params body t)
+      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env)))
+        (match t
+          ((TFn types ret)
+            (+ (line level
+                 (format "def {(emit-expr target env)}({(comma-join (emit-params params types inner empty-list))}) -> {(emit-type ret env)}:"))
+               (emit-block body (+ level 1) inner)))
+          ;; Unchecked (macro code, [[B42]]): Any.
+          (else
+            (+ (line level
+                 (format "def {(emit-expr target env)}({(comma-join (emit-any-params params inner empty-list))}) -> _cdy_Any:"))
+               (emit-block body (+ level 1) inner))))))))
+
+;; A local bound to a fn (a Python lambda) is annotated with the fn's type, which mypy
+;; can't infer from a lambda alone; anything else, "".
+(sig lambda-annotation (Fn (Expr Expr Env) String))
+(defn lambda-annotation (target val env)
+  (match target
+    ((Local _ _ _ _)
+      (match val
+        ((Lambda _ _ _ t)
+          (match t
+            ((TFn _ _) (format ": {(emit-type t env)}"))
+            (else "")))
+        (else "")))
+    (else "")))
 
 ;; An if statement, or (`keyword` "elif") the rest of one. An else holding just an if
 ;; becomes an elif, so that a long cond doesn't nest one level deeper per clause (Python

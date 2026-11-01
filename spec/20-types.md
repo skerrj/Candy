@@ -50,7 +50,8 @@ function can be generic:
 Every type a program writes must exist, with as many arguments as it takes: a built-in
 type (declared in `src/cdy/system.cdy`, each as a bodiless `deft`: `(deft (List a))` takes
 one), one the file defines or imports, or `Tup`, which takes any number. A type
-variable needs no declaration.
+variable needs no declaration. A sum's variants are its constructors, not types, and a
+value isn't a type either.
 
 ```candy errors
 (sig x Foo) (def x 1) => unknown type Foo
@@ -60,6 +61,8 @@ variable needs no declaration.
 (deft Shape (Circle ((r Double)))) (sig s (Shape Int)) (def s (Circle 1.0)) => Shape takes 0 type argument(s), got 1
 (deft (Box a) ((item a))) (sig b Box) (def b (Box 1)) => Box takes 1 type argument(s), got 0
 (deft P ((x Foo))) => unknown type Foo
+(deft S (A ((x Int))) (B ((y Int)))) (sig a A) (def a (A 1)) => A is a variant of S, not a type
+(sig X Int) (def X 1) (sig a X) (def a 1) => X is a value, not a type
 ```
 
 <a id="types.checking"></a>
@@ -67,7 +70,7 @@ variable needs no declaration.
 translator's error, at the form where it is found (the rules are in `25-checking.md`). It
 checks that each type exists, with its number of arguments ([[types.exist]]), and a
 type's shape where it needs it (a function type for `defn`, below). mypy checks the
-Python too, as a second check (*for now*: [[B15]]): each type becomes a Python
+Python too, as a second check (*for now*: [[B125]]): each type becomes a Python
 annotation, and `mypy --strict` checks the translation. *Tested in*
 `tst/py_cdy/test_spec.py`'s `test_mypy_strict`, which runs on every example.
 

@@ -33,7 +33,17 @@ type. Calling something that isn't a function is an error.
 ## Definitions
 
 A `def`'s value has its `sig`'s type, and a `defn`'s body its return type, its
-parameters the parameter types.
+parameters the parameter types. A type error is reported at the expression it is in,
+literals and names too:
+
+```candy error
+(sig x Int)
+(def x
+  "a")
+```
+```expect-error
+line 3, column 3: def x: expected Int, got String
+```
 
 ```candy errors
 (sig x Int) (def x "a") => def x: expected Int, got String
@@ -68,15 +78,17 @@ treat it as an `Int`.
 
 A local (a `let` binding, a `fn`'s parameter, a pattern's name) has no written type: the
 checker infers it from how it is made and used. A local has one type, so a `fn` bound by
-`let` isn't generic (*for now*: [[B15]]); a top-level `defn` with a generic `sig` is.
+`let` isn't generic (*for now*: [[B133]]); a top-level `defn` with a generic `sig` is.
 
 ```candy run
 (put (let ((n 3) (m (* n n))) (+ m 1)))
 (put (join (map (fn (s) (+ s "!")) (to-list "hi")) ""))
+(put (let ((sq (fn (x) (* x x)))) (sq 3)))
 ```
 ```expect
 10
 hi!
+9
 ```
 
 ```candy errors

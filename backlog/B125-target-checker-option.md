@@ -14,3 +14,7 @@ today by hand; a C target's compiler warnings; nothing extra for Rust, whose com
 checks anyway. The checker becomes one more optional entry in the porting surface,
 instead of a test-suite special case (`doc/hl_rqmt/python_complete.md`, Question 3,
 the `porting-surface` branch).
+
+## Notes
+
+- 2026-10-31, Claude: takes [[B15]]'s mypy part ("mypy still checks the Python"), closed by typed-core: whether mypy stays is decided with this, in `porting-surface`.

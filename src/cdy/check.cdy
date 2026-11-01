@@ -4,7 +4,7 @@
 ;;; makes is named ?N; one a sig writes (a) is rigid in its definition and instantiated
 ;;; with fresh ones at each use. `Any` unifies with everything.
 ;;; A type error is the translator's error (type-check), at the innermost node with a
-;;; position (a leaf is reported at its parent).
+;;; position. Checked, every node of Core has its type (`t`; see "typed Core", below).
 
 (import form)
 (import core)
@@ -26,14 +26,11 @@
 (deft Shape ((tvars (List String)) (fields (List (Tup String CType))) (sum String)))
 
 ;; The checker's state, threaded through: the substitution (each ?N's type), the next N,
-;; and the messages so far.
-(deft St ((subst (Map String CType)) (n Int) (errors (List String))))
+;; the messages so far, and the type of each node checked, by its name (?eK, typed Core).
+(deft St ((subst (Map String CType)) (n Int) (errors (List String)) (types (Map String CType))))
 
 ;; An expression's type, and the state after it.
 (deft Res ((t CType) (st St)))
-
-(sig ANY CType)
-(def ANY (TCon "Any" empty-list))
 
 (sig tcon (Fn (String) CType))
 (defn tcon (name) (TCon name empty-list))
@@ -44,20 +41,24 @@
 ;; with the first type error.
 (sig type-check (Fn ((List Top) (Map String Builtin)) (List Top)))
 (defn type-check (tops builtins)
-  (let ((errors (check-program tops builtins)))
-    (if (= (len errors) 0) tops (fail (at errors 0)))))
+  (let (((typed-tops errors) (check-program tops builtins)))
+    (if (= (len errors) 0) typed-tops (fail (at errors 0)))))
 
-;; The type errors in `tops`, in order.
-(sig check-program (Fn ((List Top) (Map String Builtin)) (List String)))
+;; `tops` typed, and the type errors in them, in order.
+(sig check-program (Fn ((List Top) (Map String Builtin)) (Tup (List Top) (List String))))
 (defn check-program (tops builtins)
   (let ((ctx (Ctx (top-types tops empty-map) (top-shapes tops empty-map) (top-sums tops empty-map) builtins NOWHERE empty-map)))
-    (get (check-tops tops ctx (St empty-map 0 empty-list) 0) errors)))
+    (check-tops tops ctx (St empty-map 0 empty-list empty-map) empty-list)))
 
-(sig check-tops (Fn ((List Top) Ctx St Int) St))
-(defn check-tops (tops ctx st i)
-  (if (= i (len tops))
-    st
-    (check-tops tops ctx (check-top (at tops i) ctx (assoc st subst empty-map)) (+ i 1))))
+;; Each definition named (typed Core), checked, then typed with what the check found.
+(sig check-tops (Fn ((List Top) Ctx St (List Top)) (Tup (List Top) (List String))))
+(defn check-tops (tops ctx st acc)
+  (if (= (len tops) 0)
+    (tup acc (get st errors))
+    (let ((named (retype-top (at tops 0) (fn (t k) (TVar (format "?e{k}")))))
+          (st1 (check-top named ctx (assoc (assoc st subst empty-map) types empty-map)))
+          (done (retype-top named (fn (t k) (node-type t st1)))))
+      (check-tops (rest tops) ctx st1 (+ acc (to-list done))))))
 
 (sig check-top (Fn (Top Ctx St) St))
 (defn check-top (top ctx st)
@@ -68,7 +69,7 @@
       (let ((c (assoc ctx here pos)))
         (match t
           ((TFn ptypes ret)
-            (check-expr body ret (format "defn {(shown-name name)}") (assoc c env (bind-all params ptypes (get c env) 0)) st))
+            (check-expr body ret (format "defn {(shown-name name)}") (assoc c env (bind-all params ptypes (get c env) 0)) (typed-all params ptypes st)))
           (else st))))
     ((TExpr e) (get (infer e ctx st) st))
     (else st)))
@@ -83,7 +84,7 @@
 (sig local-key (Fn (Expr) String))
 (defn local-key (e)
   (match e
-    ((Local name id) (format "{name}#{id}"))
+    ((Local name id _ _) (format "{name}#{id}"))
     (else "")))
 
 ;; The type of each def and defn (its sig), record and variant (its constructor).
@@ -152,24 +153,26 @@
 (defn check-expr (e want what outer st)
   (let ((ctx (at-node e outer)))
     (match e
-      ((If test then other _)
+      ((If test then other _ _)
         (let ((rt (infer test ctx st))
               (st1 (expect-is (tcon "Bool") (get rt t) "if: the test" ctx (get rt st))))
-          (check-expr other want what ctx (check-expr then want what ctx st1))))
-      ((Do body)
-        (if (= (len body) 0)
-          (expect want (tcon "Unit") what ctx st)
-          (check-expr (at body (- (len body) 1)) want what ctx (get (infer-do (slice body 0 (- (len body) 1)) ctx (Res ANY st)) st))))
-      ((Call callee args _)
+          (typed e want (check-expr other want what ctx (check-expr then want what ctx st1)))))
+      ((Do body _ _)
+        (typed e want
+          (if (= (len body) 0)
+            (expect want (tcon "Unit") what ctx st)
+            (check-expr (at body (- (len body) 1)) want what ctx (get (infer-do (slice body 0 (- (len body) 1)) ctx (Res ANY st)) st)))))
+      ((Call callee args _ _)
         (match callee
-          ((Lambda params body _)
+          ((Lambda params body _ _)
             (if (= (len params) (len args))
-              (let ((r (infer-all args ctx st empty-list)))
-                (check-expr body want what (assoc ctx env (bind-all params (at r 0) (get ctx env) 0)) (at r 1)))
+              (let ((r (infer-all args ctx st empty-list))
+                    (st1 (typed-all params (at r 0) (typed callee (TFn (at r 0) want) (typed e want (at r 1))))))
+                (check-expr body want what (assoc ctx env (bind-all params (at r 0) (get ctx env) 0)) st1))
               (infer-expect e want what ctx st)))
           (else (infer-expect e want what ctx st))))
-      ((Lambda _ _ _) (check-lambda e want what ctx st))
-      ((MatchE subject clauses default _)
+      ((Lambda _ _ _ _) (check-lambda e want what ctx st))
+      ((MatchE subject clauses default _ _)
         (if (is-any (prune want (get st subst)))
           (get (infer e ctx st) st)
           (infer-expect e want what ctx st)))
@@ -184,60 +187,71 @@
 (sig node-pos (Fn (Expr) Pos))
 (defn node-pos (e)
   (match e
-    ((Call _ _ pos) pos)
-    ((If _ _ _ pos) pos)
-    ((Lambda _ _ pos) pos)
-    ((Tuple _ pos) pos)
-    ((Fmt _ pos) pos)
-    ((Field _ _ pos) pos)
-    ((Assoc _ _ pos) pos)
-    ((MatchE _ _ _ pos) pos)
+    ((Lit form _) (form-pos form))
+    ((Local _ _ pos _) pos)
+    ((Global _ pos _) pos)
+    ((Prim _ pos _) pos)
+    ((Do _ pos _) pos)
+    ((Call _ _ pos _) pos)
+    ((If _ _ _ pos _) pos)
+    ((Lambda _ _ pos _) pos)
+    ((Tuple _ pos _) pos)
+    ((Fmt _ pos _) pos)
+    ((Field _ _ pos _) pos)
+    ((Assoc _ _ pos _) pos)
+    ((MatchE _ _ _ pos _) pos)
     (else NOWHERE)))
 
 (sig infer-expect (Fn (Expr CType String Ctx St) St))
 (defn infer-expect (e want what ctx st)
   (let ((r (infer e ctx st))) (expect want (get r t) what ctx (get r st))))
 
+;; `e`'s type, recorded as its node's (typed Core).
 (sig infer (Fn (Expr Ctx St) Res))
-(defn infer (e outer st)
+(defn infer (e ctx st)
+  (let ((r (infer-node e ctx st)))
+    (Res (get r t) (typed e (get r t) (get r st)))))
+
+(sig infer-node (Fn (Expr Ctx St) Res))
+(defn infer-node (e outer st)
   (let ((ctx (at-node e outer)))
     (match e
-      ((Lit form) (Res (literal-type form) st))
-      ((Local name _)
+      ((Lit form _) (Res (literal-type form) st))
+      ((Local name _ _ _)
         (let ((key (local-key e)))
           (Res (if (map-has (get ctx env) key) (map-get (get ctx env) key) ANY) st)))
-      ((Global name)
+      ((Global name _ _)
         (if (map-has (get ctx globals) name) (instantiate (map-get (get ctx globals) name) st) (Res ANY st)))
-      ((Prim name) (prim-type name ctx st))
-      ((Call callee args _) (infer-call callee args ctx st))
-      ((If test then other _)
+      ((Prim name _ _) (prim-type name ctx st))
+      ((Call callee args _ _) (infer-call callee args ctx st))
+      ((If test then other _ _)
         (let ((rt (infer test ctx st))
               (st1 (expect-is (tcon "Bool") (get rt t) "if: the test" ctx (get rt st)))
               (ra (infer then ctx st1))
               (rb (infer other ctx (get ra st))))
           (join-types (get ra t) (get rb t) "if: the branches" ctx (get rb st))))
-      ((Do body) (infer-do body ctx (Res (tcon "Unit") st)))
-      ((Lambda params body _) (infer-lambda params body ctx st))
-      ((Tuple items _)
+      ((Do body _ _) (infer-do body ctx (Res (tcon "Unit") st)))
+      ((Lambda params body _ _) (infer-lambda params body ctx st))
+      ((Tuple items _ _)
         (let ((r (infer-all items ctx st empty-list)))
           (Res (TCon "Tup" (at r 0)) (at r 1))))
-      ((Fmt parts _) (Res (tcon "String") (infer-holes parts ctx st)))
-      ((Field obj field _) (infer-field obj field ctx st))
-      ((Assoc obj fields _) (infer-assoc obj fields ctx st))
-      ((MatchE subject clauses default _) (infer-match subject clauses default ctx st))
+      ((Fmt parts _ _) (Res (tcon "String") (infer-holes parts ctx st)))
+      ((Field obj field _ _) (infer-field obj field ctx st))
+      ((Assoc obj fields _ _) (infer-assoc obj fields ctx st))
+      ((MatchE subject clauses default _ _) (infer-match subject clauses default ctx st))
       (else (Res ANY st)))))
 
 (sig literal-type (Fn (Form) CType))
 (defn literal-type (form)
   (match form
-    ((Txt _) (tcon "String"))
-    ((IntLit _) (tcon "Int"))
-    ((LongLit _) (tcon "Long"))
-    ((ByteLit _) (tcon "Byte"))
-    ((FloatLit _) (tcon "Float"))
-    ((DoubleLit _) (tcon "Double"))
-    ((CharLit _) (tcon "Char"))
-    ((BoolLit _) (tcon "Bool"))
+    ((Txt _ _) (tcon "String"))
+    ((IntLit _ _) (tcon "Int"))
+    ((LongLit _ _) (tcon "Long"))
+    ((ByteLit _ _) (tcon "Byte"))
+    ((FloatLit _ _) (tcon "Float"))
+    ((DoubleLit _ _) (tcon "Double"))
+    ((CharLit _ _) (tcon "Char"))
+    ((BoolLit _ _) (tcon "Bool"))
     (else ANY)))
 
 ;; A built-in as a value: its type, instantiated; an operator is Any (it isn't a function
@@ -278,7 +292,7 @@
   (let ((fr (fresh-types (len params) st empty-list))
         (ptypes (at fr 0))
         (inner (assoc ctx env (bind-all params ptypes (get ctx env) 0)))
-        (r (infer body inner (at fr 1))))
+        (r (infer body inner (typed-all params ptypes (at fr 1)))))
     (Res (TFn ptypes (get r t)) (get r st))))
 
 (sig fresh-types (Fn (Int St (List CType)) (Tup (List CType) St)))
@@ -295,12 +309,14 @@
 (sig infer-call (Fn (Expr (List Expr) Ctx St) Res))
 (defn infer-call (callee args ctx st)
   (match callee
-    ((Lambda params body _)
-      (if (= (len params) (len args)) (infer-applied params body args ctx st) (infer-called callee args ctx st)))
-    ((Prim name)
+    ((Lambda params body _ _)
+      (if (= (len params) (len args))
+        (typed-callee callee args (infer-applied params body args ctx st))
+        (infer-called callee args ctx st)))
+    ((Prim name _ _)
       (cond
-        ((is-op name ctx) (infer-op name args ctx st))
-        ((and (= name "at") (is-tup-item args)) (infer-tup-item args ctx st))
+        ((is-op name ctx) (typed-callee callee args (infer-op name args ctx st)))
+        ((and (= name "at") (is-tup-item args)) (typed-callee callee args (infer-tup-item args ctx st)))
         (else (infer-called callee args ctx st))))
     (else (infer-called callee args ctx st))))
 
@@ -313,8 +329,9 @@
 (sig infer-applied (Fn ((List Expr) Expr (List Expr) Ctx St) Res))
 (defn infer-applied (params body args ctx st)
   (let ((r (infer-all args ctx st empty-list))
-        (inner (assoc ctx env (bind-all params (at r 0) (get ctx env) 0))))
-    (infer body inner (at r 1))))
+        (inner (assoc ctx env (bind-all params (at r 0) (get ctx env) 0)))
+        (rb (infer body inner (typed-all params (at r 0) (at r 1)))))
+    rb))
 
 ;; A call of anything else: its type is a function, Any, or not known yet.
 (sig infer-called (Fn (Expr (List Expr) Ctx St) Res))
@@ -369,7 +386,7 @@
 (sig is-lambda (Fn (Expr) Bool))
 (defn is-lambda (e)
   (match e
-    ((Lambda _ _ _) true)
+    ((Lambda _ _ _ _) true)
     (else false)))
 
 ;; A fn checked against the type it is expected to have: a function type of its arity
@@ -377,11 +394,11 @@
 (sig check-lambda (Fn (Expr CType String Ctx St) St))
 (defn check-lambda (lam expected what ctx st)
   (match lam
-    ((Lambda params body _)
+    ((Lambda params body _ _)
       (match (prune expected (get st subst))
         ((TFn ptypes ret)
           (if (= (len ptypes) (len params))
-            (check-expr body ret (format "{what}'s result") (assoc ctx env (bind-all params ptypes (get ctx env) 0)) st)
+            (check-expr body ret (format "{what}'s result") (assoc ctx env (bind-all params ptypes (get ctx env) 0)) (typed-all params ptypes (typed lam expected st)))
             (let ((r (infer lam ctx st))) (expect expected (get r t) what ctx (get r st)))))
         (else (let ((r (infer lam ctx st))) (expect expected (get r t) what ctx (get r st))))))
     (else st)))
@@ -390,15 +407,15 @@
 (sig global-of (Fn (Expr) String))
 (defn global-of (e)
   (match e
-    ((Global name) name)
+    ((Global name _ _) name)
     (else "")))
 
 (sig callee-name (Fn (Expr) String))
 (defn callee-name (e)
   (match e
-    ((Global name) (shown-name name))
-    ((Prim name) name)
-    ((Local name _) name)
+    ((Global name _ _) (shown-name name))
+    ((Prim name _ _) name)
+    ((Local name _ _ _) name)
     (else "the function")))
 
 ;; A tup pattern's item, (at tmp i) on the pattern's _tup Local.
@@ -409,22 +426,22 @@
 (sig tup-name (Fn (Expr) String))
 (defn tup-name (e)
   (match e
-    ((Local name _) name)
+    ((Local name _ _ _) name)
     (else "")))
 
 ;; The value of an Int literal, or -1.
 (sig int-lit (Fn (Expr) Int))
 (defn int-lit (e)
   (match e
-    ((Lit form)
+    ((Lit form _)
       (match form
-        ((IntLit k) k)
+        ((IntLit k _) k)
         (else -1)))
     (else -1)))
 
 (sig infer-tup-item (Fn ((List Expr) Ctx St) Res))
 (defn infer-tup-item (args ctx st)
-  (let ((r (infer (at args 0) ctx st))
+  (let ((r (infer (at args 0) ctx (typed (at args 1) (tcon "Int") st)))
         (i (int-lit (at args 1)))
         (tt (prune (get r t) (get (get r st) subst)))
         (items (tup-items tt)))
@@ -615,7 +632,7 @@
     (let ((c (at clauses 0))
           (shape (if (map-has (get ctx shapes) (get c variant)) (map-get (get ctx shapes) (get c variant)) (Shape empty-list empty-list "")))
           (inner (assoc ctx env (bind-fields (get c binds) (get shape fields) vars (get ctx env))))
-          (r (infer (get c body) inner st)))
+          (r (infer (get c body) inner (typed-binds (get c binds) (get inner env) st))))
       (infer-clauses (rest clauses) vars ctx (get r st) (+ acc (to-list (get r t)))))))
 
 ;; `env` with each (field, Local) of a pattern bound to the field's type.
@@ -626,6 +643,144 @@
     (let (((field loc) (at binds 0))
           (f (find-field fields field vars)))
       (bind-fields (rest binds) fields vars (map-set env (local-key loc) (if (at f 0) (at f 1) ANY))))))
+
+;; --- typed Core ---
+
+;; While a definition is checked, each of its nodes has a name for its type, ?eK (K
+;; counting its nodes; retype-top names them), under which the checker records the type
+;; it finds (typed). Then each node gets that type, with the definition's substitution
+;; put in (node-type). A node the checker never reached keeps its name ([[B127]]'s test
+;; finds none in the translator); a ?N nothing solved stays a TVar, for each backend to
+;; read as it likes (Python: Any).
+
+;; The state with `t` recorded as `e`'s type.
+(sig typed (Fn (Expr CType St) St))
+(defn typed (e t st)
+  (let ((key (tvar-name (get e t))))
+    (if (starts-with key "?e") (assoc st types (map-set (get st types) key t)) st)))
+
+;; Each of `es` recorded with the type at its index in `ts`.
+(sig typed-all (Fn ((List Expr) (List CType) St) St))
+(defn typed-all (es ts st)
+  (if (or (= (len es) 0) (= (len ts) 0)) st (typed-all (rest es) (rest ts) (typed (at es 0) (at ts 0) st))))
+
+;; A pattern's (field, Local) pairs, each Local recorded with its type in `env`.
+(sig typed-binds (Fn ((List (Tup String Expr)) (Map String CType) St) St))
+(defn typed-binds (binds env st)
+  (if (= (len binds) 0)
+    st
+    (let ((loc (at (at binds 0) 1)))
+      (typed-binds (rest binds) env (typed loc (if (map-has env (local-key loc)) (map-get env (local-key loc)) ANY) st)))))
+
+;; `r`, a call's result, with its callee recorded as the function from the arguments'
+;; recorded types to the result's.
+(sig typed-callee (Fn (Expr (List Expr) Res) Res))
+(defn typed-callee (callee args r)
+  (Res (get r t) (typed callee (TFn (map (fn (a) (recorded a (get r st))) args) (get r t)) (get r st))))
+
+;; The type recorded for `e`, or Any.
+(sig recorded (Fn (Expr St) CType))
+(defn recorded (e st)
+  (let ((key (tvar-name (get e t))))
+    (if (map-has (get st types) key) (map-get (get st types) key) ANY)))
+
+;; A node's type once its definition is checked: the type recorded under its name `t`,
+;; with the substitution put in.
+(sig node-type (Fn (CType St) CType))
+(defn node-type (t st)
+  (let ((key (tvar-name t)))
+    (if (map-has (get st types) key) (resolve-type (map-get (get st types) key) (get st subst)) t)))
+
+;; `top` with each node's type `(f t k)`, its old type and its number.
+(sig retype-top (Fn (Top (Fn (CType Int) CType)) Top))
+(defn retype-top (top f)
+  (match top
+    ((TDef name init t pos) (TDef name (at (retype init f 0) 0) t pos))
+    ((TDefn name params body t pos)
+      (let (((ps n1) (retype-all params f 0 empty-list))
+            ((b _) (retype body f n1)))
+        (TDefn name ps b t pos)))
+    ((TExpr e) (TExpr (at (retype e f 0) 0)))
+    (else top)))
+
+;; `e` retyped (see retype-top), its nodes numbered from `n`; and the next number.
+(sig retype (Fn (Expr (Fn (CType Int) CType) Int) (Tup Expr Int)))
+(defn retype (e f n)
+  (let ((k (+ n 1)))
+    (match e
+      ((Lit form t) (tup (Lit form (f t n)) k))
+      ((Local name id pos t) (tup (Local name id pos (f t n)) k))
+      ((Global name pos t) (tup (Global name pos (f t n)) k))
+      ((Prim name pos t) (tup (Prim name pos (f t n)) k))
+      ((Temp id t) (tup (Temp id (f t n)) k))
+      ((Call callee args pos t)
+        (let (((c n1) (retype callee f k))
+              ((xs n2) (retype-all args f n1 empty-list)))
+          (tup (Call c xs pos (f t n)) n2)))
+      ((If test then other pos t)
+        (let (((a n1) (retype test f k))
+              ((b n2) (retype then f n1))
+              ((c n3) (retype other f n2)))
+          (tup (If a b c pos (f t n)) n3)))
+      ((Do body pos t)
+        (let (((xs n1) (retype-all body f k empty-list)))
+          (tup (Do xs pos (f t n)) n1)))
+      ((Lambda params body pos t)
+        (let (((ps n1) (retype-all params f k empty-list))
+              ((b n2) (retype body f n1)))
+          (tup (Lambda ps b pos (f t n)) n2)))
+      ((Tuple items pos t)
+        (let (((xs n1) (retype-all items f k empty-list)))
+          (tup (Tuple xs pos (f t n)) n1)))
+      ((Fmt parts pos t)
+        (let (((ps n1) (retype-parts parts f k empty-list)))
+          (tup (Fmt ps pos (f t n)) n1)))
+      ((Field obj field pos t)
+        (let (((o n1) (retype obj f k)))
+          (tup (Field o field pos (f t n)) n1)))
+      ((Assoc obj fields pos t)
+        (let (((o n1) (retype obj f k))
+              ((fs n2) (retype-pairs fields f n1 empty-list)))
+          (tup (Assoc o fs pos (f t n)) n2)))
+      ((MatchE subject clauses default pos t)
+        (let (((s n1) (retype subject f k))
+              ((cs n2) (retype-clauses clauses f n1 empty-list))
+              ((d n3) (retype-all default f n2 empty-list)))
+          (tup (MatchE s cs d pos (f t n)) n3))))))
+
+(sig retype-all (Fn ((List Expr) (Fn (CType Int) CType) Int (List Expr)) (Tup (List Expr) Int)))
+(defn retype-all (es f n acc)
+  (if (= (len es) 0)
+    (tup acc n)
+    (let (((e n1) (retype (at es 0) f n)))
+      (retype-all (rest es) f n1 (+ acc (to-list e))))))
+
+(sig retype-pairs (Fn ((List (Tup String Expr)) (Fn (CType Int) CType) Int (List (Tup String Expr))) (Tup (List (Tup String Expr)) Int)))
+(defn retype-pairs (pairs f n acc)
+  (if (= (len pairs) 0)
+    (tup acc n)
+    (let (((name e) (at pairs 0))
+          ((e1 n1) (retype e f n)))
+      (retype-pairs (rest pairs) f n1 (+ acc (to-list (tup name e1)))))))
+
+(sig retype-parts (Fn ((List FPart) (Fn (CType Int) CType) Int (List FPart)) (Tup (List FPart) Int)))
+(defn retype-parts (parts f n acc)
+  (if (= (len parts) 0)
+    (tup acc n)
+    (match (at parts 0)
+      ((FHole e)
+        (let (((e1 n1) (retype e f n)))
+          (retype-parts (rest parts) f n1 (+ acc (to-list (FHole e1))))))
+      (else (retype-parts (rest parts) f n (+ acc (to-list (at parts 0))))))))
+
+(sig retype-clauses (Fn ((List Clause) (Fn (CType Int) CType) Int (List Clause)) (Tup (List Clause) Int)))
+(defn retype-clauses (clauses f n acc)
+  (if (= (len clauses) 0)
+    (tup acc n)
+    (let ((c (at clauses 0))
+          ((bs n1) (retype-pairs (get c binds) f n empty-list))
+          ((b n2) (retype (get c body) f n1)))
+      (retype-clauses (rest clauses) f n2 (+ acc (to-list (Clause (get c variant) bs b)))))))
 
 ;; --- types: unification ---
 

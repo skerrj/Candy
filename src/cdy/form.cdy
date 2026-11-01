@@ -10,18 +10,18 @@
 (sig NOWHERE Pos)
 (def NOWHERE (Pos "" 0 0))
 
-;; Only symbols and lists carry a position: errors point at the innermost one.
+;; Every form carries its position, last: errors point at the innermost one.
 (deft Form
   (Sym ((name String) (pos Pos)))
   (Lst ((items (List Form)) (pos Pos)))
-  (Txt ((val String)))
-  (IntLit ((val Int)))
-  (LongLit ((val Int)))
-  (ByteLit ((val Int)))
-  (FloatLit ((val Double)))
-  (DoubleLit ((val Double)))
-  (CharLit ((val Char)))
-  (BoolLit ((val Bool))))
+  (Txt ((val String) (pos Pos)))
+  (IntLit ((val Int) (pos Pos)))
+  (LongLit ((val Int) (pos Pos)))
+  (ByteLit ((val Int) (pos Pos)))
+  (FloatLit ((val Double) (pos Pos)))
+  (DoubleLit ((val Double) (pos Pos)))
+  (CharLit ((val Char) (pos Pos)))
+  (BoolLit ((val Bool) (pos Pos))))
 
 ;; The name of a symbol form, or "" for any other form.
 (sig sym-name (Fn (Form) String))
@@ -41,13 +41,20 @@
 (sig rest-of (Fn ((List Form)) (List Form)))
 (defn rest-of (forms) (slice forms 1 (len forms)))
 
-;; Where `form` starts (NOWHERE for a literal).
+;; Where `form` starts.
 (sig form-pos (Fn (Form) Pos))
 (defn form-pos (form)
   (match form
     ((Sym _ pos) pos)
     ((Lst _ pos) pos)
-    (else NOWHERE)))
+    ((Txt _ pos) pos)
+    ((IntLit _ pos) pos)
+    ((LongLit _ pos) pos)
+    ((ByteLit _ pos) pos)
+    ((FloatLit _ pos) pos)
+    ((DoubleLit _ pos) pos)
+    ((CharLit _ pos) pos)
+    ((BoolLit _ pos) pos)))
 
 ;; "file:line:col: " to start an error message at `pos` ("line L, column C: " without a
 ;; file, "" for NOWHERE).

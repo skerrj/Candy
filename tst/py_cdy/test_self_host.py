@@ -97,6 +97,13 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(sig f (Fn (Int) Int))\n(defn f (n) (if 1))", "lib/b.cdy:2:13: if: expected"),
         ("(sig x (Fn Int)) (def x 1)", "lib/b.cdy:1:8: bad function type"),
         ("(deft T (A) (b))", "lib/b.cdy:1:13: deft: variant names are Capitalised"),
+        (
+            '(sig x Int) (def x 1)\n(put (format "a {(+ x \\"b\\")}"))',
+            "lib/b.cdy:2:18: +: expected",
+        ),
+        ('(put (format "a\n  {(f 1)}"))', "lib/b.cdy:2:5: unknown name f"),
+        ('(put\n  (format "{x"))', "lib/b.cdy:2:3: format: unmatched {"),
+        ("(put\n  (map + (tup 1)))", "lib/b.cdy:2:8: the operator + can't be used as a value"),
     ],
 )
 def test_errors_say_where(
@@ -112,6 +119,18 @@ def test_errors_say_where(
     Path("main.cdy").write_text("(put\n", encoding="utf-8")
     with pytest.raises(CandyFail, match=r"^main.cdy:1:1: parse error: \( is never closed"):
         translate_file_with(t1, Path("main.cdy"))
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("(sig main Int)\n(def main 1)", "line 2, column 1: main must be a defn"),
+        ("(sig main (Fn (Int) Int))\n(defn main (n) n)", "line 2, column 1: main must be typed"),
+    ],
+)
+def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
+    with pytest.raises(CandyFail, match="^" + re.escape(message)):
+        translate_with(t1, text)
 
 
 @pytest.mark.parametrize(
@@ -193,7 +212,7 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
 def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
     """``forms`` as Python, translated as macro code (where quoting is allowed), as
     ``expand.cdy`` translates a macro program."""
-    return cast(str, t1.translate_expanded(forms, t1.read__read_forms, {}, True))
+    return cast(str, t1.translate_expanded(forms, t1.read__read_hole, {}, True))
 
 
 def test_quoting_in_macro_code(t1: ModuleType, tmp_path: Path) -> None:
@@ -377,6 +396,33 @@ def test_list_functions_are_built_in(t1: ModuleType) -> None:
     assert "cdy_rt.primitives.list_map(" in source and "cdy_rt.primitives.list_filter(" in source
 
 
+def core_nodes(value: object, found: list[Any]) -> list[Any]:
+    """Every Core node in ``value`` (a node has a type, ``t``)."""
+    if isinstance(value, tuple):
+        if type(value).__name__.startswith("core__") and hasattr(value, "t"):
+            found.append(value)
+        for item in value:
+            core_nodes(item, found)
+    return found
+
+
+def test_every_node_is_typed(t1: ModuleType) -> None:
+    # The translator's own Core, checked: every node has the type the checker found, none
+    # the name (?eK) it had while checked, so the checker reached them all.
+    library = t1.expand__library_builtins(None)
+    modules = t1.include__read_modules(str(ROOT / "src" / "cdy" / "cdyc.cdy"))
+    tops = t1.check__type_check(t1.program_tops(modules, t1.read__read_hole, library), library)
+    nodes = core_nodes(tops, [])
+    kinds = {type(n.t).__name__ for n in nodes}
+    assert kinds <= {"core__TCon", "core__TVar", "core__TFn"}
+    unreached = [
+        n for n in nodes if type(n.t).__name__ == "core__TVar" and n.t.name.startswith("?e")
+    ]
+    assert not unreached
+    lambdas = [n for n in nodes if type(n).__name__ == "core__Lambda"]
+    assert lambdas and all(type(n.t).__name__ == "core__TFn" for n in lambdas)
+
+
 def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
     translator = tmp_path / t1_path.name
     shutil.copyfile(t1_path, translator)  # without form.cdy, system.cdy, ...
@@ -545,3 +591,7 @@ def test_reader_positions(t1: ModuleType) -> None:
     assert pos(forms[0].items[1].items[1]) == t1.form__Pos("f.cdy", 2, 6)
     assert pos(forms[1]) == t1.form__Pos("f.cdy", 3, 2)
     assert pos(t1.read__read_forms("x")[0]) == t1.form__NOWHERE  # read_forms gives no positions
+    literals = t1.read__read_source("f.cdy", '("s" 1 2.0\n \\c true)')[0].items
+    assert [pos(f) for f in literals] == [t1.form__Pos("f.cdy", 1, col) for col in (2, 6, 8)] + [
+        t1.form__Pos("f.cdy", 2, col) for col in (2, 5)
+    ]

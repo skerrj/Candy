@@ -18,7 +18,8 @@ host is the translator built for that target. The exit test in "Goals" is how to
 - **The translator** is self-hosting on Python, typed by its own checker since
   `type-checker` (mypy is a second check, [[B15]]). Its layers, forms → Core → the
   lowered IR → Python, are the target-independent pipeline `multi_target.md` asks for,
-  but the types the checker infers aren't kept in Core.
+  but the types the checker infers aren't kept in Core. *(Since `typed-core`, they are:
+  every Core node has its type and position; [[B15]] is closed, split.)*
 - **Semantics borrowed from Python:** values print as Python shows them ([[B36]]), `=`
   is `==` ([[B27]]), `/` is true division ([[B23]]), `and`/`or` return an operand
   ([[B26]]), missing values are `None` ([[B20]], [[B21]]), `at` and `slice` are Python's
@@ -43,7 +44,7 @@ host is the translator built for that target. The exit test in "Goals" is how to
   pick[a]`, `type T[a] = L[a] | N`), and a generic sum's `match` skips the typed
   temporary, since mypy loses the arguments in class patterns. What isn't there:
   - **let-polymorphism:** a `fn` bound by `let` has one type (`checking.locals`,
-    [[B15]]);
+    [[B133]]);
   - **bounds:** a type variable takes any type, with no way to say "one with `+`"
     (`(+ x 1)` on an `a` is an error, `checking.generics`), so a generic function can't
     add or compare in order, though the operators themselves can ([[B124]]);
@@ -245,7 +246,7 @@ What this epic does to them, and what it leaves:
 - **The first bounds come** (`collections`): `number`, `comparable` and `appendable`,
   constraint variables a `sig` can use (Question 4); Rust's spelling of each is a trait
   bound (`Add`, `PartialOrd`).
-- **Left:** let-polymorphism ([[B15]]), bounds as interfaces (Question 4), higher kinds.
+- **Left:** let-polymorphism ([[B133]]), bounds as interfaces (Question 4), higher kinds.
   None blocks a Rust target; each is a feature for later.
 
 ### Variadics
@@ -355,7 +356,7 @@ brackets:
    `test_spec.py`; the spec runs on both implementations through it. (X)
 9. **`porting-surface`:** the per-target files (`system`, spelling, runtime, spec
    extensions) in a layout a second target fills in; the porting surface's own doc;
-   whether mypy stays ([[B15]], Question 3), and each target's own checker as an
+   whether mypy stays (Question 3; [[B15]]'s part, now [[B125]]'s), and each target's own checker as an
    option ([[B125]]); the exit test checked. (L, P)
 
 Defects (D) and the translator's own items (X) go into whichever branch is near them.
@@ -513,7 +514,9 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
 
 Every open item on 2026-10-29, in branch order; the branch is where it is expected to
 close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B124]] and
-[[B125]] were added on 2026-10-30, and [[B93]] dropped by Question 9.)
+[[B125]] were added on 2026-10-30, and [[B93]] dropped by Question 9. `typed-core` closed
+its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] and
+[[B135]] and [[B136]]; the six are in the table, marked *(typed-core)*.)
 
 | Item | Group | Branch |
 |---|---|---|
@@ -531,6 +534,7 @@ close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B1
 | [[B20]] `Maybe` is `a \| None` | S | `semantics` |
 | [[B121]] no narrowing in a clause | T | `semantics` (with [[B20]]'s narrowing) |
 | [[B120]] `get` before a type is known | T | `semantics` (with B121, in the checker) |
+| [[B132]] the unsolved types gone over *(typed-core)* | T | `semantics` (with [[B18]]) |
 | [[B21]] missing values are `None` | S | `semantics` |
 | [[B35]] `at` and `slice` are subscripts | S | `semantics` |
 | [[B22]] unbounded integers | S | `semantics` |
@@ -548,6 +552,7 @@ close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B1
 | [[B18]] `Any` turns checking off | T | `collections` (cut down; *lasting* for what stays) |
 | [[B34]] no `Collection` | T | `collections` (Question 4) |
 | [[B124]] the operators polymorphic, programs not | T | `collections` (Question 4) |
+| [[B135]] an operator's error at the call *(typed-core)* | D | `collections` (with [[B124]]) |
 | [[B69]] building a list is quadratic | X | `collections` (with B123) |
 | [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
 | [[B40]] types and values share a namespace | S | `namespaces` |
@@ -595,9 +600,13 @@ close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B1
 | [[B8]] the same argument twice | D | any |
 | [[B9]] `nil` can be defined | D | any |
 | [[B13]] a 200-clause `cond` | D | any |
+| [[B131]] Python-name errors without positions *(typed-core)* | D | any |
+| [[B134]] one type error at a time *(typed-core)* | X | any |
 | [[B104]] `up`, `down` for quoting | I | later |
 | [[B94]] doc strings and metadata | I | later |
 | [[B102]] the book | I | later |
+| [[B133]] let-polymorphism *(typed-core)* | I | after the epic |
+| [[B136]] a pattern names every field *(typed-core)* | I | any (one that grows Core) |
 | [[B72]] parsec.py v4 unpublished | X | not this epic (the bootstrap chain) |
 | [[B37]] only self tail calls are loops | P | not this epic |
 | [[B98]] trampolines, `loop`/`recur` | I | not this epic |

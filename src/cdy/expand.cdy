@@ -72,7 +72,7 @@
   (let ((path (library-path "prelude_macros.cdy")))
     (if (in (path-resolve path) loading)
       empty-list
-      (to-list (Lst (tup (Sym "import-macros" NOWHERE) (Txt path)) NOWHERE)))))
+      (to-list (Lst (tup (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))))
 
 ;; The forms whose heads are in `heads` (or, if `keep` is false, the others).
 (sig pick-forms (Fn ((List Form) (List String) Bool (List Form)) (List Form)))
@@ -134,7 +134,7 @@
 (sig macro-path (Fn (Form) String))
 (defn macro-path (form)
   (match (at (list-items form) 1)
-    ((Txt path) path)
+    ((Txt path _) path)
     (else (fail (+ (pos-text (form-pos form)) "import-macros: expected (import-macros name)")))))
 
 ;; `acc` with the helper groups `groups` added, except files it has already.
@@ -254,7 +254,7 @@
       args
       (+ i 1)
       pos
-      (+ acc (to-list (Lst (tup (at params 0) (Lst (tup (Sym "at" pos) args (IntLit i)) pos)) pos))))))
+      (+ acc (to-list (Lst (tup (at params 0) (Lst (tup (Sym "at" pos) args (IntLit i pos)) pos)) pos))))))
 
 ;; The name of the function a macro is compiled into.
 (sig macro-fn (Fn (String) String))
@@ -353,13 +353,27 @@
       (fail (format "{where}expected {arity} argument(s), got {(len args)}"))
       (stamp (call-macro (get macro run) args where) pos))))
 
-;; `form` with `pos` on every symbol and list that is NOWHERE: an expansion's forms point
-;; at the call, and those from its arguments keep their own positions.
+;; `form` with `pos` on every form that is NOWHERE: an expansion's forms point at the
+;; call, and those from its arguments keep their own positions.
 (sig stamp (Fn (Form Pos) Form))
 (defn stamp (form pos)
   (match form
-    ((Sym name p) (if (= (get p line) 0) (Sym name pos) form))
     ((Lst items p) (Lst (stamp-all items pos empty-list) (if (= (get p line) 0) pos p)))
+    (else (if (= (get (form-pos form) line) 0) (form-at form pos) form))))
+
+;; The atom `form` (not a list) at `pos`.
+(sig form-at (Fn (Form Pos) Form))
+(defn form-at (form pos)
+  (match form
+    ((Sym v _) (Sym v pos))
+    ((Txt v _) (Txt v pos))
+    ((IntLit v _) (IntLit v pos))
+    ((LongLit v _) (LongLit v pos))
+    ((ByteLit v _) (ByteLit v pos))
+    ((FloatLit v _) (FloatLit v pos))
+    ((DoubleLit v _) (DoubleLit v pos))
+    ((CharLit v _) (CharLit v pos))
+    ((BoolLit v _) (BoolLit v pos))
     (else form)))
 
 (sig stamp-all (Fn ((List Form) Pos (List Form)) (List Form)))

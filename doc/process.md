@@ -39,7 +39,9 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
    (and its task `dropped`).
 4. **Docs.** A last step brings CLAUDE.md, the spec (`spec/`), the iMVP doc and the
    other HLDs up to date, and marks the branch's spec files `stable`, `since:` the
-   branch's tag.
+   branch's tag. The HLD gets a short "Looking back" section (in this step or the
+   review): what the branch taught about the ones before it, and the costs it met that
+   later branches will meet again, each with its item.
 5. **Review.** The owner works through the items in `review` (`backlog/README.md`); the
    verdict goes in the item's notes ("looks ok for now"), which becomes `done` (`fixed:` the
    branch), or goes back to `in-progress`; fixes are more commits. The HLD's status
@@ -185,6 +187,7 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 | An optimization or mutation idea | `doc/hl_rqmt/mutation_optimization.md` |
 | History: the lists before the backlog | `doc/archive/leaks_*.md`, `doc/archive/TODOS_*.md` (each entry open on 2026-10-25 is an item) |
 | History: a side conversation worth keeping (the owner asks for it) | `doc/archive/chat_<topic>.md`, verbatim, with a note at its top: when, where, and what came of it |
+| History: a branch's whole chat (in the epic, each branch's, before its merge) | `doc/archive/chat_<hld>.md`, written by `script/chat_archive.py` from the session's transcript, with the same note |
 | A language rule, with its examples | `spec/`, the file for its feature (`spec/README.md` lists them) |
 | A design, its decisions and what was built | its HLD in `doc/hl_rqmt/` |
 | Guidance for Claude Code (layout, commands, conventions) | `CLAUDE.md` |
@@ -201,6 +204,10 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 
 Changes to the process, newest first.
 
+- **2026-10-31:** each branch's chat archived before its merge (`script/chat_archive.py`;
+  "Where notes go").
+- **2026-10-31:** an HLD's "Looking back" section, in the docs step or the review ("The branch
+  lifecycle", step 4).
 - **2026-10-30:** epics, HLDs whose steps are branches ("Design docs", "Kinds").
 - **2026-10-29:** a side conversation worth keeping is archived in `doc/archive/chat_*.md`
   ("Where notes go").

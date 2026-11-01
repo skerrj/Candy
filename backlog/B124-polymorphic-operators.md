@@ -30,3 +30,16 @@ variable, which a program's own `sig`s can use; `=` is declared for every type
   (roughly 140 on lists, 80 on strings, 80 on numbers) and 76 in `spec/` and
   `tst/cdy/`: a mechanical rename, from a list of each `+` and its type the checker can
   print, in two boot steps (the new operator into `bin`, then the translator's uses).
+- 2026-10-31, the owner and Claude, in typed-core's review (B129, [[B135]]): the goal, for
+  the `collections` HLD: **no operators in the language.** A built-in and a user's
+  function are one kind of thing (the owner: "whether it's user defined or defined by the
+  system, they'd both just be operators"). What makes an operator different today is
+  shortcuts, each with its fix: no type (constraint variables, Question 4), checked by
+  `infer-op` with its error at the call ([[B135]]), not a value ([[B38]], [[B48]]),
+  variadic (typed rest parameters, Question 8: a user's function can be too), a closed set
+  in `special.cdy`. Folding and chaining are what the function does with its rest list.
+  The one real difference is `and`/`or`'s short-circuit, which a function can't do:
+  macros ([[B100]], `semantics`). So `op` can leave `special.cdy`: `+` and the
+  comparisons become bodiless `sig`s in `system.cdy`, `not` a one-argument function.
+  Infix Python (`(a + b)`) is the backend's business, a spelling (`spelling.py`), not the
+  language's; mypy's view of the variadic, constrained signatures is the cost, in `emit`.

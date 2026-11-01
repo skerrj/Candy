@@ -1,7 +1,12 @@
 # Typed Core (HLD)
 
-**Status: proposal (2026-10-30), questions answered (2026-10-31). Epic: `python_complete.md` (its first
-branch). For a branch `typed-core`, after tag `type-checker`.** The checker
+**Status: done (2026-10-31), on branch `typed-core` (tag `typed-core`): every Core node
+has its type and position, the checker fills the types, and a nested Python `def` gets
+them ([[B19]], [[B59]], [[B122]], [[B14]], [[B119]] done; [[B15]] closed and split into
+[[B133]] and [[B134]]; [[B131]], [[B132]], [[B135]] and [[B136]] found). Tasks [[B126]]
+to [[B130]]. Accepted 2026-10-31, with the proposed answers to its questions and its
+spec changes. Epic: `python_complete.md` (its first branch). After tag
+`type-checker`.** The checker
 (`check.cdy`) works out every expression's type, then throws the types away: `lower` and
 `emit` see the Core `analyse` made, untyped, and a `fn` that becomes a nested Python
 `def` is annotated `Any` ([[B19]]). This HLD keeps the types, writes them into Core, and
@@ -23,7 +28,7 @@ in the epic (`show` and `format` by type, `Any` cut down, the translator's loops
 - **The types that reach Python** are the `sig`s' (top-level `def`s and `defn`s) and the
   records' fields. A local bound by `let` becomes a plain assignment, which mypy infers;
   a `fn` that stays an expression becomes a Python `lambda`, which mypy types from its
-  context; a `fn` whose body needs statements becomes a nested `def` (`SLocalFunc`), its
+  context; a `fn` whose body needs statements becomes a nested Python `def` (`SLocalFunc`), its
   parameters and result `Any` ([[B19]]), so mypy checks nothing inside it, and its
   callers lose the type.
 - **Positions:** only `Sym` and `Lst` forms carry a `Pos` (`form.cdy`); a literal form
@@ -42,7 +47,7 @@ in the epic (`show` and `format` by type, `Any` cut down, the translator's loops
 
 - **Every `Expr` has its type after checking,** for `lower`, `emit` and any later
   backend to read: the type the checker inferred, with the final substitution put in.
-- **Nested `fn`s typed** ([[B19]]): a nested `def`'s parameters and result get their
+- **Nested `fn`s typed** ([[B19]]): a nested Python `def`'s parameters and result get their
   types, so mypy checks its body and its callers.
 - **Every `Expr` has its position,** leaves too, and literal forms carry one, so an error
   is reported where it is ([[B122]], [[B59]]); and the positions [[B14]] lacks.
@@ -56,7 +61,7 @@ in the epic (`show` and `format` by type, `Any` cut down, the translator's loops
   the epic.
 - **New rules:** this branch changes what Core carries, not what type-checks. Every
   program that translates today translates the same, and its Python changes only in the
-  nested `def`s' annotations.
+  nested Python `def`s' annotations.
 - **Using the types** for `show`, `format`, `=` or `Any` (`semantics`, `collections`).
 
 ## Proposal
@@ -83,7 +88,7 @@ typed `tops`, which `python-of` already takes.
 `SLocalFunc` gets the `Lambda`'s type (`TFn` of its parameters' types and its result);
 `emit` writes them as annotations, as it does `SFunc`'s, a `?N` as `Any`. Inside a
 generic definition the rigid variables are in scope in Python too (PEP 695's `def
-f[a]`), so a nested `def` can name them. mypy then checks the nested `def`s' bodies,
+f[a]`), so a nested Python `def` can name them. mypy then checks the nested Python `def`s' bodies,
 which may find what `Any` hid; what it finds is fixed in the translator or recorded.
 
 ### Positions
@@ -121,7 +126,7 @@ example becomes `(Txt (sym-name s) NOWHERE)`.
 
 - **For:** everything after it in the epic reads types (`show` per type, `format` as a
   macro, the translator's `fn`s typed so its loops can become `map` and `fold`), and a
-  second target needs them; the positions are the same churn, done once; nested `def`s
+  second target needs them; the positions are the same churn, done once; nested Python `def`s
   get checked; it changes no program's meaning.
 - **Against:** the churn: about 185 pattern sites, and the checker rewritten to return
   what it checks (its 850 lines, most of them touched); a bigger Core in memory; mypy
@@ -143,16 +148,152 @@ needs the new field: `expand.cdy`, the macro test program
    the reader, `Lit`/`Local`/`Global`/`Prim`/`Do` with positions, the checker reporting
    at the node; the macro code that takes literal forms apart; the spec's position
    example.
+
+   *Done.* As built:
+   - **`form.cdy`, `read.cdy`:** every literal form ends with a `pos`, the reader's (a
+     string's at its opening `"`); `form-pos` gives every form's.
+   - **`core.cdy`:** `Local`, `Global`, `Prim` and `Do` end with a `pos`; `Lit` reads its
+     form's. A `Local` is bound with its name's position and, where it is used, rebuilt
+     with the use's (`at-use`). What the translator makes (`NIL`, a quoted form's
+     builders, `format`'s joins) is `NOWHERE`; a `tup` pattern's `at` reads are at the
+     pattern.
+   - **`check.cdy`:** `node-pos` gives the leaves' positions, so an error is reported at
+     the literal or name it is in: `(f\n  s)` says `2:3: argument 1 of f: ...`.
+   - **`expand.cdy`:** `stamp` gives an expansion's literals the call's position too
+     (`form-at`), as it did its symbols and lists.
+   - **`lower.cdy`:** a self tail call's unchanged parameters are found by name and id
+     (`same-local`), not by comparing whole `Local`s, which now differ in position;
+     without it a loop rebound them all.
+   - **Macro code:** `expand.cdy` and `include.cdy` build literals with a position;
+     `macros.macro-code`'s example writes `(Txt (sym-name s) NOWHERE)`, and the macro
+     test programs (`lib/control.cdy`, `macro_code/quoting.cdy`) take the new field.
+   - **Output:** the old `bin` and the new one write the same Python for every test
+     program but `macro_files.cdy`, whose macro file now builds the new forms (so the
+     old `bin` can't translate it).
+   - **Tests:** a `checking.definitions` example with the error at a string literal;
+     `test_reader_positions` checks literals' positions. [[B59]] and [[B122]] done.
+   - **Bootstrap:** one rebuild.
 2. **Types in Core:** a `t` on every `Expr`; the checker elaborates and puts in the
    final substitution; `type-check` returns the typed `tops`; a test that every node of
    the translator's own Core has a type after checking.
+
+   *Done.* As built:
+   - **`core.cdy`:** every `Expr` variant ends with `t`, a `CType`; `analyse` makes `ANY`
+     (moved here from `check.cdy`). The field was added by a throwaway script that reads
+     the `.cdy` files as forms: `_` in each `match` pattern, `ANY` in each construction
+     (about 180 sites).
+   - **`check.cdy`, not rewritten but extended:** rather than have every `infer` rebuild
+     its node, each definition is first numbered (`retype-top`: each node's `t` becomes a
+     name of its own, `?eK`); the checker records the type it finds under that name
+     (`typed`), in a map of its own in `St` (`types`, not the substitution, which stays
+     small: `map-set` copies); then each node gets its recorded type with the
+     definition's substitution put in (`node-type`). Recorded: every `infer` (now
+     `infer` around `infer-node`); `check-expr`'s check-mode `if`, `do`, applied `fn` and
+     `fn` (the type wanted); every binder (`fn` and `defn` parameters, a `let`'s, a
+     clause's names); a callee the checker doesn't infer (an operator, a `tup`
+     pattern's `at`, a `let`'s `fn`) as the function from its arguments' types to the
+     result's. `type-check` returns the typed `tops`.
+   - **`lower.cdy`:** a node it rebuilds keeps its type (`value-call`, `value-if`,
+     `value-fn` and `value-boolop` take it), and so does the `Temp` that stands for a
+     `match` or a nested `fn`; other `Temp`s, and the `not` it makes, are `ANY`.
+   - **Output:** the same Python, byte for byte, as `boot/44` for every test program.
+   - **Tests:** `test_every_node_is_typed` checks the translator's own Core (23,280
+     nodes): none keeps its `?eK` name, so the checker reached every node, and every
+     `fn` has a function type; three are a `?N` nothing solved, as Question 2 allows.
+     Breaking the callees' recording makes it fail.
+   - **Cost:** `self_host.py` takes 3.6 s, from 3.0 s.
+   - **Bootstrap:** one rebuild.
 3. **Nested functions typed** ([[B19]]): `SLocalFunc` with its type; `emit`'s
    annotations; what mypy then finds, fixed or recorded.
+
+   *Done.* As built:
+   - **`lower.cdy`:** `SLocalFunc` ends with `t`, its `fn`'s type.
+   - **`emit.cdy`:** a nested Python `def` is annotated from its `TFn` (`emit-params`, as a
+     `defn`'s), inside a generic `defn` with its type variables, which PEP 695 puts in
+     scope; a `fn` the checker didn't see (macro code, [[B42]]) keeps `Any`. `emit-type`
+     writes a `?N` as `Any` (Question 2). Also, beyond the step as written: a `let`-bound
+     `fn` that stays a Python `lambda` (B19's own repro, "Call to untyped function") gets
+     its type on the assignment, `sq: Callable[[int], int] = (lambda x: ...)`; locals
+     are renamed apart within a function, so no name is annotated twice.
+   - **What mypy found:** nothing; the translator itself has no nested Python `def` or bound
+     `lambda`, so `bin` changes only in `emit`'s own code. Its spec example,
+     [[checking.locals]], now has a bound `fn` called.
+   - **Bootstrap:** one rebuild.
 4. **The messages:** [[B119]]; [[B14]]'s rest (`main`'s position, `format` holes'
    positions, `lower`'s and `emit`'s errors as internal ones).
+
+   *Done.* As built:
+   - **[[B119]]:** `check-type` asks, before the import check, whether the name is a
+     variant (`A is a variant of S, not a type`) or a top-level value the module sees
+     (`X is a value, not a type`); both are examples in [[types.exist]].
+   - **`main`:** its two errors say its definition's position (`TDef`'s and `TDefn`'s
+     `pos`, there since `type-checker`).
+   - **`format` holes:** the parse hook takes a position, `(Fn (String Pos) (List
+     Form))`: `read-hole` reads a hole's text with a `Source` whose `base` is where the
+     text starts, so its forms have real positions; `text-pos` finds the hole in the
+     string from its opening quote, counting the value's newlines. An escape before a hole
+     on its line makes the column one short per escape, *for now* ([[B131]]). The brace
+     errors (`hole-end`) are at the `(format ...)` form.
+   - **Internal errors:** `lower`'s and `emit`'s, which no program should reach, say
+     `internal error: lower: ...`, with no position, *lasting*.
+   - **Also:** the operator-as-value error (`emit-prim`) is at the operator, from its
+     `Prim`'s `pos`. `emit`'s Python-name errors (two names one Python name, a field
+     Python can't spell) still have none: a `TDeft` has no position ([[B131]]).
+   - **Tests:** `test_errors_say_where` gains a hole's error on the hole's line and on a
+     later one, an unmatched brace and the operator; `test_main_errors_say_where`.
+   - **Bootstrap:** one rebuild.
 5. **Docs:** CLAUDE.md ("How the translator works": typed Core), the iMVP doc's
    layers, `multi_target.md` (a backend reads Core's types), `type_checker.md` and
    `python_complete.md`'s triage; [[B15]] as Question 5 decides.
+
+   *Done.* As built:
+   - **CLAUDE.md:** "History" names the epic and this branch; "Type checking" describes
+     typed Core (`pos` then `t` on every node, how the checker fills `t`, a `?N` as `Any`
+     in Python) and links [[B133]] and [[B134]]; "Errors" says every form and node has a
+     position, internal errors none; the mypy note links [[B125]].
+   - **The iMVP doc's layers, `multi_target.md`, `type_checker.md`:** a dated aside each
+     (*Since `typed-core`*), the history left as written.
+   - **`python_complete.md`:** "Where things stand" notes typed Core; the triage's
+     intro says what this branch closed and found, and its table has the four new
+     items, marked *(typed-core)*; let-polymorphism links [[B133]], mypy [[B125]].
+   - **[[B15]]:** `done`, its note mapping each part to its item: mypy to [[B125]] (and
+     `porting-surface`), let-polymorphism to [[B133]] (new, an `idea`), what is known
+     when to [[B120]], narrowing to [[B121]], one error to [[B134]] (new, a `leak`,
+     `low`). The spec's *for now* links moved with them ([[checking.locals]],
+     [[types.checking]]).
+   - **The spec:** no new file; `20-types.md` and `25-checking.md` stay `stable`.
+
+## Looking back
+
+Written in the review (2026-10-31), on how this branch relates to `type-checker`
+(`type_checker.md`).
+
+- **Checking, then elaboration.** A type checker has two halves: *checking* (does the
+  program type?) and *elaboration* (writing the types it finds into the program).
+  `type-checker` built the first; its HLD never mentions keeping the types, so "check and
+  discard" was its MVP without being said. This branch is the second half, with the
+  positions the first one's messages needed at the leaves ([[B122]], which
+  `type-checker` found).
+- **The checker didn't visit every node.** Step 2's test made "the checker reached every
+  node" checkable, and its first run failed: an operator's callee, a `tup` pattern's
+  `at` and a `let`'s `fn` got a type worked out without being inferred themselves
+  (`typed-callee` records them now). Nothing was typed wrongly, but `type-checker`'s
+  tests couldn't have told.
+- **mypy agreed.** With nested Python `def`s and `let`-bound `lambda`s typed (step 3),
+  mypy sees more of every program and found nothing the checker hadn't: a little evidence
+  for the epic's Question 3 (mypy kept as a second check, whether it stays decided in
+  `porting-surface`, [[B125]]).
+- **What typed Core made visible:** a type nothing solved (a `?N`) couldn't be seen
+  before; now it can, and the translator's eight all come from `Any` meeting a type
+  variable ([[B132]]).
+- **Two costs from the language, not the checker,** which later branches will meet again:
+  - **A new field on Core is expensive:** a `match` pattern names every field, so each
+    field added touched about 180 sites. `type-checker` paid it for its compound nodes'
+    `pos`, this branch twice more (the leaves' `pos`, then `t`), step 2 with a throwaway
+    script. Patterns that needn't name every field would make it cheap ([[B136]]).
+  - **An immutable map copies on every write** (`map-set`), so step 2 kept the recorded
+    types out of the substitution, in a map of their own, to keep unification fast: the
+    map side of [[B69]].
 
 ## Questions (answered: the proposals, 2026-10-31)
 

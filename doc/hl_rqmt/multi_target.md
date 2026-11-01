@@ -159,7 +159,9 @@ output Candy's on every target and host. Two ways to know what it shows:
   `String` are both `str`, an `Int` and a `Byte` both `int`.
 - **From the static type**, the translator choosing a `show` per type: portable and
   exact, but it needs Candy's own type checker, which exists since branch `type-checker`,
-  to keep the types it infers ([[B15]]).
+  to keep the types it infers ([[B15]]). *(It does since `typed-core`: every Core node
+  has its type, `t`, for a backend to read; a type the checker never solved is a `?N`
+  type variable, and each backend chooses what to write, Python `Any`.)*
 
 ### Modules and output units
 

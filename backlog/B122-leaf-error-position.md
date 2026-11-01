@@ -1,10 +1,10 @@
 # B122: A type error in a leaf is reported at its parent
 
 kind: leak
-state: open
+state: done
 priority: low
 found: type-checker, 2026-10-29
-fixed:
+fixed: typed-core
 where: `src/cdy/check.cdy`, `src/cdy/core.cdy`, `src/cdy/read.cdy`
 refs: [[checking.definitions]], [[B15]]
 
@@ -22,3 +22,7 @@ the error is `2:1: def x: expected Int, got String`, the `def`'s position, not `
 the `"a"`'s. The message names the definition, so it is usually close enough. Fix: a
 position on the literal forms (the reader) and on Core's leaves, which changes their
 patterns throughout `lower`, `emit` and `check`.
+
+## Notes
+
+- 2026-10-31, Claude: fixed by typed-core step 1 ([[B126]]): the leaves have positions, and the checker reports at them.

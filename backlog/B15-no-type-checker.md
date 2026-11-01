@@ -1,10 +1,10 @@
 # B15: Candy's type checker is an MVP, with mypy as a second check
 
 kind: leak
-state: in-progress
+state: done
 priority: high
 found: py-py-translator, 2026-10-15
-fixed:
+fixed: typed-core
 where: `src/cdy/check.cdy`
 refs: [[types.checking]], [[expr.unit]]
 
@@ -32,3 +32,20 @@ value") and `doc/archive/leaks_executable_spec.md` ("What the translator doesn't
   checked by mypy, not by Candy".
 - 2026-10-29, type-checker step 3: "what is known when" has its own item, [[B120]], and
   narrowing in a clause [[B121]].
+- 2026-10-31, Claude: closed by typed-core step 5 ([[B130]]), as `typed_core.md`'s
+  Question 5 decided, so that the backlog's `high` items are what is really left. Each
+  part of the list above now has an item of its own:
+
+  ```text
+  mypy still checks the Python   -> [[B125]] (the target's own checker, an option), and
+                                    whether mypy stays: porting-surface (the epic's Question 3)
+  no let-polymorphism            -> [[B133]] (new, an idea)
+  what is known when             -> [[B120]] (semantics)
+  no narrowing in a match clause -> [[B121]] (semantics)
+  one error                      -> [[B134]] (new, a leak)
+  ```
+
+  Links to B15 as a *for now* moved to those items: [[checking.locals]] to [[B133]];
+  [[types.checking]] and CLAUDE.md's mypy note to [[B125]]; `python_complete.md`'s to
+  [[B133]] and [[B125]]. The historical HLDs (`type_checker.md`'s *Done* notes,
+  `multi_target.md`) keep theirs.

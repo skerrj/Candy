@@ -519,6 +519,12 @@ SExpr ──analyse──▶ Core AST ──lower──▶ Lowered IR ──emit
 Modules: `core_cdy.py` (nodes and `analyse`) and `lower_cdy.py` (IR nodes and `lower`)
 **exist**; `emit_py.py` is next.
 
+*(The Candy translator today, `src/cdy/`: forms → `analyse` (`core.cdy`) → Core →
+`type-check` (`check.cdy`, since `type-checker`) → typed Core → `lower` → the lowered IR
+→ `emit` → Python text. Since `typed-core`, every Core node ends with its position and
+its type, `pos` then `t`; `lower` keeps the types, and `emit` reads them for nested
+functions.)*
+
 **Core as built** (`src/py_cdy/core_cdy.py`), beyond the node table below:
 
 - Types from `sig` and `deft` are `TCon`, `TVar` and `TFn` (the union is `CdyType`).
