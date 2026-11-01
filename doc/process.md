@@ -187,6 +187,7 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 | An optimization or mutation idea | `doc/hl_rqmt/mutation_optimization.md` |
 | History: the lists before the backlog | `doc/archive/leaks_*.md`, `doc/archive/TODOS_*.md` (each entry open on 2026-10-25 is an item) |
 | History: a side conversation worth keeping (the owner asks for it) | `doc/archive/chat_<topic>.md`, verbatim, with a note at its top: when, where, and what came of it |
+| History: a branch's whole chat (in the epic, each branch's, before its merge) | `doc/archive/chat_<hld>.md`, written by `script/chat_archive.py` from the session's transcript, with the same note |
 | A language rule, with its examples | `spec/`, the file for its feature (`spec/README.md` lists them) |
 | A design, its decisions and what was built | its HLD in `doc/hl_rqmt/` |
 | Guidance for Claude Code (layout, commands, conventions) | `CLAUDE.md` |
@@ -203,6 +204,8 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 
 Changes to the process, newest first.
 
+- **2026-10-31:** each branch's chat archived before its merge (`script/chat_archive.py`;
+  "Where notes go").
 - **2026-10-31:** an HLD's "Looking back" section, in the docs step or the review ("The branch
   lifecycle", step 4).
 - **2026-10-30:** epics, HLDs whose steps are branches ("Design docs", "Kinds").
