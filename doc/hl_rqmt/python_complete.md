@@ -515,8 +515,8 @@ Defects (D) and the translator's own items (X) go into whichever branch is near 
 Every open item on 2026-10-29, in branch order; the branch is where it is expected to
 close. ([[B67]], the built-ins' types unused, was closed by `type-checker`; [[B124]] and
 [[B125]] were added on 2026-10-30, and [[B93]] dropped by Question 9. `typed-core` closed
-its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]] and [[B132]]; the
-four are in the table, marked *(typed-core)*.)
+its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] and
+[[B135]] and [[B136]]; the six are in the table, marked *(typed-core)*.)
 
 | Item | Group | Branch |
 |---|---|---|
@@ -552,6 +552,7 @@ four are in the table, marked *(typed-core)*.)
 | [[B18]] `Any` turns checking off | T | `collections` (cut down; *lasting* for what stays) |
 | [[B34]] no `Collection` | T | `collections` (Question 4) |
 | [[B124]] the operators polymorphic, programs not | T | `collections` (Question 4) |
+| [[B135]] an operator's error at the call *(typed-core)* | D | `collections` (with [[B124]]) |
 | [[B69]] building a list is quadratic | X | `collections` (with B123) |
 | [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
 | [[B40]] types and values share a namespace | S | `namespaces` |
@@ -605,6 +606,7 @@ four are in the table, marked *(typed-core)*.)
 | [[B94]] doc strings and metadata | I | later |
 | [[B102]] the book | I | later |
 | [[B133]] let-polymorphism *(typed-core)* | I | after the epic |
+| [[B136]] a pattern names every field *(typed-core)* | I | any (one that grows Core) |
 | [[B72]] parsec.py v4 unpublished | X | not this epic (the bootstrap chain) |
 | [[B37]] only self tail calls are loops | P | not this epic |
 | [[B98]] trampolines, `loop`/`recur` | I | not this epic |

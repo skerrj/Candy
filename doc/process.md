@@ -39,7 +39,9 @@ One branch per piece of work, named for it (`macros`, `modules`, `system-prelude
    (and its task `dropped`).
 4. **Docs.** A last step brings CLAUDE.md, the spec (`spec/`), the iMVP doc and the
    other HLDs up to date, and marks the branch's spec files `stable`, `since:` the
-   branch's tag.
+   branch's tag. The HLD gets a short "Looking back" section (in this step or the
+   review): what the branch taught about the ones before it, and the costs it met that
+   later branches will meet again, each with its item.
 5. **Review.** The owner works through the items in `review` (`backlog/README.md`); the
    verdict goes in the item's notes ("looks ok for now"), which becomes `done` (`fixed:` the
    branch), or goes back to `in-progress`; fixes are more commits. The HLD's status
@@ -201,6 +203,8 @@ format is in `script/backlog.py`, and why in `doc/hl_rqmt/tracking.md`.
 
 Changes to the process, newest first.
 
+- **2026-10-31:** an HLD's "Looking back" section, in the docs step or the review ("The branch
+  lifecycle", step 4).
 - **2026-10-30:** epics, HLDs whose steps are branches ("Design docs", "Kinds").
 - **2026-10-29:** a side conversation worth keeping is archived in `doc/archive/chat_*.md`
   ("Where notes go").

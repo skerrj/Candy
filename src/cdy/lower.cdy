@@ -20,7 +20,8 @@
   (SReturn ((val Expr)))
   (SIf ((test Expr) (then (List Stmt)) (other (List Stmt))))
   (SFunc ((name String) (params (List Expr)) (body (List Stmt)) (t CType)))
-  ;; A nested function (a fn whose body needs statements), named by a Temp, with its fn's type.
+  ;; A fn whose body needs statements, as a function nested in the enclosing one (a nested
+  ;; Python def), named by a Temp, with its fn's type.
   (SLocalFunc ((target Expr) (params (List Expr)) (body (List Stmt)) (t CType)))
   ;; A self tail call as a loop: `while True:`, the parameters rebound all at once, then
   ;; `continue`.
@@ -150,7 +151,8 @@
       (let ((low (value e n)))
         (tup (+ (get low stmts) (to-list (SAssign tmp (get low expr)))) (get low n))))))
 
-;; fn: a lambda if its body is one expression, otherwise a nested function.
+;; fn: a lambda if its body is one expression, otherwise a nested function (SLocalFunc: a
+;; nested Python def; Candy has no nested def or defn).
 (sig value-fn (Fn ((List Expr) Expr Pos CType Int) Low))
 (defn value-fn (params body pos ty n)
   (let (((stmts n1) (tail body n)))
@@ -517,7 +519,7 @@
         (+ targets (to-list (at params 0)))
         (+ vals (to-list (at args 0)))))))
 
-;; Whether statements make a function (a nested def, or a lambda in any expression).
+;; Whether statements make a function (a nested Python def, or a lambda in any expression).
 (sig stmts-have-closure (Fn ((List Stmt)) Bool))
 (defn stmts-have-closure (stmts)
   (cond
