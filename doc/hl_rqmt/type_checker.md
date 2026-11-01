@@ -5,7 +5,10 @@ translator type-checks every program before lowering it (`src/cdy/check.cdy`,
 `spec/25-checking.md`), with positions in Core; mypy stays as a second check ([[B15]],
 narrowed; [[B10]], [[B25]], [[B30]] done; the leaks [[B120]], [[B121]], [[B122]] and the
 defect [[B119]] found). Accepted 2026-10-28, with the proposed answers to its questions
-and its spec changes.** For a branch `type-checker`, after tag `field-checks`.
+and its spec changes.** For a branch `type-checker`, after tag `field-checks`. *(Since
+`typed-core`, `doc/hl_rqmt/typed_core.md`: the checker's types are kept in Core, a
+nested `fn` gets them in Python ([[B19]]), and [[B15]] is closed, its parts each an item:
+[[B125]], [[B133]], [[B120]], [[B121]], [[B134]].)*
 [[B15]], the backlog's largest `high` item: Candy has no type checker of its own; mypy
 checks the Python. This HLD proposes the first one, an MVP that leaves mypy in place, and
 lists what it leaves for later.

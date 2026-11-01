@@ -242,6 +242,23 @@ needs the new field: `expand.cdy`, the macro test program
    layers, `multi_target.md` (a backend reads Core's types), `type_checker.md` and
    `python_complete.md`'s triage; [[B15]] as Question 5 decides.
 
+   *Done.* As built:
+   - **CLAUDE.md:** "History" names the epic and this branch; "Type checking" describes
+     typed Core (`pos` then `t` on every node, how the checker fills `t`, a `?N` as `Any`
+     in Python) and links [[B133]] and [[B134]]; "Errors" says every form and node has a
+     position, internal errors none; the mypy note links [[B125]].
+   - **The iMVP doc's layers, `multi_target.md`, `type_checker.md`:** a dated aside each
+     (*Since `typed-core`*), the history left as written.
+   - **`python_complete.md`:** "Where things stand" notes typed Core; the triage's
+     intro says what this branch closed and found, and its table has the four new
+     items, marked *(typed-core)*; let-polymorphism links [[B133]], mypy [[B125]].
+   - **[[B15]]:** `done`, its note mapping each part to its item: mypy to [[B125]] (and
+     `porting-surface`), let-polymorphism to [[B133]] (new, an `idea`), what is known
+     when to [[B120]], narrowing to [[B121]], one error to [[B134]] (new, a `leak`,
+     `low`). The spec's *for now* links moved with them ([[checking.locals]],
+     [[types.checking]]).
+   - **The spec:** no new file; `20-types.md` and `25-checking.md` stay `stable`.
+
 ## Questions (answered: the proposals, 2026-10-31)
 
 1. **How Core carries types and positions:** a field on every node (proposed: `pos`

@@ -78,7 +78,7 @@ treat it as an `Int`.
 
 A local (a `let` binding, a `fn`'s parameter, a pattern's name) has no written type: the
 checker infers it from how it is made and used. A local has one type, so a `fn` bound by
-`let` isn't generic (*for now*: [[B15]]); a top-level `defn` with a generic `sig` is.
+`let` isn't generic (*for now*: [[B133]]); a top-level `defn` with a generic `sig` is.
 
 ```candy run
 (put (let ((n 3) (m (* n n))) (+ m 1)))

@@ -70,7 +70,7 @@ value isn't a type either.
 translator's error, at the form where it is found (the rules are in `25-checking.md`). It
 checks that each type exists, with its number of arguments ([[types.exist]]), and a
 type's shape where it needs it (a function type for `defn`, below). mypy checks the
-Python too, as a second check (*for now*: [[B15]]): each type becomes a Python
+Python too, as a second check (*for now*: [[B125]]): each type becomes a Python
 annotation, and `mypy --strict` checks the translation. *Tested in*
 `tst/py_cdy/test_spec.py`'s `test_mypy_strict`, which runs on every example.
 
