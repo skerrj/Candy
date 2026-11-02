@@ -528,6 +528,7 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B119]] a variant written as a type | D | `typed-core` |
 | [[B36]] values print as Python's | S | `semantics` |
 | [[B27]] `=` is `==` | S | `semantics` |
+| [[B137]] two variants with the same fields are equal *(2026-11-01)* | D | `semantics` (with B27) |
 | [[B23]] `/` is true division | S | `semantics` |
 | [[B26]] `and`/`or` return an operand | S | `semantics` |
 | [[B100]] `and` and `or` as macros | I | `semantics` (with B26) |
