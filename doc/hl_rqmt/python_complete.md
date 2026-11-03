@@ -538,7 +538,7 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B132]] the unsolved types gone over *(typed-core)* | T | `semantics` (with [[B18]]) |
 | [[B21]] missing values are `None` | S | `semantics` |
 | [[B35]] `at` and `slice` are subscripts | S | `semantics` |
-| [[B22]] unbounded integers | S | `semantics` |
+| [[B22]] unbounded integers | S | `semantics` (sizes, literal ranges); overflow and `Float`'s 32 bits `porting-surface` *(2026-11-01)* |
 | [[B28]] a `Char` is a `str` | S | `semantics` |
 | [[B31]] a value used before its `def` | S | `semantics` |
 | [[B80]] `def`: constant or variable | S | `semantics` |

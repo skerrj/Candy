@@ -16,3 +16,8 @@ what Candy's is, and spell it per target. From `doc/archive/leaks_executable_spe
 - 2026-10-26, the owner: kept in triage ([[B103]]): rounding down is Candy's rule, as Haskell's `div`;
   `spec/40-expressions.md` states it as lasting, and a target that truncates spells it
   otherwise.
+- 2026-11-01, the owner: a weakness noted in the semantics HLD (Question 4): `quot` is
+  Haskell's name for the *truncating* division (partnered with `rem`), while Candy's
+  floors, as Haskell's `div` (partnered with `mod`). Not renamed (every `quot` in the
+  translator would change); the new remainder is named `mod`, flooring as `quot` does,
+  so the pair keeps `a` = `b`·`(quot a b)` + `(mod a b)`.

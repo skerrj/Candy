@@ -23,3 +23,7 @@ Go over the cases, with a test for each (the type in Core, and its Python):
 
 Then decide whether `Any` should bind a variable it meets (to `Any`), which overlaps
 cutting `Any` down ([[B18]], `semantics`).
+- 2026-11-02, the owner: decided in the semantics HLD (Question 13): a variable stays free
+  while checking, and one that met `Any` and nothing else is defaulted to `Any` at the
+  end (`node-type`); one that met nothing stays a variable, and showing it is an error
+  (Question 3). Done in `semantics`' step 1, with this item's tests.

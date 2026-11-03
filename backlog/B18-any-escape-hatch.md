@@ -18,3 +18,7 @@ and, for a field the value lacks, fails when run (`AttributeError`). Every use i
 ## Notes
 
 - 2026-10-29, type-checker step 3: Candy's checker skips `Any` too; the text says so.
+- 2026-11-02, the owner: the semantics HLD (Question 13) defaults a type variable that
+  met only `Any` to `Any`, and `show` on a value typed `Any` inspects the Python value at
+  run time (inexact for `Char` against `String`, the integer and float sizes, `List`
+  against `Tup`): part of this leak. What stays here is using `Any` less.

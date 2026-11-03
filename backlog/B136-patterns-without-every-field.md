@@ -53,3 +53,7 @@ Found in `typed-core`'s review ("Looking back" in `doc/hl_rqmt/typed_core.md`).
     Candy does: the problem, not a fix. Candy already rewrites in two places, macros
     (forms to forms) and `lower` (Core to the lowered IR, close to a set of rewrite
     rules), so these ideas would serve the translator as much as programs.
+- 2026-11-01, the owner: the semantics HLD (Question 8) narrows a `match` clause's subject
+  local to its variant ([[B121]]) *for now*; the ML way, no narrowing, with patterns that
+  needn't name every field (this item) and as-patterns (Haskell's `s@(A x)`), is the
+  alternative to revisit with this item.
