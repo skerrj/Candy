@@ -1,7 +1,8 @@
 # Semantics (HLD)
 
-**Status: accepted (2026-11-02); proposed 2026-11-01. Epic: `python_complete.md` (its second
-branch). After tag `typed-core`.** Where Candy's behaviour is Python's, borrowed rather
+**Status: accepted (2026-11-02), with the answers to its questions and its spec changes;
+on branch `semantics` (tasks [[B140]] to [[B149]]); proposed 2026-11-01. Epic:
+`python_complete.md` (its second branch). After tag `typed-core`.** Where Candy's behaviour is Python's, borrowed rather
 than decided, this branch decides it, in the spec, and makes the Python target do what
 the spec says: how values print ([[B36]], the backlog's last `high`), `=`, `/`, `and`
 and `or`, `Maybe` and missing values, `at` and `slice`, the numbers' sizes, `Char`, a
@@ -267,6 +268,48 @@ says only `at`'s four uses need it.
 1. **The small ones:** [[B132]]'s tests, and a variable that met only `Any` defaulted
    to `Any` at the end (Question 13); [[B26]], [[B28]] and [[B80]] decided in the spec,
    closed.
+
+   *Done.* As built:
+   - **`check.cdy`:** `unify` still binds nothing `Any` meets, but `mark-any` marks
+     each flexible variable in the other type, in the substitution under its name with
+     `any` before it (`any?4`; no variable is named so, and the substitution is only
+     looked up by name). `node-type` resolves with `final-type`: an unsolved variable
+     with a mark is `Any`, one without stays a `TVar`. A variable that met `Any` and is
+     solved later keeps the later type.
+   - **The translator's own Core:** its eight unsolved nodes (all `Any` meeting a
+     variable, [[B132]]) are `Any` now, none left; its Python is unchanged but for
+     renumbered temporaries, since an unsolved variable was written `Any` already.
+   - **Tests** (`tst/py_cdy/test_self_host.py`): `test_unsolved_types`, one case each,
+     the type in Core and its Python: met `Any` (`(List Any)`), met `Any` then `Int`
+     (`(Fn (Int) Int)`), a `fn` never called and an `empty-list` never added to (still
+     variables, Python `Any`); `test_every_node_is_typed` now also checks the
+     translator's Core has no unsolved variable (helpers `typed_core`, `unsolved`).
+   - **The spec:** [[checking.any]] states the defaulting (*Tested in* the two tests);
+     [[expr.logic]] the `Bool` result, with an errors table ([[B26]]); [[syntax.chars]]
+     `Char` its own type, with `=: expected Char, got String` ([[B28]]);
+     [[programs.top-level]] a `def` a constant, with `defined more than once` ([[B80]]).
+     `spec/20-types.md` (`types.sig`) and `mutation_optimization.md` (open question 4)
+     follow. All closed with no code change but the defaulting.
+   - **Bootstrap:** `bin` rebuilt (`boot/48`); nothing new the source may write.
+
+   The text replaced, verbatim. `spec/20-types.md` (`types.sig`), line 83:
+
+   ```text
+   defined once. No form changes a `def`'s value yet, so whether a `def` is a constant or a
+   variable is undefined (*for now*: `doc/hl_rqmt/mutation_optimization.md`, open question
+   4).
+   ```
+
+   `doc/hl_rqmt/mutation_optimization.md`, "Where the iMVP stands", line 10:
+
+   ```text
+   - **`def`'s mutability is undefined.** `candy-special.md` called it "not immutable... for
+     now", but no form changes a `def`'s value, and defining a name twice is an error, so a
+     `def` is neither a constant nor a variable yet (`spec/20-types.md` says it is open). It
+     becomes an issue once a form that changes a value arrives, or a target where the two
+     differ (a C constant, a JavaScript `const`): open question 4, and an item for the
+     backlog (`doc/hl_rqmt/tracking.md`).
+   ```
 2. **`show` and printing** ([[B36]]): the `List` and `Tup` constructors; `show`, `put`
    and `format` by type; the spec's examples print anything.
 3. **Equality** ([[B27]], [[B137]]): records and variants compared with their class;

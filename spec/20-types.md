@@ -80,9 +80,7 @@ annotation, and `mypy --strict` checks the translation. *Tested in*
 `(sig name Type)` gives a top-level name its type. Every top-level `def` and `defn` needs
 one, anywhere before its definition, one per name. `(def name init)` defines a value; the
 initial value is required. Both are top level only (`10-programs.md`), and a name is
-defined once. No form changes a `def`'s value yet, so whether a `def` is a constant or a
-variable is undefined (*for now*: `doc/hl_rqmt/mutation_optimization.md`, open question
-4).
+defined once. A `def` is a constant (*lasting*, [[programs.top-level]]).
 
 A top-level function can call one defined after it, but a value is only there once its
 `def` has run (forms run in order), so using it earlier fails at run time with Python's

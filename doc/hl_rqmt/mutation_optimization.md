@@ -8,12 +8,10 @@ design them out by accident. Nothing here is decided.
 
 ### Where the iMVP stands
 
-- **`def`'s mutability is undefined.** `candy-special.md` called it "not immutable... for
+- **`def`'s mutability (decided: a constant).** `candy-special.md` called it "not immutable... for
   now", but no form changes a `def`'s value, and defining a name twice is an error, so a
-  `def` is neither a constant nor a variable yet (`spec/20-types.md` says it is open). It
-  becomes an issue once a form that changes a value arrives, or a target where the two
-  differ (a C constant, a JavaScript `const`): open question 4, and an item for the
-  backlog (`doc/hl_rqmt/tracking.md`).
+  `def` was neither a constant nor a variable (open question 4); since `semantics` it
+  is a constant ([[programs.top-level]], [[B80]]).
 - `deft` records are immutable. They are Python `NamedTuple`s, and `assoc` returns a copy.
   Mutating a record (Carp's `set-x!`) is **skipped for the iMVP**.
 
@@ -39,7 +37,9 @@ design them out by accident. Nothing here is decided.
 3. Which targets constrain the answer? Python can do anything; C needs memory management.
 4. **Is a `def` a constant?** (the owner, 2026-10-25: "this will eventually be an issue...
    if it's undefined as either we should track it"). Today it is undefined: decide it
-   before any form changes a value, and say so in `spec/20-types.md`.
+   before any form changes a value, and say so in `spec/20-types.md`. **Answered
+   (2026-11-02, `semantics` step 1, [[B80]]): a constant,** *lasting*
+   ([[programs.top-level]]); a mutable cell, if one comes, is a form of its own.
 
 ## Optimization
 

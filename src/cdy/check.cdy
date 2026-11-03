@@ -689,7 +689,15 @@
 (sig node-type (Fn (CType St) CType))
 (defn node-type (t st)
   (let ((key (tvar-name t)))
-    (if (map-has (get st types) key) (resolve-type (map-get (get st types) key) (get st subst)) t)))
+    (if (map-has (get st types) key) (final-type (map-get (get st types) key) (get st subst)) t)))
+
+;; `t` resolved, a variable still unsolved that met `Any` (`mark-any`) as `Any`.
+(sig final-type (Fn (CType (Map String CType)) CType))
+(defn final-type (t subst)
+  (match (prune t subst)
+    ((TCon name args) (TCon name (map (fn (a) (final-type a subst)) args)))
+    ((TFn params ret) (TFn (map (fn (p) (final-type p subst)) params) (final-type ret subst)))
+    ((TVar name) (if (map-has subst (+ "any" name)) ANY (TVar name)))))
 
 ;; `top` with each node's type `(f t k)`, its old type and its number.
 (sig retype-top (Fn (Top (Fn (CType Int) CType)) Top))
@@ -817,7 +825,8 @@
   (let ((pa (prune a subst))
         (pb (prune b subst)))
     (cond
-      ((or (is-any pa) (is-any pb)) (tup true subst))
+      ((is-any pa) (tup true (mark-any pb subst)))
+      ((is-any pb) (tup true (mark-any pa subst)))
       ((is-var pa) (bind-var (tvar-name pa) pb subst))
       ((is-var pb) (bind-var (tvar-name pb) pa subst))
       (else
@@ -836,6 +845,17 @@
                     (if (at u 0) (unify ret bret (at u 1)) u))
                   (tup false subst)))
               (else (tup false subst)))))))))
+
+;; `Any` binds nothing it meets, but each variable it meets is marked, in the substitution
+;; under its name with `any` before it (no variable's name starts so): one still unsolved
+;; at the end is `Any` (`final-type`), as gradual inference defaults it; one that met
+;; nothing stays a variable.
+(sig mark-any (Fn (CType (Map String CType)) (Map String CType)))
+(defn mark-any (t subst)
+  (match (prune t subst)
+    ((TVar name) (if (is-flexible name) (map-set subst (+ "any" name) ANY) subst))
+    ((TCon _ args) (fold (fn (s a) (mark-any a s)) subst args))
+    ((TFn params ret) (mark-any ret (fold (fn (s p) (mark-any p s)) subst params)))))
 
 (sig unify-all (Fn ((List CType) (List CType) (Map String CType)) (Tup Bool (Map String CType))))
 (defn unify-all (xs ys subst)

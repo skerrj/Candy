@@ -81,7 +81,9 @@ yes no yes yes
 <a id="expr.logic"></a>
 `and` and `or` take two or more and short-circuit: they stop at the first argument that
 decides the result, and don't evaluate the rest, even when one needs statements first
-(a `do`, whose earlier forms run for effect). `not` takes one.
+(a `do`, whose earlier forms run for effect). `not` takes one. Their arguments are
+`Bool`s, so the result is a `Bool` (*lasting*): Python's `or`, which gives an operand,
+can't be seen.
 
 ```candy run
 (sig yes (Fn (Bool) String))
@@ -115,6 +117,11 @@ no
 out
   checking
 in
+```
+
+```candy errors
+(put (or 1 5)) => or: expected Bool, got Int
+(put (and true 5)) => and: expected Bool, got Int
 ```
 
 <a id="expr.operator-arity"></a>

@@ -17,7 +17,9 @@ one file), so the examples of `import` are the programs in `tst/cdy/cdyc/` (`imp
 ## Top level
 
 A program runs its top-level forms in order. The definitions (`sig`, `def`, `defn`,
-`deft`, `defmacro`) and the imports are allowed only at top level.
+`deft`, `defmacro`) and the imports are allowed only at top level. A `def` is a
+constant (*lasting*): it is defined once and no form changes it; a mutable cell, if one
+comes, will be a form of its own.
 
 ```candy run
 (put "first")
@@ -37,6 +39,7 @@ first
 (put (do (deft T (A)))) => deft is only allowed at top level
 (put (do (defmacro m (a) a))) => defmacro is only allowed at top level
 (put (do (import x))) => import is only allowed at top level
+(sig x Int) (def x 1) (def x 2) => defined more than once: x
 ```
 
 <a id="programs.main"></a>
