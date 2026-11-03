@@ -394,6 +394,29 @@ says only `at`'s four uses need it.
    ```
 3. **Equality** ([[B27]], [[B137]]): records and variants compared with their class;
    `=` on a function an error.
+
+   *Done.* As built:
+   - **`emit.cdy`:** every record and variant class gets `eq-methods`: `__eq__`
+     (`type(self) is type(other) and tuple.__eq__(self, other)`), `__ne__` and
+     `__hash__` (the class with the fields), in its body, so Python's own `==` is
+     Candy's `=` everywhere: in `=`, `contains`, `index-of`, and a map's keys. A variant
+     with no fields no longer needs `pass`. Every class gets them: a class without
+     would still compare as a tuple from its side (`B(1) == A(1)`, checked on Python
+     3.14 for Question 12).
+   - **`check.cdy`:** a comparison whose type is, or holds, a function (`has-fn`: a list
+     of functions too) is an error at the call, `=: a function can't be compared, got
+     (Fn (Int) Int)`; a function inside a record isn't seen ([[B150]], noted).
+   - **Found:** the orderings (`<` and the rest) take any one type, so records, lists
+     and `Bool`s order as Python's tuples and `nil` fails when run ([[B153]], a leak).
+     mypy refuses `(= (List (A 1)) (List (B 1)))` written with literals (`tuple[A]`
+     against `tuple[B]`, non-overlapping), though Candy types both `(List S)`; a typed
+     value doesn't meet it, so it stays mypy's (the second check, [[B125]]).
+   - **The spec:** [[expr.equality]] (new, after [[expr.comparisons]]), with
+     [[B137]]'s repro as its `(= a (B 1))` (the repro is kept in B137's note) and the
+     errors. [[B27]] and [[B137]] done; [[B29]] noted (equality was one of its
+     consequences; the rest stays).
+   - **Bootstrap:** `bin` rebuilt, one step; the translator's own classes get the
+     methods too.
 4. **`Maybe` a sum, missing values gone** ([[B20]], [[B21]]): the prelude's `Maybe`,
    the checker's rules out, `if`/`cond` without `else` only for `Unit`.
 5. **Narrowing and field constraints** ([[B121]], [[B120]]).

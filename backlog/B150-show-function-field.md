@@ -24,3 +24,7 @@ fields (the `deft`s are in `emit`'s input), as far as the type's own recursion a
 ```expect-error
 show: a function can't be shown
 ```
+
+## Notes
+
+- 2026-11-02, Claude: semantics step 3: `=` likewise: the checker refuses comparing a function, or a type holding one (`has-fn`), but doesn't look into a record's fields, so a record with a function field compares its functions by identity, as Python does.

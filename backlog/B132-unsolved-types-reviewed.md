@@ -29,4 +29,5 @@ cutting `Any` down ([[B18]], `semantics`).
   (Question 3). Done in `semantics`' step 1, with this item's tests.
 
 ## Notes
+
 - 2026-11-02, Claude: semantics step 1: `test_unsolved_types` covers each case (its type in Core and its Python); `test_every_node_is_typed` now checks the translator's own Core has no unsolved variable (the eight are `Any` since `Any` defaults a variable it met). [[checking.any]].

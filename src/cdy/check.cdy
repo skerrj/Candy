@@ -483,7 +483,11 @@
         (let ((one (join-all types name ctx (Res (at types 0) st1)))
               (t1 (prune (get one t) (get (get one st) subst))))
           (cond
-            ((in name (tup "=" "!=" "<" ">" "<=" ">=")) (Res (tcon "Bool") (get one st)))
+            ((in name (tup "=" "!=" "<" ">" "<=" ">="))
+              (Res (tcon "Bool")
+                (if (has-fn t1 (get (get one st) subst))
+                  (report (format "{name}: a function can't be compared, got {(show t1 (get (get one st) subst))}") ctx (get one st))
+                  (get one st))))
             ((= name "+")
               (Res t1
                 (if (= (tcon-name t1) "List")
@@ -491,6 +495,15 @@
                   (needs-kind t1 (+ NUMBERS (to-list "String")) "a number, String or a list" name ctx (get one st)))))
             ((= name "/") (Res (tcon "Double") (needs-kind t1 NUMBERS "a number" name ctx (get one st))))
             (else (Res t1 (needs-kind t1 NUMBERS "a number" name ctx (get one st))))))))))
+
+;; Whether `t` is, or holds, a function type (a list of them, say); a record's fields
+;; aren't looked into (B150).
+(sig has-fn (Fn (CType (Map String CType)) Bool))
+(defn has-fn (t subst)
+  (match (prune t subst)
+    ((TFn _ _) true)
+    ((TCon _ args) (any (fn (a) (has-fn a subst)) args))
+    (else false)))
 
 ;; Report unless `t` is one of `names`, Any, or not known yet.
 (sig needs-kind (Fn (CType (List String) String String Ctx St) St))

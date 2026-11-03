@@ -78,6 +78,35 @@ The comparisons, `=`, `!=`, `<`, `>`, `<=` and `>=`, take two or more and chain:
 yes no yes yes
 ```
 
+<a id="expr.equality"></a>
+`=` and `!=` compare two values of one type ([[checking.operators]]) by their structure,
+*lasting*: two lists with equal items, two tuples, two records of one type with equal
+fields, two maps with equal pairs; two variants only if they are the same variant, with
+equal fields. `Float`s and `Double`s compare as IEEE 754 does (`0.0` is `-0.0`).
+Functions can't be compared, nor values holding one (a list of functions): an error when
+translated (a function inside a record isn't seen yet: [[B150]]). Ordering (`<` and the
+rest) on anything but numbers and strings is Python's, *for now* ([[B153]]).
+
+```candy run
+(deft S (A ((x Int))) (B ((x Int))) (C))
+(deft V ((x Int) (y Int)))
+(sig a S)
+(def a (A 1))
+(put (= a (A 1)) (= a (B 1)) (!= a (B 1)) (= C C) (= (V 1 2) (V 1 2)) (= (V 1 2) (V 2 1)))
+(put (= (List 1 2) (List 1 2)) (= (Tup 1 "a") (Tup 1 "b")) (= 0.0 -0.0))
+(put (contains (B 1) (List a (B 1))) (map-get (map-from (List (Tup a "a") (Tup (B 1) "b"))) (B 1)))
+```
+```expect
+true false true true true false
+true false true
+true b
+```
+
+```candy errors
+(sig f (Fn (Int) Int)) (defn f (n) n) (put (= f f)) => =: a function can't be compared, got (Fn (Int) Int)
+(sig fs (List (Fn (Int) Int))) (def fs empty-list) (put (!= fs fs)) => !=: a function can't be compared
+```
+
 <a id="expr.logic"></a>
 `and` and `or` take two or more and short-circuit: they stop at the first argument that
 decides the result, and don't evaluate the rest, even when one needs statements first

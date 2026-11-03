@@ -528,6 +528,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
            (line level
              (format "class {(map-get (get env globals) name)}{(type-params tvars)}(_cdy_NamedTuple):"))
            (emit-record-fields fields (+ level 1) env "")
+           (eq-methods (+ level 1))
            (register-line name (own-name name) tvars fields level env))))
     ((SSum name tvars variants)
       (+ (emit-variants name variants tvars level env "")
@@ -617,6 +618,19 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     acc
     (mangle-all (rest names) (+ acc (to-list (py-mangle (at names 0)))))))
 
+;; A record's or variant's equality (spec/40-expressions.md, expr.equality): a NamedTuple
+;; compares as a plain tuple, so two variants with equal fields would be equal (B137);
+;; these compare the class too, and hash it, so Python's own == (in `in`, `index-of`, a
+;; map's keys) is Candy's `=`.
+(sig eq-methods (Fn (Int) String))
+(defn eq-methods (level)
+  (+ (line level "def __eq__(self, other: object) -> bool:")
+     (line (+ level 1) "return type(self) is type(other) and tuple.__eq__(self, other)")
+     (line level "def __ne__(self, other: object) -> bool:")
+     (line (+ level 1) "return not self == other")
+     (line level "def __hash__(self) -> int:")
+     (line (+ level 1) "return hash((type(self), tuple(self)))")))
+
 (sig emit-record-fields (Fn ((List (Tup String CType)) Int Env String) String))
 (defn emit-record-fields (fields level env acc)
   (if (= (len fields) 0)
@@ -668,7 +682,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn variant-tvars (v tvars)
   (used-tvars tvars (type-vars (field-types (get v fields) empty-list) empty-list) empty-list))
 
-;; One NamedTuple class per variant; a variant with no fields gets `pass`.
+;; One NamedTuple class per variant, its fields and `eq-methods`.
 (sig emit-variants (Fn (String (List Variant) (List String) Int Env String) String))
 (defn emit-variants (sum variants tvars level env acc)
   (if (= (len variants) 0)
@@ -676,9 +690,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     (let ((v (at variants 0))
           (checked (check-py-fields (format "deft {(candy-name sum)}, variant {(own-name (get v name))}") (get v fields) empty-map))
           (head (format "class {(map-get (get env globals) (get v name))}{(type-params (variant-tvars v tvars))}(_cdy_NamedTuple):"))
-          (body (if (= (len (get v fields)) 0)
-                  (line (+ level 1) "pass")
-                  (emit-record-fields (get v fields) (+ level 1) env "")))
+          (body (+ (emit-record-fields (get v fields) (+ level 1) env "") (eq-methods (+ level 1))))
           (register (register-line (get v name) (own-name (get v name)) tvars (get v fields) level env)))
       (emit-variants sum (rest variants) tvars level env (+ acc "\n" (line level head) body register)))))
 
