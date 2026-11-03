@@ -312,6 +312,86 @@ says only `at`'s four uses need it.
    ```
 2. **`show` and printing** ([[B36]]): the `List` and `Tup` constructors; `show`, `put`
    and `format` by type; the spec's examples print anything.
+
+   *Done.* As built:
+   - **Constructors** (`core.cdy`): `List` and `Tup` aren't in `special.cdy`, since a
+     built-in type's name is in the built-ins as a type (one map); `analyse-list` treats
+     the names in `BUILTIN_CONSTRUCTORS` (unless a local) as forms. `(Tup ...)` is
+     `tup`'s form (and pattern); `(List ...)` is a new Core node, `ListOf`, which
+     `check.cdy` types as a `(List t)` with each item a `t` (`infer-list-of`: `List: an
+     item: expected Int, got String`) and `lower` turns into a `Tuple`, so `emit` never
+     sees one (it says so, for `match`'s exhaustiveness).
+   - **`show`** (`system.cdy`: `(sig show (Fn (a) String))`; runtime `show`): `emit`
+     writes the value's type for the runtime, from the node's type (`show-type`: `"Int"`,
+     `("List", "Int")`), and the runtime shows it. A function, or a type variable (rigid,
+     or an unsolved `?N`), is an error when translated, at the call or the `format`;
+     `Any` is the runtime's `show_any`. Each record and variant class is registered
+     after its definition (`cdy_rt.primitives.register_type(Box, "Box", ("a",),
+     ("'a",))`: its Candy name, its type's type variables, its fields' types), so the
+     runtime shows records, generic and recursive ones too, by their class; mypy refuses
+     class attributes in a `NamedTuple`'s body, hence a registry. A function inside a
+     record is found only when run ([[B150]]); a float with no literal (`1e+20`) is
+     Python's `repr` ([[B151]]). `show` as a value is a `lambda` over its type.
+   - **`put` and `format`:** `emit-text` writes a `String` or `Char` as it is, an `Int`
+     with `str` (in `put`, as it is), a value typed `Any` with `text_any` (its text if
+     it is a string), and shows the rest. `print` and `display` (unused aliases) are
+     `put`'s.
+   - **The translator's own holes:** none is a type variable (Question 3's count is 0);
+     3 call `show` (two `Double`s in `emit-lit`, and `show-call`'s own text), 26 call
+     `text_any`, on values that are strings when run. `emit-lit` wrote a `Bool` literal
+     with `(format "{v}")`, Python's `True`, which the new `show` made `true`: it writes
+     `True` and `False` itself now, which the old `bin` reads the same, so no two-step
+     bootstrap. `lower`'s sequence temporaries keep their value's type (they were
+     `Any`, which would have shown values from Python).
+   - **Tests:** the runtime's `show` (`tst/cdy_rt/test_primitives.py`: each type,
+     records, `Any`); the outputs that changed, as decided (`true`, `1500l`, `(Tup "one"
+     1)`, `(Some 7)`, read values as `(List ...)` from `Any`): `basics`, `forms_1b`,
+     `read_sexpr`, `macro_files`, `macros`, and `macro_code/quoting`;
+     `test_unsolved_types` no longer `put`s its unsolved list (an error now).
+   - **The spec:** [[library.show]] (new, with errors: a function, a type variable,
+     `(put empty-list)`); [[types.constructors]] (new); [[types.tuples]] (`Tup`, `tup`
+     *for now*, [[B152]]); [[checking.tup-lists]]; [[library.lists]]'s example prints
+     lists and `Bool`s itself, its own `show` and `yes` gone; [[library.format]]; the
+     literals example (`syntax.literals`) prints `1500l 1b` and `3.14f`; `spec/README.md`
+     drops "output is numbers and text".
+   - **Bootstrap:** `bin` rebuilt with the new library next to the old `bin` (the
+     staging the chain does), one step.
+
+   The text replaced, verbatim. `spec/README.md`, line 56:
+
+   ```text
+   **Output is numbers and text** (*for now*): an example prints numbers, and strings it
+   builds with `format`, never a raw list, `Bool`, `nil` or record, since those print the way
+   Python prints them ([[B36]]; `doc/hl_rqmt/executable_spec.md`, question 12).
+   ```
+
+   `spec/60-library.md`, the head (line 10) and `library.lists`'s example (line 22):
+
+   ```text
+   them. The examples print lists and `Bool`s through small helpers, since a list or a `Bool`
+   prints the way Python prints it (*for now*: `spec/README.md`).
+
+   (sig show (Fn ((List Int)) String))
+   (defn show (xs) (+ "[" (join (map (fn (n) (format "{n}")) xs) " ") "]"))
+   (sig yes (Fn (Bool) String))
+   (defn yes (b) (if b "yes" "no"))
+   ...
+   [1 2 3 4 5] []
+   [1 4 9 16 25] [3 4 5]
+   ```
+
+   `spec/20-types.md` (`types.tuples`), line 169, and `spec/25-checking.md`
+   (`checking.tup-lists`):
+
+   ```text
+   `(tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`. `at`
+   reads an item by its position, from 0, and `len` is its size. A tuple is taken apart with
+   a `tup` pattern, in `match` or a `let` binding (`30-match.md`).
+
+   A `(Tup t ...)` whose items are all `t`s is accepted where a `(List t)` is expected, so
+   `tup` writes a list (*for now*: Candy has no list literal, and a tuple is a list in
+   Python, [[B29]]).
+   ```
 3. **Equality** ([[B27]], [[B137]]): records and variants compared with their class;
    `=` on a function an error.
 4. **`Maybe` a sum, missing values gone** ([[B20]], [[B21]]): the prelude's `Maybe`,

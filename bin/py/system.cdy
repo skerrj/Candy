@@ -41,6 +41,9 @@
 (sig print Any)
 (sig display Any)
 (sig put Any)
+;; A value as an expression that evaluates to it, by its type (spec/60-library.md,
+;; library.show); emit writes the type for the runtime.
+(sig show (Fn (a) String))
 
 ;; --- files ---
 (sig put-err (Fn (String) Unit))

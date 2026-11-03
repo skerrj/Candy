@@ -79,8 +79,8 @@ A literal must end at a delimiter: whitespace, a parenthesis, `;`, or the end of
 (put (if true 1 0) (if false 1 0))
 ```
 ```expect
-100 -7 1500 1
-10.0 -0.5 3.14
+100 -7 1500l 1b
+10.0 -0.5 3.14f
 1 0
 ```
 

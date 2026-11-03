@@ -94,6 +94,10 @@
       ((Tuple items pos ty)
         (let (((stmts vals n1) (value-seq items n)))
           (Low stmts (Tuple vals pos ty) n1)))
+      ;; A list is a Python tuple, as a Tup is.
+      ((ListOf items pos ty)
+        (let (((stmts vals n1) (value-seq items n)))
+          (Low stmts (Tuple vals pos ty) n1)))
       ((Fmt parts pos ty)
         (let (((stmts vals n1) (value-seq (holes parts empty-list) n)))
           (Low stmts (Fmt (fill-holes parts vals empty-list) pos ty) n1)))
@@ -277,8 +281,8 @@
         (seq-build
           later
           (+ n 1)
-          (+ stmts (get low stmts) (to-list (SAssign (Temp n ANY) (get low expr))))
-          (+ out (to-list (Temp n ANY))))
+          (+ stmts (get low stmts) (to-list (SAssign (Temp n (get (get low expr) t)) (get low expr))))
+          (+ out (to-list (Temp n (get (get low expr) t)))))
         (seq-build later n (+ stmts (get low stmts)) (+ out (to-list (get low expr))))))))
 
 (sig value-if (Fn (Expr Expr Expr Pos CType Int) Low))
@@ -572,6 +576,7 @@
     ((If test then other _ _) (or (has-lambda test) (has-lambda then) (has-lambda other)))
     ((Do body _ _) (any-lambda body))
     ((Tuple items _ _) (any-lambda items))
+    ((ListOf items _ _) (any-lambda items))
     ((Fmt parts _ _) (any-lambda (holes parts empty-list)))
     ((Field obj _ _ _) (has-lambda obj))
     ((Assoc obj fields _ _) (or (has-lambda obj) (any-lambda (field-vals fields empty-list))))

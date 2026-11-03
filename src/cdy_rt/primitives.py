@@ -27,6 +27,154 @@ from typing import Any, NoReturn, cast
 # Where ``slurp`` looks for a Candy file that isn't found at the given path.
 SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 
+# --- showing values (spec/60-library.md, library.show) ---
+
+# A type as ``show`` reads it, written by the translator from the value's static type: a
+# type's name (``"Int"``), or a tuple of the name and its arguments (``("List", "Int")``);
+# in a record's field types, ``"'a"`` is its type variable ``a``.
+type ShowType = str | tuple[ShowType, ...]
+
+# Each record's and variant's class: its Candy name, the type variables of its type (a
+# variant's are its sum's), and its fields' types, registered by the translated program.
+_TYPES: dict[type, tuple[str, tuple[str, ...], tuple[ShowType, ...]]] = {}
+
+_ESCAPES = {
+    '"': '\\"',
+    "\\": "\\\\",
+    "\b": "\\b",
+    "\f": "\\f",
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+}
+
+
+def register_type(
+    cls: type, name: str, tvars: tuple[str, ...], fields: tuple[ShowType, ...]
+) -> None:
+    """Register a record's or variant's class for ``show``."""
+    _TYPES[cls] = (name, tvars, fields)
+
+
+def show(value: Any, ty: ShowType) -> str:
+    """``value``, of Candy type ``ty``, as an expression that evaluates to it: a literal,
+    or a constructor applied to its parts. (``value`` is ``Any``, not ``object``, so that
+    mypy infers the type of a call passed as ``value`` from its own arguments.)"""
+    name, args = (ty, ()) if isinstance(ty, str) else (cast(str, ty[0]), ty[1:])
+    literal = _SHOW_LITERAL.get(name)
+    if literal is not None:
+        return literal(value)
+    return _SHOW_BUILT.get(name, show_record)(value, args)
+
+
+def show_list(value: Sequence[object], args: tuple[ShowType, ...]) -> str:
+    """A list, ``(List item ...)``."""
+    return show_items("List", [show(x, args[0]) for x in value])
+
+
+def show_tup(value: Sequence[object], args: tuple[ShowType, ...]) -> str:
+    """A tuple, ``(Tup item ...)``, each item of its own type."""
+    return show_items("Tup", [show(x, t) for x, t in zip(value, args, strict=True)])
+
+
+def show_map(value: Mapping[object, object], args: tuple[ShowType, ...]) -> str:
+    """A map, ``(Map (Tup key value) ...)`` (*for now*, until a map literal)."""
+    pairs = [f"(Tup {show(k, args[0])} {show(v, args[1])})" for k, v in value.items()]
+    return show_items("Map", pairs)
+
+
+def show_maybe(value: object, args: tuple[ShowType, ...]) -> str:
+    """A ``(Maybe t)``, still Python's ``t | None``: ``(Some x)`` or ``None``."""
+    return "None" if value is None else f"(Some {show(value, args[0])})"
+
+
+def show_fn(_value: object, _args: tuple[ShowType, ...]) -> str:
+    """A function, which can't be shown (a field's: the translator refuses the rest)."""
+    raise CandyFail("show: a function can't be shown")
+
+
+def show_record(value: object, args: tuple[ShowType, ...]) -> str:
+    """A record or variant, as its constructor applied to its fields."""
+    name, tvars, fields = _TYPES[type(value)]
+    if not fields:
+        return name
+    subst = dict(zip(tvars, args, strict=False))
+    items = cast(Sequence[object], value)
+    return show_items(name, [show(x, bind(t, subst)) for x, t in zip(items, fields, strict=True)])
+
+
+def bind(ty: ShowType, subst: Mapping[str, ShowType]) -> ShowType:
+    """``ty`` with its type variables (``"'a"``) replaced by ``subst``'s types (``Any``
+    for one ``subst`` lacks)."""
+    if isinstance(ty, str):
+        return subst.get(ty[1:], "Any") if ty.startswith("'") else ty
+    return tuple(bind(t, subst) for t in ty)
+
+
+def show_items(head: str, items: Sequence[str]) -> str:
+    """``(head item ...)``."""
+    return "(" + " ".join((head, *items)) + ")"
+
+
+def show_float(x: float) -> str:
+    """A float as Candy writes it, digits on both sides of its ``.`` (Python's ``repr``
+    where Candy has no literal: ``1e+20``, ``inf``)."""
+    return repr(x)
+
+
+def show_string(text: str) -> str:
+    """A string literal: quoted, with Candy's escapes (spec/00-syntax.md, syntax.strings)."""
+    out = [_ESCAPES.get(c, c if c >= " " else f"\\u{ord(c):04x}") for c in text]
+    return '"' + "".join(out) + '"'
+
+
+def show_any(value: object) -> str:
+    """A value whose Candy type is ``Any``, shown from its Python value: exact but for a
+    ``Char`` (shown as a ``String``), a ``Long`` or ``Byte`` (as an ``Int``), a ``Float``
+    (as a ``Double``), a ``Tup`` (as a ``List``), and a missing value (as ``nil``)."""
+    if value is None:
+        return "nil"
+    if type(value) in _TYPES:
+        return show_record(value, ())
+    for py, ty in _ANY_TYPES:  # bool before int: a bool is an int in Python
+        if isinstance(value, py):
+            return show(value, ty)
+    return show(value, ("List", "Any")) if isinstance(value, tuple) else repr(value)
+
+
+def text_any(value: Any) -> str:
+    """A value of type ``Any`` as ``put`` and ``format`` write it: a string as its text."""
+    return value if isinstance(value, str) else show_any(value)
+
+
+# How ``show`` writes each built-in type without parts, and each with them.
+_SHOW_LITERAL: dict[str, Callable[[Any], str]] = {
+    "Int": str,
+    "Long": lambda x: f"{x}l",
+    "Byte": lambda x: f"{x}b",
+    "Float": lambda x: show_float(x) + "f",
+    "Double": show_float,
+    "Bool": lambda x: "true" if x else "false",
+    "Unit": lambda _: "nil",
+    "Char": lambda x: "\\" + x,
+    "String": show_string,
+    "Any": show_any,
+}
+_ANY_TYPES: tuple[tuple[type, ShowType], ...] = (
+    (bool, "Bool"),
+    (int, "Int"),
+    (float, "Double"),
+    (str, "String"),
+    (dict, ("Map", "Any", "Any")),
+)
+_SHOW_BUILT: dict[str, Callable[[Any, tuple[ShowType, ...]], str]] = {
+    "List": show_list,
+    "Tup": show_tup,
+    "Map": show_map,
+    "Maybe": show_maybe,
+    "Fn": show_fn,
+}
+
 # --- collections ---
 
 

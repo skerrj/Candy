@@ -117,6 +117,7 @@ IO: Spellings = {
     "print": call("print"),
     "display": call("print"),
     "put": call("print"),
+    "show": primitive("show"),
     "put-err": primitive("put_err"),
     "file-put-lines": primitive("file_put_lines"),
     "slurp": primitive("slurp"),

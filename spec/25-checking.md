@@ -149,8 +149,8 @@ an error.
 ## Tuples as lists
 
 A `(Tup t ...)` whose items are all `t`s is accepted where a `(List t)` is expected, so
-`tup` writes a list (*for now*: Candy has no list literal, and a tuple is a list in
-Python, [[B29]]).
+`tup` writes a list too (*for now*: a tuple is a list in Python, [[B29]]); `(List
+item*)` writes one directly, its items one type ([[types.constructors]]).
 
 ```candy run
 (sig names (List String))

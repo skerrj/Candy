@@ -166,9 +166,11 @@ the types ([[checking.records]]).
 <a id="types.tuples"></a>
 ## Tuples
 
-`(tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`. `at`
-reads an item by its position, from 0, and `len` is its size. A tuple is taken apart with
-a `tup` pattern, in `match` or a `let` binding (`30-match.md`).
+`(Tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`
+([[types.constructors]]); `tup` is the same (*for now*, the name the translator's own
+code uses). `at` reads an item by its position, from 0, and `len` is its size. A tuple
+is taken apart with a `Tup` (or `tup`) pattern, in `match` or a `let` binding
+(`30-match.md`).
 
 ```candy run
 (sig p (Tup Int String Int))
@@ -181,4 +183,32 @@ two 3
 
 ```candy errors
 (put (tup)) => at least one item
+(put (Tup)) => at least one item
+```
+
+<a id="types.constructors"></a>
+## Constructors
+
+A type's name is its constructor, *lasting*: a record's or variant's, taking its fields
+in order ([[types.records]], [[match.sum-types]]), and the built-in types' too. `(List
+item*)` is a list, its items one type (`(List)` is empty), and `(Tup item+)` a tuple. A
+value is shown as its constructor applied to its parts ([[library.show]]). Literals for
+the collections, as sugar over these, are for later (`doc/hl_rqmt/python_complete.md`,
+`collections`).
+
+```candy run
+(sig xs (List Int))
+(def xs (List 1 2 3))
+(sig e (List String))
+(def e (List))
+(put xs e (len xs) (List (List 1) (List)))
+(put (Tup 1 "a") (match (Tup 2 "b") ((Tup n s) (+ n 1))))
+```
+```expect
+(List 1 2 3) (List) 3 (List (List 1) (List))
+(Tup 1 "a") 3
+```
+
+```candy errors
+(put (List 1 "a")) => List: an item: expected Int, got String
 ```

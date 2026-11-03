@@ -445,7 +445,7 @@ UNSOLVED = """\
         (met-later (fn (x) x))
         (never-called (fn (y) y))
         (never-added empty-list))
-    (do (met-later a) (put never-added) (+ (met-later 1) 1))))
+    (do (met-later a) never-added (+ (met-later 1) 1))))
 (put (f nil))
 """
 

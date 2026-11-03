@@ -1,6 +1,7 @@
 """Tests for the primitives in ``cdy_rt.primitives``."""
 
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 
@@ -33,10 +34,14 @@ from cdy_rt.primitives import (
     path_resolve,
     path_stem,
     put_err,
+    register_type,
     replace,
     run_main,
+    show,
+    show_any,
     slice_,
     spit,
+    text_any,
     to_float,
     to_list,
 )
@@ -166,3 +171,55 @@ def test_list_functions() -> None:
     assert list_filter(lambda n: n % 2 == 1, (1, 2, 3)) == (1, 3)
     assert list_fold(lambda acc, s: acc + s, "", ("a", "b")) == "ab"
     assert not list_map(str, ())
+
+
+@pytest.mark.parametrize(
+    ("value", "ty", "shown"),
+    [
+        (3, "Int", "3"),
+        (3, "Long", "3l"),
+        (3, "Byte", "3b"),
+        (2.5, "Float", "2.5f"),
+        (10.0, "Double", "10.0"),
+        (False, "Bool", "false"),
+        (None, "Unit", "nil"),
+        ("a", "Char", "\\a"),
+        ('say "hi"\\\n\x01', "String", '"say \\"hi\\"\\\\\\n\\u0001"'),
+        ((1, 2), ("List", "Int"), "(List 1 2)"),
+        ((), ("List", "Int"), "(List)"),
+        ((1, "a"), ("Tup", "Int", "String"), '(Tup 1 "a")'),
+        ({"k": 1}, ("Map", "String", "Int"), '(Map (Tup "k" 1))'),
+        (None, ("Maybe", "Int"), "None"),
+        (3, ("Maybe", "Long"), "(Some 3l)"),
+    ],
+)
+def test_show(value: object, ty: str | tuple[str, ...], shown: str) -> None:
+    assert show(value, ty) == shown
+
+
+class Box(NamedTuple):
+    """A record as a translated program writes one: ``(deft (Box a) ((item a)))``."""
+
+    item: object
+
+
+class Empty(NamedTuple):
+    """A variant with no fields."""
+
+
+def test_show_records() -> None:
+    register_type(Box, "Box", ("a",), ("'a",))
+    register_type(Empty, "Empty", (), ())
+    assert show(Box(3), ("Box", "Long")) == "(Box 3l)"
+    assert show(Box(Box(Empty())), ("Box", ("Box", "Empty"))) == "(Box (Box Empty))"
+    assert show_any(Box("x")) == '(Box "x")'  # its type variable unknown: Any
+
+
+def test_show_any() -> None:
+    assert show_any((1, "a", True, None, 2.0, {"k": (3,)})) == (
+        '(List 1 "a" true nil 2.0 (Map (Tup "k" (List 3))))'
+    )
+    assert text_any("text") == "text"
+    assert text_any(("text",)) == '(List "text")'
+    with pytest.raises(CandyFail, match="show: a function can't be shown"):
+        show(len, "Fn")
