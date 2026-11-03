@@ -419,6 +419,42 @@ says only `at`'s four uses need it.
      methods too.
 4. **`Maybe` a sum, missing values gone** ([[B20]], [[B21]]): the prelude's `Maybe`,
    the checker's rules out, `if`/`cond` without `else` only for `Unit`.
+
+   *Done.* As built:
+   - **`prelude.cdy`:** `(deft (Maybe a) (Some ((v a))) (None))`, and `find`, `index-of`
+     and `with-default` on it, in Candy, over two new built-ins that give `-1` for none,
+     `find-index` and `elem-index` (`system.cdy`; `list_find_index` and
+     `list_elem_index` in `primitives.py`). `system.cdy`'s `(deft (Maybe a))`, the three
+     old `sig`s, their spellings, `with_default` and `show_maybe` are gone: a `Maybe` is
+     shown as any variant, `(Some 4)`.
+   - **`check.cdy`:** the `Maybe` rules out (`maybe-arg`, `as-maybe`, `is-unit`, and
+     `join-types`' `Unit` and `Maybe` branches): `accepts` is a `Tup` of `t`s as a
+     `(List t)`, else unification. An `if` whose `else` is missing (`is-missing-else`:
+     the `nil` analysis writes, at `NOWHERE`) has a `Unit` then, `if: with no else, the
+     then is Int, not Unit`. A `cond` with no `else` expands to a written `nil`, so its
+     error is `if: the branches are Int and Unit`, a defect the owner doesn't take as minor
+     ([[B155]]; noted in [[B138]]).
+   - **`emit.cdy`:** a generic variant's `match` bindings are annotated with their type
+     (`v: a = t0.v`), as mypy narrows an `isinstance` on a `Maybe[a]` to `Some[Any]`.
+   - **Found:** [[B154]], a defect from before the branch: one module's locals could be
+     spelled as another's in a top-level function (the prelude's `rest` read `v` for its
+     `xs`), since `python-of` kept every module's locals in one map. Fixed: `emit-func`
+     starts from an empty map.
+   - **The spec:** [[checking.if]], [[checking.maybe]], [[expr.conditionals]] and
+     [[expr.unit]] rewritten (their old text is in [[B20]]'s and [[B21]]'s notes),
+     [[library.maybe]] new, `spec/20-types.md`'s `Maybe` row and [[library.lists]] (in
+     [[B20]]'s note). [[programs.prelude]] said, before (now: `rest`, `map-update`, and
+     `Maybe` with `find`, `index-of` and `with-default`):
+
+     ```text
+     on the built-ins (declared in `src/cdy/system.cdy`), `rest` and `map-update` so far.
+     ```
+   - **Tests:** `test_primitives`' two `Maybe` rows of `test_show` dropped (`(None,
+     ("Maybe", "Int"), "None")` and `(3, ("Maybe", "Long"), "(Some 3l)")`), the spec
+     covering them; `test_unsolved_types` names an unsolved variable `tN`, as its number
+     depends on the prelude; `macros.cdy`'s value `when` dropped (kept in [[B138]]'s
+     note). [[B20]] and [[B21]] done.
+   - **Bootstrap:** `bin` rebuilt, one step; the translator used neither.
 5. **Narrowing and field constraints** ([[B121]], [[B120]]).
 6. **Numbers** ([[B23]], [[B22]]): `/` on floats, `mod`, literal ranges.
 7. **`at` and `slice`** ([[B35]], [[B71]]): bounds checked, in two boot steps.

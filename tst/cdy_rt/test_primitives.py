@@ -189,8 +189,6 @@ def test_list_functions() -> None:
         ((), ("List", "Int"), "(List)"),
         ((1, "a"), ("Tup", "Int", "String"), '(Tup 1 "a")'),
         ({"k": 1}, ("Map", "String", "Int"), '(Map (Tup "k" 1))'),
-        (None, ("Maybe", "Int"), "None"),
-        (3, ("Maybe", "Long"), "(Some 3l)"),
     ],
 )
 def test_show(value: object, ty: str | tuple[str, ...], shown: str) -> None:

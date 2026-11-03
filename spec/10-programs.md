@@ -74,7 +74,8 @@ main: 0 argument(s)
 ## The prelude (since `system-prelude`)
 
 Every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: what is built
-on the built-ins (declared in `src/cdy/system.cdy`), `rest` and `map-update` so far.
+on the built-ins (declared in `src/cdy/system.cdy`): `rest`, `map-update`, and `Maybe`
+with `find`, `index-of` and `with-default` ([[library.maybe]]).
 Macro code doesn't get it ([[B52]]). A file's own definition of a
 prelude or built-in name wins over it; a module the file imports that defines one is a
 clash, as between any two imports.

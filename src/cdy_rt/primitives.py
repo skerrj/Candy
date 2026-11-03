@@ -83,11 +83,6 @@ def show_map(value: Mapping[object, object], args: tuple[ShowType, ...]) -> str:
     return show_items("Map", pairs)
 
 
-def show_maybe(value: object, args: tuple[ShowType, ...]) -> str:
-    """A ``(Maybe t)``, still Python's ``t | None``: ``(Some x)`` or ``None``."""
-    return "None" if value is None else f"(Some {show(value, args[0])})"
-
-
 def show_fn(_value: object, _args: tuple[ShowType, ...]) -> str:
     """A function, which can't be shown (a field's: the translator refuses the rest)."""
     raise CandyFail("show: a function can't be shown")
@@ -171,7 +166,6 @@ _SHOW_BUILT: dict[str, Callable[[Any, tuple[ShowType, ...]], str]] = {
     "List": show_list,
     "Tup": show_tup,
     "Map": show_map,
-    "Maybe": show_maybe,
     "Fn": show_fn,
 }
 
@@ -258,9 +252,9 @@ def list_all[A](pred: Callable[[A], bool], xs: Sequence[A]) -> bool:
     return all(pred(x) for x in xs)
 
 
-def list_find[A](pred: Callable[[A], bool], xs: Sequence[A]) -> A | None:
-    """The first item of ``xs`` that ``pred`` is true of, or ``None``."""
-    return next((x for x in xs if pred(x)), None)
+def list_find_index[A](pred: Callable[[A], bool], xs: Sequence[A]) -> int:
+    """The index of the first item of ``xs`` that ``pred`` is true of, or -1."""
+    return next((i for i, x in enumerate(xs) if pred(x)), -1)
 
 
 def list_reverse[A](xs: Sequence[A]) -> tuple[A, ...]:
@@ -293,9 +287,9 @@ def list_zip[A, B](xs: Sequence[A], ys: Sequence[B]) -> tuple[tuple[A, B], ...]:
     return tuple(zip(xs, ys, strict=False))
 
 
-def list_index_of[A](x: A, xs: Sequence[A]) -> int | None:
-    """The index of the first item of ``xs`` equal to ``x``, or ``None``."""
-    return next((i for i, y in enumerate(xs) if y == x), None)
+def list_elem_index[A](x: A, xs: Sequence[A]) -> int:
+    """The index of the first item of ``xs`` equal to ``x``, or -1."""
+    return next((i for i, y in enumerate(xs) if y == x), -1)
 
 
 def list_contains[A](x: A, xs: Sequence[A]) -> bool:
@@ -306,11 +300,6 @@ def list_contains[A](x: A, xs: Sequence[A]) -> bool:
 def map_from[K, V](pairs: Sequence[tuple[K, V]]) -> Mapping[K, V]:
     """A map of ``pairs`` (key, value); a later pair wins over an earlier one."""
     return dict(pairs)
-
-
-def with_default[A](default: A, maybe: A | None) -> A:
-    """``maybe``, unless it is ``None``: then ``default``."""
-    return default if maybe is None else maybe
 
 
 # --- strings ---

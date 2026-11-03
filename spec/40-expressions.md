@@ -168,12 +168,14 @@ for `not`.
 ## do, if and cond
 
 `(do expr ...)` evaluates its forms in order; its value is the last one's. `(if test then
-else)` evaluates `then` or `else`; with no `else`, a false test gives `nil`. The test is a
-`Bool`, and the branches have one type ([[checking.if]]).
+else)` evaluates `then` or `else`; with no `else` the `then` is a `Unit`, an effect, and a
+false test gives `nil`. The test is a `Bool`, and the branches have one type
+([[checking.if]]).
 
 `cond` is a macro (in `src/cdy/prelude_macros.cdy`, which every file gets), expanding into
 nested `if`s: the first clause whose test is true gives the value. The last clause may be
-`(else expr)`; with no `else` and no match, the value is `nil`.
+`(else expr)`; with no `else`, the clauses are `Unit`s, and with no match the value is
+`nil`.
 
 ```candy run
 (sig sign (Fn (Int) String))
@@ -276,18 +278,21 @@ A `fn` or `defn` with no argument, or a body of more than one form, is an error:
 <a id="expr.unit"></a>
 ## Unit and nil
 
-`Unit` is the type with one value, `nil`. It is the value of an `if` with no `else` whose
-test is false, of a `cond` with no match, of `(do)`, and of a `def` form itself. `nil`
-also stands for a missing value in a `(Maybe a)` (*for now*: one `None` for both,
-[[B20]], [[B21]]; how the checker treats them is [[checking.maybe]]).
+`Unit` is the type with one value, `nil`: the value of an effect, such as `put`, of an
+`if` with no `else` (whose `then` is a `Unit`, [[checking.if]]), of `(do)`, and of a
+`def` form itself. A value
+that may be missing is a `(Maybe a)`, whose missing value is `None`, not `nil`
+([[checking.maybe]]).
 
 ```candy run
+(sig loud Bool)
+(def loud false)
+(put (if loud (put "never")) (do))
 (sig m (Maybe Int))
-(def m nil)
-(put (if (= m nil) "missing" "there"))
-(put (if (= (if false 1) nil) "nil" "not nil"))
+(def m None)
+(put (= m None))
 ```
 ```expect
-missing
-nil
+nil nil
+true
 ```

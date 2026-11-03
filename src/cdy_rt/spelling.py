@@ -83,7 +83,6 @@ TYPES: Spellings = {
     "String": type_("str"),
     "Unit": type_("None"),
     "Any": type_("_cdy_Any"),
-    "Maybe": type_("{} | None"),
     "List": type_("tuple[{}, ...]"),
     "Map": type_("_cdy_Mapping[{}]"),
 }
@@ -162,16 +161,15 @@ COLLECTION: Spellings = {
     # are built-ins.
     "any": primitive("list_any"),
     "all": primitive("list_all"),
-    "find": primitive("list_find"),
+    "find-index": primitive("list_find_index"),
     "reverse": primitive("list_reverse"),
     "range": primitive("list_range"),
     "take": primitive("list_take"),
     "drop": primitive("list_drop"),
     "concat": primitive("list_concat"),
     "zip": primitive("list_zip"),
-    "index-of": primitive("list_index_of"),
+    "elem-index": primitive("list_elem_index"),
     "contains": primitive("list_contains"),
-    "with-default": primitive("with_default"),
 }
 
 STRING: Spellings = {

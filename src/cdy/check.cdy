@@ -203,6 +203,14 @@
     ((MatchE _ _ _ pos _) pos)
     (else NOWHERE)))
 
+;; Whether an if's `other` is the `nil` analysis writes for a missing else (`NIL`, at no
+;; position; `cond`'s, from a macro, likewise), not one the program wrote.
+(sig is-missing-else (Fn (Expr) Bool))
+(defn is-missing-else (e)
+  (match e
+    ((Prim name pos _) (and (= name "nil") (= pos NOWHERE)))
+    (else false)))
+
 (sig infer-expect (Fn (Expr CType String Ctx St) St))
 (defn infer-expect (e want what ctx st)
   (let ((r (infer e ctx st))) (expect want (get r t) what ctx (get r st))))
@@ -230,7 +238,9 @@
               (st1 (expect-is (tcon "Bool") (get rt t) "if: the test" ctx (get rt st)))
               (ra (infer then ctx st1))
               (rb (infer other ctx (get ra st))))
-          (join-types (get ra t) (get rb t) "if: the branches" ctx (get rb st))))
+          (if (is-missing-else other)
+            (Res (tcon "Unit") (expect-is (tcon "Unit") (get ra t) "if: with no else, the then" ctx (get rb st)))
+            (join-types (get ra t) (get rb t) "if: the branches" ctx (get rb st)))))
       ((Do body _ _) (infer-do body ctx (Res (tcon "Unit") st)))
       ((Lambda params body _ _) (infer-lambda params body ctx st))
       ((Tuple items _ _)
@@ -915,29 +925,16 @@
     ((TVar name) name)
     (else "")))
 
-(sig maybe-arg (Fn (CType) (List CType)))
-(defn maybe-arg (t) (if (= (tcon-name t) "Maybe") (tup-items t) empty-list))
-
-(sig is-unit (Fn (CType) Bool))
-(defn is-unit (t)
-  (match t
-    ((TCon name _) (= name "Unit"))
-    (else false)))
-
-;; Whether a value of type `actual` is accepted where `want` is expected: they unify;
-;; `want` is a (Maybe t) and `actual` is a t or Unit (nil); or `want` is a (List t) and
-;; `actual` a (Tup t ...) of one type (for now: Candy has no list literal, B29).
+;; Whether a value of type `actual` is accepted where `want` is expected: they unify, or
+;; `want` is a (List t) and `actual` a (Tup t ...) of one type (for now: a tuple is a list
+;; in Python, B29). A `(Maybe t)` is the prelude's sum, so a `t` isn't one.
 (sig accepts (Fn (CType CType (Map String CType)) (Tup Bool (Map String CType))))
 (defn accepts (want actual subst)
   (let ((pw (prune want subst))
-        (pa (prune actual subst))
-        (inner (maybe-arg pw)))
-    (cond
-      ((and (= (tcon-name pw) "List") (= (tcon-name pa) "Tup")) (accepts-each (at (tup-items pw) 0) (tup-items pa) subst))
-      ((or (= (len inner) 0) (is-var pa) (is-any pa)) (unify pw pa subst))
-      ((> (len (maybe-arg pa)) 0) (unify pw pa subst))
-      ((is-unit pa) (tup true subst))
-      (else (unify (at inner 0) pa subst)))))
+        (pa (prune actual subst)))
+    (if (and (= (tcon-name pw) "List") (= (tcon-name pa) "Tup"))
+      (accepts-each (at (tup-items pw) 0) (tup-items pa) subst)
+      (unify pw pa subst))))
 
 ;; Whether every one of `items` is accepted as `want`.
 (sig accepts-each (Fn (CType (List CType) (Map String CType)) (Tup Bool (Map String CType))))
@@ -964,19 +961,12 @@
       (assoc st subst (at u 1))
       (report (format "{what} is {(show actual (get st subst))}, not {(show want (get st subst))}") ctx st))))
 
-;; Two types that must be one (an if's branches, the operators' arguments): a Unit and a t
-;; are a (Maybe t), as an if with no else is.
+;; Two types that must be one (an if's branches, the operators' arguments).
 (sig join-types (Fn (CType CType String Ctx St) Res))
 (defn join-types (a b what ctx st)
   (let ((pa (prune a (get st subst)))
         (pb (prune b (get st subst))))
     (cond
-      ((and (is-unit pa) (not (is-unit pb)) (not (is-var pb))) (Res (as-maybe pb) st))
-      ((and (is-unit pb) (not (is-unit pa)) (not (is-var pa))) (Res (as-maybe pa) st))
-      ((and (> (len (maybe-arg pa)) 0) (= (len (maybe-arg pb)) 0) (not (is-var pb)))
-        (Res pa (expect pa pb what ctx st)))
-      ((and (> (len (maybe-arg pb)) 0) (= (len (maybe-arg pa)) 0) (not (is-var pa)))
-        (Res pb (expect pb pa what ctx st)))
       ((and (= (tcon-name pa) "Tup") (or (= (tcon-name pb) "List") (and (= (tcon-name pb) "Tup") (!= (len (tup-items pa)) (len (tup-items pb))))))
         (join-types (as-list pa) pb what ctx st))
       ((and (= (tcon-name pb) "Tup") (= (tcon-name pa) "List")) (join-types pa (as-list pb) what ctx st))
@@ -1001,13 +991,6 @@
 ;; The one type of `items`: the first, unless they differ, then Any.
 (sig tup-list-type (Fn ((List CType)) CType))
 (defn tup-list-type (items) (if (all (fn (x) (= x (at items 0))) items) (at items 0) ANY))
-
-(sig as-maybe (Fn (CType) CType))
-(defn as-maybe (t)
-  (cond
-    ((> (len (maybe-arg t)) 0) t)
-    ((is-any t) t)
-    (else (TCon "Maybe" (to-list t)))))
 
 ;; `t` with its rigid (sig) type variables replaced by fresh ones.
 (sig instantiate (Fn (CType St) Res))

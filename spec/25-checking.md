@@ -100,22 +100,31 @@ hi!
 ## if
 
 An `if`'s test is a `Bool` (no other value counts as true or false), and its two
-branches have one type, the `if`'s. With no `else`, an `if` whose `then` is a `t` is a
-`(Maybe t)` (*for now*: [[B21]]), or `Unit` if the `then` is.
+branches have one type, the `if`'s. With no `else`, the `then` is a `Unit`, and so is the
+`if`: it is for an effect, `(if loud (put x))` (*for now*: [[B138]]); a `cond` with no
+`else` clause likewise ([[macros.cond]]; its message is the expansion's, *for now*:
+[[B155]]). A value that may be missing is a `(Maybe t)`
+([[checking.maybe]]).
 
 ```candy run
 (sig half (Fn (Int) (Maybe Int)))
-(defn half (n) (if (= (* 2 (quot n 2)) n) (quot n 2)))
-(put (with-default -1 (half 8)) (with-default -1 (half 7)))
+(defn half (n) (if (= (* 2 (quot n 2)) n) (Some (quot n 2)) None))
+(put (half 8) (half 7))
+(sig loud Bool)
+(def loud true)
+(if loud (put "loud"))
 ```
 ```expect
-4 -1
+(Some 4) None
+loud
 ```
 
 ```candy errors
 (put (if 1 2 3)) => if: the test is Int, not Bool
 (put (if "" 2 3)) => if: the test is String, not Bool
 (put (if true 1 "a")) => if: the branches are Int and String
+(put (if true 1)) => if: with no else, the then is Int, not Unit
+(put (cond (false 1))) => if: the branches are Int and Unit
 ```
 
 <a id="checking.operators"></a>
@@ -250,24 +259,33 @@ pattern takes a `(Tup ...)` with as many items as it has names.
 <a id="checking.maybe"></a>
 ## Maybe and nil
 
-A `t` is accepted where a `(Maybe t)` is expected, and `nil` where a `Unit` or any
-`(Maybe t)` is. A `(Maybe t)` isn't a `t`: `with-default` takes the `t` out (*for now*:
-no narrowing after `(= m nil)`, and `Maybe` isn't a sum, [[B20]]).
+A `(Maybe t)` is the prelude's sum, `(Some v)` or `None` ([[library.maybe]]), checked as
+any sum (*lasting*): a `t` isn't a `(Maybe t)`, nor is `nil`, which is only `Unit`'s
+value; `match` takes one apart, `((Some v) ...)` naming the value, and `with-default`
+gives the value or a fallback. A `(Maybe (Maybe t))` is two layers, `(Some None)` not
+`None`.
 
 ```candy run
 (sig some (Maybe Int))
-(def some 5)
+(def some (Some 5))
 (sig none (Maybe Int))
-(def none nil)
-(put (with-default 0 some) (with-default 0 none))
+(def none None)
+(put (with-default 0 some) (with-default 0 none) (match some ((Some v) (+ v 1)) ((None) 0)))
+(sig two (Maybe (Maybe Int)))
+(def two (Some None))
+(put two (= two None))
 ```
 ```expect
-5 0
+5 0 6
+(Some None) false
 ```
 
 ```candy errors
-(sig m (Maybe Int)) (def m 5) (put (+ m 1)) => +: expected a number, String or a list, got (Maybe Int)
+(sig m (Maybe Int)) (def m 5) => def m: expected (Maybe Int), got Int
+(sig m (Maybe Int)) (def m nil) => def m: expected (Maybe Int), got Unit
+(sig m (Maybe Int)) (def m (Some 1)) (put (+ m m)) => +: expected a number, String or a list, got (Maybe Int)
 (sig n Int) (def n nil) => def n: expected Int, got Unit
+(sig m (Maybe Int)) (def m (Some 1)) (put (+ m 1)) => +: expected (Maybe Int), got Int
 ```
 
 <a id="checking.any"></a>

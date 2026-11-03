@@ -723,29 +723,34 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
             (inner (if (= keyword "if") level (+ level 1))))
         (+ (if (= keyword "if") "" (line level "else:"))
            (line inner (format "assert isinstance({subj}, {(map-get (get env globals) (get c variant))})"))
-           (emit-binds (get c binds) subj inner env "")
+           (emit-binds (get c binds) (get c variant) subj inner env "")
            (emit-stmts (get c body) inner env ""))))
     (else
       (let ((c (at cases 0))
             (test (format "{keyword} isinstance({subj}, {(map-get (get env globals) (get c variant))}):"))
-            (binds (emit-binds (get c binds) subj (+ level 1) env ""))
+            (binds (emit-binds (get c binds) (get c variant) subj (+ level 1) env ""))
             (body (if (= (len (get c body)) 0)
                     (if (= binds "") (line (+ level 1) "pass") "")
                     (emit-stmts (get c body) (+ level 1) env ""))))
         (+ (line level test) binds body
            (emit-match subj (rest cases) default assert-last "elif" level env))))))
 
-(sig emit-binds (Fn ((List (Tup String Expr)) String Int Env String) String))
-(defn emit-binds (binds subj level env acc)
+;; A clause's fields, each read into its name. A generic variant's names are annotated
+;; with the types the checker found: mypy narrows `isinstance(x, Some)` on a `Maybe[a]` to
+;; `Some[Any]`, so the field it reads is Any.
+(sig emit-binds (Fn ((List (Tup String Expr)) String String Int Env String) String))
+(defn emit-binds (binds variant subj level env acc)
   (if (= (len binds) 0)
     acc
-    (let (((f loc) (at binds 0)))
+    (let (((f loc) (at binds 0))
+          (note (if (map-has (get env generic) variant) (format ": {(emit-type (get loc t) env)}") "")))
       (emit-binds
         (rest binds)
+        variant
         subj
         level
         env
-        (+ acc (line level (format "{(emit-expr loc env)} = {subj}.{(py-mangle f)}")))))))
+        (+ acc (line level (format "{(emit-expr loc env)}{note} = {subj}.{(py-mangle f)}")))))))
 
 (sig emit-stmts (Fn ((List Stmt) Int Env String) String))
 (defn emit-stmts (stmts level env acc)
@@ -767,11 +772,14 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
       env
       (+ acc (to-list (format "{(emit-expr (at params 0) env)}: {(emit-type (at types 0) env)}"))))))
 
+;; A top-level function: its locals start afresh, since a local's id is unique only in its
+;; module, and the program's top-level locals (every module's, bound in `python-of`) aren't
+;; in its scope (B154).
 (sig emit-func (Fn (String (List Expr) (List Stmt) CType Int Env) String))
 (defn emit-func (name params body t level env)
   (match t
     ((TFn types ret)
-      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env))
+      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) (assoc env locals empty-map)))
             (tvars (type-vars (+ types (to-list ret)) empty-list))
             (tparams (type-params tvars))
             (args (comma-join (emit-params params types inner empty-list))))

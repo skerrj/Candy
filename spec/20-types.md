@@ -29,7 +29,7 @@ in `30-match.md`.
 | `(List a)` | a list of `a`s, of any length |
 | `(Tup a b ...)` | a fixed-size tuple: an `a`, then a `b`, ... |
 | `(Map k v)` | a map from `k`s to `v`s |
-| `(Maybe a)` | an `a`, or `nil` |
+| `(Maybe a)` | `(Some v)`, with an `a`, or `None`: the prelude's sum ([[library.maybe]]) |
 | `(Fn (a b ...) r)` | a function from an `a`, a `b`, ... to an `r` |
 | `Name`, `(Name a ...)` | a `deft` type, possibly generic |
 | `Any` | anything: an escape hatch, which turns checking off |

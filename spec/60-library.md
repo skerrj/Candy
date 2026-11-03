@@ -47,8 +47,8 @@ translator: `py-spellings`, `load-macros`, `call-macro`, `module-dir` and `fresh
 
 A list is typed `(List a)`; `List` ([[types.constructors]]) and `range` make one, and
 `empty-list` is the empty one. The functions take the list last. `map`, `filter` and `fold` are built in for
-speed, since Candy adds to a list by copying it. `find` and `index-of` give a `(Maybe a)`:
-`nil` when nothing is found, which `with-default` replaces.
+speed, since Candy adds to a list by copying it. `find` and `index-of` give a `(Maybe a)`
+([[library.maybe]]): `None` when nothing is found, which `with-default` replaces.
 
 ```candy run
 (sig nums (List Int))
@@ -220,4 +220,26 @@ a (List true) and text
 (put (fn (x) x)) => show: a function can't be shown
 (sig f (Fn (a) Unit)) (defn f (x) (put x)) => show: can't show a value of type a, a type variable
 (put empty-list) => , a type variable
+```
+
+<a id="library.maybe"></a>
+## Maybe
+
+The prelude's `(deft (Maybe a) (Some ((v a))) (None))` is a value that may be missing
+(*lasting*; [[checking.maybe]]). `(find keep xs)` is the first item `keep` is true of,
+`(index-of x xs)` the index of the first item equal to `x`, each `None` when there is
+none, and `(with-default fallback m)` is `m`'s value, or `fallback` for `None`. They are
+prelude Candy, over the built-ins `find-index` and `elem-index`, which give `-1` for none.
+
+```candy run
+(sig xs (List Int))
+(def xs (List 3 1 4))
+(put (find (fn (n) (> n 2)) xs) (find (fn (n) (> n 5)) xs))
+(put (index-of 4 xs) (with-default -1 (index-of 9 xs)))
+(put (find-index (fn (n) (= n 1)) xs) (elem-index 9 xs))
+```
+```expect
+(Some 3) None
+(Some 2) -1
+1 -1
 ```

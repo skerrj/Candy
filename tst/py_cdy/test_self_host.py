@@ -458,8 +458,8 @@ UNSOLVED = """\
         # ... but a later use still solves it: met Any, then Int.
         ("met-later", "(Fn (Int) Int)", "met_later: _cdy_Callable[[int], int] = "),
         # Nothing fixes it: a fn never called, an empty-list never added to.
-        ("never-called", "(Fn (t6) t6)", "never_called: _cdy_Callable[[_cdy_Any], _cdy_Any] = "),
-        ("never-added", "(List t7)", "never_added = "),
+        ("never-called", "(Fn (tN) tN)", "never_called: _cdy_Callable[[_cdy_Any], _cdy_Any] = "),
+        ("never-added", "(List tN)", "never_added = "),
     ],
 )
 def test_unsolved_types(
@@ -468,8 +468,8 @@ def test_unsolved_types(
     # B132: the type each case leaves in Core, and its Python (an unsolved variable is Any).
     path = tmp_path / "unsolved.cdy"
     path.write_text(UNSOLVED, encoding="utf-8")
-    types = {
-        t1.check__show(n.t, {})
+    types = {  # a type variable's number depends on what the prelude holds: tN
+        re.sub(r"\bt\d+\b", "tN", t1.check__show(n.t, {}))
         for n in typed_core(t1, path)
         if type(n).__name__ == "core__Local" and n.name == local
     }
