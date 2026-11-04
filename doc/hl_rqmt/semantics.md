@@ -432,7 +432,7 @@ says only `at`'s four uses need it.
      `(List t)`, else unification. An `if` whose `else` is missing (`is-missing-else`:
      the `nil` analysis writes, at `NOWHERE`) has a `Unit` then, `if: with no else, the
      then is Int, not Unit`. A `cond` with no `else` expands to a written `nil`, so its
-     error is `if: the branches are Int and Unit`, a defect the owner doesn't take as minor
+     error is `if: the branches are Int and Unit`, a defect the owner finds irritating
      ([[B155]]; noted in [[B138]]).
    - **`emit.cdy`:** a generic variant's `match` bindings are annotated with their type
      (`v: a = t0.v`), as mypy narrows an `isinstance` on a `Maybe[a]` to `Some[Any]`.

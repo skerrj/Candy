@@ -95,10 +95,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B140](B140-semantics-step-1.md) | semantics step 1: the small ones: unsolved types, `Any` defaulted | task | review | normal |
-| [B141](B141-semantics-step-2.md) | semantics step 2: `show`, and the `List` and `Tup` constructors | task | review | normal |
-| [B142](B142-semantics-step-3.md) | semantics step 3: equality | task | review | normal |
-| [B143](B143-semantics-step-4.md) | semantics step 4: `Maybe` a sum, missing values gone | task | review | normal |
 | [B144](B144-semantics-step-5.md) | semantics step 5: narrowing and field constraints | task | open | normal |
 | [B145](B145-semantics-step-6.md) | semantics step 6: numbers | task | open | normal |
 | [B146](B146-semantics-step-7.md) | semantics step 7: `at` and `slice` bounds | task | open | normal |
@@ -132,6 +128,7 @@ By kind, then priority.
 
 The open items, by the ids in their refs (spec rules, and sections of other docs).
 
+- [checking.any](../spec/25-checking.md#checking.any): [B133](B133-let-polymorphism.md)
 - [checking.calls](../spec/25-checking.md#checking.calls): [B134](B134-one-type-error-at-a-time.md)
 - [checking.generics](../spec/25-checking.md#checking.generics): [B124](B124-polymorphic-operators.md)
 - [checking.if](../spec/25-checking.md#checking.if): [B155](B155-cond-missing-else-message.md)
@@ -244,4 +241,8 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B130](B130-typed-core-step-5.md) | typed-core step 5: docs | task | done | normal |
 | [B132](B132-unsolved-types-reviewed.md) | Go over the types the checker leaves unsolved | task | done | normal |
 | [B137](B137-variants-compare-equal.md) | Two variants of one sum with the same fields are equal | defect | done | normal |
+| [B140](B140-semantics-step-1.md) | semantics step 1: the small ones: unsolved types, `Any` defaulted | task | done | normal |
+| [B141](B141-semantics-step-2.md) | semantics step 2: `show`, and the `List` and `Tup` constructors | task | done | normal |
+| [B142](B142-semantics-step-3.md) | semantics step 3: equality | task | done | normal |
+| [B143](B143-semantics-step-4.md) | semantics step 4: `Maybe` a sum, missing values gone | task | done | normal |
 | [B154](B154-emit-locals-across-modules.md) | emit bound one module's locals into another's functions | defect | done | high |

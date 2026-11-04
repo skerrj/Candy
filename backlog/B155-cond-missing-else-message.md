@@ -31,4 +31,5 @@ with no else, the then is Int, not Unit
 
 ## Notes
 
-- 2026-11-02, the owner, at step 4's commit: not a minor inconsistency; noted.
+- 2026-11-02, the owner, at step 4's commit: an irritating inconsistency; noted (worded
+  "irritating" in B143's review, 2026-11-03).

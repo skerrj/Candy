@@ -1,7 +1,7 @@
 # B140: semantics step 1: the small ones: unsolved types, `Any` defaulted
 
 kind: task
-state: review
+state: done
 priority: normal
 found: semantics, 2026-11-02
 fixed: semantics
@@ -13,3 +13,4 @@ Step 1 of `doc/hl_rqmt/semantics.md`. [[B132]]'s tests (each unsolved case's typ
 ## Notes
 
 - 2026-11-02, Claude: built; see the HLD's step 1 *Done* note. [[B132]], [[B26]], [[B28]] and [[B80]] done.
+- 2026-11-03, the owner: ticked in review.

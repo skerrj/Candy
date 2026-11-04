@@ -298,7 +298,7 @@ now*: [[B18]]). The built-ins Candy can't type yet are `Any`: `put`, `at`, `len`
 `Any` and nothing else is `Any` once its definition is checked, as gradual inference
 defaults it (`(reverse a)` on an `a` typed `Any` is a `(List Any)`). One that met nothing
 (a `fn` never called, an `empty-list` never added to) stays a type variable, which
-Python writes `Any` (*lasting*). *Tested in* `test_unsolved_types` and
+Python writes `Any` (*for now*: [[B133]]). *Tested in* `test_unsolved_types` and
 `test_every_node_is_typed` (`tst/py_cdy/test_self_host.py`): the type is in Core and the
 Python annotations, not in what a program prints.
 
