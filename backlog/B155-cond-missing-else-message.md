@@ -1,10 +1,10 @@
 # B155: A `cond` with no `else` isn't reported as an `if` with no `else` is
 
 kind: defect
-state: open
+state: done
 priority: normal
 found: semantics step 4, 2026-11-02
-fixed:
+fixed: semantics
 where: `src/cdy/prelude_macros.cdy`, `src/cdy/check.cdy`
 refs: [[checking.if]], [[macros.cond]], [[B138]], [[B143]]
 
@@ -18,18 +18,36 @@ macro leaves the last `if` without an `else`, or marks its `nil` as missing; and
 message should name `cond` and its clause, not the `if` it expands into (a macro's
 errors are reported in its expansion's words, more generally).
 
-## Repro
-
-The translator should fail:
-
-```candy error
-(put (cond (false 1)))
-```
-```expect-error
-with no else, the then is Int, not Unit
-```
-
 ## Notes
 
 - 2026-11-02, the owner, at step 4's commit: an irritating inconsistency; noted (worded
   "irritating" in B143's review, 2026-11-03).
+- 2026-11-03, Claude: fixed in semantics step 5 ([[B144]]): `cond`'s last clause, with no `else`, is
+  an `if` with no `else` (`prelude_macros.cdy`), so `(cond (false 1))` is `if: with no
+  else, the then is Int, not Unit`, as an `if` is. The message names the `if`, not
+  `cond`: [[B156]]. [[checking.if]] said, before:
+
+  ```text
+  `if`: it is for an effect, `(if loud (put x))` (*for now*: [[B138]]); a `cond` with no
+  `else` clause likewise ([[macros.cond]]; its message is the expansion's, *for now*:
+  [[B155]]).
+  ```
+
+  ```text
+  (put (cond (false 1))) => if: the branches are Int and Unit
+  ```
+- 2026-11-03, Claude: the repro, moved to [[checking.if]]'s errors table (`(put (cond
+  (false 1)))`), was:
+
+  ````text
+  ## Repro
+
+  The translator should fail:
+
+  ```candy error
+  (put (cond (false 1)))
+  ```
+  ```expect-error
+  with no else, the then is Int, not Unit
+  ```
+  ````

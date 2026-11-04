@@ -102,8 +102,8 @@ hi!
 An `if`'s test is a `Bool` (no other value counts as true or false), and its two
 branches have one type, the `if`'s. With no `else`, the `then` is a `Unit`, and so is the
 `if`: it is for an effect, `(if loud (put x))` (*for now*: [[B138]]); a `cond` with no
-`else` clause likewise ([[macros.cond]]; its message is the expansion's, *for now*:
-[[B155]]). A value that may be missing is a `(Maybe t)`
+`else` clause likewise ([[macros.cond]]: its last clause is an `if` with no `else`, which
+the message names, *for now*, [[B156]]). A value that may be missing is a `(Maybe t)`
 ([[checking.maybe]]).
 
 ```candy run
@@ -124,7 +124,7 @@ loud
 (put (if "" 2 3)) => if: the test is String, not Bool
 (put (if true 1 "a")) => if: the branches are Int and String
 (put (if true 1)) => if: with no else, the then is Int, not Unit
-(put (cond (false 1))) => if: the branches are Int and Unit
+(put (cond (false 1))) => if: with no else, the then is Int, not Unit
 ```
 
 <a id="checking.operators"></a>
@@ -181,10 +181,8 @@ A record's constructor takes its fields' types, in order, and gives the record; 
 names a field the record has, and has the field's type; `assoc` names fields it has,
 each with a value of the field's type. A variant's constructor gives its sum, so `get` on
 a sum names a field every variant has, with one type (*lasting*: a sum's value is one of
-its variants, not known until it is matched, [[match.sum-types]]). Inside a `match`
-clause the subject is still the sum, so `get` on it there follows the same rule (*for
-now*: the checker doesn't narrow the subject to the clause's variant, [[B121]]); the
-clause's names read the variant's fields.
+its variants, not known until it is matched, [[match.sum-types]]); in a `match` clause
+on a local, the local is narrowed to the clause's variant ([[checking.narrowing]]).
 
 ```candy run
 (deft V ((x Int) (y String)))
@@ -210,7 +208,37 @@ a
 (deft S (A ((x Int))) (B ((y Int)))) (put (get (A 1) x)) => get: S has no field x
 (deft S (A ((x Int))) (B)) (put (get (A 1) x)) => get: S has no field x
 (deft S (A ((id Int) (x Int))) (B ((id String)))) (put (get (A 1 2) id)) => get: field id of S has different types in its variants
-(deft S (A ((x Int))) (B ((y Int)))) (sig f (Fn (S) Int)) (defn f (s) (match s ((A _) (get s x)) (else 0))) => get: S has no field x
+```
+
+<a id="checking.narrowing"></a>
+## Narrowing
+
+In a `match` clause whose subject is a local, the local is of the clause's variant, so
+`get` and `assoc` on it name the variant's own fields. Only the clauses narrow: not the
+`else`, nor an `if` on a test (*for now*: [[B136]]); a subject that isn't a local isn't
+narrowed (the clause's names read its fields). A variant isn't a type a program writes,
+so where the local is passed or returned it is still of the sum.
+
+```candy run
+(deft S (A ((x Int) (id Int))) (B ((y String) (id Int))) (C))
+(sig f (Fn (S) Int))
+(defn f (s) (match s ((A _ _) (+ (get s x) (get s id))) ((B _ _) (len (get s y))) ((C) 0)))
+(sig bump (Fn (S) S))
+(defn bump (s) (match s ((A _ _) (assoc s x (+ (get s x) 1))) (else s)))
+(put (f (A 1 2)) (f (B "abc" 1)) (f C) (bump (A 1 2)) (bump C))
+(deft (T a) (L ((v a))) (N ((v a) (n Int))))
+(sig g (Fn ((T Int)) Int))
+(defn g (t) (match t ((N _ _) (+ (get t v) (get t n))) ((L _) (get t v))))
+(put (g (N 1 5)) (g (L 3)))
+```
+```expect
+3 3 0 (A 2 2) C
+6 3
+```
+
+```candy errors
+(deft S (A ((x Int))) (B ((y Int)))) (sig f (Fn (S) Int)) (defn f (s) (match s ((A _) (get s y)) (else 0))) => get: A has no field y
+(deft S (A ((x Int))) (B ((y Int)))) (sig f (Fn (S) Int)) (defn f (s) (match s ((A _) 0) (else (get s x)))) => get: S has no field x
 ```
 
 <a id="checking.order"></a>
@@ -218,8 +246,9 @@ a
 
 The checker reads a call's arguments that aren't `fn`s first, then its `fn`s, so a
 `fn`'s parameters already have types when its body is read: in `(map (fn (p) ...)
-people)`, `p` is a person. A `get` or `assoc` on a value whose type isn't known yet is
-an error (*for now*: [[B120]]).
+people)`, `p` is a person. A `get` or `assoc` on a value whose type isn't known yet is a
+constraint on it, checked once its definition is: then the value's type must be known,
+with the field, of the type the constraint found; one that met only `Any` is `Any`.
 
 ```candy run
 (deft P ((name String)))
@@ -229,8 +258,19 @@ an error (*for now*: [[B120]]).
 ann
 ```
 
+```candy run
+(deft P ((name String)))
+(put (let ((name-of (fn (p) (get p name))) (rename (fn (p) (assoc p name "bo")))) (+ (name-of (P "ann")) (get (rename (P "x")) name))))
+```
+```expect
+annbo
+```
+
 ```candy errors
 (put (fn (p) (get p name))) => get: the type of p isn't known here (name)
+(deft P ((name String))) (put (let ((f (fn (p) (+ (get p name) 1)))) (f (P "a")))) => get: field name of P is String, not Int
+(deft P ((name String))) (put (let ((f (fn (p) (assoc p name 1)))) (f (P "a")))) => assoc: field name of P is String, not Int
+(deft P ((name String))) (put (let ((f (fn (p) (get p age)))) (f (P "a")))) => get: P has no field age
 ```
 
 <a id="checking.match"></a>

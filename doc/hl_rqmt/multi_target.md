@@ -179,7 +179,8 @@ refusing what Candy accepts, or as a Candy rule shaped to fit the host. Found so
   ([[checking.any]]).
 - **mypy loses a generic's type argument when narrowing**: an `isinstance` on a
   `Maybe[a]` narrows to `Some[Any]`, so `emit` annotates a generic variant's `match`
-  bindings with the type Candy knows (semantics step 4); and narrowing a union of
+  bindings with the type Candy knows (semantics step 4), and casts a narrowed `get` of
+  a type-variable field (step 5: on a `T[int]`, `N[Any]`); and narrowing a union of
   `NamedTuple`s is slow, hence the `match` on an `object` temporary.
 - **Types are erased when run**: `show` and `=` can't see what a type variable stands
   for, so showing one is an error when translated (`doc/hl_rqmt/semantics.md`,

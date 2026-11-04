@@ -10,18 +10,22 @@
 ;; Python names: top-level names (Candy name -> Python name), locals (Local id -> Python
 ;; name), and the Python names already taken where new locals are bound. `generic`: the
 ;; variants of generic sums. `spellings`: each built-in's Python text and kind (spelling.py).
+;; `narrowed`: inside a match clause on a local, the local's id -> the match's temporary,
+;; which Python has narrowed to the clause's variant (checking.narrowing), and the
+;; variant's fields whose type has a type variable (`generic`'s).
 (deft Env
   ((globals (Map String String))
    (locals (Map Int String))
    (taken (Map String Bool))
-   (generic (Map String Bool))
-   (spellings (Map String (Tup String String)))))
+   (generic (Map String (List String)))
+   (spellings (Map String (Tup String String)))
+   (narrowed (Map Int (Tup String (List String))))))
 
 (sig HEADER String)
 (def HEADER "from __future__ import annotations
 
 from collections.abc import Callable as _cdy_Callable, Mapping as _cdy_Mapping
-from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
+from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_cast
 ")
 
 (sig comma-join (Fn ((List String)) String))
@@ -218,23 +222,24 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((TDefn name _ _ _ _) name)
     (else "")))
 
-;; The variants of the generic sums in `tops`, added to `acc`.
-(sig generic-variants (Fn ((List Top) (Map String Bool)) (Map String Bool)))
+;; The variants of the generic sums in `tops`, added to `acc`, each with its fields whose
+;; type has a type variable.
+(sig generic-variants (Fn ((List Top) (Map String (List String))) (Map String (List String))))
 (defn generic-variants (tops acc)
-  (if (= (len tops) 0)
-    acc
-    (generic-variants
-      (rest tops)
-      (match (at tops 0)
-        ((TDeftSum _ tvars variants)
-          (if (= (len tvars) 0) acc (mark-all (variant-list-names variants empty-list) acc)))
-        (else acc)))))
+  (fold (fn (m top) (generic-sum top m)) acc tops))
 
-(sig mark-all (Fn ((List String) (Map String Bool)) (Map String Bool)))
-(defn mark-all (names acc)
-  (if (= (len names) 0)
-    acc
-    (mark-all (rest names) (map-set acc (at names 0) true))))
+(sig generic-sum (Fn (Top (Map String (List String))) (Map String (List String))))
+(defn generic-sum (top acc)
+  (match top
+    ((TDeftSum _ tvars variants)
+      (if (= (len tvars) 0)
+        acc
+        (fold (fn (m v) (map-set m (get v name) (generic-fields (get v fields)))) acc variants)))
+    (else acc)))
+
+(sig generic-fields (Fn ((List (Tup String CType))) (List String)))
+(defn generic-fields (fields)
+  (map (fn (f) (at f 0)) (filter (fn (f) (> (len (type-vars (to-list (at f 1)) empty-list)) 0)) fields)))
 
 ;; A local's Python name, chosen when its scope was entered (bind-locals).
 (sig local-py (Fn (String Int Env) String))
@@ -323,10 +328,31 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
         (if (= (len strs) 1) (format "({(at strs 0)},)") (format "({(comma-join strs)})"))))
     ((ListOf items pos t) (emit-expr (Tuple items pos t) env))
     ((Fmt parts pos _) (emit-format parts pos env))
-    ((Field obj field _ _) (format "{(emit-expr obj env)}.{(py-mangle field)}"))
+    ((Field obj field _ t) (emit-get obj field t env))
     ((Assoc obj fields _ _)
-      (format "{(emit-expr obj env)}._replace({(comma-join (emit-fields fields env empty-list))})"))
+      (format "{(emit-obj obj env)}._replace({(comma-join (emit-fields fields env empty-list))})"))
     ((Temp id _) (format "_cdy_t{id}"))))
+
+;; The record a get or assoc reads: a local narrowed in a match clause as the match's
+;; temporary, which Python knows is the clause's variant; else the expression.
+(sig emit-obj (Fn (Expr Env) String))
+(defn emit-obj (obj env)
+  (match obj
+    ((Local _ id _ _) (if (map-has (get env narrowed) id) (at (map-get (get env narrowed) id) 0) (emit-expr obj env)))
+    (else (emit-expr obj env))))
+
+;; A get: of a field with a type variable, on a local narrowed from a generic sum, cast to
+;; the type the checker found, since mypy narrows `isinstance(t, N)` on a `T[int]` to
+;; `N[Any]` (a cast of another field would be redundant, which mypy refuses).
+(sig emit-get (Fn (Expr String CType Env) String))
+(defn emit-get (obj field t env)
+  (let ((text (format "{(emit-obj obj env)}.{(py-mangle field)}")))
+    (match obj
+      ((Local _ id _ _)
+        (if (and (map-has (get env narrowed) id) (in field (at (map-get (get env narrowed) id) 1)))
+          (format "_cdy_cast('{(emit-type t env)}', {text})")
+          text))
+      (else text))))
 
 ;; A format string as a concatenation: literal text, and each hole as its text
 ;; (`emit-text`).
@@ -539,7 +565,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
             (val (emit-expr subject env))
             (generic (map-has (get env generic) (get (at cases 0) variant))))
         (+ (line level (if generic (format "{t} = {val}") (format "{t}: object = {val}")))
-           (emit-match t cases default (and (not generic) (= (len default) 0)) "if" level env))))
+           (emit-match t cases default (and (not generic) (= (len default) 0)) "if" level env subject))))
     ((SLoop body) (+ (line level "while True:") (emit-block body (+ level 1) env)))
     ((SRebind targets vals)
       (line level
@@ -710,9 +736,10 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 ;; match as an isinstance chain on the temporary `subj` (mypy keeps generic type arguments
 ;; that way), each named field bound by attribute. The temporary is typed object unless the
 ;; sum is generic, which keeps mypy fast (doc/hl_rqmt/sum_types.md); then, with no else clause,
-;; the last case is an else that asserts its variant (`assert-last`).
-(sig emit-match (Fn (String (List Case) (List (List Stmt)) Bool String Int Env) String))
-(defn emit-match (subj cases default assert-last keyword level env)
+;; the last case is an else that asserts its variant (`assert-last`). In each case a local
+;; `subject` is narrowed (`case-env`); not in the else clause.
+(sig emit-match (Fn (String (List Case) (List (List Stmt)) Bool String Int Env Expr) String))
+(defn emit-match (subj cases default assert-last keyword level env subject)
   (cond
     ((= (len cases) 0)
       (if (= (len default) 0)
@@ -720,20 +747,31 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
         (+ (line level "else:") (emit-block (at default 0) (+ level 1) env))))
     ((and assert-last (= (len cases) 1))
       (let ((c (at cases 0))
+            (cenv (case-env subject subj (get c variant) env))
             (inner (if (= keyword "if") level (+ level 1))))
         (+ (if (= keyword "if") "" (line level "else:"))
            (line inner (format "assert isinstance({subj}, {(map-get (get env globals) (get c variant))})"))
-           (emit-binds (get c binds) (get c variant) subj inner env "")
-           (emit-stmts (get c body) inner env ""))))
+           (emit-binds (get c binds) (get c variant) subj inner cenv "")
+           (emit-stmts (get c body) inner cenv ""))))
     (else
       (let ((c (at cases 0))
+            (cenv (case-env subject subj (get c variant) env))
             (test (format "{keyword} isinstance({subj}, {(map-get (get env globals) (get c variant))}):"))
-            (binds (emit-binds (get c binds) (get c variant) subj (+ level 1) env ""))
+            (binds (emit-binds (get c binds) (get c variant) subj (+ level 1) cenv ""))
             (body (if (= (len (get c body)) 0)
                     (if (= binds "") (line (+ level 1) "pass") "")
-                    (emit-stmts (get c body) (+ level 1) env ""))))
+                    (emit-stmts (get c body) (+ level 1) cenv ""))))
         (+ (line level test) binds body
-           (emit-match subj (rest cases) default assert-last "elif" level env))))))
+           (emit-match subj (rest cases) default assert-last "elif" level env subject))))))
+
+;; `env` in a case of `variant`: a local `subject` narrowed to the temporary `subj`.
+(sig case-env (Fn (Expr String String Env) Env))
+(defn case-env (subject subj variant env)
+  (match subject
+    ((Local _ id _ _)
+      (let ((fields (if (map-has (get env generic) variant) (map-get (get env generic) variant) empty-list)))
+        (assoc env narrowed (map-set (get env narrowed) id (tup subj fields)))))
+    (else env)))
 
 ;; A clause's fields, each read into its name. A generic variant's names are annotated
 ;; with the types the checker found: mypy narrows `isinstance(x, Some)` on a `Maybe[a]` to

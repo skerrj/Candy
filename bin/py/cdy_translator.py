@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable as _cdy_Callable, Mapping as _cdy_Mapping
-from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
+from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_cast
 import math
 import re
 import cdy_rt.spelling
@@ -3660,16 +3660,17 @@ class emit__Env(_cdy_NamedTuple):
     globals_: _cdy_Mapping[str, str]
     locals_: _cdy_Mapping[int, str]
     taken: _cdy_Mapping[str, bool]
-    generic: _cdy_Mapping[str, bool]
+    generic: _cdy_Mapping[str, tuple[str, ...]]
     spellings: _cdy_Mapping[str, tuple[str, str]]
+    narrowed: _cdy_Mapping[int, tuple[str, tuple[str, ...]]]
     def __eq__(self, other: object) -> bool:
         return type(self) is type(other) and tuple.__eq__(self, other)
     def __ne__(self, other: object) -> bool:
         return not self == other
     def __hash__(self) -> int:
         return hash((type(self), tuple(self)))
-cdy_rt.primitives.register_type(emit__Env, 'Env', (), (('Map', 'String', 'String'), ('Map', 'Int', 'String'), ('Map', 'String', 'Bool'), ('Map', 'String', 'Bool'), ('Map', 'String', ('Tup', 'String', 'String'))))
-emit__HEADER: str = 'from __future__ import annotations\n\nfrom collections.abc import Callable as _cdy_Callable, Mapping as _cdy_Mapping\nfrom typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple\n'
+cdy_rt.primitives.register_type(emit__Env, 'Env', (), (('Map', 'String', 'String'), ('Map', 'Int', 'String'), ('Map', 'String', 'Bool'), ('Map', 'String', ('List', 'String')), ('Map', 'String', ('Tup', 'String', 'String')), ('Map', 'Int', ('Tup', 'String', ('List', 'String')))))
+emit__HEADER: str = 'from __future__ import annotations\n\nfrom collections.abc import Callable as _cdy_Callable, Mapping as _cdy_Mapping\nfrom typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_cast\n'
 
 def emit__comma_join(strs: tuple[str, ...]) -> str:
     return cdy_rt.primitives.join(strs, ', ')
@@ -3833,29 +3834,23 @@ def emit__top_name(top: core__Top) -> str:
     else:
         return ''
 
-def emit__generic_variants(tops: tuple[core__Top, ...], acc: _cdy_Mapping[str, bool]) -> _cdy_Mapping[str, bool]:
-    while True:
-        if (len(tops) == 0):
-            return acc
-        else:
-            _cdy_t85 = prelude__rest(tops)
-            _cdy_t84: object = tops[0]
-            if isinstance(_cdy_t84, core__TDeftSum):
-                tvars = _cdy_t84.tvars
-                variants = _cdy_t84.variants
-                _cdy_t83 = (acc if (len(tvars) == 0) else emit__mark_all(emit__variant_list_names(variants, ()), acc))
-            else:
-                _cdy_t83 = acc
-            tops, acc = (_cdy_t85, _cdy_t83)
-            continue
+def emit__generic_variants(tops: tuple[core__Top, ...], acc: _cdy_Mapping[str, tuple[str, ...]]) -> _cdy_Mapping[str, tuple[str, ...]]:
+    return cdy_rt.primitives.list_fold((lambda m, top: emit__generic_sum(top, m)), acc, tops)
 
-def emit__mark_all(names: tuple[str, ...], acc: _cdy_Mapping[str, bool]) -> _cdy_Mapping[str, bool]:
-    while True:
-        if (len(names) == 0):
+def emit__generic_sum(top: core__Top, acc: _cdy_Mapping[str, tuple[str, ...]]) -> _cdy_Mapping[str, tuple[str, ...]]:
+    _cdy_t83: object = top
+    if isinstance(_cdy_t83, core__TDeftSum):
+        tvars = _cdy_t83.tvars
+        variants = _cdy_t83.variants
+        if (len(tvars) == 0):
             return acc
         else:
-            names, acc = (prelude__rest(names), cdy_rt.primitives.map_set(acc, names[0], True))
-            continue
+            return cdy_rt.primitives.list_fold((lambda m, v: cdy_rt.primitives.map_set(m, v.name, emit__generic_fields(v.fields))), acc, variants)
+    else:
+        return acc
+
+def emit__generic_fields(fields: tuple[tuple[str, core__CType], ...]) -> tuple[str, ...]:
+    return cdy_rt.primitives.list_map((lambda f: f[0]), cdy_rt.primitives.list_filter((lambda f: (len(emit__type_vars(cdy_rt.primitives.to_list(f[1]), ())) > 0)), fields))
 
 def emit__local_py(name: str, id_: int, env: emit__Env) -> str:
     if cdy_rt.primitives.map_has(env.locals_, id_):
@@ -3868,21 +3863,21 @@ def emit__bind_locals(locs: tuple[core__Expr, ...], env: emit__Env) -> emit__Env
         if (len(locs) == 0):
             return env
         else:
-            _cdy_t89 = prelude__rest(locs)
-            _cdy_t87: object = locs[0]
-            if isinstance(_cdy_t87, core__Local):
-                name = _cdy_t87.name
-                id_ = _cdy_t87.id_
+            _cdy_t87 = prelude__rest(locs)
+            _cdy_t85: object = locs[0]
+            if isinstance(_cdy_t85, core__Local):
+                name = _cdy_t85.name
+                id_ = _cdy_t85.id_
                 if cdy_rt.primitives.map_has(env.locals_, id_):
-                    _cdy_t88 = env
+                    _cdy_t86 = env
                 else:
                     base = emit__py_mangle(name)
                     py = (('_cdy_' + base + '_' + str(id_)) if cdy_rt.primitives.map_has(env.taken, base) else base)
-                    _cdy_t88 = env._replace(locals_=cdy_rt.primitives.map_set(env.locals_, id_, py), taken=cdy_rt.primitives.map_set(env.taken, py, True))
-                _cdy_t86 = _cdy_t88
+                    _cdy_t86 = env._replace(locals_=cdy_rt.primitives.map_set(env.locals_, id_, py), taken=cdy_rt.primitives.map_set(env.taken, py, True))
+                _cdy_t84 = _cdy_t86
             else:
-                _cdy_t86 = env
-            locs, env = (_cdy_t89, _cdy_t86)
+                _cdy_t84 = env
+            locs, env = (_cdy_t87, _cdy_t84)
             continue
 
 def emit__bound_locals(stmts: tuple[lower__Stmt, ...], acc: tuple[core__Expr, ...]) -> tuple[core__Expr, ...]:
@@ -3890,30 +3885,30 @@ def emit__bound_locals(stmts: tuple[lower__Stmt, ...], acc: tuple[core__Expr, ..
         if (len(stmts) == 0):
             return acc
         else:
-            _cdy_t94 = prelude__rest(stmts)
-            _cdy_t91: object = stmts[0]
-            if isinstance(_cdy_t91, lower__SAssign):
-                target = _cdy_t91.target
-                _cdy_t93: object = target
-                if isinstance(_cdy_t93, core__Local):
-                    _cdy_t92 = (acc + cdy_rt.primitives.to_list(target))
+            _cdy_t92 = prelude__rest(stmts)
+            _cdy_t89: object = stmts[0]
+            if isinstance(_cdy_t89, lower__SAssign):
+                target = _cdy_t89.target
+                _cdy_t91: object = target
+                if isinstance(_cdy_t91, core__Local):
+                    _cdy_t90 = (acc + cdy_rt.primitives.to_list(target))
                 else:
-                    _cdy_t92 = acc
-                _cdy_t90 = _cdy_t92
-            elif isinstance(_cdy_t91, lower__SIf):
-                then = _cdy_t91.then
-                other = _cdy_t91.other
-                _cdy_t90 = emit__bound_locals(other, emit__bound_locals(then, acc))
-            elif isinstance(_cdy_t91, lower__SMatch):
-                cases = _cdy_t91.cases
-                default = _cdy_t91.default
-                _cdy_t90 = emit__bound_in_cases(cases, emit__bound_in_lists(default, acc))
-            elif isinstance(_cdy_t91, lower__SLoop):
-                body = _cdy_t91.body
-                _cdy_t90 = emit__bound_locals(body, acc)
+                    _cdy_t90 = acc
+                _cdy_t88 = _cdy_t90
+            elif isinstance(_cdy_t89, lower__SIf):
+                then = _cdy_t89.then
+                other = _cdy_t89.other
+                _cdy_t88 = emit__bound_locals(other, emit__bound_locals(then, acc))
+            elif isinstance(_cdy_t89, lower__SMatch):
+                cases = _cdy_t89.cases
+                default = _cdy_t89.default
+                _cdy_t88 = emit__bound_in_cases(cases, emit__bound_in_lists(default, acc))
+            elif isinstance(_cdy_t89, lower__SLoop):
+                body = _cdy_t89.body
+                _cdy_t88 = emit__bound_locals(body, acc)
             else:
-                _cdy_t90 = acc
-            stmts, acc = (_cdy_t94, _cdy_t90)
+                _cdy_t88 = acc
+            stmts, acc = (_cdy_t92, _cdy_t88)
             continue
 
 def emit__bound_in_cases(cases: tuple[lower__Case, ...], acc: tuple[core__Expr, ...]) -> tuple[core__Expr, ...]:
@@ -3946,69 +3941,93 @@ def emit__bound_in_lists(lists: tuple[tuple[lower__Stmt, ...], ...], acc: tuple[
 
 def emit__emit_expr(e: core__Expr, env: emit__Env) -> str:
     while True:
-        _cdy_t95: object = e
-        if isinstance(_cdy_t95, core__Lit):
-            form = _cdy_t95.form
+        _cdy_t93: object = e
+        if isinstance(_cdy_t93, core__Lit):
+            form = _cdy_t93.form
             return emit__emit_lit(form)
-        elif isinstance(_cdy_t95, core__Local):
-            name = _cdy_t95.name
-            id_ = _cdy_t95.id_
+        elif isinstance(_cdy_t93, core__Local):
+            name = _cdy_t93.name
+            id_ = _cdy_t93.id_
             return emit__local_py(name, id_, env)
-        elif isinstance(_cdy_t95, core__Global):
-            _cdy_name_85 = _cdy_t95.name
-            return cdy_rt.primitives.map_get(env.globals_, _cdy_name_85)
-        elif isinstance(_cdy_t95, core__Prim):
-            _cdy_name_86 = _cdy_t95.name
-            pos = _cdy_t95.pos
-            t = _cdy_t95.t
-            return emit__emit_prim(_cdy_name_86, pos, t, env)
-        elif isinstance(_cdy_t95, core__Call):
-            callee = _cdy_t95.callee
-            args = _cdy_t95.args
+        elif isinstance(_cdy_t93, core__Global):
+            _cdy_name_92 = _cdy_t93.name
+            return cdy_rt.primitives.map_get(env.globals_, _cdy_name_92)
+        elif isinstance(_cdy_t93, core__Prim):
+            _cdy_name_93 = _cdy_t93.name
+            pos = _cdy_t93.pos
+            t = _cdy_t93.t
+            return emit__emit_prim(_cdy_name_93, pos, t, env)
+        elif isinstance(_cdy_t93, core__Call):
+            callee = _cdy_t93.callee
+            args = _cdy_t93.args
             return emit__emit_call(callee, args, env)
-        elif isinstance(_cdy_t95, core__If):
-            test = _cdy_t95.test
-            then = _cdy_t95.then
-            other = _cdy_t95.other
+        elif isinstance(_cdy_t93, core__If):
+            test = _cdy_t93.test
+            then = _cdy_t93.then
+            other = _cdy_t93.other
             return ('(' + emit__emit_expr(then, env) + ' if ' + emit__emit_expr(test, env) + ' else ' + emit__emit_expr(other, env) + ')')
-        elif isinstance(_cdy_t95, core__Do):
+        elif isinstance(_cdy_t93, core__Do):
             return cdy_rt.primitives.fail('internal error: emit: a do inside an expression (lower should have removed it)')
-        elif isinstance(_cdy_t95, core__MatchE):
+        elif isinstance(_cdy_t93, core__MatchE):
             return cdy_rt.primitives.fail('internal error: emit: a match inside an expression (lower should have removed it)')
-        elif isinstance(_cdy_t95, core__Lambda):
-            params = _cdy_t95.params
-            body = _cdy_t95.body
+        elif isinstance(_cdy_t93, core__Lambda):
+            params = _cdy_t93.params
+            body = _cdy_t93.body
             inner = emit__bind_locals(params, env)
             return ('(lambda ' + emit__comma_join(emit__emit_exprs(params, inner, ())) + ': ' + emit__emit_expr(body, inner) + ')')
-        elif isinstance(_cdy_t95, core__Tuple):
-            items = _cdy_t95.items
+        elif isinstance(_cdy_t93, core__Tuple):
+            items = _cdy_t93.items
             strs = emit__emit_exprs(items, env, ())
             if (len(strs) == 1):
                 return ('(' + cdy_rt.primitives.text_any(strs[0]) + ',)')
             else:
                 return ('(' + emit__comma_join(strs) + ')')
-        elif isinstance(_cdy_t95, core__ListOf):
-            _cdy_items_99 = _cdy_t95.items
-            _cdy_pos_100 = _cdy_t95.pos
-            _cdy_t_101 = _cdy_t95.t
-            e = core__Tuple(_cdy_items_99, _cdy_pos_100, _cdy_t_101)
+        elif isinstance(_cdy_t93, core__ListOf):
+            _cdy_items_106 = _cdy_t93.items
+            _cdy_pos_107 = _cdy_t93.pos
+            _cdy_t_108 = _cdy_t93.t
+            e = core__Tuple(_cdy_items_106, _cdy_pos_107, _cdy_t_108)
             continue
-        elif isinstance(_cdy_t95, core__Fmt):
-            parts = _cdy_t95.parts
-            _cdy_pos_103 = _cdy_t95.pos
-            return emit__emit_format(parts, _cdy_pos_103, env)
-        elif isinstance(_cdy_t95, core__Field):
-            obj = _cdy_t95.obj
-            field = _cdy_t95.field
-            return (emit__emit_expr(obj, env) + '.' + emit__py_mangle(field))
-        elif isinstance(_cdy_t95, core__Assoc):
-            _cdy_obj_106 = _cdy_t95.obj
-            fields = _cdy_t95.fields
-            return (emit__emit_expr(_cdy_obj_106, env) + '._replace(' + emit__comma_join(emit__emit_fields(fields, env, ())) + ')')
+        elif isinstance(_cdy_t93, core__Fmt):
+            parts = _cdy_t93.parts
+            _cdy_pos_110 = _cdy_t93.pos
+            return emit__emit_format(parts, _cdy_pos_110, env)
+        elif isinstance(_cdy_t93, core__Field):
+            obj = _cdy_t93.obj
+            field = _cdy_t93.field
+            _cdy_t_113 = _cdy_t93.t
+            return emit__emit_get(obj, field, _cdy_t_113, env)
+        elif isinstance(_cdy_t93, core__Assoc):
+            _cdy_obj_114 = _cdy_t93.obj
+            fields = _cdy_t93.fields
+            return (emit__emit_obj(_cdy_obj_114, env) + '._replace(' + emit__comma_join(emit__emit_fields(fields, env, ())) + ')')
         else:
-            assert isinstance(_cdy_t95, core__Temp)
-            _cdy_id__108 = _cdy_t95.id_
-            return ('_cdy_t' + str(_cdy_id__108))
+            assert isinstance(_cdy_t93, core__Temp)
+            _cdy_id__116 = _cdy_t93.id_
+            return ('_cdy_t' + str(_cdy_id__116))
+
+def emit__emit_obj(obj: core__Expr, env: emit__Env) -> str:
+    _cdy_t94: object = obj
+    if isinstance(_cdy_t94, core__Local):
+        id_ = _cdy_t94.id_
+        if cdy_rt.primitives.map_has(env.narrowed, id_):
+            return cdy_rt.primitives.map_get(env.narrowed, id_)[0]
+        else:
+            return emit__emit_expr(obj, env)
+    else:
+        return emit__emit_expr(obj, env)
+
+def emit__emit_get(obj: core__Expr, field: str, t: core__CType, env: emit__Env) -> str:
+    text = (emit__emit_obj(obj, env) + '.' + emit__py_mangle(field))
+    _cdy_t95: object = obj
+    if isinstance(_cdy_t95, core__Local):
+        id_ = _cdy_t95.id_
+        if (cdy_rt.primitives.map_has(env.narrowed, id_) and cdy_rt.primitives.in_(field, cdy_rt.primitives.map_get(env.narrowed, id_)[1])):
+            return ("_cdy_cast('" + emit__emit_type(t, env) + "', " + text + ')')
+        else:
+            return text
+    else:
+        return text
 
 def emit__emit_format(parts: tuple[core__FPart, ...], pos: form__Pos, env: emit__Env) -> str:
     if (len(parts) == 0):
@@ -4041,12 +4060,12 @@ def emit__emit_text(e: core__Expr, pos: form__Pos, env: emit__Env) -> str:
         _cdy_t99 = name
     else:
         _cdy_t99 = ''
-    _cdy_name_123 = _cdy_t99
-    if cdy_rt.primitives.in_(_cdy_name_123, ('String', 'Char')):
+    _cdy_name_140 = _cdy_t99
+    if cdy_rt.primitives.in_(_cdy_name_140, ('String', 'Char')):
         return x
-    elif (_cdy_name_123 == 'Int'):
+    elif (_cdy_name_140 == 'Int'):
         return ('str(' + x + ')')
-    elif (_cdy_name_123 == 'Any'):
+    elif (_cdy_name_140 == 'Any'):
         return ('cdy_rt.primitives.text_any(' + x + ')')
     else:
         return emit__show_call(x, e.t, pos)
@@ -4078,8 +4097,8 @@ def emit__show_type(t: core__CType, pos: form__Pos) -> str:
         return cdy_rt.primitives.fail((form__pos_text(pos) + "show: a function can't be shown"))
     else:
         assert isinstance(_cdy_t102, core__TVar)
-        _cdy_name_136 = _cdy_t102.name
-        shown = (('t' + _cdy_name_136[1:len(_cdy_name_136)]) if cdy_rt.primitives.starts_with(_cdy_name_136, '?') else _cdy_name_136)
+        _cdy_name_153 = _cdy_t102.name
+        shown = (('t' + _cdy_name_153[1:len(_cdy_name_153)]) if cdy_rt.primitives.starts_with(_cdy_name_153, '?') else _cdy_name_153)
         return cdy_rt.primitives.fail((form__pos_text(pos) + ("show: can't show a value of type " + shown + ', a type variable')))
 
 def emit__field_show_type(t: core__CType) -> str:
@@ -4095,8 +4114,8 @@ def emit__field_show_type(t: core__CType) -> str:
         return emit__py_str('Fn')
     else:
         assert isinstance(_cdy_t103, core__TVar)
-        _cdy_name_141 = _cdy_t103.name
-        return emit__py_str(("'" + _cdy_name_141))
+        _cdy_name_158 = _cdy_t103.name
+        return emit__py_str(("'" + _cdy_name_158))
 
 def emit__register_line(name: str, shown: str, tvars: tuple[str, ...], fields: tuple[tuple[str, core__CType], ...], level: int, env: emit__Env) -> str:
     return emit__line(level, ('cdy_rt.primitives.register_type(' + cdy_rt.primitives.map_get(env.globals_, name) + ', ' + emit__py_str(shown) + ', ' + emit__py_tuple(cdy_rt.primitives.list_map(emit__py_str, tvars)) + ', ' + emit__py_tuple(cdy_rt.primitives.list_map((lambda f: emit__field_show_type(f[1])), fields)) + ')'))
@@ -4132,26 +4151,26 @@ def emit__emit_lit(form: form__Form) -> str:
         v = _cdy_t104.val
         return emit__py_str(v)
     elif isinstance(_cdy_t104, form__CharLit):
-        _cdy_v_161 = _cdy_t104.val
-        return emit__py_str((_cdy_v_161))
+        _cdy_v_178 = _cdy_t104.val
+        return emit__py_str((_cdy_v_178))
     elif isinstance(_cdy_t104, form__IntLit):
-        _cdy_v_162 = _cdy_t104.val
-        return (str(_cdy_v_162))
+        _cdy_v_179 = _cdy_t104.val
+        return (str(_cdy_v_179))
     elif isinstance(_cdy_t104, form__LongLit):
-        _cdy_v_163 = _cdy_t104.val
-        return (str(_cdy_v_163))
+        _cdy_v_180 = _cdy_t104.val
+        return (str(_cdy_v_180))
     elif isinstance(_cdy_t104, form__ByteLit):
-        _cdy_v_164 = _cdy_t104.val
-        return (str(_cdy_v_164))
+        _cdy_v_181 = _cdy_t104.val
+        return (str(_cdy_v_181))
     elif isinstance(_cdy_t104, form__FloatLit):
-        _cdy_v_165 = _cdy_t104.val
-        return (cdy_rt.primitives.show(_cdy_v_165, 'Double'))
+        _cdy_v_182 = _cdy_t104.val
+        return (cdy_rt.primitives.show(_cdy_v_182, 'Double'))
     elif isinstance(_cdy_t104, form__DoubleLit):
-        _cdy_v_166 = _cdy_t104.val
-        return (cdy_rt.primitives.show(_cdy_v_166, 'Double'))
+        _cdy_v_183 = _cdy_t104.val
+        return (cdy_rt.primitives.show(_cdy_v_183, 'Double'))
     elif isinstance(_cdy_t104, form__BoolLit):
-        _cdy_v_167 = _cdy_t104.val
-        if _cdy_v_167:
+        _cdy_v_184 = _cdy_t104.val
+        if _cdy_v_184:
             return 'True'
         else:
             return 'False'
@@ -4215,9 +4234,9 @@ def emit__emit_type(t: core__CType, env: emit__Env) -> str:
         return ('_cdy_Callable[[' + emit__comma_join(emit__emit_types(params, env, ())) + '], ' + emit__emit_type(ret, env) + ']')
     else:
         assert isinstance(_cdy_t107, core__TCon)
-        _cdy_name_191 = _cdy_t107.name
+        _cdy_name_208 = _cdy_t107.name
         args = _cdy_t107.args
-        return emit__emit_tcon(_cdy_name_191, emit__emit_types(args, env, ()), env.spellings)
+        return emit__emit_tcon(_cdy_name_208, emit__emit_types(args, env, ()), env.spellings)
 
 def emit__emit_types(types: tuple[core__CType, ...], env: emit__Env, acc: tuple[str, ...]) -> tuple[str, ...]:
     while True:
@@ -4267,10 +4286,10 @@ def emit__emit_stmt(s: lower__Stmt, level: int, env: emit__Env) -> str:
         checked = emit__check_py_fields(('deft ' + emit__candy_name(name)), fields, {})
         return ('\n' + emit__line(level, ('class ' + cdy_rt.primitives.map_get(env.globals_, name) + emit__type_params(tvars) + '(_cdy_NamedTuple):')) + emit__emit_record_fields(fields, (level + 1), env, '') + emit__eq_methods((level + 1)) + emit__register_line(name, emit__own_name(name), tvars, fields, level, env))
     elif isinstance(_cdy_t111, lower__SSum):
-        _cdy_name_212 = _cdy_t111.name
-        _cdy_tvars_213 = _cdy_t111.tvars
+        _cdy_name_229 = _cdy_t111.name
+        _cdy_tvars_230 = _cdy_t111.tvars
         variants = _cdy_t111.variants
-        return (emit__emit_variants(_cdy_name_212, variants, _cdy_tvars_213, level, env, '') + emit__line(level, ('type ' + cdy_rt.primitives.map_get(env.globals_, _cdy_name_212) + emit__type_params(_cdy_tvars_213) + ' = ' + cdy_rt.primitives.join(emit__variant_refs(variants, _cdy_tvars_213, env, ()), ' | '))))
+        return (emit__emit_variants(_cdy_name_229, variants, _cdy_tvars_230, level, env, '') + emit__line(level, ('type ' + cdy_rt.primitives.map_get(env.globals_, _cdy_name_229) + emit__type_params(_cdy_tvars_230) + ' = ' + cdy_rt.primitives.join(emit__variant_refs(variants, _cdy_tvars_230, env, ()), ' | '))))
     elif isinstance(_cdy_t111, lower__SMatch):
         temp = _cdy_t111.temp
         subject = _cdy_t111.subject
@@ -4279,7 +4298,7 @@ def emit__emit_stmt(s: lower__Stmt, level: int, env: emit__Env) -> str:
         t = emit__emit_expr(temp, env)
         val = emit__emit_expr(subject, env)
         generic = cdy_rt.primitives.map_has(env.generic, cases[0].variant)
-        return (emit__line(level, ((t + ' = ' + val) if generic else (t + ': object = ' + val))) + emit__emit_match(t, cases, default, ((not generic) and (len(default) == 0)), 'if', level, env))
+        return (emit__line(level, ((t + ' = ' + val) if generic else (t + ': object = ' + val))) + emit__emit_match(t, cases, default, ((not generic) and (len(default) == 0)), 'if', level, env, subject))
     elif isinstance(_cdy_t111, lower__SLoop):
         body = _cdy_t111.body
         return (emit__line(level, 'while True:') + emit__emit_block(body, (level + 1), env))
@@ -4291,44 +4310,44 @@ def emit__emit_stmt(s: lower__Stmt, level: int, env: emit__Env) -> str:
         return emit__line(level, 'continue')
     elif isinstance(_cdy_t111, lower__SAssign):
         target = _cdy_t111.target
-        _cdy_val_226 = _cdy_t111.val
-        return emit__line(level, (emit__emit_expr(target, env) + emit__lambda_annotation(target, _cdy_val_226, env) + ' = ' + emit__emit_expr(_cdy_val_226, env)))
+        _cdy_val_243 = _cdy_t111.val
+        return emit__line(level, (emit__emit_expr(target, env) + emit__lambda_annotation(target, _cdy_val_243, env) + ' = ' + emit__emit_expr(_cdy_val_243, env)))
     elif isinstance(_cdy_t111, lower__SDefAssign):
-        _cdy_name_227 = _cdy_t111.name
-        _cdy_val_228 = _cdy_t111.val
-        _cdy_t_229 = _cdy_t111.t
-        return emit__line(level, (cdy_rt.primitives.map_get(env.globals_, _cdy_name_227) + ': ' + emit__emit_type(_cdy_t_229, env) + ' = ' + emit__emit_expr(_cdy_val_228, env)))
+        _cdy_name_244 = _cdy_t111.name
+        _cdy_val_245 = _cdy_t111.val
+        _cdy_t_246 = _cdy_t111.t
+        return emit__line(level, (cdy_rt.primitives.map_get(env.globals_, _cdy_name_244) + ': ' + emit__emit_type(_cdy_t_246, env) + ' = ' + emit__emit_expr(_cdy_val_245, env)))
     elif isinstance(_cdy_t111, lower__SExpr):
         e = _cdy_t111.expr
         return emit__line(level, emit__emit_expr(e, env))
     elif isinstance(_cdy_t111, lower__SReturn):
-        _cdy_e_231 = _cdy_t111.val
-        return emit__line(level, ('return ' + emit__emit_expr(_cdy_e_231, env)))
+        _cdy_e_248 = _cdy_t111.val
+        return emit__line(level, ('return ' + emit__emit_expr(_cdy_e_248, env)))
     elif isinstance(_cdy_t111, lower__SIf):
         test = _cdy_t111.test
         then = _cdy_t111.then
         other = _cdy_t111.other
         return emit__emit_if('if', test, then, other, level, env)
     elif isinstance(_cdy_t111, lower__SFunc):
-        _cdy_name_235 = _cdy_t111.name
+        _cdy_name_252 = _cdy_t111.name
         params = _cdy_t111.params
-        _cdy_body_237 = _cdy_t111.body
-        _cdy_t_238 = _cdy_t111.t
-        return emit__emit_func(_cdy_name_235, params, _cdy_body_237, _cdy_t_238, level, env)
+        _cdy_body_254 = _cdy_t111.body
+        _cdy_t_255 = _cdy_t111.t
+        return emit__emit_func(_cdy_name_252, params, _cdy_body_254, _cdy_t_255, level, env)
     else:
         assert isinstance(_cdy_t111, lower__SLocalFunc)
-        _cdy_target_239 = _cdy_t111.target
-        _cdy_params_240 = _cdy_t111.params
-        _cdy_body_241 = _cdy_t111.body
-        _cdy_t_242 = _cdy_t111.t
-        inner = emit__bind_locals((_cdy_params_240 + emit__bound_locals(_cdy_body_241, ())), env)
-        _cdy_t112: object = _cdy_t_242
+        _cdy_target_256 = _cdy_t111.target
+        _cdy_params_257 = _cdy_t111.params
+        _cdy_body_258 = _cdy_t111.body
+        _cdy_t_259 = _cdy_t111.t
+        inner = emit__bind_locals((_cdy_params_257 + emit__bound_locals(_cdy_body_258, ())), env)
+        _cdy_t112: object = _cdy_t_259
         if isinstance(_cdy_t112, core__TFn):
             types = _cdy_t112.params
             ret = _cdy_t112.ret
-            return (emit__line(level, ('def ' + emit__emit_expr(_cdy_target_239, env) + '(' + emit__comma_join(emit__emit_params(_cdy_params_240, types, inner, ())) + ') -> ' + emit__emit_type(ret, env) + ':')) + emit__emit_block(_cdy_body_241, (level + 1), inner))
+            return (emit__line(level, ('def ' + emit__emit_expr(_cdy_target_256, env) + '(' + emit__comma_join(emit__emit_params(_cdy_params_257, types, inner, ())) + ') -> ' + emit__emit_type(ret, env) + ':')) + emit__emit_block(_cdy_body_258, (level + 1), inner))
         else:
-            return (emit__line(level, ('def ' + emit__emit_expr(_cdy_target_239, env) + '(' + emit__comma_join(emit__emit_any_params(_cdy_params_240, inner, ())) + ') -> _cdy_Any:')) + emit__emit_block(_cdy_body_241, (level + 1), inner))
+            return (emit__line(level, ('def ' + emit__emit_expr(_cdy_target_256, env) + '(' + emit__comma_join(emit__emit_any_params(_cdy_params_257, inner, ())) + ') -> _cdy_Any:')) + emit__emit_block(_cdy_body_258, (level + 1), inner))
 
 def emit__lambda_annotation(target: core__Expr, val: core__Expr, env: emit__Env) -> str:
     _cdy_t113: object = target
@@ -4461,7 +4480,7 @@ def emit__variant_refs(variants: tuple[core__Variant, ...], tvars: tuple[str, ..
             variants, acc = (prelude__rest(variants), (acc + cdy_rt.primitives.to_list((cdy_rt.primitives.map_get(env.globals_, v.name) + emit__type_params(vt)))))
             continue
 
-def emit__emit_match(subj: str, cases: tuple[lower__Case, ...], default: tuple[tuple[lower__Stmt, ...], ...], assert_last: bool, keyword: str, level: int, env: emit__Env) -> str:
+def emit__emit_match(subj: str, cases: tuple[lower__Case, ...], default: tuple[tuple[lower__Stmt, ...], ...], assert_last: bool, keyword: str, level: int, env: emit__Env, subject: core__Expr) -> str:
     if (len(cases) == 0):
         if (len(default) == 0):
             return ''
@@ -4469,14 +4488,25 @@ def emit__emit_match(subj: str, cases: tuple[lower__Case, ...], default: tuple[t
             return (emit__line(level, 'else:') + emit__emit_block(default[0], (level + 1), env))
     elif (assert_last and (len(cases) == 1)):
         c = cases[0]
+        cenv = emit__case_env(subject, subj, c.variant, env)
         inner = (level if (keyword == 'if') else (level + 1))
-        return (('' if (keyword == 'if') else emit__line(level, 'else:')) + emit__line(inner, ('assert isinstance(' + subj + ', ' + cdy_rt.primitives.map_get(env.globals_, c.variant) + ')')) + emit__emit_binds(c.binds, c.variant, subj, inner, env, '') + emit__emit_stmts(c.body, inner, env, ''))
+        return (('' if (keyword == 'if') else emit__line(level, 'else:')) + emit__line(inner, ('assert isinstance(' + subj + ', ' + cdy_rt.primitives.map_get(env.globals_, c.variant) + ')')) + emit__emit_binds(c.binds, c.variant, subj, inner, cenv, '') + emit__emit_stmts(c.body, inner, cenv, ''))
     else:
-        _cdy_c_314 = cases[0]
-        test = (keyword + ' isinstance(' + subj + ', ' + cdy_rt.primitives.map_get(env.globals_, _cdy_c_314.variant) + '):')
-        binds = emit__emit_binds(_cdy_c_314.binds, _cdy_c_314.variant, subj, (level + 1), env, '')
-        body = ((emit__line((level + 1), 'pass') if (binds == '') else '') if (len(_cdy_c_314.body) == 0) else emit__emit_stmts(_cdy_c_314.body, (level + 1), env, ''))
-        return (emit__line(level, test) + binds + body + emit__emit_match(subj, prelude__rest(cases), default, assert_last, 'elif', level, env))
+        _cdy_c_333 = cases[0]
+        _cdy_cenv_334 = emit__case_env(subject, subj, _cdy_c_333.variant, env)
+        test = (keyword + ' isinstance(' + subj + ', ' + cdy_rt.primitives.map_get(env.globals_, _cdy_c_333.variant) + '):')
+        binds = emit__emit_binds(_cdy_c_333.binds, _cdy_c_333.variant, subj, (level + 1), _cdy_cenv_334, '')
+        body = ((emit__line((level + 1), 'pass') if (binds == '') else '') if (len(_cdy_c_333.body) == 0) else emit__emit_stmts(_cdy_c_333.body, (level + 1), _cdy_cenv_334, ''))
+        return (emit__line(level, test) + binds + body + emit__emit_match(subj, prelude__rest(cases), default, assert_last, 'elif', level, env, subject))
+
+def emit__case_env(subject: core__Expr, subj: str, variant: str, env: emit__Env) -> emit__Env:
+    _cdy_t121: object = subject
+    if isinstance(_cdy_t121, core__Local):
+        id_ = _cdy_t121.id_
+        fields = (cdy_rt.primitives.map_get(env.generic, variant) if cdy_rt.primitives.map_has(env.generic, variant) else ())
+        return env._replace(narrowed=cdy_rt.primitives.map_set(env.narrowed, id_, (subj, fields)))
+    else:
+        return env
 
 def emit__emit_binds(binds: tuple[tuple[str, core__Expr], ...], variant: str, subj: str, level: int, env: emit__Env, acc: str) -> str:
     while True:
@@ -4513,10 +4543,10 @@ def emit__emit_params(params: tuple[core__Expr, ...], types: tuple[core__CType, 
             continue
 
 def emit__emit_func(name: str, params: tuple[core__Expr, ...], body: tuple[lower__Stmt, ...], t: core__CType, level: int, env: emit__Env) -> str:
-    _cdy_t121: object = t
-    if isinstance(_cdy_t121, core__TFn):
-        types = _cdy_t121.params
-        ret = _cdy_t121.ret
+    _cdy_t122: object = t
+    if isinstance(_cdy_t122, core__TFn):
+        types = _cdy_t122.params
+        ret = _cdy_t122.ret
         inner = emit__bind_locals((params + emit__bound_locals(body, ())), env._replace(locals_={}))
         tvars = emit__type_vars((types + cdy_rt.primitives.to_list(ret)), ())
         tparams = emit__type_params(tvars)
@@ -4636,9 +4666,9 @@ def expand__import_file(form: form__Form, compile_: _cdy_Callable[[tuple[form__F
         return expand__Imports((acc.macros + done.own), expand__add_helpers((done.helpers + cdy_rt.primitives.to_list((key, done.forms))), acc.helpers), cdy_rt.primitives.map_set(acc.seen, key, True))
 
 def expand__macro_path(form: form__Form) -> str:
-    _cdy_t122: object = form__list_items(form)[1]
-    if isinstance(_cdy_t122, form__Txt):
-        path = _cdy_t122.val
+    _cdy_t123: object = form__list_items(form)[1]
+    if isinstance(_cdy_t123, form__Txt):
+        path = _cdy_t123.val
         return path
     else:
         return cdy_rt.primitives.fail((form__pos_text(form__form_pos(form)) + 'import-macros: expected (import-macros name)'))
@@ -4714,11 +4744,11 @@ def expand__defmacro_items(form: form__Form, builtins: _cdy_Mapping[str, core__B
         return items
 
 def expand__params_ok(params: form__Form) -> bool:
-    _cdy_t123: object = params
-    if isinstance(_cdy_t123, form__Sym):
+    _cdy_t124: object = params
+    if isinstance(_cdy_t124, form__Sym):
         return True
-    elif isinstance(_cdy_t123, form__Lst):
-        items = _cdy_t123.items
+    elif isinstance(_cdy_t124, form__Lst):
+        items = _cdy_t124.items
         return expand__all_names(items)
     else:
         return False
@@ -4778,10 +4808,10 @@ def expand__expand_all(forms: tuple[form__Form, ...], macros: _cdy_Mapping[str, 
 
 def expand__expand_form(form: form__Form, macros: _cdy_Mapping[str, form__Macro]) -> form__Form:
     while True:
-        _cdy_t124: object = form
-        if isinstance(_cdy_t124, form__Lst):
-            items = _cdy_t124.items
-            pos = _cdy_t124.pos
+        _cdy_t125: object = form
+        if isinstance(_cdy_t125, form__Lst):
+            items = _cdy_t125.items
+            pos = _cdy_t125.pos
             head = ('' if (len(items) == 0) else form__sym_name(items[0]))
             if cdy_rt.primitives.map_has(macros, head):
                 form = expand__expand_call(cdy_rt.primitives.map_get(macros, head), prelude__rest(items), pos)
@@ -4807,10 +4837,10 @@ def expand__expand_after(items: tuple[form__Form, ...], n: int, macros: _cdy_Map
 
 def expand__expand_clauses(head: str, items: tuple[form__Form, ...], macros: _cdy_Mapping[str, form__Macro]) -> tuple[form__Form, ...]:
     if ((head == 'let') and (len(items) == 3)):
-        _cdy_t125: object = items[1]
-        if isinstance(_cdy_t125, form__Lst):
-            binds = _cdy_t125.items
-            p = _cdy_t125.pos
+        _cdy_t126: object = items[1]
+        if isinstance(_cdy_t126, form__Lst):
+            binds = _cdy_t126.items
+            p = _cdy_t126.pos
             return (items[0], form__Lst(expand__each_clause(binds, 1, macros, ()), p), expand__expand_form(items[2], macros))
         else:
             return expand__expand_all(items, macros, ())
@@ -4828,10 +4858,10 @@ def expand__each_clause(clauses: tuple[form__Form, ...], n: int, macros: _cdy_Ma
             continue
 
 def expand__expand_clause(clause: form__Form, n: int, macros: _cdy_Mapping[str, form__Macro]) -> form__Form:
-    _cdy_t126: object = clause
-    if isinstance(_cdy_t126, form__Lst):
-        items = _cdy_t126.items
-        p = _cdy_t126.pos
+    _cdy_t127: object = clause
+    if isinstance(_cdy_t127, form__Lst):
+        items = _cdy_t127.items
+        p = _cdy_t127.pos
         return form__Lst(expand__expand_after(items, n, macros), p)
     else:
         return expand__expand_form(clause, macros)
@@ -4845,10 +4875,10 @@ def expand__expand_call(macro: form__Macro, args: tuple[form__Form, ...], pos: f
         return expand__stamp(cdy_rt.primitives.call_macro(macro.run, args, where), pos)
 
 def expand__stamp(form: form__Form, pos: form__Pos) -> form__Form:
-    _cdy_t127: object = form
-    if isinstance(_cdy_t127, form__Lst):
-        items = _cdy_t127.items
-        p = _cdy_t127.pos
+    _cdy_t128: object = form
+    if isinstance(_cdy_t128, form__Lst):
+        items = _cdy_t128.items
+        p = _cdy_t128.pos
         return form__Lst(expand__stamp_all(items, pos, ()), (pos if (p.line == 0) else p))
     else:
         if (form__form_pos(form).line == 0):
@@ -4857,33 +4887,33 @@ def expand__stamp(form: form__Form, pos: form__Pos) -> form__Form:
             return form
 
 def expand__form_at(form: form__Form, pos: form__Pos) -> form__Form:
-    _cdy_t128: object = form
-    if isinstance(_cdy_t128, form__Sym):
-        v = _cdy_t128.name
+    _cdy_t129: object = form
+    if isinstance(_cdy_t129, form__Sym):
+        v = _cdy_t129.name
         return form__Sym(v, pos)
-    elif isinstance(_cdy_t128, form__Txt):
-        _cdy_v_138 = _cdy_t128.val
+    elif isinstance(_cdy_t129, form__Txt):
+        _cdy_v_138 = _cdy_t129.val
         return form__Txt(_cdy_v_138, pos)
-    elif isinstance(_cdy_t128, form__IntLit):
-        _cdy_v_139 = _cdy_t128.val
+    elif isinstance(_cdy_t129, form__IntLit):
+        _cdy_v_139 = _cdy_t129.val
         return form__IntLit(_cdy_v_139, pos)
-    elif isinstance(_cdy_t128, form__LongLit):
-        _cdy_v_140 = _cdy_t128.val
+    elif isinstance(_cdy_t129, form__LongLit):
+        _cdy_v_140 = _cdy_t129.val
         return form__LongLit(_cdy_v_140, pos)
-    elif isinstance(_cdy_t128, form__ByteLit):
-        _cdy_v_141 = _cdy_t128.val
+    elif isinstance(_cdy_t129, form__ByteLit):
+        _cdy_v_141 = _cdy_t129.val
         return form__ByteLit(_cdy_v_141, pos)
-    elif isinstance(_cdy_t128, form__FloatLit):
-        _cdy_v_142 = _cdy_t128.val
+    elif isinstance(_cdy_t129, form__FloatLit):
+        _cdy_v_142 = _cdy_t129.val
         return form__FloatLit(_cdy_v_142, pos)
-    elif isinstance(_cdy_t128, form__DoubleLit):
-        _cdy_v_143 = _cdy_t128.val
+    elif isinstance(_cdy_t129, form__DoubleLit):
+        _cdy_v_143 = _cdy_t129.val
         return form__DoubleLit(_cdy_v_143, pos)
-    elif isinstance(_cdy_t128, form__CharLit):
-        _cdy_v_144 = _cdy_t128.val
+    elif isinstance(_cdy_t129, form__CharLit):
+        _cdy_v_144 = _cdy_t129.val
         return form__CharLit(_cdy_v_144, pos)
-    elif isinstance(_cdy_t128, form__BoolLit):
-        _cdy_v_145 = _cdy_t128.val
+    elif isinstance(_cdy_t129, form__BoolLit):
+        _cdy_v_145 = _cdy_t129.val
         return form__BoolLit(_cdy_v_145, pos)
     else:
         return form
@@ -4903,13 +4933,14 @@ class check__Ctx(_cdy_NamedTuple):
     builtins: _cdy_Mapping[str, core__Builtin]
     here: form__Pos
     env: _cdy_Mapping[str, core__CType]
+    narrowed: _cdy_Mapping[str, str]
     def __eq__(self, other: object) -> bool:
         return type(self) is type(other) and tuple.__eq__(self, other)
     def __ne__(self, other: object) -> bool:
         return not self == other
     def __hash__(self) -> int:
         return hash((type(self), tuple(self)))
-cdy_rt.primitives.register_type(check__Ctx, 'Ctx', (), (('Map', 'String', 'core__CType'), ('Map', 'String', 'check__Shape'), ('Map', 'String', 'check__Shape'), ('Map', 'String', 'core__Builtin'), 'form__Pos', ('Map', 'String', 'core__CType')))
+cdy_rt.primitives.register_type(check__Ctx, 'Ctx', (), (('Map', 'String', 'core__CType'), ('Map', 'String', 'check__Shape'), ('Map', 'String', 'check__Shape'), ('Map', 'String', 'core__Builtin'), 'form__Pos', ('Map', 'String', 'core__CType'), ('Map', 'String', 'String')))
 
 class check__Shape(_cdy_NamedTuple):
     tvars: tuple[str, ...]
@@ -4928,13 +4959,29 @@ class check__St(_cdy_NamedTuple):
     n: int
     errors: tuple[str, ...]
     types: _cdy_Mapping[str, core__CType]
+    pending: tuple[check__Pending, ...]
     def __eq__(self, other: object) -> bool:
         return type(self) is type(other) and tuple.__eq__(self, other)
     def __ne__(self, other: object) -> bool:
         return not self == other
     def __hash__(self) -> int:
         return hash((type(self), tuple(self)))
-cdy_rt.primitives.register_type(check__St, 'St', (), (('Map', 'String', 'core__CType'), 'Int', ('List', 'String'), ('Map', 'String', 'core__CType')))
+cdy_rt.primitives.register_type(check__St, 'St', (), (('Map', 'String', 'core__CType'), 'Int', ('List', 'String'), ('Map', 'String', 'core__CType'), ('List', 'check__Pending')))
+
+class check__Pending(_cdy_NamedTuple):
+    obj: core__Expr
+    field: str
+    what: str
+    on: core__CType
+    t: core__CType
+    here: form__Pos
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(check__Pending, 'Pending', (), ('core__Expr', 'String', 'String', 'core__CType', 'core__CType', 'form__Pos'))
 
 class check__Res(_cdy_NamedTuple):
     t: core__CType
@@ -4960,42 +5007,42 @@ def check__type_check(tops: tuple[core__Top, ...], builtins: _cdy_Mapping[str, c
         return cdy_rt.primitives.fail(errors[0])
 
 def check__check_program(tops: tuple[core__Top, ...], builtins: _cdy_Mapping[str, core__Builtin]) -> tuple[tuple[core__Top, ...], tuple[str, ...]]:
-    ctx = check__Ctx(check__top_types(tops, {}), check__top_shapes(tops, {}), check__top_sums(tops, {}), builtins, form__NOWHERE, {})
-    return check__check_tops(tops, ctx, check__St({}, 0, (), {}), ())
+    ctx = check__Ctx(check__top_types(tops, {}), check__top_shapes(tops, {}), check__top_sums(tops, {}), builtins, form__NOWHERE, {}, {})
+    return check__check_tops(tops, ctx, check__St({}, 0, (), {}, ()), ())
 
 def check__check_tops(tops: tuple[core__Top, ...], ctx: check__Ctx, st: check__St, acc: tuple[core__Top, ...]) -> tuple[tuple[core__Top, ...], tuple[str, ...]]:
     if (len(tops) == 0):
         return (acc, st.errors)
     else:
         named = check__retype_top(tops[0], (lambda t, k: core__TVar(('?e' + str(k)))))
-        st1 = check__check_top(named, ctx, st._replace(subst={})._replace(types={}))
+        st1 = check__solve_pending(ctx, check__check_top(named, ctx, st._replace(subst={})._replace(types={})))
         done = check__retype_top(named, (lambda t, k: check__node_type(t, st1)))
         return check__check_tops(prelude__rest(tops), ctx, st1, (acc + cdy_rt.primitives.to_list(done)))
 
 def check__check_top(top: core__Top, ctx: check__Ctx, st: check__St) -> check__St:
-    _cdy_t129: object = top
-    if isinstance(_cdy_t129, core__TDef):
-        name = _cdy_t129.name
-        init = _cdy_t129.init
-        t = _cdy_t129.t
-        pos = _cdy_t129.pos
+    _cdy_t130: object = top
+    if isinstance(_cdy_t130, core__TDef):
+        name = _cdy_t130.name
+        init = _cdy_t130.init
+        t = _cdy_t130.t
+        pos = _cdy_t130.pos
         return check__check_expr(init, t, ('def ' + check__shown_name(name)), ctx._replace(here=pos), st)
-    elif isinstance(_cdy_t129, core__TDefn):
-        _cdy_name_27 = _cdy_t129.name
-        params = _cdy_t129.params
-        body = _cdy_t129.body
-        _cdy_t_30 = _cdy_t129.t
-        _cdy_pos_31 = _cdy_t129.pos
+    elif isinstance(_cdy_t130, core__TDefn):
+        _cdy_name_27 = _cdy_t130.name
+        params = _cdy_t130.params
+        body = _cdy_t130.body
+        _cdy_t_30 = _cdy_t130.t
+        _cdy_pos_31 = _cdy_t130.pos
         c = ctx._replace(here=_cdy_pos_31)
-        _cdy_t130: object = _cdy_t_30
-        if isinstance(_cdy_t130, core__TFn):
-            ptypes = _cdy_t130.params
-            ret = _cdy_t130.ret
+        _cdy_t131: object = _cdy_t_30
+        if isinstance(_cdy_t131, core__TFn):
+            ptypes = _cdy_t131.params
+            ret = _cdy_t131.ret
             return check__check_expr(body, ret, ('defn ' + check__shown_name(_cdy_name_27)), c._replace(env=check__bind_all(params, ptypes, c.env, 0)), check__typed_all(params, ptypes, st))
         else:
             return st
-    elif isinstance(_cdy_t129, core__TExpr):
-        e = _cdy_t129.expr
+    elif isinstance(_cdy_t130, core__TExpr):
+        e = _cdy_t130.expr
         return check__infer(e, ctx, st).st
     else:
         return st
@@ -5009,10 +5056,10 @@ def check__bind_all(params: tuple[core__Expr, ...], types: tuple[core__CType, ..
             continue
 
 def check__local_key(e: core__Expr) -> str:
-    _cdy_t131: object = e
-    if isinstance(_cdy_t131, core__Local):
-        name = _cdy_t131.name
-        id_ = _cdy_t131.id_
+    _cdy_t132: object = e
+    if isinstance(_cdy_t132, core__Local):
+        name = _cdy_t132.name
+        id_ = _cdy_t132.id_
         return (name + '#' + str(id_))
     else:
         return ''
@@ -5022,29 +5069,29 @@ def check__top_types(tops: tuple[core__Top, ...], acc: _cdy_Mapping[str, core__C
         if (len(tops) == 0):
             return acc
         else:
-            _cdy_t134 = prelude__rest(tops)
-            _cdy_t133: object = tops[0]
-            if isinstance(_cdy_t133, core__TDef):
-                name = _cdy_t133.name
-                t = _cdy_t133.t
-                _cdy_t132 = cdy_rt.primitives.map_set(acc, name, t)
-            elif isinstance(_cdy_t133, core__TDefn):
-                _cdy_name_47 = _cdy_t133.name
-                _cdy_t_48 = _cdy_t133.t
-                _cdy_t132 = cdy_rt.primitives.map_set(acc, _cdy_name_47, _cdy_t_48)
-            elif isinstance(_cdy_t133, core__TDeft):
-                _cdy_name_49 = _cdy_t133.name
-                tvars = _cdy_t133.tvars
-                fields = _cdy_t133.fields
-                _cdy_t132 = cdy_rt.primitives.map_set(acc, _cdy_name_49, core__TFn(check__fields_types(fields), core__TCon(_cdy_name_49, check__tvar_types(tvars))))
-            elif isinstance(_cdy_t133, core__TDeftSum):
-                _cdy_name_52 = _cdy_t133.name
-                _cdy_tvars_53 = _cdy_t133.tvars
-                variants = _cdy_t133.variants
-                _cdy_t132 = check__variant_types(variants, core__TCon(_cdy_name_52, check__tvar_types(_cdy_tvars_53)), acc)
+            _cdy_t135 = prelude__rest(tops)
+            _cdy_t134: object = tops[0]
+            if isinstance(_cdy_t134, core__TDef):
+                name = _cdy_t134.name
+                t = _cdy_t134.t
+                _cdy_t133 = cdy_rt.primitives.map_set(acc, name, t)
+            elif isinstance(_cdy_t134, core__TDefn):
+                _cdy_name_47 = _cdy_t134.name
+                _cdy_t_48 = _cdy_t134.t
+                _cdy_t133 = cdy_rt.primitives.map_set(acc, _cdy_name_47, _cdy_t_48)
+            elif isinstance(_cdy_t134, core__TDeft):
+                _cdy_name_49 = _cdy_t134.name
+                tvars = _cdy_t134.tvars
+                fields = _cdy_t134.fields
+                _cdy_t133 = cdy_rt.primitives.map_set(acc, _cdy_name_49, core__TFn(check__fields_types(fields), core__TCon(_cdy_name_49, check__tvar_types(tvars))))
+            elif isinstance(_cdy_t134, core__TDeftSum):
+                _cdy_name_52 = _cdy_t134.name
+                _cdy_tvars_53 = _cdy_t134.tvars
+                variants = _cdy_t134.variants
+                _cdy_t133 = check__variant_types(variants, core__TCon(_cdy_name_52, check__tvar_types(_cdy_tvars_53)), acc)
             else:
-                _cdy_t132 = acc
-            tops, acc = (_cdy_t134, _cdy_t132)
+                _cdy_t133 = acc
+            tops, acc = (_cdy_t135, _cdy_t133)
             continue
 
 def check__variant_types(variants: tuple[core__Variant, ...], sum_: core__CType, acc: _cdy_Mapping[str, core__CType]) -> _cdy_Mapping[str, core__CType]:
@@ -5067,21 +5114,21 @@ def check__top_shapes(tops: tuple[core__Top, ...], acc: _cdy_Mapping[str, check_
         if (len(tops) == 0):
             return acc
         else:
-            _cdy_t137 = prelude__rest(tops)
-            _cdy_t136: object = tops[0]
-            if isinstance(_cdy_t136, core__TDeft):
-                name = _cdy_t136.name
-                tvars = _cdy_t136.tvars
-                fields = _cdy_t136.fields
-                _cdy_t135 = cdy_rt.primitives.map_set(acc, name, check__Shape(tvars, fields, ''))
-            elif isinstance(_cdy_t136, core__TDeftSum):
-                _cdy_name_68 = _cdy_t136.name
-                _cdy_tvars_69 = _cdy_t136.tvars
-                variants = _cdy_t136.variants
-                _cdy_t135 = check__variant_shapes(variants, _cdy_tvars_69, _cdy_name_68, acc)
+            _cdy_t138 = prelude__rest(tops)
+            _cdy_t137: object = tops[0]
+            if isinstance(_cdy_t137, core__TDeft):
+                name = _cdy_t137.name
+                tvars = _cdy_t137.tvars
+                fields = _cdy_t137.fields
+                _cdy_t136 = cdy_rt.primitives.map_set(acc, name, check__Shape(tvars, fields, ''))
+            elif isinstance(_cdy_t137, core__TDeftSum):
+                _cdy_name_68 = _cdy_t137.name
+                _cdy_tvars_69 = _cdy_t137.tvars
+                variants = _cdy_t137.variants
+                _cdy_t136 = check__variant_shapes(variants, _cdy_tvars_69, _cdy_name_68, acc)
             else:
-                _cdy_t135 = acc
-            tops, acc = (_cdy_t137, _cdy_t135)
+                _cdy_t136 = acc
+            tops, acc = (_cdy_t138, _cdy_t136)
             continue
 
 def check__variant_shapes(variants: tuple[core__Variant, ...], tvars: tuple[str, ...], sum_: str, acc: _cdy_Mapping[str, check__Shape]) -> _cdy_Mapping[str, check__Shape]:
@@ -5097,38 +5144,38 @@ def check__top_sums(tops: tuple[core__Top, ...], acc: _cdy_Mapping[str, check__S
     if (len(tops) == 0):
         return acc
     else:
-        _cdy_t140 = prelude__rest(tops)
-        _cdy_t139: object = tops[0]
-        if isinstance(_cdy_t139, core__TDeftSum):
-            name = _cdy_t139.name
-            tvars = _cdy_t139.tvars
-            variants = _cdy_t139.variants
-            _cdy_t138 = cdy_rt.primitives.map_set(acc, name, check__Shape(tvars, cdy_rt.primitives.list_map((lambda v: (v.name, core__ANY)), variants), ''))
+        _cdy_t141 = prelude__rest(tops)
+        _cdy_t140: object = tops[0]
+        if isinstance(_cdy_t140, core__TDeftSum):
+            name = _cdy_t140.name
+            tvars = _cdy_t140.tvars
+            variants = _cdy_t140.variants
+            _cdy_t139 = cdy_rt.primitives.map_set(acc, name, check__Shape(tvars, cdy_rt.primitives.list_map((lambda v: (v.name, core__ANY)), variants), ''))
         else:
-            _cdy_t138 = acc
-        return check__top_sums(_cdy_t140, _cdy_t138)
+            _cdy_t139 = acc
+        return check__top_sums(_cdy_t141, _cdy_t139)
 
 def check__check_expr(e: core__Expr, want: core__CType, what: str, outer: check__Ctx, st: check__St) -> check__St:
     while True:
         ctx = check__at_node(e, outer)
-        _cdy_t141: object = e
-        if isinstance(_cdy_t141, core__If):
-            test = _cdy_t141.test
-            then = _cdy_t141.then
-            other = _cdy_t141.other
+        _cdy_t142: object = e
+        if isinstance(_cdy_t142, core__If):
+            test = _cdy_t142.test
+            then = _cdy_t142.then
+            other = _cdy_t142.other
             rt = check__infer(test, ctx, st)
             st1 = check__expect_is(check__tcon('Bool'), rt.t, 'if: the test', ctx, rt.st)
             return check__typed(e, want, check__check_expr(other, want, what, ctx, check__check_expr(then, want, what, ctx, st1)))
-        elif isinstance(_cdy_t141, core__Do):
-            body = _cdy_t141.body
+        elif isinstance(_cdy_t142, core__Do):
+            body = _cdy_t142.body
             return check__typed(e, want, (check__expect(want, check__tcon('Unit'), what, ctx, st) if (len(body) == 0) else check__check_expr(body[(len(body) - 1)], want, what, ctx, check__infer_do(body[0:(len(body) - 1)], ctx, check__Res(core__ANY, st)).st)))
-        elif isinstance(_cdy_t141, core__Call):
-            callee = _cdy_t141.callee
-            args = _cdy_t141.args
-            _cdy_t142: object = callee
-            if isinstance(_cdy_t142, core__Lambda):
-                params = _cdy_t142.params
-                _cdy_body_97 = _cdy_t142.body
+        elif isinstance(_cdy_t142, core__Call):
+            callee = _cdy_t142.callee
+            args = _cdy_t142.args
+            _cdy_t143: object = callee
+            if isinstance(_cdy_t143, core__Lambda):
+                params = _cdy_t143.params
+                _cdy_body_97 = _cdy_t143.body
                 if (len(params) == len(args)):
                     r = check__infer_all(args, ctx, st, ())
                     _cdy_st1_99 = check__typed_all(params, r[0], check__typed(callee, core__TFn(r[0], want), check__typed(e, want, r[1])))
@@ -5138,12 +5185,12 @@ def check__check_expr(e: core__Expr, want: core__CType, what: str, outer: check_
                     return check__infer_expect(e, want, what, ctx, st)
             else:
                 return check__infer_expect(e, want, what, ctx, st)
-        elif isinstance(_cdy_t141, core__Lambda):
+        elif isinstance(_cdy_t142, core__Lambda):
             return check__check_lambda(e, want, what, ctx, st)
-        elif isinstance(_cdy_t141, core__MatchE):
-            subject = _cdy_t141.subject
-            clauses = _cdy_t141.clauses
-            default = _cdy_t141.default
+        elif isinstance(_cdy_t142, core__MatchE):
+            subject = _cdy_t142.subject
+            clauses = _cdy_t142.clauses
+            default = _cdy_t142.default
             if check__is_any(check__prune(want, st.subst)):
                 return check__infer(e, ctx, st).st
             else:
@@ -5159,57 +5206,57 @@ def check__at_node(e: core__Expr, ctx: check__Ctx) -> check__Ctx:
         return ctx._replace(here=pos)
 
 def check__node_pos(e: core__Expr) -> form__Pos:
-    _cdy_t143: object = e
-    if isinstance(_cdy_t143, core__Lit):
-        form = _cdy_t143.form
+    _cdy_t144: object = e
+    if isinstance(_cdy_t144, core__Lit):
+        form = _cdy_t144.form
         return form__form_pos(form)
-    elif isinstance(_cdy_t143, core__Local):
-        pos = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Local):
+        pos = _cdy_t144.pos
         return pos
-    elif isinstance(_cdy_t143, core__Global):
-        _cdy_pos_109 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Global):
+        _cdy_pos_109 = _cdy_t144.pos
         return _cdy_pos_109
-    elif isinstance(_cdy_t143, core__Prim):
-        _cdy_pos_110 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Prim):
+        _cdy_pos_110 = _cdy_t144.pos
         return _cdy_pos_110
-    elif isinstance(_cdy_t143, core__Do):
-        _cdy_pos_111 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Do):
+        _cdy_pos_111 = _cdy_t144.pos
         return _cdy_pos_111
-    elif isinstance(_cdy_t143, core__Call):
-        _cdy_pos_112 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Call):
+        _cdy_pos_112 = _cdy_t144.pos
         return _cdy_pos_112
-    elif isinstance(_cdy_t143, core__If):
-        _cdy_pos_113 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__If):
+        _cdy_pos_113 = _cdy_t144.pos
         return _cdy_pos_113
-    elif isinstance(_cdy_t143, core__Lambda):
-        _cdy_pos_114 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Lambda):
+        _cdy_pos_114 = _cdy_t144.pos
         return _cdy_pos_114
-    elif isinstance(_cdy_t143, core__Tuple):
-        _cdy_pos_115 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Tuple):
+        _cdy_pos_115 = _cdy_t144.pos
         return _cdy_pos_115
-    elif isinstance(_cdy_t143, core__ListOf):
-        _cdy_pos_116 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__ListOf):
+        _cdy_pos_116 = _cdy_t144.pos
         return _cdy_pos_116
-    elif isinstance(_cdy_t143, core__Fmt):
-        _cdy_pos_117 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Fmt):
+        _cdy_pos_117 = _cdy_t144.pos
         return _cdy_pos_117
-    elif isinstance(_cdy_t143, core__Field):
-        _cdy_pos_118 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Field):
+        _cdy_pos_118 = _cdy_t144.pos
         return _cdy_pos_118
-    elif isinstance(_cdy_t143, core__Assoc):
-        _cdy_pos_119 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__Assoc):
+        _cdy_pos_119 = _cdy_t144.pos
         return _cdy_pos_119
-    elif isinstance(_cdy_t143, core__MatchE):
-        _cdy_pos_120 = _cdy_t143.pos
+    elif isinstance(_cdy_t144, core__MatchE):
+        _cdy_pos_120 = _cdy_t144.pos
         return _cdy_pos_120
     else:
         return form__NOWHERE
 
 def check__is_missing_else(e: core__Expr) -> bool:
-    _cdy_t144: object = e
-    if isinstance(_cdy_t144, core__Prim):
-        name = _cdy_t144.name
-        pos = _cdy_t144.pos
+    _cdy_t145: object = e
+    if isinstance(_cdy_t145, core__Prim):
+        name = _cdy_t145.name
+        pos = _cdy_t145.pos
         return ((name == 'nil') and (pos == form__NOWHERE))
     else:
         return False
@@ -5224,31 +5271,31 @@ def check__infer(e: core__Expr, ctx: check__Ctx, st: check__St) -> check__Res:
 
 def check__infer_node(e: core__Expr, outer: check__Ctx, st: check__St) -> check__Res:
     ctx = check__at_node(e, outer)
-    _cdy_t145: object = e
-    if isinstance(_cdy_t145, core__Lit):
-        form = _cdy_t145.form
+    _cdy_t146: object = e
+    if isinstance(_cdy_t146, core__Lit):
+        form = _cdy_t146.form
         return check__Res(check__literal_type(form), st)
-    elif isinstance(_cdy_t145, core__Local):
-        name = _cdy_t145.name
+    elif isinstance(_cdy_t146, core__Local):
+        name = _cdy_t146.name
         key = check__local_key(e)
         return check__Res((cdy_rt.primitives.map_get(ctx.env, key) if cdy_rt.primitives.map_has(ctx.env, key) else core__ANY), st)
-    elif isinstance(_cdy_t145, core__Global):
-        _cdy_name_141 = _cdy_t145.name
+    elif isinstance(_cdy_t146, core__Global):
+        _cdy_name_141 = _cdy_t146.name
         if cdy_rt.primitives.map_has(ctx.globals_, _cdy_name_141):
             return check__instantiate(cdy_rt.primitives.map_get(ctx.globals_, _cdy_name_141), st)
         else:
             return check__Res(core__ANY, st)
-    elif isinstance(_cdy_t145, core__Prim):
-        _cdy_name_142 = _cdy_t145.name
+    elif isinstance(_cdy_t146, core__Prim):
+        _cdy_name_142 = _cdy_t146.name
         return check__prim_type(_cdy_name_142, ctx, st)
-    elif isinstance(_cdy_t145, core__Call):
-        callee = _cdy_t145.callee
-        args = _cdy_t145.args
+    elif isinstance(_cdy_t146, core__Call):
+        callee = _cdy_t146.callee
+        args = _cdy_t146.args
         return check__infer_call(callee, args, ctx, st)
-    elif isinstance(_cdy_t145, core__If):
-        test = _cdy_t145.test
-        then = _cdy_t145.then
-        other = _cdy_t145.other
+    elif isinstance(_cdy_t146, core__If):
+        test = _cdy_t146.test
+        then = _cdy_t146.then
+        other = _cdy_t146.other
         rt = check__infer(test, ctx, st)
         st1 = check__expect_is(check__tcon('Bool'), rt.t, 'if: the test', ctx, rt.st)
         ra = check__infer(then, ctx, st1)
@@ -5257,65 +5304,65 @@ def check__infer_node(e: core__Expr, outer: check__Ctx, st: check__St) -> check_
             return check__Res(check__tcon('Unit'), check__expect_is(check__tcon('Unit'), ra.t, 'if: with no else, the then', ctx, rb.st))
         else:
             return check__join_types(ra.t, rb.t, 'if: the branches', ctx, rb.st)
-    elif isinstance(_cdy_t145, core__Do):
-        body = _cdy_t145.body
+    elif isinstance(_cdy_t146, core__Do):
+        body = _cdy_t146.body
         return check__infer_do(body, ctx, check__Res(check__tcon('Unit'), st))
-    elif isinstance(_cdy_t145, core__Lambda):
-        params = _cdy_t145.params
-        _cdy_body_154 = _cdy_t145.body
+    elif isinstance(_cdy_t146, core__Lambda):
+        params = _cdy_t146.params
+        _cdy_body_154 = _cdy_t146.body
         return check__infer_lambda(params, _cdy_body_154, ctx, st)
-    elif isinstance(_cdy_t145, core__Tuple):
-        items = _cdy_t145.items
+    elif isinstance(_cdy_t146, core__Tuple):
+        items = _cdy_t146.items
         r = check__infer_all(items, ctx, st, ())
         return check__Res(core__TCon('Tup', r[0]), r[1])
-    elif isinstance(_cdy_t145, core__ListOf):
-        _cdy_items_157 = _cdy_t145.items
+    elif isinstance(_cdy_t146, core__ListOf):
+        _cdy_items_157 = _cdy_t146.items
         return check__infer_list_of(_cdy_items_157, ctx, st)
-    elif isinstance(_cdy_t145, core__Fmt):
-        parts = _cdy_t145.parts
+    elif isinstance(_cdy_t146, core__Fmt):
+        parts = _cdy_t146.parts
         return check__Res(check__tcon('String'), check__infer_holes(parts, ctx, st))
-    elif isinstance(_cdy_t145, core__Field):
-        obj = _cdy_t145.obj
-        field = _cdy_t145.field
+    elif isinstance(_cdy_t146, core__Field):
+        obj = _cdy_t146.obj
+        field = _cdy_t146.field
         return check__infer_field(obj, field, ctx, st)
-    elif isinstance(_cdy_t145, core__Assoc):
-        _cdy_obj_161 = _cdy_t145.obj
-        fields = _cdy_t145.fields
+    elif isinstance(_cdy_t146, core__Assoc):
+        _cdy_obj_161 = _cdy_t146.obj
+        fields = _cdy_t146.fields
         return check__infer_assoc(_cdy_obj_161, fields, ctx, st)
-    elif isinstance(_cdy_t145, core__MatchE):
-        subject = _cdy_t145.subject
-        clauses = _cdy_t145.clauses
-        default = _cdy_t145.default
+    elif isinstance(_cdy_t146, core__MatchE):
+        subject = _cdy_t146.subject
+        clauses = _cdy_t146.clauses
+        default = _cdy_t146.default
         return check__infer_match(subject, clauses, default, ctx, st)
     else:
         return check__Res(core__ANY, st)
 
 def check__literal_type(form: form__Form) -> core__CType:
-    _cdy_t146: object = form
-    if isinstance(_cdy_t146, form__Txt):
+    _cdy_t147: object = form
+    if isinstance(_cdy_t147, form__Txt):
         return check__tcon('String')
-    elif isinstance(_cdy_t146, form__IntLit):
+    elif isinstance(_cdy_t147, form__IntLit):
         return check__tcon('Int')
-    elif isinstance(_cdy_t146, form__LongLit):
+    elif isinstance(_cdy_t147, form__LongLit):
         return check__tcon('Long')
-    elif isinstance(_cdy_t146, form__ByteLit):
+    elif isinstance(_cdy_t147, form__ByteLit):
         return check__tcon('Byte')
-    elif isinstance(_cdy_t146, form__FloatLit):
+    elif isinstance(_cdy_t147, form__FloatLit):
         return check__tcon('Float')
-    elif isinstance(_cdy_t146, form__DoubleLit):
+    elif isinstance(_cdy_t147, form__DoubleLit):
         return check__tcon('Double')
-    elif isinstance(_cdy_t146, form__CharLit):
+    elif isinstance(_cdy_t147, form__CharLit):
         return check__tcon('Char')
-    elif isinstance(_cdy_t146, form__BoolLit):
+    elif isinstance(_cdy_t147, form__BoolLit):
         return check__tcon('Bool')
     else:
         return core__ANY
 
 def check__prim_type(name: str, ctx: check__Ctx, st: check__St) -> check__Res:
     if cdy_rt.primitives.map_has(ctx.builtins, name):
-        _cdy_t147: object = cdy_rt.primitives.map_get(ctx.builtins, name)
-        if isinstance(_cdy_t147, core__Typed):
-            type_ = _cdy_t147.type_
+        _cdy_t148: object = cdy_rt.primitives.map_get(ctx.builtins, name)
+        if isinstance(_cdy_t148, core__Typed):
+            type_ = _cdy_t148.type_
             return check__instantiate(type_, st)
         else:
             return check__Res(core__ANY, st)
@@ -5349,14 +5396,14 @@ def check__infer_holes(parts: tuple[core__FPart, ...], ctx: check__Ctx, st: chec
         if (len(parts) == 0):
             return st
         else:
-            _cdy_t150 = prelude__rest(parts)
-            _cdy_t149: object = parts[0]
-            if isinstance(_cdy_t149, core__FHole):
-                e = _cdy_t149.expr
-                _cdy_t148 = check__infer(e, ctx, st).st
+            _cdy_t151 = prelude__rest(parts)
+            _cdy_t150: object = parts[0]
+            if isinstance(_cdy_t150, core__FHole):
+                e = _cdy_t150.expr
+                _cdy_t149 = check__infer(e, ctx, st).st
             else:
-                _cdy_t148 = st
-            parts, st = (_cdy_t150, _cdy_t148)
+                _cdy_t149 = st
+            parts, st = (_cdy_t151, _cdy_t149)
             continue
 
 def check__infer_lambda(params: tuple[core__Expr, ...], body: core__Expr, ctx: check__Ctx, st: check__St) -> check__Res:
@@ -5378,16 +5425,16 @@ def check__fresh(st: check__St) -> check__Res:
     return check__Res(core__TVar(('?' + str(st.n))), st._replace(n=(st.n + 1)))
 
 def check__infer_call(callee: core__Expr, args: tuple[core__Expr, ...], ctx: check__Ctx, st: check__St) -> check__Res:
-    _cdy_t151: object = callee
-    if isinstance(_cdy_t151, core__Lambda):
-        params = _cdy_t151.params
-        body = _cdy_t151.body
+    _cdy_t152: object = callee
+    if isinstance(_cdy_t152, core__Lambda):
+        params = _cdy_t152.params
+        body = _cdy_t152.body
         if (len(params) == len(args)):
             return check__typed_callee(callee, args, check__infer_applied(params, body, args, ctx, st))
         else:
             return check__infer_called(callee, args, ctx, st)
-    elif isinstance(_cdy_t151, core__Prim):
-        name = _cdy_t151.name
+    elif isinstance(_cdy_t152, core__Prim):
+        name = _cdy_t152.name
         if check__is_op(name, ctx):
             return check__typed_callee(callee, args, check__infer_op(name, args, ctx, st))
         elif ((name == 'at') and check__is_tup_item(args)):
@@ -5398,15 +5445,15 @@ def check__infer_call(callee: core__Expr, args: tuple[core__Expr, ...], ctx: che
         return check__infer_called(callee, args, ctx, st)
 
 def check__is_op(name: str, ctx: check__Ctx) -> bool:
-    _cdy_t154 = cdy_rt.primitives.map_has(ctx.builtins, name)
-    if _cdy_t154:
-        _cdy_t153: object = cdy_rt.primitives.map_get(ctx.builtins, name)
-        if isinstance(_cdy_t153, core__Op):
-            _cdy_t152 = True
+    _cdy_t155 = cdy_rt.primitives.map_has(ctx.builtins, name)
+    if _cdy_t155:
+        _cdy_t154: object = cdy_rt.primitives.map_get(ctx.builtins, name)
+        if isinstance(_cdy_t154, core__Op):
+            _cdy_t153 = True
         else:
-            _cdy_t152 = False
-        _cdy_t154 = _cdy_t152
-    return _cdy_t154
+            _cdy_t153 = False
+        _cdy_t155 = _cdy_t153
+    return _cdy_t155
 
 def check__infer_applied(params: tuple[core__Expr, ...], body: core__Expr, args: tuple[core__Expr, ...], ctx: check__Ctx, st: check__St) -> check__Res:
     r = check__infer_all(args, ctx, st, ())
@@ -5418,18 +5465,18 @@ def check__infer_called(callee: core__Expr, args: tuple[core__Expr, ...], ctx: c
     rc = check__infer(callee, ctx, st)
     ct = check__prune(rc.t, rc.st.subst)
     name = check__callee_name(callee)
-    _cdy_t155: object = ct
-    if isinstance(_cdy_t155, core__TFn):
-        params = _cdy_t155.params
-        ret = _cdy_t155.ret
+    _cdy_t156: object = ct
+    if isinstance(_cdy_t156, core__TFn):
+        params = _cdy_t156.params
+        ret = _cdy_t156.ret
         if (len(params) != len(args)):
             unit = ('field(s)' if cdy_rt.primitives.map_has(ctx.shapes, check__global_of(callee)) else 'argument(s)')
             st1 = check__report(('(' + name + ' ...) takes ' + str(len(params)) + ' ' + unit + ', got ' + str(len(args))), ctx, rc.st)
             return check__Res(ret, check__infer_all(args, ctx, st1, ())[1])
         else:
             return check__Res(ret, check__check_args(args, params, name, ctx, rc.st))
-    elif isinstance(_cdy_t155, core__TVar):
-        v = _cdy_t155.name
+    elif isinstance(_cdy_t156, core__TVar):
+        v = _cdy_t156.name
         if check__is_flexible(v):
             r = check__infer_all(args, ctx, rc.st, ())
             rr = check__fresh(r[1])
@@ -5472,21 +5519,21 @@ def check__arg_what(i: int, name: str) -> str:
     return ('argument ' + str((i + 1)) + ' of ' + name)
 
 def check__is_lambda(e: core__Expr) -> bool:
-    _cdy_t156: object = e
-    if isinstance(_cdy_t156, core__Lambda):
+    _cdy_t157: object = e
+    if isinstance(_cdy_t157, core__Lambda):
         return True
     else:
         return False
 
 def check__check_lambda(lam: core__Expr, expected: core__CType, what: str, ctx: check__Ctx, st: check__St) -> check__St:
-    _cdy_t157: object = lam
-    if isinstance(_cdy_t157, core__Lambda):
-        params = _cdy_t157.params
-        body = _cdy_t157.body
-        _cdy_t158: object = check__prune(expected, st.subst)
-        if isinstance(_cdy_t158, core__TFn):
-            ptypes = _cdy_t158.params
-            ret = _cdy_t158.ret
+    _cdy_t158: object = lam
+    if isinstance(_cdy_t158, core__Lambda):
+        params = _cdy_t158.params
+        body = _cdy_t158.body
+        _cdy_t159: object = check__prune(expected, st.subst)
+        if isinstance(_cdy_t159, core__TFn):
+            ptypes = _cdy_t159.params
+            ret = _cdy_t159.ret
             if (len(ptypes) == len(params)):
                 return check__check_expr(body, ret, (what + "'s result"), ctx._replace(env=check__bind_all(params, ptypes, ctx.env, 0)), check__typed_all(params, ptypes, check__typed(lam, expected, st)))
             else:
@@ -5499,23 +5546,23 @@ def check__check_lambda(lam: core__Expr, expected: core__CType, what: str, ctx: 
         return st
 
 def check__global_of(e: core__Expr) -> str:
-    _cdy_t159: object = e
-    if isinstance(_cdy_t159, core__Global):
-        name = _cdy_t159.name
+    _cdy_t160: object = e
+    if isinstance(_cdy_t160, core__Global):
+        name = _cdy_t160.name
         return name
     else:
         return ''
 
 def check__callee_name(e: core__Expr) -> str:
-    _cdy_t160: object = e
-    if isinstance(_cdy_t160, core__Global):
-        name = _cdy_t160.name
+    _cdy_t161: object = e
+    if isinstance(_cdy_t161, core__Global):
+        name = _cdy_t161.name
         return check__shown_name(name)
-    elif isinstance(_cdy_t160, core__Prim):
-        _cdy_name_269 = _cdy_t160.name
+    elif isinstance(_cdy_t161, core__Prim):
+        _cdy_name_269 = _cdy_t161.name
         return _cdy_name_269
-    elif isinstance(_cdy_t160, core__Local):
-        _cdy_name_270 = _cdy_t160.name
+    elif isinstance(_cdy_t161, core__Local):
+        _cdy_name_270 = _cdy_t161.name
         return _cdy_name_270
     else:
         return 'the function'
@@ -5524,20 +5571,20 @@ def check__is_tup_item(args: tuple[core__Expr, ...]) -> bool:
     return ((len(args) == 2) and (check__tup_name(args[0]) == '_tup') and (check__int_lit(args[1]) >= 0))
 
 def check__tup_name(e: core__Expr) -> str:
-    _cdy_t161: object = e
-    if isinstance(_cdy_t161, core__Local):
-        name = _cdy_t161.name
+    _cdy_t162: object = e
+    if isinstance(_cdy_t162, core__Local):
+        name = _cdy_t162.name
         return name
     else:
         return ''
 
 def check__int_lit(e: core__Expr) -> int:
-    _cdy_t162: object = e
-    if isinstance(_cdy_t162, core__Lit):
-        form = _cdy_t162.form
-        _cdy_t163: object = form
-        if isinstance(_cdy_t163, form__IntLit):
-            k = _cdy_t163.val
+    _cdy_t163: object = e
+    if isinstance(_cdy_t163, core__Lit):
+        form = _cdy_t163.form
+        _cdy_t164: object = form
+        if isinstance(_cdy_t164, form__IntLit):
+            k = _cdy_t164.val
             return k
         else:
             return -1
@@ -5557,9 +5604,9 @@ def check__infer_tup_item(args: tuple[core__Expr, ...], ctx: check__Ctx, st: che
         return check__Res(core__ANY, check__report(('a ' + check__show(tt, r.st.subst) + ' has ' + str(len(items)) + ' items, not ' + str((i + 1))), ctx, r.st))
 
 def check__tup_items(t: core__CType) -> tuple[core__CType, ...]:
-    _cdy_t164: object = t
-    if isinstance(_cdy_t164, core__TCon):
-        args = _cdy_t164.args
+    _cdy_t165: object = t
+    if isinstance(_cdy_t165, core__TCon):
+        args = _cdy_t165.args
         return args
     else:
         return ()
@@ -5584,26 +5631,26 @@ def check__infer_op(name: str, args: tuple[core__Expr, ...], ctx: check__Ctx, st
             return check__Res(t1, check__needs_kind(t1, check__NUMBERS, 'a number', name, ctx, one.st))
 
 def check__has_fn(t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> bool:
-    _cdy_t165: object = check__prune(t, subst)
-    if isinstance(_cdy_t165, core__TFn):
+    _cdy_t166: object = check__prune(t, subst)
+    if isinstance(_cdy_t166, core__TFn):
         return True
-    elif isinstance(_cdy_t165, core__TCon):
-        args = _cdy_t165.args
+    elif isinstance(_cdy_t166, core__TCon):
+        args = _cdy_t166.args
         return cdy_rt.primitives.list_any((lambda a: check__has_fn(a, subst)), args)
     else:
         return False
 
 def check__needs_kind(t: core__CType, names: tuple[str, ...], what: str, name: str, ctx: check__Ctx, st: check__St) -> check__St:
-    _cdy_t166: object = t
-    if isinstance(_cdy_t166, core__TCon):
-        tn = _cdy_t166.name
-        args = _cdy_t166.args
+    _cdy_t167: object = t
+    if isinstance(_cdy_t167, core__TCon):
+        tn = _cdy_t167.name
+        args = _cdy_t167.args
         if ((tn == 'Any') or ((len(args) == 0) and cdy_rt.primitives.list_contains(tn, names))):
             return st
         else:
             return check__report((name + ': expected ' + what + ', got ' + check__show(t, st.subst)), ctx, st)
-    elif isinstance(_cdy_t166, core__TVar):
-        v = _cdy_t166.name
+    elif isinstance(_cdy_t167, core__TVar):
+        v = _cdy_t167.name
         if check__is_flexible(v):
             return st
         else:
@@ -5628,10 +5675,10 @@ def check__join_all(types: tuple[core__CType, ...], what: str, ctx: check__Ctx, 
             continue
 
 def check__field_of(t: core__CType, field: str, ctx: check__Ctx) -> tuple[bool, core__CType]:
-    _cdy_t167: object = t
-    if isinstance(_cdy_t167, core__TCon):
-        name = _cdy_t167.name
-        args = _cdy_t167.args
+    _cdy_t168: object = t
+    if isinstance(_cdy_t168, core__TCon):
+        name = _cdy_t168.name
+        args = _cdy_t168.args
         if cdy_rt.primitives.map_has(ctx.shapes, name):
             s = cdy_rt.primitives.map_get(ctx.shapes, name)
             return check__find_field(s.fields, field, check__zip_map(s.tvars, args, {}))
@@ -5671,21 +5718,21 @@ def check__zip_map(names: tuple[str, ...], types: tuple[core__CType, ...], acc: 
             continue
 
 def check__put_vars(t: core__CType, vars_: _cdy_Mapping[str, core__CType]) -> core__CType:
-    _cdy_t168: object = t
-    if isinstance(_cdy_t168, core__TVar):
-        name = _cdy_t168.name
+    _cdy_t169: object = t
+    if isinstance(_cdy_t169, core__TVar):
+        name = _cdy_t169.name
         if cdy_rt.primitives.map_has(vars_, name):
             return cdy_rt.primitives.map_get(vars_, name)
         else:
             return t
-    elif isinstance(_cdy_t168, core__TCon):
-        _cdy_name_343 = _cdy_t168.name
-        args = _cdy_t168.args
+    elif isinstance(_cdy_t169, core__TCon):
+        _cdy_name_343 = _cdy_t169.name
+        args = _cdy_t169.args
         return core__TCon(_cdy_name_343, cdy_rt.primitives.list_map((lambda a: check__put_vars(a, vars_)), args))
     else:
-        assert isinstance(_cdy_t168, core__TFn)
-        params = _cdy_t168.params
-        ret = _cdy_t168.ret
+        assert isinstance(_cdy_t169, core__TFn)
+        params = _cdy_t169.params
+        ret = _cdy_t169.ret
         return core__TFn(cdy_rt.primitives.list_map((lambda p: check__put_vars(p, vars_)), params), check__put_vars(ret, vars_))
 
 def check__infer_field(obj: core__Expr, field: str, ctx: check__Ctx, st: check__St) -> check__Res:
@@ -5693,11 +5740,17 @@ def check__infer_field(obj: core__Expr, field: str, ctx: check__Ctx, st: check__
     ot = check__prune(r.t, r.st.subst)
     return check__field_type(ot, obj, field, 'get', ctx, r.st)
 
-def check__field_type(ot: core__CType, obj: core__Expr, field: str, what: str, ctx: check__Ctx, st: check__St) -> check__Res:
-    _cdy_t169: object = ot
-    if isinstance(_cdy_t169, core__TVar):
-        v = _cdy_t169.name
-        return check__Res(core__ANY, check__report(((what + ': the type of ' + check__callee_name(obj) + " isn't known here (" + field + ')') if check__is_flexible(v) else (what + ': ' + v + ' has no fields')), ctx, st))
+def check__field_type(ot0: core__CType, obj: core__Expr, field: str, what: str, ctx: check__Ctx, st: check__St) -> check__Res:
+    ot = check__narrow(ot0, obj, ctx)
+    _cdy_t170: object = ot
+    if isinstance(_cdy_t170, core__TVar):
+        v = _cdy_t170.name
+        if check__is_flexible(v):
+            r = check__fresh(st)
+            p = check__Pending(obj, field, what, ot, r.t, ctx.here)
+            return check__Res(r.t, r.st._replace(pending=(r.st.pending + cdy_rt.primitives.to_list(p))))
+        else:
+            return check__Res(core__ANY, check__report((what + ': ' + v + ' has no fields'), ctx, st))
     else:
         f = check__field_of(ot, field, ctx)
         if check__is_any(ot):
@@ -5707,10 +5760,75 @@ def check__field_type(ot: core__CType, obj: core__Expr, field: str, what: str, c
         else:
             return check__Res(core__ANY, check__report(((what + ': field ' + field + ' of ' + check__show(ot, st.subst) + ' has different types in its variants') if check__in_every_variant(check__tcon_name(ot), field, ctx) else ((what + ': ' + check__show(ot, st.subst) + ' has no field ' + field) if (cdy_rt.primitives.map_has(ctx.shapes, check__tcon_name(ot)) or cdy_rt.primitives.map_has(ctx.sums, check__tcon_name(ot))) else (what + ': ' + check__show(ot, st.subst) + ' has no fields'))), ctx, st))
 
+def check__narrow(ot: core__CType, obj: core__Expr, ctx: check__Ctx) -> core__CType:
+    _cdy_t172: object = obj
+    if isinstance(_cdy_t172, core__Local):
+        _cdy_t171 = check__local_key(obj)
+    else:
+        _cdy_t171 = ''
+    key = _cdy_t171
+    if cdy_rt.primitives.map_has(ctx.narrowed, key):
+        variant = cdy_rt.primitives.map_get(ctx.narrowed, key)
+        _cdy_t173: object = ot
+        if isinstance(_cdy_t173, core__TCon):
+            name = _cdy_t173.name
+            args = _cdy_t173.args
+            if (name == cdy_rt.primitives.map_get(ctx.shapes, variant).sum_):
+                return core__TCon(variant, args)
+            else:
+                return ot
+        else:
+            return ot
+    else:
+        return ot
+
+def check__solve_pending(ctx: check__Ctx, st: check__St) -> check__St:
+    while True:
+        ps = st.pending
+        _tup = check__solve_each(ps, ctx, st._replace(pending=()), ())
+        st1 = _tup[0]
+        left = _tup[1]
+        if (len(left) == 0):
+            return st1
+        elif (len(left) < len(ps)):
+            st = st1._replace(pending=(st1.pending + left))
+            continue
+        else:
+            return check__report_pending(left, ctx, st1)
+
+def check__solve_each(ps: tuple[check__Pending, ...], ctx: check__Ctx, st: check__St, left: tuple[check__Pending, ...]) -> tuple[check__St, tuple[check__Pending, ...]]:
+    while True:
+        if (len(ps) == 0):
+            return (st, left)
+        else:
+            p = ps[0]
+            on = check__prune(p.on, st.subst)
+            if cdy_rt.primitives.map_has(st.subst, ('any' + check__tvar_name(on))):
+                ps, st = (prelude__rest(ps), st._replace(subst=check__mark_any(p.t, st.subst)))
+                continue
+            elif check__is_var(on):
+                ps, left = (prelude__rest(ps), (left + cdy_rt.primitives.to_list(p)))
+                continue
+            else:
+                c = ctx._replace(here=p.here)
+                r = check__field_type(on, p.obj, p.field, p.what, c, st)
+                what = (cdy_rt.primitives.text_any(p.what) + ': field ' + cdy_rt.primitives.text_any(p.field) + ' of ' + check__show(on, r.st.subst))
+                ps, st = (prelude__rest(ps), check__expect_is(p.t, r.t, what, c, r.st))
+                continue
+
+def check__report_pending(ps: tuple[check__Pending, ...], ctx: check__Ctx, st: check__St) -> check__St:
+    while True:
+        if (len(ps) == 0):
+            return st
+        else:
+            p = ps[0]
+            ps, st = (prelude__rest(ps), check__report((cdy_rt.primitives.text_any(p.what) + ': the type of ' + check__callee_name(p.obj) + " isn't known here (" + cdy_rt.primitives.text_any(p.field) + ')'), ctx._replace(here=p.here), st))
+            continue
+
 def check__tcon_name(t: core__CType) -> str:
-    _cdy_t170: object = t
-    if isinstance(_cdy_t170, core__TCon):
-        name = _cdy_t170.name
+    _cdy_t174: object = t
+    if isinstance(_cdy_t174, core__TCon):
+        name = _cdy_t174.name
         return name
     else:
         return ''
@@ -5742,21 +5860,27 @@ def check__infer_match(subject: core__Expr, clauses: tuple[core__Clause, ...], d
     vars_ = check__zip_map(tvars, fr[0], {})
     want = core__TCon(sum_, fr[0])
     st1 = check__expect_is(want, rs.t, 'match: the subject', ctx, fr[1])
-    rc = check__infer_clauses(clauses, vars_, ctx, st1, ())
+    rc = check__infer_clauses(subject, clauses, vars_, ctx, st1, ())
     if (len(default) == 0):
         return check__join_all(rc[0], 'match: the clauses', ctx, check__Res(rc[0][0], rc[1]))
     else:
         rd = check__infer(default[0], ctx, rc[1])
         return check__join_all((rc[0] + cdy_rt.primitives.to_list(rd.t)), 'match: the clauses', ctx, check__Res(rc[0][0], rd.st))
 
-def check__infer_clauses(clauses: tuple[core__Clause, ...], vars_: _cdy_Mapping[str, core__CType], ctx: check__Ctx, st: check__St, acc: tuple[core__CType, ...]) -> tuple[tuple[core__CType, ...], check__St]:
+def check__infer_clauses(subject: core__Expr, clauses: tuple[core__Clause, ...], vars_: _cdy_Mapping[str, core__CType], ctx: check__Ctx, st: check__St, acc: tuple[core__CType, ...]) -> tuple[tuple[core__CType, ...], check__St]:
     while True:
         if (len(clauses) == 0):
             return (acc, st)
         else:
             c = clauses[0]
             shape = (cdy_rt.primitives.map_get(ctx.shapes, c.variant) if cdy_rt.primitives.map_has(ctx.shapes, c.variant) else check__Shape((), (), ''))
-            inner = ctx._replace(env=check__bind_fields(c.binds, shape.fields, vars_, ctx.env))
+            bound = ctx._replace(env=check__bind_fields(c.binds, shape.fields, vars_, ctx.env))
+            _cdy_t176: object = subject
+            if isinstance(_cdy_t176, core__Local):
+                _cdy_t175 = bound._replace(narrowed=cdy_rt.primitives.map_set(ctx.narrowed, check__local_key(subject), c.variant))
+            else:
+                _cdy_t175 = bound
+            inner = _cdy_t175
             r = check__infer(c.body, inner, check__typed_binds(c.binds, inner.env, st))
             clauses, st, acc = (prelude__rest(clauses), r.st, (acc + cdy_rt.primitives.to_list(r.t)))
             continue
@@ -5815,187 +5939,187 @@ def check__node_type(t: core__CType, st: check__St) -> core__CType:
         return t
 
 def check__final_type(t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> core__CType:
-    _cdy_t171: object = check__prune(t, subst)
-    if isinstance(_cdy_t171, core__TCon):
-        name = _cdy_t171.name
-        args = _cdy_t171.args
+    _cdy_t177: object = check__prune(t, subst)
+    if isinstance(_cdy_t177, core__TCon):
+        name = _cdy_t177.name
+        args = _cdy_t177.args
         return core__TCon(name, cdy_rt.primitives.list_map((lambda a: check__final_type(a, subst)), args))
-    elif isinstance(_cdy_t171, core__TFn):
-        params = _cdy_t171.params
-        ret = _cdy_t171.ret
+    elif isinstance(_cdy_t177, core__TFn):
+        params = _cdy_t177.params
+        ret = _cdy_t177.ret
         return core__TFn(cdy_rt.primitives.list_map((lambda p: check__final_type(p, subst)), params), check__final_type(ret, subst))
     else:
-        assert isinstance(_cdy_t171, core__TVar)
-        _cdy_name_442 = _cdy_t171.name
-        if cdy_rt.primitives.map_has(subst, ('any' + _cdy_name_442)):
+        assert isinstance(_cdy_t177, core__TVar)
+        _cdy_name_473 = _cdy_t177.name
+        if cdy_rt.primitives.map_has(subst, ('any' + _cdy_name_473)):
             return core__ANY
         else:
-            return core__TVar(_cdy_name_442)
+            return core__TVar(_cdy_name_473)
 
 def check__retype_top(top: core__Top, f: _cdy_Callable[[core__CType, int], core__CType]) -> core__Top:
-    _cdy_t172: object = top
-    if isinstance(_cdy_t172, core__TDef):
-        name = _cdy_t172.name
-        init = _cdy_t172.init
-        t = _cdy_t172.t
-        pos = _cdy_t172.pos
+    _cdy_t178: object = top
+    if isinstance(_cdy_t178, core__TDef):
+        name = _cdy_t178.name
+        init = _cdy_t178.init
+        t = _cdy_t178.t
+        pos = _cdy_t178.pos
         return core__TDef(name, check__retype(init, f, 0)[0], t, pos)
-    elif isinstance(_cdy_t172, core__TDefn):
-        _cdy_name_449 = _cdy_t172.name
-        params = _cdy_t172.params
-        body = _cdy_t172.body
-        _cdy_t_452 = _cdy_t172.t
-        _cdy_pos_453 = _cdy_t172.pos
+    elif isinstance(_cdy_t178, core__TDefn):
+        _cdy_name_480 = _cdy_t178.name
+        params = _cdy_t178.params
+        body = _cdy_t178.body
+        _cdy_t_483 = _cdy_t178.t
+        _cdy_pos_484 = _cdy_t178.pos
         _tup = check__retype_all(params, f, 0, ())
         ps = _tup[0]
         n1 = _tup[1]
-        _cdy__tup_457 = check__retype(body, f, n1)
-        b = _cdy__tup_457[0]
-        _ = _cdy__tup_457[1]
-        return core__TDefn(_cdy_name_449, ps, b, _cdy_t_452, _cdy_pos_453)
-    elif isinstance(_cdy_t172, core__TExpr):
-        e = _cdy_t172.expr
+        _cdy__tup_488 = check__retype(body, f, n1)
+        b = _cdy__tup_488[0]
+        _ = _cdy__tup_488[1]
+        return core__TDefn(_cdy_name_480, ps, b, _cdy_t_483, _cdy_pos_484)
+    elif isinstance(_cdy_t178, core__TExpr):
+        e = _cdy_t178.expr
         return core__TExpr(check__retype(e, f, 0)[0])
     else:
         return top
 
 def check__retype(e: core__Expr, f: _cdy_Callable[[core__CType, int], core__CType], n: int) -> tuple[core__Expr, int]:
     k = (n + 1)
-    _cdy_t173: object = e
-    if isinstance(_cdy_t173, core__Lit):
-        form = _cdy_t173.form
-        t = _cdy_t173.t
+    _cdy_t179: object = e
+    if isinstance(_cdy_t179, core__Lit):
+        form = _cdy_t179.form
+        t = _cdy_t179.t
         return (core__Lit(form, f(t, n)), k)
-    elif isinstance(_cdy_t173, core__Local):
-        name = _cdy_t173.name
-        id_ = _cdy_t173.id_
-        pos = _cdy_t173.pos
-        _cdy_t_470 = _cdy_t173.t
-        return (core__Local(name, id_, pos, f(_cdy_t_470, n)), k)
-    elif isinstance(_cdy_t173, core__Global):
-        _cdy_name_471 = _cdy_t173.name
-        _cdy_pos_472 = _cdy_t173.pos
-        _cdy_t_473 = _cdy_t173.t
-        return (core__Global(_cdy_name_471, _cdy_pos_472, f(_cdy_t_473, n)), k)
-    elif isinstance(_cdy_t173, core__Prim):
-        _cdy_name_474 = _cdy_t173.name
-        _cdy_pos_475 = _cdy_t173.pos
-        _cdy_t_476 = _cdy_t173.t
-        return (core__Prim(_cdy_name_474, _cdy_pos_475, f(_cdy_t_476, n)), k)
-    elif isinstance(_cdy_t173, core__Temp):
-        _cdy_id__477 = _cdy_t173.id_
-        _cdy_t_478 = _cdy_t173.t
-        return (core__Temp(_cdy_id__477, f(_cdy_t_478, n)), k)
-    elif isinstance(_cdy_t173, core__Call):
-        callee = _cdy_t173.callee
-        args = _cdy_t173.args
-        _cdy_pos_481 = _cdy_t173.pos
-        _cdy_t_482 = _cdy_t173.t
+    elif isinstance(_cdy_t179, core__Local):
+        name = _cdy_t179.name
+        id_ = _cdy_t179.id_
+        pos = _cdy_t179.pos
+        _cdy_t_501 = _cdy_t179.t
+        return (core__Local(name, id_, pos, f(_cdy_t_501, n)), k)
+    elif isinstance(_cdy_t179, core__Global):
+        _cdy_name_502 = _cdy_t179.name
+        _cdy_pos_503 = _cdy_t179.pos
+        _cdy_t_504 = _cdy_t179.t
+        return (core__Global(_cdy_name_502, _cdy_pos_503, f(_cdy_t_504, n)), k)
+    elif isinstance(_cdy_t179, core__Prim):
+        _cdy_name_505 = _cdy_t179.name
+        _cdy_pos_506 = _cdy_t179.pos
+        _cdy_t_507 = _cdy_t179.t
+        return (core__Prim(_cdy_name_505, _cdy_pos_506, f(_cdy_t_507, n)), k)
+    elif isinstance(_cdy_t179, core__Temp):
+        _cdy_id__508 = _cdy_t179.id_
+        _cdy_t_509 = _cdy_t179.t
+        return (core__Temp(_cdy_id__508, f(_cdy_t_509, n)), k)
+    elif isinstance(_cdy_t179, core__Call):
+        callee = _cdy_t179.callee
+        args = _cdy_t179.args
+        _cdy_pos_512 = _cdy_t179.pos
+        _cdy_t_513 = _cdy_t179.t
         _tup = check__retype(callee, f, k)
         c = _tup[0]
         n1 = _tup[1]
-        _cdy__tup_486 = check__retype_all(args, f, n1, ())
-        xs = _cdy__tup_486[0]
-        n2 = _cdy__tup_486[1]
-        return (core__Call(c, xs, _cdy_pos_481, f(_cdy_t_482, n)), n2)
-    elif isinstance(_cdy_t173, core__If):
-        test = _cdy_t173.test
-        then = _cdy_t173.then
-        other = _cdy_t173.other
-        _cdy_pos_492 = _cdy_t173.pos
-        _cdy_t_493 = _cdy_t173.t
-        _cdy__tup_494 = check__retype(test, f, k)
-        a = _cdy__tup_494[0]
-        _cdy_n1_496 = _cdy__tup_494[1]
-        _cdy__tup_497 = check__retype(then, f, _cdy_n1_496)
-        b = _cdy__tup_497[0]
-        _cdy_n2_499 = _cdy__tup_497[1]
-        _cdy__tup_500 = check__retype(other, f, _cdy_n2_499)
-        _cdy_c_501 = _cdy__tup_500[0]
-        n3 = _cdy__tup_500[1]
-        return (core__If(a, b, _cdy_c_501, _cdy_pos_492, f(_cdy_t_493, n)), n3)
-    elif isinstance(_cdy_t173, core__Do):
-        body = _cdy_t173.body
-        _cdy_pos_504 = _cdy_t173.pos
-        _cdy_t_505 = _cdy_t173.t
-        _cdy__tup_506 = check__retype_all(body, f, k, ())
-        _cdy_xs_507 = _cdy__tup_506[0]
-        _cdy_n1_508 = _cdy__tup_506[1]
-        return (core__Do(_cdy_xs_507, _cdy_pos_504, f(_cdy_t_505, n)), _cdy_n1_508)
-    elif isinstance(_cdy_t173, core__Lambda):
-        params = _cdy_t173.params
-        _cdy_body_510 = _cdy_t173.body
-        _cdy_pos_511 = _cdy_t173.pos
-        _cdy_t_512 = _cdy_t173.t
-        _cdy__tup_513 = check__retype_all(params, f, k, ())
-        ps = _cdy__tup_513[0]
-        _cdy_n1_515 = _cdy__tup_513[1]
-        _cdy__tup_516 = check__retype(_cdy_body_510, f, _cdy_n1_515)
-        _cdy_b_517 = _cdy__tup_516[0]
-        _cdy_n2_518 = _cdy__tup_516[1]
-        return (core__Lambda(ps, _cdy_b_517, _cdy_pos_511, f(_cdy_t_512, n)), _cdy_n2_518)
-    elif isinstance(_cdy_t173, core__Tuple):
-        items = _cdy_t173.items
-        _cdy_pos_520 = _cdy_t173.pos
-        _cdy_t_521 = _cdy_t173.t
-        _cdy__tup_522 = check__retype_all(items, f, k, ())
-        _cdy_xs_523 = _cdy__tup_522[0]
-        _cdy_n1_524 = _cdy__tup_522[1]
-        return (core__Tuple(_cdy_xs_523, _cdy_pos_520, f(_cdy_t_521, n)), _cdy_n1_524)
-    elif isinstance(_cdy_t173, core__ListOf):
-        _cdy_items_525 = _cdy_t173.items
-        _cdy_pos_526 = _cdy_t173.pos
-        _cdy_t_527 = _cdy_t173.t
-        _cdy__tup_528 = check__retype_all(_cdy_items_525, f, k, ())
-        _cdy_xs_529 = _cdy__tup_528[0]
-        _cdy_n1_530 = _cdy__tup_528[1]
-        return (core__ListOf(_cdy_xs_529, _cdy_pos_526, f(_cdy_t_527, n)), _cdy_n1_530)
-    elif isinstance(_cdy_t173, core__Fmt):
-        parts = _cdy_t173.parts
-        _cdy_pos_532 = _cdy_t173.pos
-        _cdy_t_533 = _cdy_t173.t
-        _cdy__tup_534 = check__retype_parts(parts, f, k, ())
-        _cdy_ps_535 = _cdy__tup_534[0]
-        _cdy_n1_536 = _cdy__tup_534[1]
-        return (core__Fmt(_cdy_ps_535, _cdy_pos_532, f(_cdy_t_533, n)), _cdy_n1_536)
-    elif isinstance(_cdy_t173, core__Field):
-        obj = _cdy_t173.obj
-        field = _cdy_t173.field
-        _cdy_pos_539 = _cdy_t173.pos
-        _cdy_t_540 = _cdy_t173.t
-        _cdy__tup_541 = check__retype(obj, f, k)
-        o = _cdy__tup_541[0]
-        _cdy_n1_543 = _cdy__tup_541[1]
-        return (core__Field(o, field, _cdy_pos_539, f(_cdy_t_540, n)), _cdy_n1_543)
-    elif isinstance(_cdy_t173, core__Assoc):
-        _cdy_obj_544 = _cdy_t173.obj
-        fields = _cdy_t173.fields
-        _cdy_pos_546 = _cdy_t173.pos
-        _cdy_t_547 = _cdy_t173.t
-        _cdy__tup_548 = check__retype(_cdy_obj_544, f, k)
-        _cdy_o_549 = _cdy__tup_548[0]
-        _cdy_n1_550 = _cdy__tup_548[1]
-        _cdy__tup_551 = check__retype_pairs(fields, f, _cdy_n1_550, ())
-        fs = _cdy__tup_551[0]
-        _cdy_n2_553 = _cdy__tup_551[1]
-        return (core__Assoc(_cdy_o_549, fs, _cdy_pos_546, f(_cdy_t_547, n)), _cdy_n2_553)
-    else:
-        assert isinstance(_cdy_t173, core__MatchE)
-        subject = _cdy_t173.subject
-        clauses = _cdy_t173.clauses
-        default = _cdy_t173.default
-        _cdy_pos_557 = _cdy_t173.pos
-        _cdy_t_558 = _cdy_t173.t
-        _cdy__tup_559 = check__retype(subject, f, k)
-        s = _cdy__tup_559[0]
+        _cdy__tup_517 = check__retype_all(args, f, n1, ())
+        xs = _cdy__tup_517[0]
+        n2 = _cdy__tup_517[1]
+        return (core__Call(c, xs, _cdy_pos_512, f(_cdy_t_513, n)), n2)
+    elif isinstance(_cdy_t179, core__If):
+        test = _cdy_t179.test
+        then = _cdy_t179.then
+        other = _cdy_t179.other
+        _cdy_pos_523 = _cdy_t179.pos
+        _cdy_t_524 = _cdy_t179.t
+        _cdy__tup_525 = check__retype(test, f, k)
+        a = _cdy__tup_525[0]
+        _cdy_n1_527 = _cdy__tup_525[1]
+        _cdy__tup_528 = check__retype(then, f, _cdy_n1_527)
+        b = _cdy__tup_528[0]
+        _cdy_n2_530 = _cdy__tup_528[1]
+        _cdy__tup_531 = check__retype(other, f, _cdy_n2_530)
+        _cdy_c_532 = _cdy__tup_531[0]
+        n3 = _cdy__tup_531[1]
+        return (core__If(a, b, _cdy_c_532, _cdy_pos_523, f(_cdy_t_524, n)), n3)
+    elif isinstance(_cdy_t179, core__Do):
+        body = _cdy_t179.body
+        _cdy_pos_535 = _cdy_t179.pos
+        _cdy_t_536 = _cdy_t179.t
+        _cdy__tup_537 = check__retype_all(body, f, k, ())
+        _cdy_xs_538 = _cdy__tup_537[0]
+        _cdy_n1_539 = _cdy__tup_537[1]
+        return (core__Do(_cdy_xs_538, _cdy_pos_535, f(_cdy_t_536, n)), _cdy_n1_539)
+    elif isinstance(_cdy_t179, core__Lambda):
+        params = _cdy_t179.params
+        _cdy_body_541 = _cdy_t179.body
+        _cdy_pos_542 = _cdy_t179.pos
+        _cdy_t_543 = _cdy_t179.t
+        _cdy__tup_544 = check__retype_all(params, f, k, ())
+        ps = _cdy__tup_544[0]
+        _cdy_n1_546 = _cdy__tup_544[1]
+        _cdy__tup_547 = check__retype(_cdy_body_541, f, _cdy_n1_546)
+        _cdy_b_548 = _cdy__tup_547[0]
+        _cdy_n2_549 = _cdy__tup_547[1]
+        return (core__Lambda(ps, _cdy_b_548, _cdy_pos_542, f(_cdy_t_543, n)), _cdy_n2_549)
+    elif isinstance(_cdy_t179, core__Tuple):
+        items = _cdy_t179.items
+        _cdy_pos_551 = _cdy_t179.pos
+        _cdy_t_552 = _cdy_t179.t
+        _cdy__tup_553 = check__retype_all(items, f, k, ())
+        _cdy_xs_554 = _cdy__tup_553[0]
+        _cdy_n1_555 = _cdy__tup_553[1]
+        return (core__Tuple(_cdy_xs_554, _cdy_pos_551, f(_cdy_t_552, n)), _cdy_n1_555)
+    elif isinstance(_cdy_t179, core__ListOf):
+        _cdy_items_556 = _cdy_t179.items
+        _cdy_pos_557 = _cdy_t179.pos
+        _cdy_t_558 = _cdy_t179.t
+        _cdy__tup_559 = check__retype_all(_cdy_items_556, f, k, ())
+        _cdy_xs_560 = _cdy__tup_559[0]
         _cdy_n1_561 = _cdy__tup_559[1]
-        _cdy__tup_562 = check__retype_clauses(clauses, f, _cdy_n1_561, ())
-        cs = _cdy__tup_562[0]
-        _cdy_n2_564 = _cdy__tup_562[1]
-        _cdy__tup_565 = check__retype_all(default, f, _cdy_n2_564, ())
-        d = _cdy__tup_565[0]
-        _cdy_n3_567 = _cdy__tup_565[1]
-        return (core__MatchE(s, cs, d, _cdy_pos_557, f(_cdy_t_558, n)), _cdy_n3_567)
+        return (core__ListOf(_cdy_xs_560, _cdy_pos_557, f(_cdy_t_558, n)), _cdy_n1_561)
+    elif isinstance(_cdy_t179, core__Fmt):
+        parts = _cdy_t179.parts
+        _cdy_pos_563 = _cdy_t179.pos
+        _cdy_t_564 = _cdy_t179.t
+        _cdy__tup_565 = check__retype_parts(parts, f, k, ())
+        _cdy_ps_566 = _cdy__tup_565[0]
+        _cdy_n1_567 = _cdy__tup_565[1]
+        return (core__Fmt(_cdy_ps_566, _cdy_pos_563, f(_cdy_t_564, n)), _cdy_n1_567)
+    elif isinstance(_cdy_t179, core__Field):
+        obj = _cdy_t179.obj
+        field = _cdy_t179.field
+        _cdy_pos_570 = _cdy_t179.pos
+        _cdy_t_571 = _cdy_t179.t
+        _cdy__tup_572 = check__retype(obj, f, k)
+        o = _cdy__tup_572[0]
+        _cdy_n1_574 = _cdy__tup_572[1]
+        return (core__Field(o, field, _cdy_pos_570, f(_cdy_t_571, n)), _cdy_n1_574)
+    elif isinstance(_cdy_t179, core__Assoc):
+        _cdy_obj_575 = _cdy_t179.obj
+        fields = _cdy_t179.fields
+        _cdy_pos_577 = _cdy_t179.pos
+        _cdy_t_578 = _cdy_t179.t
+        _cdy__tup_579 = check__retype(_cdy_obj_575, f, k)
+        _cdy_o_580 = _cdy__tup_579[0]
+        _cdy_n1_581 = _cdy__tup_579[1]
+        _cdy__tup_582 = check__retype_pairs(fields, f, _cdy_n1_581, ())
+        fs = _cdy__tup_582[0]
+        _cdy_n2_584 = _cdy__tup_582[1]
+        return (core__Assoc(_cdy_o_580, fs, _cdy_pos_577, f(_cdy_t_578, n)), _cdy_n2_584)
+    else:
+        assert isinstance(_cdy_t179, core__MatchE)
+        subject = _cdy_t179.subject
+        clauses = _cdy_t179.clauses
+        default = _cdy_t179.default
+        _cdy_pos_588 = _cdy_t179.pos
+        _cdy_t_589 = _cdy_t179.t
+        _cdy__tup_590 = check__retype(subject, f, k)
+        s = _cdy__tup_590[0]
+        _cdy_n1_592 = _cdy__tup_590[1]
+        _cdy__tup_593 = check__retype_clauses(clauses, f, _cdy_n1_592, ())
+        cs = _cdy__tup_593[0]
+        _cdy_n2_595 = _cdy__tup_593[1]
+        _cdy__tup_596 = check__retype_all(default, f, _cdy_n2_595, ())
+        d = _cdy__tup_596[0]
+        _cdy_n3_598 = _cdy__tup_596[1]
+        return (core__MatchE(s, cs, d, _cdy_pos_588, f(_cdy_t_589, n)), _cdy_n3_598)
 
 def check__retype_all(es: tuple[core__Expr, ...], f: _cdy_Callable[[core__CType, int], core__CType], n: int, acc: tuple[core__Expr, ...]) -> tuple[tuple[core__Expr, ...], int]:
     while True:
@@ -6016,9 +6140,9 @@ def check__retype_pairs(pairs: tuple[tuple[str, core__Expr], ...], f: _cdy_Calla
             _tup = pairs[0]
             name = _tup[0]
             e = _tup[1]
-            _cdy__tup_582 = check__retype(e, f, n)
-            e1 = _cdy__tup_582[0]
-            n1 = _cdy__tup_582[1]
+            _cdy__tup_613 = check__retype(e, f, n)
+            e1 = _cdy__tup_613[0]
+            n1 = _cdy__tup_613[1]
             pairs, n, acc = (prelude__rest(pairs), n1, (acc + cdy_rt.primitives.to_list((name, e1))))
             continue
 
@@ -6027,9 +6151,9 @@ def check__retype_parts(parts: tuple[core__FPart, ...], f: _cdy_Callable[[core__
         if (len(parts) == 0):
             return (acc, n)
         else:
-            _cdy_t174: object = parts[0]
-            if isinstance(_cdy_t174, core__FHole):
-                e = _cdy_t174.expr
+            _cdy_t180: object = parts[0]
+            if isinstance(_cdy_t180, core__FHole):
+                e = _cdy_t180.expr
                 _tup = check__retype(e, f, n)
                 e1 = _tup[0]
                 n1 = _tup[1]
@@ -6048,9 +6172,9 @@ def check__retype_clauses(clauses: tuple[core__Clause, ...], f: _cdy_Callable[[c
             _tup = check__retype_pairs(c.binds, f, n, ())
             bs = _tup[0]
             n1 = _tup[1]
-            _cdy__tup_601 = check__retype(c.body, f, n1)
-            b = _cdy__tup_601[0]
-            n2 = _cdy__tup_601[1]
+            _cdy__tup_632 = check__retype(c.body, f, n1)
+            b = _cdy__tup_632[0]
+            n2 = _cdy__tup_632[1]
             clauses, n, acc = (prelude__rest(clauses), n2, (acc + cdy_rt.primitives.to_list(core__Clause(c.variant, bs, b))))
             continue
 
@@ -6059,9 +6183,9 @@ def check__is_flexible(name: str) -> bool:
 
 def check__prune(t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> core__CType:
     while True:
-        _cdy_t175: object = t
-        if isinstance(_cdy_t175, core__TVar):
-            name = _cdy_t175.name
+        _cdy_t181: object = t
+        if isinstance(_cdy_t181, core__TVar):
+            name = _cdy_t181.name
             if cdy_rt.primitives.map_has(subst, name):
                 t = cdy_rt.primitives.map_get(subst, name)
                 continue
@@ -6071,30 +6195,30 @@ def check__prune(t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> core_
             return t
 
 def check__resolve_type(t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> core__CType:
-    _cdy_t176: object = check__prune(t, subst)
-    if isinstance(_cdy_t176, core__TCon):
-        name = _cdy_t176.name
-        args = _cdy_t176.args
+    _cdy_t182: object = check__prune(t, subst)
+    if isinstance(_cdy_t182, core__TCon):
+        name = _cdy_t182.name
+        args = _cdy_t182.args
         return core__TCon(name, cdy_rt.primitives.list_map((lambda a: check__resolve_type(a, subst)), args))
-    elif isinstance(_cdy_t176, core__TFn):
-        params = _cdy_t176.params
-        ret = _cdy_t176.ret
+    elif isinstance(_cdy_t182, core__TFn):
+        params = _cdy_t182.params
+        ret = _cdy_t182.ret
         return core__TFn(cdy_rt.primitives.list_map((lambda p: check__resolve_type(p, subst)), params), check__resolve_type(ret, subst))
     else:
         return check__prune(t, subst)
 
 def check__occurs(v: str, t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> bool:
-    _cdy_t177: object = check__prune(t, subst)
-    if isinstance(_cdy_t177, core__TVar):
-        name = _cdy_t177.name
+    _cdy_t183: object = check__prune(t, subst)
+    if isinstance(_cdy_t183, core__TVar):
+        name = _cdy_t183.name
         return (name == v)
-    elif isinstance(_cdy_t177, core__TCon):
-        args = _cdy_t177.args
+    elif isinstance(_cdy_t183, core__TCon):
+        args = _cdy_t183.args
         return cdy_rt.primitives.list_any((lambda a: check__occurs(v, a, subst)), args)
     else:
-        assert isinstance(_cdy_t177, core__TFn)
-        params = _cdy_t177.params
-        ret = _cdy_t177.ret
+        assert isinstance(_cdy_t183, core__TFn)
+        params = _cdy_t183.params
+        ret = _cdy_t183.ret
         return (cdy_rt.primitives.list_any((lambda p: check__occurs(v, p, subst)), params) or check__occurs(v, ret, subst))
 
 def check__unify(a: core__CType, b: core__CType, subst: _cdy_Mapping[str, core__CType]) -> tuple[bool, _cdy_Mapping[str, core__CType]]:
@@ -6110,37 +6234,37 @@ def check__unify(a: core__CType, b: core__CType, subst: _cdy_Mapping[str, core__
         elif check__is_var(pb):
             return check__bind_var(check__tvar_name(pb), pa, subst)
         else:
-            _cdy_t178: object = pa
-            if isinstance(_cdy_t178, core__TVar):
-                name = _cdy_t178.name
-                _cdy_t180: object = pb
-                if isinstance(_cdy_t180, core__TVar):
-                    other = _cdy_t180.name
-                    _cdy_t179 = (name == other)
+            _cdy_t184: object = pa
+            if isinstance(_cdy_t184, core__TVar):
+                name = _cdy_t184.name
+                _cdy_t186: object = pb
+                if isinstance(_cdy_t186, core__TVar):
+                    other = _cdy_t186.name
+                    _cdy_t185 = (name == other)
                 else:
-                    _cdy_t179 = False
-                return (_cdy_t179, subst)
-            elif isinstance(_cdy_t178, core__TCon):
-                _cdy_name_632 = _cdy_t178.name
-                args = _cdy_t178.args
-                _cdy_t181: object = pb
-                if isinstance(_cdy_t181, core__TCon):
-                    _cdy_other_634 = _cdy_t181.name
-                    bargs = _cdy_t181.args
-                    if ((_cdy_name_632 == _cdy_other_634) and (len(args) == len(bargs))):
+                    _cdy_t185 = False
+                return (_cdy_t185, subst)
+            elif isinstance(_cdy_t184, core__TCon):
+                _cdy_name_663 = _cdy_t184.name
+                args = _cdy_t184.args
+                _cdy_t187: object = pb
+                if isinstance(_cdy_t187, core__TCon):
+                    _cdy_other_665 = _cdy_t187.name
+                    bargs = _cdy_t187.args
+                    if ((_cdy_name_663 == _cdy_other_665) and (len(args) == len(bargs))):
                         return check__unify_all(args, bargs, subst)
                     else:
                         return (False, subst)
                 else:
                     return (False, subst)
             else:
-                assert isinstance(_cdy_t178, core__TFn)
-                params = _cdy_t178.params
-                ret = _cdy_t178.ret
-                _cdy_t182: object = pb
-                if isinstance(_cdy_t182, core__TFn):
-                    bparams = _cdy_t182.params
-                    bret = _cdy_t182.ret
+                assert isinstance(_cdy_t184, core__TFn)
+                params = _cdy_t184.params
+                ret = _cdy_t184.ret
+                _cdy_t188: object = pb
+                if isinstance(_cdy_t188, core__TFn):
+                    bparams = _cdy_t188.params
+                    bret = _cdy_t188.ret
                     if (len(params) == len(bparams)):
                         u = check__unify_all(params, bparams, subst)
                         if u[0]:
@@ -6154,20 +6278,20 @@ def check__unify(a: core__CType, b: core__CType, subst: _cdy_Mapping[str, core__
                     return (False, subst)
 
 def check__mark_any(t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> _cdy_Mapping[str, core__CType]:
-    _cdy_t183: object = check__prune(t, subst)
-    if isinstance(_cdy_t183, core__TVar):
-        name = _cdy_t183.name
+    _cdy_t189: object = check__prune(t, subst)
+    if isinstance(_cdy_t189, core__TVar):
+        name = _cdy_t189.name
         if check__is_flexible(name):
             return cdy_rt.primitives.map_set(subst, ('any' + name), core__ANY)
         else:
             return subst
-    elif isinstance(_cdy_t183, core__TCon):
-        args = _cdy_t183.args
+    elif isinstance(_cdy_t189, core__TCon):
+        args = _cdy_t189.args
         return cdy_rt.primitives.list_fold((lambda s, a: check__mark_any(a, s)), subst, args)
     else:
-        assert isinstance(_cdy_t183, core__TFn)
-        params = _cdy_t183.params
-        ret = _cdy_t183.ret
+        assert isinstance(_cdy_t189, core__TFn)
+        params = _cdy_t189.params
+        ret = _cdy_t189.ret
         return check__mark_any(ret, cdy_rt.primitives.list_fold((lambda s, p: check__mark_any(p, s)), subst, params))
 
 def check__unify_all(xs: tuple[core__CType, ...], ys: tuple[core__CType, ...], subst: _cdy_Mapping[str, core__CType]) -> tuple[bool, _cdy_Mapping[str, core__CType]]:
@@ -6183,13 +6307,13 @@ def check__unify_all(xs: tuple[core__CType, ...], ys: tuple[core__CType, ...], s
                 return u
 
 def check__bind_var(v: str, t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> tuple[bool, _cdy_Mapping[str, core__CType]]:
-    _cdy_t185: object = t
-    if isinstance(_cdy_t185, core__TVar):
-        other = _cdy_t185.name
-        _cdy_t184 = (other == v)
+    _cdy_t191: object = t
+    if isinstance(_cdy_t191, core__TVar):
+        other = _cdy_t191.name
+        _cdy_t190 = (other == v)
     else:
-        _cdy_t184 = False
-    if _cdy_t184:
+        _cdy_t190 = False
+    if _cdy_t190:
         return (True, subst)
     elif check__occurs(v, t, subst):
         return (False, subst)
@@ -6197,25 +6321,25 @@ def check__bind_var(v: str, t: core__CType, subst: _cdy_Mapping[str, core__CType
         return (True, cdy_rt.primitives.map_set(subst, v, t))
 
 def check__is_any(t: core__CType) -> bool:
-    _cdy_t186: object = t
-    if isinstance(_cdy_t186, core__TCon):
-        name = _cdy_t186.name
+    _cdy_t192: object = t
+    if isinstance(_cdy_t192, core__TCon):
+        name = _cdy_t192.name
         return (name == 'Any')
     else:
         return False
 
 def check__is_var(t: core__CType) -> bool:
-    _cdy_t187: object = t
-    if isinstance(_cdy_t187, core__TVar):
-        name = _cdy_t187.name
+    _cdy_t193: object = t
+    if isinstance(_cdy_t193, core__TVar):
+        name = _cdy_t193.name
         return check__is_flexible(name)
     else:
         return False
 
 def check__tvar_name(t: core__CType) -> str:
-    _cdy_t188: object = t
-    if isinstance(_cdy_t188, core__TVar):
-        name = _cdy_t188.name
+    _cdy_t194: object = t
+    if isinstance(_cdy_t194, core__TVar):
+        name = _cdy_t194.name
         return name
     else:
         return ''
@@ -6300,45 +6424,45 @@ def check__instantiate(t: core__CType, st: check__St) -> check__Res:
         return check__Res(check__put_vars(t, check__zip_map(names, fr[0], {})), fr[1])
 
 def check__rigid_vars(t: core__CType, acc: tuple[str, ...]) -> tuple[str, ...]:
-    _cdy_t189: object = t
-    if isinstance(_cdy_t189, core__TVar):
-        name = _cdy_t189.name
+    _cdy_t195: object = t
+    if isinstance(_cdy_t195, core__TVar):
+        name = _cdy_t195.name
         if (check__is_flexible(name) or cdy_rt.primitives.list_contains(name, acc)):
             return acc
         else:
             return (acc + cdy_rt.primitives.to_list(name))
-    elif isinstance(_cdy_t189, core__TCon):
-        args = _cdy_t189.args
+    elif isinstance(_cdy_t195, core__TCon):
+        args = _cdy_t195.args
         return cdy_rt.primitives.list_fold((lambda a, x: check__rigid_vars(x, a)), acc, args)
     else:
-        assert isinstance(_cdy_t189, core__TFn)
-        params = _cdy_t189.params
-        ret = _cdy_t189.ret
+        assert isinstance(_cdy_t195, core__TFn)
+        params = _cdy_t195.params
+        ret = _cdy_t195.ret
         return check__rigid_vars(ret, cdy_rt.primitives.list_fold((lambda a, x: check__rigid_vars(x, a)), acc, params))
 
 def check__report(msg: str, ctx: check__Ctx, st: check__St) -> check__St:
     return st._replace(errors=(st.errors + cdy_rt.primitives.to_list((form__pos_text(ctx.here) + msg))))
 
 def check__show(t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> str:
-    _cdy_t190: object = check__resolve_type(t, subst)
-    if isinstance(_cdy_t190, core__TCon):
-        name = _cdy_t190.name
-        args = _cdy_t190.args
+    _cdy_t196: object = check__resolve_type(t, subst)
+    if isinstance(_cdy_t196, core__TCon):
+        name = _cdy_t196.name
+        args = _cdy_t196.args
         if (len(args) == 0):
             return check__shown_name(name)
         else:
             return ('(' + check__shown_name(name) + ' ' + cdy_rt.primitives.join(cdy_rt.primitives.list_map((lambda a: check__show(a, subst)), args), ' ') + ')')
-    elif isinstance(_cdy_t190, core__TFn):
-        params = _cdy_t190.params
-        ret = _cdy_t190.ret
+    elif isinstance(_cdy_t196, core__TFn):
+        params = _cdy_t196.params
+        ret = _cdy_t196.ret
         return ('(Fn (' + cdy_rt.primitives.join(cdy_rt.primitives.list_map((lambda p: check__show(p, subst)), params), ' ') + ') ' + check__show(ret, subst) + ')')
     else:
-        assert isinstance(_cdy_t190, core__TVar)
-        _cdy_name_728 = _cdy_t190.name
-        if check__is_flexible(_cdy_name_728):
-            return ('t' + _cdy_name_728[1:len(_cdy_name_728)])
+        assert isinstance(_cdy_t196, core__TVar)
+        _cdy_name_759 = _cdy_t196.name
+        if check__is_flexible(_cdy_name_759):
+            return ('t' + _cdy_name_759[1:len(_cdy_name_759)])
         else:
-            return _cdy_name_728
+            return _cdy_name_759
 
 def check__shown_name(name: str) -> str:
     parts = cdy_rt.primitives.split(name, '__')
@@ -6426,7 +6550,7 @@ def translate_expanded(forms: tuple[form__Form, ...], parse: _cdy_Callable[[str,
 
 def python_of(tops: tuple[core__Top, ...]) -> str:
     stmts = lower__lower_program(tops, 0, ())
-    globals_ = emit__global_names(tops, emit__Env({}, {}, {}, emit__generic_variants(tops, {}), cdy_rt.spelling.SPELLINGS))
+    globals_ = emit__global_names(tops, emit__Env({}, {}, {}, emit__generic_variants(tops, {}), cdy_rt.spelling.SPELLINGS, {}))
     env = emit__bind_locals(emit__bound_locals(stmts, ()), globals_)
     return (emit__HEADER + emit__emit_imports(emit__PY_IMPORTS, '') + '\n' + emit__emit_stmts(stmts, 0, env, '') + (emit__emit_main(env) if core__has_main(tops) else ''))
 

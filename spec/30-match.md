@@ -40,7 +40,8 @@ no fields is a value, not a call. `deft` is top level only.
 A variant's fields are named, as a record's are, but a variant's constructor gives the
 sum (a `Shape`, not a `Rect`), so `get` reads only a field that every variant has, with
 one type ([[checking.records]]); any other field is read in its variant's clause of a
-`match`:
+`match`, by the clause's names or, if the subject is a local, by `get` on it
+([[checking.narrowing]]):
 
 ```candy run
 (deft Shape (Circle ((id String) (r Int))) (Rect ((id String) (w Int) (h Int))))

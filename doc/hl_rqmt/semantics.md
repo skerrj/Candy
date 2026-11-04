@@ -456,6 +456,39 @@ says only `at`'s four uses need it.
      note). [[B20]] and [[B21]] done.
    - **Bootstrap:** `bin` rebuilt, one step; the translator used neither.
 5. **Narrowing and field constraints** ([[B121]], [[B120]]).
+
+   *Done.* As built:
+   - **Narrowing** (`check.cdy`): the checker's `Ctx` has `narrowed`, a local's key to
+     its clause's variant, set by `infer-clauses` when the subject is a local; `narrow`
+     gives `get` and `assoc` on it the variant (with the sum's type arguments), not the
+     sum. No variant types: the local is still of the sum everywhere else, as the HLD
+     wanted (`S.A` accepted wherever an `S` is) at the cost of nothing new in `unify`.
+     The `else` isn't narrowed.
+   - **Narrowing in Python** (`emit.cdy`): in a case, a `get` or `assoc` on the subject
+     local reads the match's temporary (`_cdy_t1.x`), which `isinstance` has narrowed;
+     `s` itself is the sum to mypy. For a generic sum mypy narrows `isinstance(t, N)` on
+     a `T[int]` to `N[Any]`, on a parameter too, so a field whose type has a type
+     variable is cast to the checker's type (`_cdy_cast('int', _cdy_t3.v)`; `cast` is
+     imported as `_cdy_cast`), and only it, as `--strict` refuses a redundant cast
+     (`generic` in `Env` now maps each generic variant to those fields). Another
+     type-level leak (`multi_target.md`).
+   - **Field constraints** (`check.cdy`): `field-type` on a flexible variable gives a
+     fresh variable and records a `Pending` in `St`; `check-tops` runs `solve-pending`
+     after each definition: a constraint whose value's type is known is checked as the
+     `get` or `assoc` would have been (`get: field name of P is String, not Int`), the
+     rest again while any was solved, then each left is today's error, and one whose
+     value met only `Any` is `Any`.
+   - **[[B155]], taken into the step:** `cond`'s last clause with no `else` expands to an
+     `if` with no `else` (`prelude_macros.cdy`), so the checker's missing-else rule sees
+     it: `if: with no else, the then is Int, not Unit`, as for an `if`. The message
+     naming the `if` is [[B156]] (an idea: a macro's errors in the expansion's words).
+   - **The spec:** [[checking.narrowing]] (new), [[checking.records]] (its *for now*
+     gone, its error example now a run one there), [[checking.order]] (a constraint, a
+     run example and three errors), [[checking.if]] (`cond`'s error), [[match.sum-types]].
+     The old text is in [[B120]]'s, [[B121]]'s and [[B155]]'s notes. [[B120]], [[B121]]
+     and [[B155]] done.
+   - **Bootstrap:** `bin` rebuilt, one step; the translator neither narrows nor reads a
+     field of an unknown type, and its Python only gains the `cast` import.
 6. **Numbers** ([[B23]], [[B22]]): `/` on floats, `mod`, literal ranges.
 7. **`at` and `slice`** ([[B35]], [[B71]]): bounds checked, in two boot steps.
 8. **`def` order** ([[B31]]).
