@@ -79,8 +79,8 @@ A literal must end at a delimiter: whitespace, a parenthesis, `;`, or the end of
 (put (if true 1 0) (if false 1 0))
 ```
 ```expect
-100 -7 1500 1
-10.0 -0.5 3.14
+100 -7 1500l 1b
+10.0 -0.5 3.14f
 1 0
 ```
 
@@ -98,7 +98,9 @@ number is a name (`.5`, `-x`):
 
 <a id="syntax.chars"></a>
 A char is `\` and exactly one character, which may be a delimiter's (`\(` is the char
-`(`), then a delimiter:
+`(`), then a delimiter. A `Char` is its own type, never a `String` (*lasting*; Python
+spells both `str`, a target's choice), though a `Char` read from a string with `at`
+passes as `Any` (*for now*: [[B18]]):
 
 ```candy run
 (put \e)
@@ -113,6 +115,7 @@ e
 (put \ab) => a char is \ and one character, then a delimiter
 (put \ x) => a char is \ and one character, then a delimiter
 (put \) => ( is never closed
+(put (= \a "a")) => =: expected Char, got String
 ```
 
 <a id="syntax.strings"></a>

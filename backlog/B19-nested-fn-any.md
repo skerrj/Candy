@@ -13,6 +13,7 @@ refs: [[expr.functions]]
 From `doc/archive/leaks_imvp_py_translator.md`.
 
 ## Notes
+
 - 2026-10-28, writing `spec/25-checking.md`: a `fn` bound by `let` and called,
   `(let ((sq (fn (x) (* x x)))) (sq 3))`, translates to a Python lambda that `mypy
   --strict` rejects ("Call to untyped function (unknown) in typed context"), so the spec

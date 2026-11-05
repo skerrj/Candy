@@ -14,3 +14,7 @@ unpacking, a `tup` pattern). mypy accepts a `(Tup Int Int)` (`tuple[int, int]`) 
 `(List Int)` (`tuple[int, ...]`) is expected. From `doc/archive/leaks_imvp_py_translator.md` ("Records are `NamedTuple`s",
 "`tup` destructuring") and `doc/archive/leaks_pre_self_host.md` ("Sum types are Python
 unions of `NamedTuple`s").
+
+## Notes
+
+- 2026-11-02, Claude: semantics step 3: equality is no longer the tuple's ([[B137]], [[expr.equality]]): a record or variant compares its class too. What stays: a record behaves as a tuple through `Any` (indexing, iterating, unpacking), and mypy accepts a `(Tup Int Int)` where a `(List Int)` is expected.

@@ -1,10 +1,10 @@
 # B132: Go over the types the checker leaves unsolved
 
 kind: task
-state: open
+state: done
 priority: normal
 found: typed-core, 2026-10-31
-fixed:
+fixed: semantics
 where: `src/cdy/check.cdy`, `src/cdy/emit.cdy`, `tst/py_cdy/test_self_host.py`
 refs: [[B18]], [[B19]]
 
@@ -27,3 +27,7 @@ cutting `Any` down ([[B18]], `semantics`).
   while checking, and one that met `Any` and nothing else is defaulted to `Any` at the
   end (`node-type`); one that met nothing stays a variable, and showing it is an error
   (Question 3). Done in `semantics`' step 1, with this item's tests.
+
+## Notes
+
+- 2026-11-02, Claude: semantics step 1: `test_unsolved_types` covers each case (its type in Core and its Python); `test_every_node_is_typed` now checks the translator's own Core has no unsolved variable (the eight are `Any` since `Any` defaults a variable it met). [[checking.any]].

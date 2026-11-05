@@ -205,7 +205,7 @@ are lowercase (`a`, `b`), as in Carp. A compound type is a list headed by its na
 | `String` | Text | `str` | Decided |
 | `Any` | Anything; no checking | `Any` | Decided |
 | `Unit` | The type of `nil`, the one "no value" value | `None` | Decided |
-| `(Maybe A)` | An `A` or `nil` | `A \| None` | Decided |
+| `(Maybe A)` | An `A` or `nil` | `A \| None` | Decided; *since `semantics`, the prelude's sum: `(Some v)` or `None`* |
 | `(Fn (A B) R)` | A function from `A`, `B` to `R`; at least one parameter type, since `defn` and `fn` need an argument | `def f(a: A, b: B) -> R`, or `Callable[[A, B], R]` for a value | Decided |
 | `(List A)` | A sequence; later one kind of abstract `Collection` | `tuple[A, ...]` | Decided |
 | `(Tup A B)` | A fixed-size tuple, for `tup` | `tuple[A, B]` | Decided |
@@ -240,6 +240,9 @@ The iMVP uses only Candy's names. Each backend maps them to its own types (see
   Carp's and Haskell's name. Rust and Scala say `Option`.
   - In the iMVP, `(Maybe A)` is just Python's `A | None`. Properly it is a sum type, which
     needs `deft` sum types and `match`, so that is a leak.
+  - *Since `semantics`* ([[B20]], [[B21]]): `Maybe` is the prelude's sum, `(Some v)` or
+    `None`, and an `if` with no `else` needs a `Unit` then, so it never makes a
+    `Maybe`.
 - **`List`, not `Array` or `Vector` (decided).** The name sets expectations:
   - `Array` (Carp) suggests a fixed-size, mutable, contiguous block, as in C.
   - `Vector` (Clojure, Rust) suggests an indexed, growable sequence.

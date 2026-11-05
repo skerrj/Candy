@@ -10,18 +10,22 @@
 ;; Python names: top-level names (Candy name -> Python name), locals (Local id -> Python
 ;; name), and the Python names already taken where new locals are bound. `generic`: the
 ;; variants of generic sums. `spellings`: each built-in's Python text and kind (spelling.py).
+;; `narrowed`: inside a match clause on a local, the local's id -> the match's temporary,
+;; which Python has narrowed to the clause's variant (checking.narrowing), and the
+;; variant's fields whose type has a type variable (`generic`'s).
 (deft Env
   ((globals (Map String String))
    (locals (Map Int String))
    (taken (Map String Bool))
-   (generic (Map String Bool))
-   (spellings (Map String (Tup String String)))))
+   (generic (Map String (List String)))
+   (spellings (Map String (Tup String String)))
+   (narrowed (Map Int (Tup String (List String))))))
 
 (sig HEADER String)
 (def HEADER "from __future__ import annotations
 
 from collections.abc import Callable as _cdy_Callable, Mapping as _cdy_Mapping
-from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
+from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_cast
 ")
 
 (sig comma-join (Fn ((List String)) String))
@@ -218,23 +222,24 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((TDefn name _ _ _ _) name)
     (else "")))
 
-;; The variants of the generic sums in `tops`, added to `acc`.
-(sig generic-variants (Fn ((List Top) (Map String Bool)) (Map String Bool)))
+;; The variants of the generic sums in `tops`, added to `acc`, each with its fields whose
+;; type has a type variable.
+(sig generic-variants (Fn ((List Top) (Map String (List String))) (Map String (List String))))
 (defn generic-variants (tops acc)
-  (if (= (len tops) 0)
-    acc
-    (generic-variants
-      (rest tops)
-      (match (at tops 0)
-        ((TDeftSum _ tvars variants)
-          (if (= (len tvars) 0) acc (mark-all (variant-list-names variants empty-list) acc)))
-        (else acc)))))
+  (fold (fn (m top) (generic-sum top m)) acc tops))
 
-(sig mark-all (Fn ((List String) (Map String Bool)) (Map String Bool)))
-(defn mark-all (names acc)
-  (if (= (len names) 0)
-    acc
-    (mark-all (rest names) (map-set acc (at names 0) true))))
+(sig generic-sum (Fn (Top (Map String (List String))) (Map String (List String))))
+(defn generic-sum (top acc)
+  (match top
+    ((TDeftSum _ tvars variants)
+      (if (= (len tvars) 0)
+        acc
+        (fold (fn (m v) (map-set m (get v name) (generic-fields (get v fields)))) acc variants)))
+    (else acc)))
+
+(sig generic-fields (Fn ((List (Tup String CType))) (List String)))
+(defn generic-fields (fields)
+  (map (fn (f) (at f 0)) (filter (fn (f) (> (len (type-vars (to-list (at f 1)) empty-list)) 0)) fields)))
 
 ;; A local's Python name, chosen when its scope was entered (bind-locals).
 (sig local-py (Fn (String Int Env) String))
@@ -309,7 +314,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((Lit form _) (emit-lit form))
     ((Local name id _ _) (local-py name id env))
     ((Global name _ _) (map-get (get env globals) name))
-    ((Prim name pos _) (emit-prim name pos env))
+    ((Prim name pos t) (emit-prim name pos t env))
     ((Call callee args _ _) (emit-call callee args env))
     ((If test then other _ _)
       (format "({(emit-expr then env)} if {(emit-expr test env)} else {(emit-expr other env)})"))
@@ -321,31 +326,119 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((Tuple items _ _)
       (let ((strs (emit-exprs items env empty-list)))
         (if (= (len strs) 1) (format "({(at strs 0)},)") (format "({(comma-join strs)})"))))
-    ((Fmt parts _ _) (emit-format parts env))
-    ((Field obj field _ _) (format "{(emit-expr obj env)}.{(py-mangle field)}"))
+    ((ListOf items pos t) (emit-expr (Tuple items pos t) env))
+    ((Fmt parts pos _) (emit-format parts pos env))
+    ((Field obj field _ t) (emit-get obj field t env))
     ((Assoc obj fields _ _)
-      (format "{(emit-expr obj env)}._replace({(comma-join (emit-fields fields env empty-list))})"))
+      (format "{(emit-obj obj env)}._replace({(comma-join (emit-fields fields env empty-list))})"))
     ((Temp id _) (format "_cdy_t{id}"))))
 
-;; A format string as a concatenation: literal text, and str() of each hole.
-(sig emit-format (Fn ((List FPart) Env) String))
-(defn emit-format (parts env)
+;; The record a get or assoc reads: a local narrowed in a match clause as the match's
+;; temporary, which Python knows is the clause's variant; else the expression.
+(sig emit-obj (Fn (Expr Env) String))
+(defn emit-obj (obj env)
+  (match obj
+    ((Local _ id _ _) (if (map-has (get env narrowed) id) (at (map-get (get env narrowed) id) 0) (emit-expr obj env)))
+    (else (emit-expr obj env))))
+
+;; A get: of a field with a type variable, on a local narrowed from a generic sum, cast to
+;; the type the checker found, since mypy narrows `isinstance(t, N)` on a `T[int]` to
+;; `N[Any]` (a cast of another field would be redundant, which mypy refuses).
+(sig emit-get (Fn (Expr String CType Env) String))
+(defn emit-get (obj field t env)
+  (let ((text (format "{(emit-obj obj env)}.{(py-mangle field)}")))
+    (match obj
+      ((Local _ id _ _)
+        (if (and (map-has (get env narrowed) id) (in field (at (map-get (get env narrowed) id) 1)))
+          (format "_cdy_cast('{(emit-type t env)}', {text})")
+          text))
+      (else text))))
+
+;; A format string as a concatenation: literal text, and each hole as its text
+;; (`emit-text`).
+(sig emit-format (Fn ((List FPart) Pos Env) String))
+(defn emit-format (parts pos env)
   (if (= (len parts) 0)
     "''"
-    (format "({(join (emit-parts parts env empty-list) \" + \")})")))
+    (format "({(join (emit-parts parts pos env empty-list) \" + \")})")))
 
-(sig emit-parts (Fn ((List FPart) Env (List String)) (List String)))
-(defn emit-parts (parts env acc)
+(sig emit-parts (Fn ((List FPart) Pos Env (List String)) (List String)))
+(defn emit-parts (parts pos env acc)
   (if (= (len parts) 0)
     acc
     (emit-parts
       (rest parts)
+      pos
       env
       (+ acc
          (to-list
            (match (at parts 0)
              ((FText text) (py-str text))
-             ((FHole e) (format "str({(emit-expr e env)})"))))))))
+             ((FHole e) (emit-text e pos env))))))))
+
+;; --- showing values (spec/60-library.md, library.show) ---
+
+;; `e` as `put` and a format hole write it: a String or a Char as its text, an Int as
+;; Python's str, anything else shown by its type (`show-type`), and a value typed Any
+;; shown from its Python value (cdy_rt's text_any).
+(sig emit-text (Fn (Expr Pos Env) String))
+(defn emit-text (e pos env)
+  (let ((x (emit-expr e env))
+        (name (match (get e t) ((TCon name _) name) (else ""))))
+    (cond
+      ((in name (tup "String" "Char")) x)
+      ((= name "Int") (format "str({x})"))
+      ((= name "Any") (format "cdy_rt.primitives.text_any({x})"))
+      (else (show-call x (get e t) pos)))))
+
+;; An argument of `put` (Python's print): as `emit-text`, an Int as it is.
+(sig emit-put-arg (Fn (Expr Pos Env) String))
+(defn emit-put-arg (e pos env)
+  (match (get e t)
+    ((TCon name _) (if (= name "Int") (emit-expr e env) (emit-text e pos env)))
+    (else (emit-text e pos env))))
+
+(sig show-call (Fn (String CType Pos) String))
+(defn show-call (x t pos) (format "cdy_rt.primitives.show({x}, {(show-type t pos)})"))
+
+;; The type `t` as cdy_rt's show reads it (its ShowType): a type's name, or a tuple of its
+;; name and its arguments' types. A function can't be shown, nor a value whose type is a
+;; type variable, *for now*: a generic function can show its type variables' values once
+;; interfaces let it say so.
+(sig show-type (Fn (CType Pos) String))
+(defn show-type (t pos)
+  (match t
+    ((TCon name args)
+      (if (= (len args) 0)
+        (py-str name)
+        (format "({(comma-join (+ (to-list (py-str name)) (map (fn (a) (show-type a pos)) args)))})")))
+    ((TFn _ _) (fail (+ (pos-text pos) "show: a function can't be shown")))
+    ((TVar name)
+      (let ((shown (if (starts-with name "?") (+ "t" (slice name 1 (len name))) name)))
+        (fail (+ (pos-text pos) (format "show: can't show a value of type {shown}, a type variable")))))))
+
+;; A record's or variant's field type as cdy_rt's show reads it: its type variable `a` as
+;; "'a", to be bound to the type's arguments; a function as "Fn", which show refuses.
+(sig field-show-type (Fn (CType) String))
+(defn field-show-type (t)
+  (match t
+    ((TCon name args)
+      (if (= (len args) 0)
+        (py-str name)
+        (format "({(comma-join (+ (to-list (py-str name)) (map field-show-type args)))})")))
+    ((TFn _ _) (py-str "Fn"))
+    ((TVar name) (py-str (+ "'" name)))))
+
+;; The line registering a record's or variant's class for show: its Candy name, its type's
+;; type variables, its fields' types.
+(sig register-line (Fn (String String (List String) (List (Tup String CType)) Int Env) String))
+(defn register-line (name shown tvars fields level env)
+  (line level
+    (format "cdy_rt.primitives.register_type({(map-get (get env globals) name)}, {(py-str shown)}, {(py-tuple (map py-str tvars))}, {(py-tuple (map (fn (f) (field-show-type (at f 1))) fields))})")))
+
+;; Python's text for a tuple of the texts `items`: `()`, `(a,)`, `(a, b)`.
+(sig py-tuple (Fn ((List String)) String))
+(defn py-tuple (items) (if (= (len items) 1) (format "({(at items 0)},)") (format "({(comma-join items)})")))
 
 (sig emit-fields (Fn ((List (Tup String Expr)) Env (List String)) (List String)))
 (defn emit-fields (fields env acc)
@@ -373,20 +466,29 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     ((ByteLit v _) (format "{v}"))
     ((FloatLit v _) (format "{v}"))
     ((DoubleLit v _) (format "{v}"))
-    ((BoolLit v _) (format "{v}"))
+    ((BoolLit v _) (if v "True" "False"))
     (else (fail "internal error: emit: not a literal"))))
 
-(sig emit-prim (Fn (String Pos Env) String))
-(defn emit-prim (name pos env)
-  (if (in (spelling-kind (get env spellings) name) TYPED_KINDS)
-    (at (map-get (get env spellings) name) 0)
-    (fail (+ (pos-text pos) (format "the operator {name} can't be used as a value yet; wrap it in a fn")))))
+(sig emit-prim (Fn (String Pos CType Env) String))
+(defn emit-prim (name pos t env)
+  (cond
+    ((= name "show")
+      (match t
+        ((TFn params _) (format "(lambda _cdy_x: {(show-call \"_cdy_x\" (at params 0) pos)})"))
+        (else (fail (+ (pos-text pos) "show: its type isn't known here")))))
+    ((in (spelling-kind (get env spellings) name) TYPED_KINDS) (at (map-get (get env spellings) name) 0))
+    (else (fail (+ (pos-text pos) (format "the operator {name} can't be used as a value yet; wrap it in a fn"))))))
 
 (sig emit-call (Fn (Expr (List Expr) Env) String))
 (defn emit-call (callee args env)
   (let ((strs (emit-exprs args env empty-list)))
     (match callee
-      ((Prim name _ _) (emit-prim-call name strs env))
+      ((Prim name pos _)
+        (cond
+          ((in name (tup "put" "print" "display"))
+            (format "print({(comma-join (map (fn (a) (emit-put-arg a pos env)) args))})"))
+          ((= name "show") (show-call (at strs 0) (get (at args 0) t) pos))
+          (else (emit-prim-call name strs env))))
       (else (format "{(emit-expr callee env)}({(comma-join strs)})")))))
 
 (sig emit-prim-call (Fn (String (List String) Env) String))
@@ -451,7 +553,9 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
         (+ "\n"
            (line level
              (format "class {(map-get (get env globals) name)}{(type-params tvars)}(_cdy_NamedTuple):"))
-           (emit-record-fields fields (+ level 1) env ""))))
+           (emit-record-fields fields (+ level 1) env "")
+           (eq-methods (+ level 1))
+           (register-line name (own-name name) tvars fields level env))))
     ((SSum name tvars variants)
       (+ (emit-variants name variants tvars level env "")
          (line level
@@ -461,7 +565,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
             (val (emit-expr subject env))
             (generic (map-has (get env generic) (get (at cases 0) variant))))
         (+ (line level (if generic (format "{t} = {val}") (format "{t}: object = {val}")))
-           (emit-match t cases default (and (not generic) (= (len default) 0)) "if" level env))))
+           (emit-match t cases default (and (not generic) (= (len default) 0)) "if" level env subject))))
     ((SLoop body) (+ (line level "while True:") (emit-block body (+ level 1) env)))
     ((SRebind targets vals)
       (line level
@@ -540,6 +644,19 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     acc
     (mangle-all (rest names) (+ acc (to-list (py-mangle (at names 0)))))))
 
+;; A record's or variant's equality (spec/40-expressions.md, expr.equality): a NamedTuple
+;; compares as a plain tuple, so two variants with equal fields would be equal (B137);
+;; these compare the class too, and hash it, so Python's own == (in `in`, `index-of`, a
+;; map's keys) is Candy's `=`.
+(sig eq-methods (Fn (Int) String))
+(defn eq-methods (level)
+  (+ (line level "def __eq__(self, other: object) -> bool:")
+     (line (+ level 1) "return type(self) is type(other) and tuple.__eq__(self, other)")
+     (line level "def __ne__(self, other: object) -> bool:")
+     (line (+ level 1) "return not self == other")
+     (line level "def __hash__(self) -> int:")
+     (line (+ level 1) "return hash((type(self), tuple(self)))")))
+
 (sig emit-record-fields (Fn ((List (Tup String CType)) Int Env String) String))
 (defn emit-record-fields (fields level env acc)
   (if (= (len fields) 0)
@@ -591,7 +708,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 (defn variant-tvars (v tvars)
   (used-tvars tvars (type-vars (field-types (get v fields) empty-list) empty-list) empty-list))
 
-;; One NamedTuple class per variant; a variant with no fields gets `pass`.
+;; One NamedTuple class per variant, its fields and `eq-methods`.
 (sig emit-variants (Fn (String (List Variant) (List String) Int Env String) String))
 (defn emit-variants (sum variants tvars level env acc)
   (if (= (len variants) 0)
@@ -599,10 +716,9 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
     (let ((v (at variants 0))
           (checked (check-py-fields (format "deft {(candy-name sum)}, variant {(own-name (get v name))}") (get v fields) empty-map))
           (head (format "class {(map-get (get env globals) (get v name))}{(type-params (variant-tvars v tvars))}(_cdy_NamedTuple):"))
-          (body (if (= (len (get v fields)) 0)
-                  (line (+ level 1) "pass")
-                  (emit-record-fields (get v fields) (+ level 1) env ""))))
-      (emit-variants sum (rest variants) tvars level env (+ acc "\n" (line level head) body)))))
+          (body (+ (emit-record-fields (get v fields) (+ level 1) env "") (eq-methods (+ level 1))))
+          (register (register-line (get v name) (own-name (get v name)) tvars (get v fields) level env)))
+      (emit-variants sum (rest variants) tvars level env (+ acc "\n" (line level head) body register)))))
 
 ;; Each variant as a member of the sum's union: `Leaf`, `Node[a]`.
 (sig variant-refs (Fn ((List Variant) (List String) Env (List String)) (List String)))
@@ -620,9 +736,10 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
 ;; match as an isinstance chain on the temporary `subj` (mypy keeps generic type arguments
 ;; that way), each named field bound by attribute. The temporary is typed object unless the
 ;; sum is generic, which keeps mypy fast (doc/hl_rqmt/sum_types.md); then, with no else clause,
-;; the last case is an else that asserts its variant (`assert-last`).
-(sig emit-match (Fn (String (List Case) (List (List Stmt)) Bool String Int Env) String))
-(defn emit-match (subj cases default assert-last keyword level env)
+;; the last case is an else that asserts its variant (`assert-last`). In each case a local
+;; `subject` is narrowed (`case-env`); not in the else clause.
+(sig emit-match (Fn (String (List Case) (List (List Stmt)) Bool String Int Env Expr) String))
+(defn emit-match (subj cases default assert-last keyword level env subject)
   (cond
     ((= (len cases) 0)
       (if (= (len default) 0)
@@ -630,32 +747,48 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
         (+ (line level "else:") (emit-block (at default 0) (+ level 1) env))))
     ((and assert-last (= (len cases) 1))
       (let ((c (at cases 0))
+            (cenv (case-env subject subj (get c variant) env))
             (inner (if (= keyword "if") level (+ level 1))))
         (+ (if (= keyword "if") "" (line level "else:"))
            (line inner (format "assert isinstance({subj}, {(map-get (get env globals) (get c variant))})"))
-           (emit-binds (get c binds) subj inner env "")
-           (emit-stmts (get c body) inner env ""))))
+           (emit-binds (get c binds) (get c variant) subj inner cenv "")
+           (emit-stmts (get c body) inner cenv ""))))
     (else
       (let ((c (at cases 0))
+            (cenv (case-env subject subj (get c variant) env))
             (test (format "{keyword} isinstance({subj}, {(map-get (get env globals) (get c variant))}):"))
-            (binds (emit-binds (get c binds) subj (+ level 1) env ""))
+            (binds (emit-binds (get c binds) (get c variant) subj (+ level 1) cenv ""))
             (body (if (= (len (get c body)) 0)
                     (if (= binds "") (line (+ level 1) "pass") "")
-                    (emit-stmts (get c body) (+ level 1) env ""))))
+                    (emit-stmts (get c body) (+ level 1) cenv ""))))
         (+ (line level test) binds body
-           (emit-match subj (rest cases) default assert-last "elif" level env))))))
+           (emit-match subj (rest cases) default assert-last "elif" level env subject))))))
 
-(sig emit-binds (Fn ((List (Tup String Expr)) String Int Env String) String))
-(defn emit-binds (binds subj level env acc)
+;; `env` in a case of `variant`: a local `subject` narrowed to the temporary `subj`.
+(sig case-env (Fn (Expr String String Env) Env))
+(defn case-env (subject subj variant env)
+  (match subject
+    ((Local _ id _ _)
+      (let ((fields (if (map-has (get env generic) variant) (map-get (get env generic) variant) empty-list)))
+        (assoc env narrowed (map-set (get env narrowed) id (tup subj fields)))))
+    (else env)))
+
+;; A clause's fields, each read into its name. A generic variant's names are annotated
+;; with the types the checker found: mypy narrows `isinstance(x, Some)` on a `Maybe[a]` to
+;; `Some[Any]`, so the field it reads is Any.
+(sig emit-binds (Fn ((List (Tup String Expr)) String String Int Env String) String))
+(defn emit-binds (binds variant subj level env acc)
   (if (= (len binds) 0)
     acc
-    (let (((f loc) (at binds 0)))
+    (let (((f loc) (at binds 0))
+          (note (if (map-has (get env generic) variant) (format ": {(emit-type (get loc t) env)}") "")))
       (emit-binds
         (rest binds)
+        variant
         subj
         level
         env
-        (+ acc (line level (format "{(emit-expr loc env)} = {subj}.{(py-mangle f)}")))))))
+        (+ acc (line level (format "{(emit-expr loc env)}{note} = {subj}.{(py-mangle f)}")))))))
 
 (sig emit-stmts (Fn ((List Stmt) Int Env String) String))
 (defn emit-stmts (stmts level env acc)
@@ -677,11 +810,14 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple
       env
       (+ acc (to-list (format "{(emit-expr (at params 0) env)}: {(emit-type (at types 0) env)}"))))))
 
+;; A top-level function: its locals start afresh, since a local's id is unique only in its
+;; module, and the program's top-level locals (every module's, bound in `python-of`) aren't
+;; in its scope (B154).
 (sig emit-func (Fn (String (List Expr) (List Stmt) CType Int Env) String))
 (defn emit-func (name params body t level env)
   (match t
     ((TFn types ret)
-      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) env))
+      (let ((inner (bind-locals (+ params (bound-locals body empty-list)) (assoc env locals empty-map)))
             (tvars (type-vars (+ types (to-list ret)) empty-list))
             (tparams (type-params tvars))
             (args (comma-join (emit-params params types inner empty-list))))

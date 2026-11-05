@@ -11,6 +11,21 @@
 (sig rest (Fn ((List a)) (List a)))
 (defn rest (xs) (slice xs 1 (len xs)))
 
+;; An optional value, *lasting* (spec/60-library.md, library.maybe): `(Some v)`, or `None`.
+(deft (Maybe a) (Some ((v a))) (None))
+
+;; The first item of `xs` that `keep` is true of.
+(sig find (Fn ((Fn (a) Bool) (List a)) (Maybe a)))
+(defn find (keep xs) (let ((i (find-index keep xs))) (if (< i 0) None (Some (at xs i)))))
+
+;; The index of the first item of `xs` equal to `x`.
+(sig index-of (Fn (a (List a)) (Maybe Int)))
+(defn index-of (x xs) (let ((i (elem-index x xs))) (if (< i 0) None (Some i))))
+
+;; `m`'s value, or `fallback` if it is None.
+(sig with-default (Fn (a (Maybe a)) a))
+(defn with-default (fallback m) (match m ((Some v) v) ((None) fallback)))
+
 ;; `m` with the value at `key` replaced by `f` of it; `key` must be in `m`.
 (sig map-update (Fn ((Map k v) k (Fn (v) v)) (Map k v)))
 (defn map-update (m key f) (map-set m key (f (map-get m key))))

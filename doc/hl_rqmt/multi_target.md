@@ -163,6 +163,42 @@ output Candy's on every target and host. Two ways to know what it shows:
   has its type, `t`, for a backend to read; a type the checker never solved is a `?N`
   type variable, and each backend chooses what to write, Python `Any`.)*
 
+*Closed (branch `semantics`, 2026-11-04): from the static type. `emit` writes each
+value's type for the runtime's `show` ([[library.show]]), a type variable or a function
+an error when translated, `Any` shown by the value when run; each target supplies its
+`show` for the types it has.*
+
+### Open: type-level leaks
+
+A leak is usually about values: Python's `/`, `None`, tuple ordering ([[B23]], [[B21]],
+[[B153]]). Types leak too, one level up: into what Candy's types can say, rather than what
+a program does. The second check (mypy, [[B125]]) and the annotations Python can write
+bound what a backend can write and still have checked; a host's erased types bound what a
+rule can look at when run. A user meets these not in a program's output but as mypy
+refusing what Candy accepts, or as a Candy rule shaped to fit the host. Found so far
+(branch `semantics`, 2026-11-03):
+
+- **A local can't be generic in Python** (a variable's annotation has no type
+  parameters of its own): a `fn` bound by `let` that Candy could generalise
+  ([[B133]]) would still be written `Any`, as an unsolved variable is now
+  ([[checking.any]]).
+- **mypy loses a generic's type argument when narrowing**: an `isinstance` on a
+  `Maybe[a]` narrows to `Some[Any]`, so `emit` annotates a generic variant's `match`
+  bindings with the type Candy knows (semantics step 4), and casts a narrowed `get` of
+  a type-variable field (step 5: on a `T[int]`, `N[Any]`); and narrowing a union of
+  `NamedTuple`s is slow, hence the `match` on an `object` temporary.
+- **Types are erased when run**: `show` and `=` can't see what a type variable stands
+  for, so showing one is an error when translated (`doc/hl_rqmt/semantics.md`,
+  Question 3), a rule Candy has because of the host.
+- **mypy types a literal more narrowly than Candy**: `(= (List (A 1)) (List (B 1)))`
+  is refused (`tuple[A]` against `tuple[B]`, non-overlapping), though Candy types both
+  `(List S)`; a value with a declared type doesn't meet it (semantics step 3).
+
+A second target has its own set: C has no generics without templates or `void *`, and
+nothing like `Any`; JavaScript has no static check to be a second one. *For now* they are
+`leak` items, said to be type-level in their text, and gathered here; a kind of their own
+if there come to be many.
+
 ### Modules and output units
 
 A **Candy module** (a file, `doc/hl_rqmt/modules.md`) is a namespace: what it defines,

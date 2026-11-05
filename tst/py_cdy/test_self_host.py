@@ -406,21 +406,75 @@ def core_nodes(value: object, found: list[Any]) -> list[Any]:
     return found
 
 
+def typed_core(t1: ModuleType, path: Path) -> list[Any]:
+    """The Core nodes of the program at ``path``, as the checker typed them."""
+    library = t1.expand__library_builtins(None)
+    modules = t1.include__read_modules(str(path))
+    tops = t1.check__type_check(t1.program_tops(modules, t1.read__read_hole, library), library)
+    return core_nodes(tops, [])
+
+
+def unsolved(t: Any) -> bool:
+    """Whether the type ``t`` holds a variable the checker never solved (``?N``)."""
+    kind = type(t).__name__
+    if kind == "core__TVar":
+        return cast(str, t.name).startswith("?")
+    if kind == "core__TFn":
+        return any(unsolved(p) for p in t.params) or unsolved(t.ret)
+    return any(unsolved(a) for a in t.args)
+
+
 def test_every_node_is_typed(t1: ModuleType) -> None:
     # The translator's own Core, checked: every node has the type the checker found, none
-    # the name (?eK) it had while checked, so the checker reached them all.
-    library = t1.expand__library_builtins(None)
-    modules = t1.include__read_modules(str(ROOT / "src" / "cdy" / "cdyc.cdy"))
-    tops = t1.check__type_check(t1.program_tops(modules, t1.read__read_hole, library), library)
-    nodes = core_nodes(tops, [])
+    # the name (?eK) it had while checked, so the checker reached them all; and none is
+    # left unsolved (the eight that were all met Any: B132).
+    nodes = typed_core(t1, ROOT / "src" / "cdy" / "cdyc.cdy")
     kinds = {type(n.t).__name__ for n in nodes}
     assert kinds <= {"core__TCon", "core__TVar", "core__TFn"}
-    unreached = [
-        n for n in nodes if type(n.t).__name__ == "core__TVar" and n.t.name.startswith("?e")
-    ]
-    assert not unreached
+    assert not [n for n in nodes if unsolved(n.t)]
     lambdas = [n for n in nodes if type(n).__name__ == "core__Lambda"]
     assert lambdas and all(type(n.t).__name__ == "core__TFn" for n in lambdas)
+
+
+UNSOLVED = """\
+(sig a Any)
+(def a 1)
+(sig f (Fn (Unit) Int))
+(defn f (_)
+  (let ((met-any (reverse a))
+        (met-later (fn (x) x))
+        (never-called (fn (y) y))
+        (never-added empty-list))
+    (do (met-later a) never-added (+ (met-later 1) 1))))
+(put (f nil))
+"""
+
+
+@pytest.mark.parametrize(
+    ("local", "shown", "python"),
+    [
+        # Any meets a variable: defaulted to Any at the end.
+        ("met-any", "(List Any)", "met_any = "),
+        # ... but a later use still solves it: met Any, then Int.
+        ("met-later", "(Fn (Int) Int)", "met_later: _cdy_Callable[[int], int] = "),
+        # Nothing fixes it: a fn never called, an empty-list never added to.
+        ("never-called", "(Fn (tN) tN)", "never_called: _cdy_Callable[[_cdy_Any], _cdy_Any] = "),
+        ("never-added", "(List tN)", "never_added = "),
+    ],
+)
+def test_unsolved_types(
+    t1: ModuleType, tmp_path: Path, local: str, shown: str, python: str
+) -> None:
+    # B132: the type each case leaves in Core, and its Python (an unsolved variable is Any).
+    path = tmp_path / "unsolved.cdy"
+    path.write_text(UNSOLVED, encoding="utf-8")
+    types = {  # a type variable's number depends on what the prelude holds: tN
+        re.sub(r"\bt\d+\b", "tN", t1.check__show(n.t, {}))
+        for n in typed_core(t1, path)
+        if type(n).__name__ == "core__Local" and n.name == local
+    }
+    assert types == {shown}
+    assert python in translate_with(t1, UNSOLVED)
 
 
 def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:

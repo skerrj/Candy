@@ -53,9 +53,8 @@ Every rule that is meant to stay has at least one example; edge cases go in a `c
 errors` table, or stay in `tst/`. A rule that holds only *for now* says so, and points at
 its backlog item, a `leak` (`backlog/`, linked as `[[B15]]`).
 
-**Output is numbers and text** (*for now*): an example prints numbers, and strings it
-builds with `format`, never a raw list, `Bool`, `nil` or record, since those print the way
-Python prints them ([[B36]]; `doc/hl_rqmt/executable_spec.md`, question 12).
+**Output is Candy's:** an example prints any value, as Candy shows it
+([[library.show]]; the rule that it print only numbers and text went with [[B36]]).
 
 ## The blocks
 

@@ -1,10 +1,10 @@
 # B36: Values print as Python shows them
 
 kind: leak
-state: open
+state: done
 priority: high
 found: py-py-translator, 2026-10-15
-fixed:
+fixed: semantics
 where: `src/cdy_rt/spelling.py`, `src/cdy/system.cdy`
 refs: [[library.format]], [[library.builtins]], [[B95]], [[B15]]
 
@@ -24,3 +24,4 @@ show for each type in Candy (`doc/hl_rqmt/executable_spec.md`, question 12), par
   `String` (both `str`) or an `Int` from a `Byte`; from the static type, it needs
   [[B15]]'s checker. So a full fix likely comes after [[B15]]; an interim one could show
   `true`, `nil` and lists, but not `Char`.
+- 2026-11-02, Claude: semantics step 2: `show` by the static type (typed Core), a value as its constructor applied to its parts ([[library.show]]); `put`, `print`, `display` and `format` holes write a `String` or `Char` as text and show the rest; a type variable is an error *for now*, and `Any` is shown from the Python value ([[B18]]). The spec's examples print anything (`spec/README.md`).

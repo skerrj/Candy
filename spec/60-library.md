@@ -8,8 +8,7 @@ The built-ins (`src/cdy/system.cdy`), the prelude (`src/cdy/prelude.cdy`) and `f
 
 Lists, tuples, strings and maps are the host's, so their operations are built-ins, which
 the runtime provides (`src/cdy_rt/primitives.py`); the prelude holds what is built on
-them. The examples print lists and `Bool`s through small helpers, since a list or a `Bool`
-prints the way Python prints it (*for now*: `spec/README.md`).
+them. A value prints as Candy shows it ([[library.show]]).
 
 <a id="library.builtins"></a>
 ## Built-ins
@@ -46,46 +45,43 @@ translator: `py-spellings`, `load-macros`, `call-macro`, `module-dir` and `fresh
 <a id="library.lists"></a>
 ## Lists
 
-A list is typed `(List a)`; `tup` and `range` make one, and `empty-list` is the empty
-one. The functions take the list last. `map`, `filter` and `fold` are built in for
-speed, since Candy adds to a list by copying it. `find` and `index-of` give a `(Maybe a)`:
-`nil` when nothing is found, which `with-default` replaces.
+A list is typed `(List a)`; `List` ([[types.constructors]]) and `range` make one, and
+`empty-list` is the empty one. The functions take the list last. `map`, `filter` and `fold` are built in for
+speed, since Candy adds to a list by copying it. `find` and `index-of` give a `(Maybe a)`
+([[library.maybe]]): `None` when nothing is found, which `with-default` replaces.
 
 ```candy run
-(sig show (Fn ((List Int)) String))
-(defn show (xs) (+ "[" (join (map (fn (n) (format "{n}")) xs) " ") "]"))
-(sig yes (Fn (Bool) String))
-(defn yes (b) (if b "yes" "no"))
-
 (sig nums (List Int))
 (def nums (range 1 6))
+(sig none (List Int))
+(def none empty-list)
 
-(put (show nums) (show (range 3 3)))
-(put (show (map (fn (n) (* n n)) nums)) (show (filter (fn (n) (> n 2)) nums)))
+(put nums (range 3 3))
+(put (map (fn (n) (* n n)) nums) (filter (fn (n) (> n 2)) nums))
 (put (fold (fn (acc n) (+ acc n)) 0 nums))
-(put (yes (any (fn (n) (> n 4)) nums)) (yes (any (fn (n) (> n 5)) nums)) (yes (any (fn (n) true) empty-list)))
-(put (yes (all (fn (n) (> n 0)) nums)) (yes (all (fn (n) (> n 1)) nums)) (yes (all (fn (n) false) empty-list)))
+(put (any (fn (n) (> n 4)) nums) (any (fn (n) (> n 5)) nums) (any (fn (n) true) none))
+(put (all (fn (n) (> n 0)) nums) (all (fn (n) (> n 1)) nums) (all (fn (n) false) none))
 (put (with-default 0 (find (fn (n) (> n 2)) nums)) (with-default 0 (find (fn (n) (> n 9)) nums)))
-(put (show (reverse nums)) (show (reverse empty-list)))
-(put (show (take 2 nums)) (show (take 9 nums)) (show (take -1 nums)))
-(put (show (drop 2 nums)) (show (drop 9 nums)))
-(put (show (concat (tup (tup 1 2) empty-list (tup 3)))))
+(put (reverse nums) (reverse none))
+(put (take 2 nums) (take 9 nums) (take -1 nums))
+(put (drop 2 nums) (drop 9 nums))
+(put (concat (List (List 1 2) none (List 3))))
 (put (with-default -1 (index-of 3 nums)) (with-default -1 (index-of 9 nums)))
-(put (yes (contains 3 nums)) (yes (contains 9 nums)))
+(put (contains 3 nums) (contains 9 nums))
 ```
 ```expect
-[1 2 3 4 5] []
-[1 4 9 16 25] [3 4 5]
+(List 1 2 3 4 5) (List)
+(List 1 4 9 16 25) (List 3 4 5)
 15
-yes no no
-yes no yes
+true false false
+true false true
 3 0
-[5 4 3 2 1] []
-[1 2] [1 2 3 4 5] []
-[3 4 5] []
-[1 2 3]
+(List 5 4 3 2 1) (List)
+(List 1 2) (List 1 2 3 4 5) (List)
+(List 3 4 5) (List)
+(List 1 2 3)
 2 -1
-yes no
+true false
 ```
 
 <a id="library.zip"></a>
@@ -157,7 +153,7 @@ ann bo 31
 ## format
 
 `(format "text {form} ...")` is a string with Candy forms in `{...}` holes, one form per
-hole, each shown as text; `{{` and `}}` are literal braces. It is a hack from smz (*for
+hole, each written as `put` writes it ([[library.show]]); `{{` and `}}` are literal braces. It is a hack from smz (*for
 now*: [[B16]]). A hole is read from the string's text,
 after its escapes, so a form in a hole writes a `"` as `\"`, can't use a char literal
 (`00-syntax.md`), and can't hold a brace (so no `format` inside a hole).
@@ -178,4 +174,72 @@ after its escapes, so a form in a hole writes a `"` as `\"`, can't use a char li
 (put (format "a { b")) => unmatched {
 (put (format "{1 2}")) => exactly one form
 (put (format "{(format \"{1}\")}")) => a {hole} can't hold a brace
+```
+
+<a id="library.show"></a>
+## show
+
+`(show x)` is the value `x` as an expression that evaluates to it, *lasting*: a literal
+as the literal (`42`, `1500l`, `1b`, `3.14f`, `10.0`, `true`, `\a`, `"a \"b\""`, `nil`),
+and anything else as its constructor applied to its parts ([[types.constructors]]):
+`(List 1 2)`, `(Tup 1 "a")`, `(Map (Tup "k" 1))` (*for now*, until a map literal), a
+record or variant `(Vec 1 2)`, one with no fields by its name, `Dot`; a `(Maybe t)` is
+`(Some x)` or `None`. It goes by `x`'s type, so `1` as a `Long` is `1l`. `put` and a
+`format` hole show what they are given, but write a `String` or a `Char` as its text.
+
+A function can't be shown; nor can a value whose type is a type variable (*for now*:
+interfaces will let a generic function say its type can be shown): both are errors when
+translated. A value typed `Any` is shown from what it is when the program runs, which
+can't tell a `Char` from a `String`, the integer and float sizes apart, or a `Tup` from a
+`List` (*for now*: [[B18]]).
+
+```candy run
+(deft Vec ((x Int) (y Int)))
+(deft Shape (Circle ((r Double))) (Dot))
+(deft (Tree a) (Leaf) (Node ((l (Tree a)) (v a) (r (Tree a)))))
+
+(put 42 1500l 1b 3.14f 10.0 true nil)
+(put \a "text" (show \a) (show "say \"hi\""))
+(put (List 1 2) (Tup 1 "a") (rest (List 1)) (map-from (List (Tup "k" 1))))
+(put (Vec 1 2) (Circle 1.0) Dot (Node Leaf 2 (Node Leaf 3 Leaf)))
+(put (find (fn (n) (> n 1)) (List 1 2)) (find (fn (n) (> n 5)) (List 1 2)))
+(put (format "a {(List true)} and {\"text\"}"))
+(put (map show (List 1 2)))
+```
+```expect
+42 1500l 1b 3.14f 10.0 true nil
+a text \a "say \"hi\""
+(List 1 2) (Tup 1 "a") (List) (Map (Tup "k" 1))
+(Vec 1 2) (Circle 1.0) Dot (Node Leaf 2 (Node Leaf 3 Leaf))
+(Some 2) None
+a (List true) and text
+(List "1" "2")
+```
+
+```candy errors
+(put (fn (x) x)) => show: a function can't be shown
+(sig f (Fn (a) Unit)) (defn f (x) (put x)) => show: can't show a value of type a, a type variable
+(put empty-list) => , a type variable
+```
+
+<a id="library.maybe"></a>
+## Maybe
+
+The prelude's `(deft (Maybe a) (Some ((v a))) (None))` is a value that may be missing
+(*lasting*; [[checking.maybe]]). `(find keep xs)` is the first item `keep` is true of,
+`(index-of x xs)` the index of the first item equal to `x`, each `None` when there is
+none, and `(with-default fallback m)` is `m`'s value, or `fallback` for `None`. They are
+prelude Candy, over the built-ins `find-index` and `elem-index`, which give `-1` for none.
+
+```candy run
+(sig xs (List Int))
+(def xs (List 3 1 4))
+(put (find (fn (n) (> n 2)) xs) (find (fn (n) (> n 5)) xs))
+(put (index-of 4 xs) (with-default -1 (index-of 9 xs)))
+(put (find-index (fn (n) (= n 1)) xs) (elem-index 9 xs))
+```
+```expect
+(Some 3) None
+(Some 2) -1
+1 -1
 ```

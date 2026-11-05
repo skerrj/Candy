@@ -1,7 +1,10 @@
 # Semantics (HLD)
 
-**Status: accepted (2026-11-02); proposed 2026-11-01. Epic: `python_complete.md` (its second
-branch). After tag `typed-core`.** Where Candy's behaviour is Python's, borrowed rather
+**Status: done (2026-11-04), steps 1 to 5 and the docs (tag `semantics`); steps 6 to 9
+go to `semantics-2` (Question 1's checkpoint). Accepted 2026-11-02, with the answers to
+its questions and its spec changes, on branch `semantics` (tasks [[B140]] to [[B149]]);
+proposed 2026-11-01. Epic:
+`python_complete.md` (its second branch). After tag `typed-core`.** Where Candy's behaviour is Python's, borrowed rather
 than decided, this branch decides it, in the spec, and makes the Python target do what
 the spec says: how values print ([[B36]], the backlog's last `high`), `=`, `/`, `and`
 and `or`, `Maybe` and missing values, `at` and `slice`, the numbers' sizes, `Char`, a
@@ -267,19 +270,272 @@ says only `at`'s four uses need it.
 1. **The small ones:** [[B132]]'s tests, and a variable that met only `Any` defaulted
    to `Any` at the end (Question 13); [[B26]], [[B28]] and [[B80]] decided in the spec,
    closed.
+
+   *Done.* As built:
+   - **`check.cdy`:** `unify` still binds nothing `Any` meets, but `mark-any` marks
+     each flexible variable in the other type, in the substitution under its name with
+     `any` before it (`any?4`; no variable is named so, and the substitution is only
+     looked up by name). `node-type` resolves with `final-type`: an unsolved variable
+     with a mark is `Any`, one without stays a `TVar`. A variable that met `Any` and is
+     solved later keeps the later type.
+   - **The translator's own Core:** its eight unsolved nodes (all `Any` meeting a
+     variable, [[B132]]) are `Any` now, none left; its Python is unchanged but for
+     renumbered temporaries, since an unsolved variable was written `Any` already.
+   - **Tests** (`tst/py_cdy/test_self_host.py`): `test_unsolved_types`, one case each,
+     the type in Core and its Python: met `Any` (`(List Any)`), met `Any` then `Int`
+     (`(Fn (Int) Int)`), a `fn` never called and an `empty-list` never added to (still
+     variables, Python `Any`); `test_every_node_is_typed` now also checks the
+     translator's Core has no unsolved variable (helpers `typed_core`, `unsolved`).
+   - **The spec:** [[checking.any]] states the defaulting (*Tested in* the two tests);
+     [[expr.logic]] the `Bool` result, with an errors table ([[B26]]); [[syntax.chars]]
+     `Char` its own type, with `=: expected Char, got String` ([[B28]]);
+     [[programs.top-level]] a `def` a constant, with `defined more than once` ([[B80]]).
+     `spec/20-types.md` (`types.sig`) and `mutation_optimization.md` (open question 4)
+     follow. All closed with no code change but the defaulting.
+   - **Bootstrap:** `bin` rebuilt (`boot/48`); nothing new the source may write.
+
+   The text replaced, verbatim. `spec/20-types.md` (`types.sig`), line 83:
+
+   ```text
+   defined once. No form changes a `def`'s value yet, so whether a `def` is a constant or a
+   variable is undefined (*for now*: `doc/hl_rqmt/mutation_optimization.md`, open question
+   4).
+   ```
+
+   `doc/hl_rqmt/mutation_optimization.md`, "Where the iMVP stands", line 10:
+
+   ```text
+   - **`def`'s mutability is undefined.** `candy-special.md` called it "not immutable... for
+     now", but no form changes a `def`'s value, and defining a name twice is an error, so a
+     `def` is neither a constant nor a variable yet (`spec/20-types.md` says it is open). It
+     becomes an issue once a form that changes a value arrives, or a target where the two
+     differ (a C constant, a JavaScript `const`): open question 4, and an item for the
+     backlog (`doc/hl_rqmt/tracking.md`).
+   ```
 2. **`show` and printing** ([[B36]]): the `List` and `Tup` constructors; `show`, `put`
    and `format` by type; the spec's examples print anything.
+
+   *Done.* As built:
+   - **Constructors** (`core.cdy`): `List` and `Tup` aren't in `special.cdy`, since a
+     built-in type's name is in the built-ins as a type (one map); `analyse-list` treats
+     the names in `BUILTIN_CONSTRUCTORS` (unless a local) as forms. `(Tup ...)` is
+     `tup`'s form (and pattern); `(List ...)` is a new Core node, `ListOf`, which
+     `check.cdy` types as a `(List t)` with each item a `t` (`infer-list-of`: `List: an
+     item: expected Int, got String`) and `lower` turns into a `Tuple`, so `emit` never
+     sees one (it says so, for `match`'s exhaustiveness).
+   - **`show`** (`system.cdy`: `(sig show (Fn (a) String))`; runtime `show`): `emit`
+     writes the value's type for the runtime, from the node's type (`show-type`: `"Int"`,
+     `("List", "Int")`), and the runtime shows it. A function, or a type variable (rigid,
+     or an unsolved `?N`), is an error when translated, at the call or the `format`;
+     `Any` is the runtime's `show_any`. Each record and variant class is registered
+     after its definition (`cdy_rt.primitives.register_type(Box, "Box", ("a",),
+     ("'a",))`: its Candy name, its type's type variables, its fields' types), so the
+     runtime shows records, generic and recursive ones too, by their class; mypy refuses
+     class attributes in a `NamedTuple`'s body, hence a registry. A function inside a
+     record is found only when run ([[B150]]); a float with no literal (`1e+20`) is
+     Python's `repr` ([[B151]]). `show` as a value is a `lambda` over its type.
+   - **`put` and `format`:** `emit-text` writes a `String` or `Char` as it is, an `Int`
+     with `str` (in `put`, as it is), a value typed `Any` with `text_any` (its text if
+     it is a string), and shows the rest. `print` and `display` (unused aliases) are
+     `put`'s.
+   - **The translator's own holes:** none is a type variable (Question 3's count is 0);
+     3 call `show` (two `Double`s in `emit-lit`, and `show-call`'s own text), 26 call
+     `text_any`, on values that are strings when run. `emit-lit` wrote a `Bool` literal
+     with `(format "{v}")`, Python's `True`, which the new `show` made `true`: it writes
+     `True` and `False` itself now, which the old `bin` reads the same, so no two-step
+     bootstrap. `lower`'s sequence temporaries keep their value's type (they were
+     `Any`, which would have shown values from Python).
+   - **Tests:** the runtime's `show` (`tst/cdy_rt/test_primitives.py`: each type,
+     records, `Any`); the outputs that changed, as decided (`true`, `1500l`, `(Tup "one"
+     1)`, `(Some 7)`, read values as `(List ...)` from `Any`): `basics`, `forms_1b`,
+     `read_sexpr`, `macro_files`, `macros`, and `macro_code/quoting`;
+     `test_unsolved_types` no longer `put`s its unsolved list (an error now).
+   - **The spec:** [[library.show]] (new, with errors: a function, a type variable,
+     `(put empty-list)`); [[types.constructors]] (new); [[types.tuples]] (`Tup`, `tup`
+     *for now*, [[B152]]); [[checking.tup-lists]]; [[library.lists]]'s example prints
+     lists and `Bool`s itself, its own `show` and `yes` gone; [[library.format]]; the
+     literals example (`syntax.literals`) prints `1500l 1b` and `3.14f`; `spec/README.md`
+     drops "output is numbers and text".
+   - **Bootstrap:** `bin` rebuilt with the new library next to the old `bin` (the
+     staging the chain does), one step.
+
+   The text replaced, verbatim. `spec/README.md`, line 56:
+
+   ```text
+   **Output is numbers and text** (*for now*): an example prints numbers, and strings it
+   builds with `format`, never a raw list, `Bool`, `nil` or record, since those print the way
+   Python prints them ([[B36]]; `doc/hl_rqmt/executable_spec.md`, question 12).
+   ```
+
+   `spec/60-library.md`, the head (line 10) and `library.lists`'s example (line 22):
+
+   ```text
+   them. The examples print lists and `Bool`s through small helpers, since a list or a `Bool`
+   prints the way Python prints it (*for now*: `spec/README.md`).
+
+   (sig show (Fn ((List Int)) String))
+   (defn show (xs) (+ "[" (join (map (fn (n) (format "{n}")) xs) " ") "]"))
+   (sig yes (Fn (Bool) String))
+   (defn yes (b) (if b "yes" "no"))
+   ...
+   [1 2 3 4 5] []
+   [1 4 9 16 25] [3 4 5]
+   ```
+
+   `spec/20-types.md` (`types.tuples`), line 169, and `spec/25-checking.md`
+   (`checking.tup-lists`):
+
+   ```text
+   `(tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`. `at`
+   reads an item by its position, from 0, and `len` is its size. A tuple is taken apart with
+   a `tup` pattern, in `match` or a `let` binding (`30-match.md`).
+
+   A `(Tup t ...)` whose items are all `t`s is accepted where a `(List t)` is expected, so
+   `tup` writes a list (*for now*: Candy has no list literal, and a tuple is a list in
+   Python, [[B29]]).
+   ```
 3. **Equality** ([[B27]], [[B137]]): records and variants compared with their class;
    `=` on a function an error.
+
+   *Done.* As built:
+   - **`emit.cdy`:** every record and variant class gets `eq-methods`: `__eq__`
+     (`type(self) is type(other) and tuple.__eq__(self, other)`), `__ne__` and
+     `__hash__` (the class with the fields), in its body, so Python's own `==` is
+     Candy's `=` everywhere: in `=`, `contains`, `index-of`, and a map's keys. A variant
+     with no fields no longer needs `pass`. Every class gets them: a class without
+     would still compare as a tuple from its side (`B(1) == A(1)`, checked on Python
+     3.14 for Question 12).
+   - **`check.cdy`:** a comparison whose type is, or holds, a function (`has-fn`: a list
+     of functions too) is an error at the call, `=: a function can't be compared, got
+     (Fn (Int) Int)`; a function inside a record isn't seen ([[B150]], noted).
+   - **Found:** the orderings (`<` and the rest) take any one type, so records, lists
+     and `Bool`s order as Python's tuples and `nil` fails when run ([[B153]], a leak).
+     mypy refuses `(= (List (A 1)) (List (B 1)))` written with literals (`tuple[A]`
+     against `tuple[B]`, non-overlapping), though Candy types both `(List S)`; a typed
+     value doesn't meet it, so it stays mypy's (the second check, [[B125]]).
+   - **The spec:** [[expr.equality]] (new, after [[expr.comparisons]]), with
+     [[B137]]'s repro as its `(= a (B 1))` (the repro is kept in B137's note) and the
+     errors. [[B27]] and [[B137]] done; [[B29]] noted (equality was one of its
+     consequences; the rest stays).
+   - **Bootstrap:** `bin` rebuilt, one step; the translator's own classes get the
+     methods too.
 4. **`Maybe` a sum, missing values gone** ([[B20]], [[B21]]): the prelude's `Maybe`,
    the checker's rules out, `if`/`cond` without `else` only for `Unit`.
+
+   *Done.* As built:
+   - **`prelude.cdy`:** `(deft (Maybe a) (Some ((v a))) (None))`, and `find`, `index-of`
+     and `with-default` on it, in Candy, over two new built-ins that give `-1` for none,
+     `find-index` and `elem-index` (`system.cdy`; `list_find_index` and
+     `list_elem_index` in `primitives.py`). `system.cdy`'s `(deft (Maybe a))`, the three
+     old `sig`s, their spellings, `with_default` and `show_maybe` are gone: a `Maybe` is
+     shown as any variant, `(Some 4)`.
+   - **`check.cdy`:** the `Maybe` rules out (`maybe-arg`, `as-maybe`, `is-unit`, and
+     `join-types`' `Unit` and `Maybe` branches): `accepts` is a `Tup` of `t`s as a
+     `(List t)`, else unification. An `if` whose `else` is missing (`is-missing-else`:
+     the `nil` analysis writes, at `NOWHERE`) has a `Unit` then, `if: with no else, the
+     then is Int, not Unit`. A `cond` with no `else` expands to a written `nil`, so its
+     error is `if: the branches are Int and Unit`, a defect the owner finds irritating
+     ([[B155]]; noted in [[B138]]).
+   - **`emit.cdy`:** a generic variant's `match` bindings are annotated with their type
+     (`v: a = t0.v`), as mypy narrows an `isinstance` on a `Maybe[a]` to `Some[Any]`.
+   - **Found:** [[B154]], a defect from before the branch: one module's locals could be
+     spelled as another's in a top-level function (the prelude's `rest` read `v` for its
+     `xs`), since `python-of` kept every module's locals in one map. Fixed: `emit-func`
+     starts from an empty map.
+   - **The spec:** [[checking.if]], [[checking.maybe]], [[expr.conditionals]] and
+     [[expr.unit]] rewritten (their old text is in [[B20]]'s and [[B21]]'s notes),
+     [[library.maybe]] new, `spec/20-types.md`'s `Maybe` row and [[library.lists]] (in
+     [[B20]]'s note). [[programs.prelude]] said, before (now: `rest`, `map-update`, and
+     `Maybe` with `find`, `index-of` and `with-default`):
+
+     ```text
+     on the built-ins (declared in `src/cdy/system.cdy`), `rest` and `map-update` so far.
+     ```
+   - **Tests:** `test_primitives`' two `Maybe` rows of `test_show` dropped (`(None,
+     ("Maybe", "Int"), "None")` and `(3, ("Maybe", "Long"), "(Some 3l)")`), the spec
+     covering them; `test_unsolved_types` names an unsolved variable `tN`, as its number
+     depends on the prelude; `macros.cdy`'s value `when` dropped (kept in [[B138]]'s
+     note). [[B20]] and [[B21]] done.
+   - **Bootstrap:** `bin` rebuilt, one step; the translator used neither.
 5. **Narrowing and field constraints** ([[B121]], [[B120]]).
+
+   *Done.* As built:
+   - **Narrowing** (`check.cdy`): the checker's `Ctx` has `narrowed`, a local's key to
+     its clause's variant, set by `infer-clauses` when the subject is a local; `narrow`
+     gives `get` and `assoc` on it the variant (with the sum's type arguments), not the
+     sum. No variant types: the local is still of the sum everywhere else, as the HLD
+     wanted (`S.A` accepted wherever an `S` is) at the cost of nothing new in `unify`.
+     The `else` isn't narrowed.
+   - **Narrowing in Python** (`emit.cdy`): in a case, a `get` or `assoc` on the subject
+     local reads the match's temporary (`_cdy_t1.x`), which `isinstance` has narrowed;
+     `s` itself is the sum to mypy. For a generic sum mypy narrows `isinstance(t, N)` on
+     a `T[int]` to `N[Any]`, on a parameter too, so a field whose type has a type
+     variable is cast to the checker's type (`_cdy_cast('int', _cdy_t3.v)`; `cast` is
+     imported as `_cdy_cast`), and only it, as `--strict` refuses a redundant cast
+     (`generic` in `Env` now maps each generic variant to those fields). Another
+     type-level leak (`multi_target.md`).
+   - **Field constraints** (`check.cdy`): `field-type` on a flexible variable gives a
+     fresh variable and records a `Pending` in `St`; `check-tops` runs `solve-pending`
+     after each definition: a constraint whose value's type is known is checked as the
+     `get` or `assoc` would have been (`get: field name of P is String, not Int`), the
+     rest again while any was solved, then each left is today's error, and one whose
+     value met only `Any` is `Any`.
+   - **[[B155]], taken into the step:** `cond`'s last clause with no `else` expands to an
+     `if` with no `else` (`prelude_macros.cdy`), so the checker's missing-else rule sees
+     it: `if: with no else, the then is Int, not Unit`, as for an `if`. The message
+     naming the `if` is [[B156]] (an idea: a macro's errors in the expansion's words).
+   - **The spec:** [[checking.narrowing]] (new), [[checking.records]] (its *for now*
+     gone, its error example now a run one there), [[checking.order]] (a constraint, a
+     run example and three errors), [[checking.if]] (`cond`'s error), [[match.sum-types]].
+     The old text is in [[B120]]'s, [[B121]]'s and [[B155]]'s notes. [[B120]], [[B121]]
+     and [[B155]] done.
+   - **Bootstrap:** `bin` rebuilt, one step; the translator neither narrows nor reads a
+     field of an unknown type, and its Python only gains the `cast` import.
 6. **Numbers** ([[B23]], [[B22]]): `/` on floats, `mod`, literal ranges.
 7. **`at` and `slice`** ([[B35]], [[B71]]): bounds checked, in two boot steps.
 8. **`def` order** ([[B31]]).
 9. **Errors** ([[B39]]): `fail` a panic, `Result` in the prelude.
+
+   *Moved (2026-11-04):* steps 6 to 9 go to branch `semantics-2`, with their tasks
+   ([[B145]] to [[B148]]) and this HLD's answers for them (Questions 4, 5, 9, 10, 11),
+   as the owner chose at Question 1's checkpoint, after step 5.
 10. **Docs:** CLAUDE.md, the iMVP doc, `multi_target.md` ("Open: showing values"
     closed), `python_complete.md`; "Looking back".
+
+    *Done.* As built, for steps 1 to 5: CLAUDE.md's history (the branch, and
+    `semantics-2`), the library (`Maybe`, `find`, `index-of`, `with-default` in the
+    prelude), type checking (`Any` defaulted, no `Maybe` rules, missing else, field
+    constraints, narrowing), sum types (equality, the generic casts) and the decisions
+    (`cond`, missing values); the spec's examples print any value. The iMVP doc's
+    `Maybe` row and bullet, `multi_target.md`'s "Open: showing values" (closed, by the
+    static type) and `python_complete.md`'s second branch each get a *since* note. The
+    spec files were already `stable`; their new rules came with their steps.
+
+## Looking back
+
+What steps 1 to 5 taught, and the costs a later branch will meet again:
+
+- **Printing finds bugs.** Once the spec's examples could print any value (step 2),
+  equality between variants was seen to be wrong ([[B137]], a defect since sum types),
+  and emit's locals were found shared across modules ([[B154]], since boot/47 at
+  least). A borrowed semantics hides the bugs behind it: a backend's output that is the
+  host's own is hard to check against anything.
+- **Types leak too, one level up.** mypy is the second check ([[B125]]), so what emit
+  writes is bounded by what Python's annotations say and mypy narrows: a local can't be
+  generic, a generic sum narrows to `N[Any]`, types are erased when run. Each step met
+  one; `multi_target.md`, "Open: type-level leaks", gathers them, since a second target
+  will have its own.
+- **The checker grows without new types.** Narrowing is a map in the checker's context,
+  not a type per variant; field constraints are solved after each definition, not on
+  every binding; `Any` is a mark in the substitution. Each was smaller than the HLD
+  guessed, and none changed `unify`. The cost: an error found at the end of a
+  definition can come before one earlier in it ([[B134]], one error at a time).
+- **A macro's expansion shows through** ([[B155]], [[B156]]): `cond`'s missing else
+  checked differently from `if`'s until its expansion matched, and its messages still
+  name the `if`. Every prelude macro that stands for a special form will meet it.
+- **The library is staged next to `bin`** before a build whenever `system.cdy` or the
+  prelude changes (step 1's bootstrap failure): the chain does it, a hand-run build
+  must too.
 
 ## Questions
 

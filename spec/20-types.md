@@ -29,7 +29,7 @@ in `30-match.md`.
 | `(List a)` | a list of `a`s, of any length |
 | `(Tup a b ...)` | a fixed-size tuple: an `a`, then a `b`, ... |
 | `(Map k v)` | a map from `k`s to `v`s |
-| `(Maybe a)` | an `a`, or `nil` |
+| `(Maybe a)` | `(Some v)`, with an `a`, or `None`: the prelude's sum ([[library.maybe]]) |
 | `(Fn (a b ...) r)` | a function from an `a`, a `b`, ... to an `r` |
 | `Name`, `(Name a ...)` | a `deft` type, possibly generic |
 | `Any` | anything: an escape hatch, which turns checking off |
@@ -80,9 +80,7 @@ annotation, and `mypy --strict` checks the translation. *Tested in*
 `(sig name Type)` gives a top-level name its type. Every top-level `def` and `defn` needs
 one, anywhere before its definition, one per name. `(def name init)` defines a value; the
 initial value is required. Both are top level only (`10-programs.md`), and a name is
-defined once. No form changes a `def`'s value yet, so whether a `def` is a constant or a
-variable is undefined (*for now*: `doc/hl_rqmt/mutation_optimization.md`, open question
-4).
+defined once. A `def` is a constant (*lasting*, [[programs.top-level]]).
 
 A top-level function can call one defined after it, but a value is only there once its
 `def` has run (forms run in order), so using it earlier fails at run time with Python's
@@ -168,9 +166,11 @@ the types ([[checking.records]]).
 <a id="types.tuples"></a>
 ## Tuples
 
-`(tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`. `at`
-reads an item by its position, from 0, and `len` is its size. A tuple is taken apart with
-a `tup` pattern, in `match` or a `let` binding (`30-match.md`).
+`(Tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`
+([[types.constructors]]); `tup` is the same (*for now*, the name the translator's own
+code uses). `at` reads an item by its position, from 0, and `len` is its size. A tuple
+is taken apart with a `Tup` (or `tup`) pattern, in `match` or a `let` binding
+(`30-match.md`).
 
 ```candy run
 (sig p (Tup Int String Int))
@@ -183,4 +183,32 @@ two 3
 
 ```candy errors
 (put (tup)) => at least one item
+(put (Tup)) => at least one item
+```
+
+<a id="types.constructors"></a>
+## Constructors
+
+A type's name is its constructor, *lasting*: a record's or variant's, taking its fields
+in order ([[types.records]], [[match.sum-types]]), and the built-in types' too. `(List
+item*)` is a list, its items one type (`(List)` is empty), and `(Tup item+)` a tuple. A
+value is shown as its constructor applied to its parts ([[library.show]]). Literals for
+the collections, as sugar over these, are for later (`doc/hl_rqmt/python_complete.md`,
+`collections`).
+
+```candy run
+(sig xs (List Int))
+(def xs (List 1 2 3))
+(sig e (List String))
+(def e (List))
+(put xs e (len xs) (List (List 1) (List)))
+(put (Tup 1 "a") (match (Tup 2 "b") ((Tup n s) (+ n 1))))
+```
+```expect
+(List 1 2 3) (List) 3 (List (List 1) (List))
+(Tup 1 "a") 3
+```
+
+```candy errors
+(put (List 1 "a")) => List: an item: expected Int, got String
 ```

@@ -24,7 +24,6 @@
 (deft String)
 (deft Unit)
 (deft Any)
-(deft (Maybe a))
 (deft (List a))
 (deft (Map k v))
 
@@ -41,6 +40,9 @@
 (sig print Any)
 (sig display Any)
 (sig put Any)
+;; A value as an expression that evaluates to it, by its type (spec/60-library.md,
+;; library.show); emit writes the type for the runtime.
+(sig show (Fn (a) String))
 
 ;; --- files ---
 (sig put-err (Fn (String) Unit))
@@ -76,16 +78,17 @@
 ;; host's. Like map and filter, they take the list last.
 (sig any (Fn ((Fn (a) Bool) (List a)) Bool))
 (sig all (Fn ((Fn (a) Bool) (List a)) Bool))
-(sig find (Fn ((Fn (a) Bool) (List a)) (Maybe a)))
+;; The index of the first item `keep` is true of, or -1: the prelude's `find` is built on it.
+(sig find-index (Fn ((Fn (a) Bool) (List a)) Int))
 (sig reverse (Fn ((List a)) (List a)))
 (sig range (Fn (Int Int) (List Int)))
 (sig take (Fn (Int (List a)) (List a)))
 (sig drop (Fn (Int (List a)) (List a)))
 (sig concat (Fn ((List (List a))) (List a)))
 (sig zip (Fn ((List a) (List b)) (List (Tup a b))))
-(sig index-of (Fn (a (List a)) (Maybe Int)))
+;; The index of the first item equal to `x`, or -1: the prelude's `index-of` is built on it.
+(sig elem-index (Fn (a (List a)) Int))
 (sig contains (Fn (a (List a)) Bool))
-(sig with-default (Fn (a (Maybe a)) a))
 
 ;; --- maps ---
 (sig empty-map (Map k v))

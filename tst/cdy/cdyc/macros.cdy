@@ -40,4 +40,3 @@
 (def x 5)
 (put (twice (+ x 1)))
 (put (add-all 1 2 3 4))
-(put (format "{(when true 7)}"))
