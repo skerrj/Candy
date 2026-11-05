@@ -331,7 +331,11 @@ brackets:
    `high`), `=`, `/`, `and`/`or`, `Maybe` and missing values (with the checker's
    narrowing, [[B121]], and field constraints, [[B120]]), `at` and `slice`, numbers'
    bounds, `Char`, `def` order and constancy ([[B80]]), errors ([[B39]]); `=` and
-   `show` on a type variable (Question 12). (S)
+   `show` on a type variable (Question 12). (S) *Done in part (tag `semantics`,
+   2026-11-04): `show`, the constructors, `=`, `and`/`or`, `Char`, `def` constancy,
+   `Maybe` and missing values, narrowing and field constraints; numbers, `at` and
+   `slice`, `def` order and errors are `semantics-2`, next (`semantics.md`, steps 6
+   to 9).*
 3. **`collections`:** the list literal, tuple types, variadics (typed rest
    parameters; `put` and `format` as macros over `semantics`' `show`; the operators as
    values, [[B38]]), `++` and the constraint variables `number`, `comparable` and

@@ -92,12 +92,10 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B144](B144-semantics-step-5.md) | semantics step 5: narrowing and field constraints | task | review | normal |
 | [B145](B145-semantics-step-6.md) | semantics step 6: numbers | task | open | normal |
 | [B146](B146-semantics-step-7.md) | semantics step 7: `at` and `slice` bounds | task | open | normal |
 | [B147](B147-semantics-step-8.md) | semantics step 8: `def` order | task | open | normal |
 | [B148](B148-semantics-step-9.md) | semantics step 9: errors: panics and `Result` | task | open | normal |
-| [B149](B149-semantics-step-10.md) | semantics step 10: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -243,5 +241,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B141](B141-semantics-step-2.md) | semantics step 2: `show`, and the `List` and `Tup` constructors | task | done | normal |
 | [B142](B142-semantics-step-3.md) | semantics step 3: equality | task | done | normal |
 | [B143](B143-semantics-step-4.md) | semantics step 4: `Maybe` a sum, missing values gone | task | done | normal |
+| [B144](B144-semantics-step-5.md) | semantics step 5: narrowing and field constraints | task | done | normal |
+| [B149](B149-semantics-step-10.md) | semantics step 10: docs | task | done | normal |
 | [B154](B154-emit-locals-across-modules.md) | emit bound one module's locals into another's functions | defect | done | high |
 | [B155](B155-cond-missing-else-message.md) | A `cond` with no `else` isn't reported as an `if` with no `else` is | defect | done | normal |

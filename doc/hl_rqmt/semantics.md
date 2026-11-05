@@ -1,7 +1,9 @@
 # Semantics (HLD)
 
-**Status: accepted (2026-11-02), with the answers to its questions and its spec changes;
-on branch `semantics` (tasks [[B140]] to [[B149]]); proposed 2026-11-01. Epic:
+**Status: done (2026-11-04), steps 1 to 5 and the docs (tag `semantics`); steps 6 to 9
+go to `semantics-2` (Question 1's checkpoint). Accepted 2026-11-02, with the answers to
+its questions and its spec changes, on branch `semantics` (tasks [[B140]] to [[B149]]);
+proposed 2026-11-01. Epic:
 `python_complete.md` (its second branch). After tag `typed-core`.** Where Candy's behaviour is Python's, borrowed rather
 than decided, this branch decides it, in the spec, and makes the Python target do what
 the spec says: how values print ([[B36]], the backlog's last `high`), `=`, `/`, `and`
@@ -493,8 +495,47 @@ says only `at`'s four uses need it.
 7. **`at` and `slice`** ([[B35]], [[B71]]): bounds checked, in two boot steps.
 8. **`def` order** ([[B31]]).
 9. **Errors** ([[B39]]): `fail` a panic, `Result` in the prelude.
+
+   *Moved (2026-11-04):* steps 6 to 9 go to branch `semantics-2`, with their tasks
+   ([[B145]] to [[B148]]) and this HLD's answers for them (Questions 4, 5, 9, 10, 11),
+   as the owner chose at Question 1's checkpoint, after step 5.
 10. **Docs:** CLAUDE.md, the iMVP doc, `multi_target.md` ("Open: showing values"
     closed), `python_complete.md`; "Looking back".
+
+    *Done.* As built, for steps 1 to 5: CLAUDE.md's history (the branch, and
+    `semantics-2`), the library (`Maybe`, `find`, `index-of`, `with-default` in the
+    prelude), type checking (`Any` defaulted, no `Maybe` rules, missing else, field
+    constraints, narrowing), sum types (equality, the generic casts) and the decisions
+    (`cond`, missing values); the spec's examples print any value. The iMVP doc's
+    `Maybe` row and bullet, `multi_target.md`'s "Open: showing values" (closed, by the
+    static type) and `python_complete.md`'s second branch each get a *since* note. The
+    spec files were already `stable`; their new rules came with their steps.
+
+## Looking back
+
+What steps 1 to 5 taught, and the costs a later branch will meet again:
+
+- **Printing finds bugs.** Once the spec's examples could print any value (step 2),
+  equality between variants was seen to be wrong ([[B137]], a defect since sum types),
+  and emit's locals were found shared across modules ([[B154]], since boot/47 at
+  least). A borrowed semantics hides the bugs behind it: a backend's output that is the
+  host's own is hard to check against anything.
+- **Types leak too, one level up.** mypy is the second check ([[B125]]), so what emit
+  writes is bounded by what Python's annotations say and mypy narrows: a local can't be
+  generic, a generic sum narrows to `N[Any]`, types are erased when run. Each step met
+  one; `multi_target.md`, "Open: type-level leaks", gathers them, since a second target
+  will have its own.
+- **The checker grows without new types.** Narrowing is a map in the checker's context,
+  not a type per variant; field constraints are solved after each definition, not on
+  every binding; `Any` is a mark in the substitution. Each was smaller than the HLD
+  guessed, and none changed `unify`. The cost: an error found at the end of a
+  definition can come before one earlier in it ([[B134]], one error at a time).
+- **A macro's expansion shows through** ([[B155]], [[B156]]): `cond`'s missing else
+  checked differently from `if`'s until its expansion matched, and its messages still
+  name the `if`. Every prelude macro that stands for a special form will meet it.
+- **The library is staged next to `bin`** before a build whenever `system.cdy` or the
+  prelude changes (step 1's bootstrap failure): the chain does it, a hand-run build
+  must too.
 
 ## Questions
 

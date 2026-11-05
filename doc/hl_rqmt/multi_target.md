@@ -163,6 +163,11 @@ output Candy's on every target and host. Two ways to know what it shows:
   has its type, `t`, for a backend to read; a type the checker never solved is a `?N`
   type variable, and each backend chooses what to write, Python `Any`.)*
 
+*Closed (branch `semantics`, 2026-11-04): from the static type. `emit` writes each
+value's type for the runtime's `show` ([[library.show]]), a type variable or a function
+an error when translated, `Any` shown by the value when run; each target supplies its
+`show` for the types it has.*
+
 ### Open: type-level leaks
 
 A leak is usually about values: Python's `/`, `None`, tuple ordering ([[B23]], [[B21]],
