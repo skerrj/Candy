@@ -181,13 +181,20 @@ _SHOW_BUILT: dict[str, Callable[[Any, tuple[ShowType, ...]], str]] = {
 
 
 def at[T](coll: Sequence[T], i: int) -> T:
-    """The item at index ``i``."""
-    return coll[i]
+    """The item at index ``i``, which must be ``0 <= i < len(coll)`` (spec/60-library.md,
+    library.bounds): a negative index doesn't count from the end."""
+    if 0 <= i < len(coll):
+        return coll[i]
+    raise CandyFail(f"at: index out of range: {i}, for length {len(coll)}")
 
 
-def slice_[T](coll: Sequence[T], i: int, j: int) -> Sequence[T]:
-    """Items ``i`` up to (not including) ``j``."""
-    return coll[i:j]
+def slice_[S: Sequence[Any]](coll: S, i: int, j: int) -> S:
+    """Items ``i`` up to (not including) ``j``, which must be ``0 <= i <= j <= len(coll)``:
+    neither counts from the end, and the slice isn't cut short. A string's slice is a
+    string, a tuple's a tuple."""
+    if 0 <= i <= j <= len(coll):
+        return cast(S, coll[i:j])
+    raise CandyFail(f"slice: index out of range: {i} to {j}, for length {len(coll)}")
 
 
 def join(coll: Sequence[str], delim: str) -> str:

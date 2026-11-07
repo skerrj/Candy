@@ -125,6 +125,31 @@ changes `system.cdy` or the prelude stages the library next to `bin` before buil
    ordering on anything but numbers and strings.
 2. **`at` and `slice`** ([[B146]]; [[B35]], [[B71]]): bounds checked, the cost measured on the
    translator's build; with [[B150]].
+
+   *Done (2026-11-06). As built:* the runtime's `at` and `slice_` (`primitives.py`)
+   check `0 <= i < len` and `0 <= i <= j <= len`, failing with `at: index out of range:
+   -1, for length 2` (`CandyFail`, until step 4's panics); `slice_` is typed by its
+   argument (`S: Sequence[Any]`), so a string's slice stays a `str`. `emit-prim-call`
+   (`emit.cdy`) writes `xs[0]` for an `at` on a literal index that can't be negative
+   (`is-index-literal`), whose `IndexError` covers the high side, and the helper for the
+   rest; the `slice` spelling kind is gone (`slice` is a call). The spec's runner got a
+   `candy panic` block (`expect-panic`, in stderr; `spec/README.md`), for the new rule,
+   `library.bounds`. **What the checks found:** the translator relied on cut-short
+   slices in two ways, a slice to the end of a list shorter than its start (`(slice
+   items 2 (len items))`, eight of them, now `drop` and `take`, and the prelude's `rest`
+   and `form.cdy`'s `rest-of` on an empty list, now `(drop 1 xs)`, so `rest` of the
+   empty list is empty, `library.rest`), and `py-mangle`'s `(slice out 0 5)` on a
+   shorter name (now `starts-with`). No `at` was out of range. [[B150]]: `show-type`
+   (`holds-fn`, over a new `Env` field, `fields`) and the checker's `has-fn`
+   (`fields-have-fn`) look into fields and variants, with the types seen so far.
+   **The cost** (Question 3): the translator translating itself took 0.75 s before this
+   step and 0.88 s after (five runs each, `bin` on `cdyc.cdy`); with the checks swapped
+   for plain subscripts, 0.84 s: the checks are 0.05 s, about 6%, for 1.8 million `at`
+   and 0.2 million `slice` calls, and the rest is the step's other changes. One boot
+   step, `boot/54`. In review the owner kept `rest` of the empty list empty, and
+   `library.bounds` now lists the functions that stop at a list's end (`take`, `drop`,
+   `rest`, `zip`, `range`, `repeat`); two string built-ins that still read Python's
+   negative indexes are [[B159]].
 3. **`def` order** ([[B147]]; [[B31]]).
 4. **Errors** ([[B148]]; [[B39]]): `fail` a panic, `Result` in the prelude.
 5. **Docs** ([[B157]]): CLAUDE.md, `semantics.md` (a pointer to here), the epic's second branch
@@ -148,3 +173,5 @@ changes `system.cdy` or the prelude stages the library next to `bin` before buil
    slower, keep it, or check only where the index isn't a literal or a loop's counter?
    **Proposed: measure in step 2, and decide there** with the numbers (the literal case
    is exempt already). *Answer (2026-11-06, the owner): as proposed.*
+   *Decided (2026-11-06, the owner), with step 2's numbers (the checks about 6% of the
+   translator's build): the check stays on every index,* *lasting*.

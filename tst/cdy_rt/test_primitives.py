@@ -1,5 +1,7 @@
 """Tests for the primitives in ``cdy_rt.primitives``."""
 
+import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
 
@@ -48,12 +50,31 @@ from cdy_rt.primitives import (
 
 
 def test_collections() -> None:
-    assert at((1, 2, 3), 1) == 2
-    assert slice_((1, 2, 3, 4), 1, 3) == (2, 3)
+    nums: tuple[int, ...] = (1, 2, 3, 4)
+    assert at(nums, 1) == 2
+    assert slice_(nums, 1, 3) == (2, 3)
+    assert len(slice_(nums, 4, 4)) == 0
+    assert slice_("candy", 1, 3) == "an"
     assert join(("a", "b"), ", ") == "a, b"
     assert is_coll((1,)) and is_coll([1]) and not is_coll("ab")
     assert to_list(5) == (5,)
     assert in_(2, (1, 2)) and in_("b", "abc")
+
+
+@pytest.mark.parametrize(
+    ("index", "message"),
+    [
+        (lambda: at((1, 2), -1), "at: index out of range: -1, for length 2"),
+        (lambda: at((1, 2), 2), "at: index out of range: 2, for length 2"),
+        (lambda: slice_("abc", 2, 4), "slice: index out of range: 2 to 4, for length 3"),
+        (lambda: slice_("abc", 2, 1), "slice: index out of range: 2 to 1, for length 3"),
+        (lambda: slice_("abc", -1, 2), "slice: index out of range: -1 to 2, for length 3"),
+    ],
+    ids=["at-negative", "at-past-end", "slice-past-end", "slice-backwards", "slice-negative"],
+)
+def test_bounds(index: Callable[[], object], message: str) -> None:
+    with pytest.raises(CandyFail, match=re.escape(message)):
+        index()
 
 
 def test_strings() -> None:

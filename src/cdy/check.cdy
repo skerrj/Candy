@@ -516,7 +516,7 @@
               (Res (tcon "Bool") (needs-kind t1 ORDERED "a number, String or Char" name ctx (get one st))))
             ((in name (tup "=" "!="))
               (Res (tcon "Bool")
-                (if (has-fn t1 (get (get one st) subst))
+                (if (has-fn t1 (get (get one st) subst) ctx empty-list)
                   (report (format "{name}: a function can't be compared, got {(show t1 (get (get one st) subst))}") ctx (get one st))
                   (get one st))))
             ((= name "+")
@@ -528,13 +528,27 @@
             ((in name (tup "quot" "mod")) (Res t1 (needs-kind t1 INTEGERS "an Int, Long or Byte" name ctx (get one st))))
             (else (Res t1 (needs-kind t1 NUMBERS "a number" name ctx (get one st))))))))))
 
-;; Whether `t` is, or holds, a function type (a list of them, say); a record's fields
-;; aren't looked into (B150).
-(sig has-fn (Fn (CType (Map String CType)) Bool))
-(defn has-fn (t subst)
+;; Whether `t` is, or holds, a function type: a list of them, say, or a record or variant
+;; with one among its fields, or a sum with such a variant. `seen` holds the records and
+;; sums already looked into, so that a recursive type ends.
+(sig has-fn (Fn (CType (Map String CType) Ctx (List String)) Bool))
+(defn has-fn (t subst ctx seen)
   (match (prune t subst)
     ((TFn _ _) true)
-    ((TCon _ args) (any (fn (a) (has-fn a subst)) args))
+    ((TCon name args)
+      (or (any (fn (a) (has-fn a subst ctx seen)) args)
+          (and (not (contains name seen)) (fields-have-fn name subst ctx (+ seen (List name))))))
+    (else false)))
+
+;; Whether the record or variant `name` has a field holding a function, or the sum `name`
+;; a variant that does.
+(sig fields-have-fn (Fn (String (Map String CType) Ctx (List String)) Bool))
+(defn fields-have-fn (name subst ctx seen)
+  (cond
+    ((map-has (get ctx shapes) name)
+      (any (fn (f) (has-fn (at f 1) subst ctx seen)) (get (map-get (get ctx shapes) name) fields)))
+    ((map-has (get ctx sums) name)
+      (any (fn (v) (has-fn (TCon (at v 0) empty-list) subst ctx seen)) (get (map-get (get ctx sums) name) fields)))
     (else false)))
 
 ;; Report unless `t` is one of `names`, Any, or not known yet.

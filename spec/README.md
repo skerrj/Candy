@@ -85,6 +85,17 @@ of its own, with the prelude and the prelude macros as every program has them.
   unknown name nope
   ```
 
+- **`candy panic`**, followed by **`expect-panic`**: the program must translate, and
+  running it must fail (a panic, as an index out of range is), writing the
+  `expect-panic` text to stderr:
+
+  ```candy panic
+  (put (slice "abc" 2 4))
+  ```
+  ```expect-panic
+  index out of range
+  ```
+
 - **`candy errors`**: a table of error examples, one per line, `source => message`, for a
   rule's edge cases. Lines before a `---` line (one per table) are the table's setup,
   which goes before each row; the setup must translate on its own, so a row can only fail

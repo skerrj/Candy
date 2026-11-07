@@ -314,7 +314,7 @@
 (defn expand-after (items n macros)
   (if (< (len items) n)
     items
-    (+ (slice items 0 n) (expand-all (slice items n (len items)) macros empty-list))))
+    (+ (take n items) (expand-all (drop n items) macros empty-list))))
 
 ;; The items of (let ((name init)*) body) or (match e (pattern body)*): in a let binding
 ;; or a match clause the first item is a name or pattern.
@@ -328,7 +328,7 @@
         (else (expand-all items macros empty-list))))
     ((and (= head "match") (> (len items) 1))
       (+ (tup (at items 0) (expand-form (at items 1) macros))
-         (each-clause (slice items 2 (len items)) 1 macros empty-list)))
+         (each-clause (drop 2 items) 1 macros empty-list)))
     (else (expand-all items macros empty-list))))
 
 ;; Each clause in `clauses` with its items after the first `n` expanded.

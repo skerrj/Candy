@@ -97,13 +97,82 @@ true false
 ```
 
 <a id="library.rest"></a>
-The prelude's `rest` is all of a list but its first item:
+The prelude's `rest` is all of a list but its first item; the empty list's rest is empty,
+as `drop`'s is:
 
 ```candy run
-(put (len (rest (tup 1 2 3))) (len (rest (tup "only"))))
+(put (len (rest (tup 1 2 3))) (len (rest (tup "only"))) (rest (rest (List 1))))
 ```
 ```expect
-2 0
+2 0 (List)
+```
+
+<a id="library.bounds"></a>
+## at and slice
+
+`(at xs i)` is the item at index `i` of a list, a tuple or a string, counting from 0, and
+`i` must be `0 <= i < (len xs)`. `(slice xs i j)` is the items from index `i` up to, not
+including, `j`, and needs `0 <= i <= j <= (len xs)`; a string's slice is a string. Out of
+range is a panic, *lasting*: the program stops, with `index out of range` in its message
+(the rest of the message is the target's, *for now*: [[B39]]). A negative index doesn't
+count from the end, and a slice isn't cut short.
+
+The functions that take a count, or a list that may be empty, stop at the ends instead,
+*lasting*: `(take n xs)` is all of `xs` when `n` is past its end, and empty when `n` is
+negative; `(drop n xs)` the reverse; `rest` of the empty list is empty; `zip` stops at the
+shorter list; `(range a b)` is empty when `b <= a`; and `(repeat s n)` is `""` when `n`
+is negative.
+
+```candy run
+(sig xs (List Int))
+(def xs (List 10 20 30))
+(sig i Int)
+(def i 2)
+(put (at xs 0) (at xs i) (slice xs 1 3) (slice xs 3 3) (at "abc" i) (slice "candy" 1 3))
+```
+```expect
+10 30 (List 20 30) (List) c an
+```
+
+```candy run
+(sig none (List Int))
+(def none empty-list)
+(put (take 5 (List 1 2)) (take -1 (List 1 2)) (drop 5 (List 1 2)) (drop -1 (List 1 2)))
+(put (rest none) (zip (List 1 2 3) (List "a")) (range 3 1) (len (repeat "ab" -1)))
+```
+```expect
+(List 1 2) (List) (List) (List 1 2)
+(List) (List (Tup 1 "a")) (List) 0
+```
+
+```candy panic
+(sig i Int)
+(def i -1)
+(put (at (List 1 2) i))
+```
+```expect-panic
+at: index out of range: -1, for length 2
+```
+
+```candy panic
+(put (at (List 1 2) 2))
+```
+```expect-panic
+index out of range
+```
+
+```candy panic
+(put (slice "abc" 2 4))
+```
+```expect-panic
+slice: index out of range: 2 to 4, for length 3
+```
+
+```candy panic
+(put (slice "abc" 2 1))
+```
+```expect-panic
+slice: index out of range: 2 to 1
 ```
 
 <a id="library.strings"></a>
@@ -189,8 +258,9 @@ shown with an exponent when Python's `repr` gives one (`1.0e20`, `1.5e-5`); infi
 not-a-number have no literal, and are shown as `inf` and `nan` (*for now*: [[B158]]). `put` and a
 `format` hole show what they are given, but write a `String` or a `Char` as its text.
 
-A function can't be shown; nor can a value whose type is a type variable (*for now*:
-interfaces will let a generic function say its type can be shown): both are errors when
+A function can't be shown, nor a value holding one (a list of them, or a record or variant
+with one among its fields); nor can a value whose type is a type variable (*for now*:
+interfaces will let a generic function say its type can be shown): all are errors when
 translated. A value typed `Any` is shown from what it is when the program runs, which
 can't tell a `Char` from a `String`, the integer and float sizes apart, or a `Tup` from a
 `List` (*for now*: [[B18]]).
@@ -222,6 +292,8 @@ a (List true) and text
 
 ```candy errors
 (put (fn (x) x)) => show: a function can't be shown
+(deft F ((f (Fn (Int) Int)))) (put (F (fn (n) n))) => show: a function can't be shown, and F holds one
+(deft F ((f (Fn (Int) Int)))) (deft S (A ((f F))) (B)) (put B) => show: a function can't be shown, and S holds one
 (sig f (Fn (a) Unit)) (defn f (x) (put x)) => show: can't show a value of type a, a type variable
 (put empty-list) => , a type variable
 ```

@@ -39,7 +39,7 @@
 
 ;; Everything after the first item of a list.
 (sig rest-of (Fn ((List Form)) (List Form)))
-(defn rest-of (forms) (slice forms 1 (len forms)))
+(defn rest-of (forms) (drop 1 forms))
 
 ;; Where `form` starts.
 (sig form-pos (Fn (Form) Pos))

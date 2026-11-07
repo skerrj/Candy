@@ -374,7 +374,7 @@
           ((val n1) (analyse-expr (at forms 1) scope n)))
       (if (= field "")
         (fail (located scope "assoc field must be a name"))
-        (assoc-fields (slice forms 2 (len forms)) scope n1 (+ acc (to-list (tup field val)))))))))
+        (assoc-fields (drop 2 forms) scope n1 (+ acc (to-list (tup field val)))))))))
 
 ;; (format "text {form} ..."): {{ and }} are literal braces.
 (sig an-format (Fn ((List Form) Scope Int) (Tup Expr Int)))
@@ -791,10 +791,10 @@
         (rest forms)
         (cond
           ((or (= head "def") (= head "defn")) (add-name (sym-name (at items 1)) (form-pos (at items 1)) acc))
-          ((and (= head "deft") (is-sum-body (slice items 2 (len items))))
+          ((and (= head "deft") (is-sum-body (drop 2 items)))
             ;; A sum's own name is a type, but in Python it is a name like the others.
             (add-names
-              (variant-names (slice items 2 (len items)) empty-list)
+              (variant-names (drop 2 items) empty-list)
               (form-pos (at items 1))
               (map-set (add-name (deft-name (at items 1)) (form-pos (at items 1)) acc) (deft-name (at items 1)) false)))
           ((= head "deft") (add-name (deft-name (at items 1)) (form-pos (at items 1)) acc))
@@ -845,7 +845,7 @@
     scope
     (let ((items (list-items (at forms 0)))
           (head (if (> (len items) 2) (sym-name (at items 0)) ""))
-          (body (slice items 2 (len items))))
+          (body (drop 2 items)))
       (find-variants
         (rest forms)
         (if (and (= head "deft") (is-sum-body body))
@@ -926,7 +926,7 @@
 (sig UNARY_KINDS (List String))
 (def UNARY_KINDS (tup "unary"))
 (sig TYPED_KINDS (List String))
-(def TYPED_KINDS (tup "call" "value" "index" "slice"))
+(def TYPED_KINDS (tup "call" "value" "index"))
 (sig TYPE_KINDS (List String))
 (def TYPE_KINDS (tup "type"))
 
@@ -1295,7 +1295,7 @@
         (tvar-forms (if (> (len items) 1) (rest (list-items (at items 1))) empty-list))
         (tvars (syms tvar-forms empty-list))
         (dup (repeated tvar-forms empty-list 0))
-        (body (slice items 2 (len items)))
+        (body (drop 2 items))
         (field-forms (if (= (len items) 3) (list-items (at items 2)) empty-list)))
     (cond
       ((= name "") (fail (located scope "deft: expected (deft Name ((field Type)+)) or (deft Name variant+)")))

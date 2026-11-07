@@ -94,8 +94,8 @@ yes no yes yes
 *lasting*: two lists with equal items, two tuples, two records of one type with equal
 fields, two maps with equal pairs; two variants only if they are the same variant, with
 equal fields. `Float`s and `Double`s compare as IEEE 754 does (`0.0` is `-0.0`).
-Functions can't be compared, nor values holding one (a list of functions): an error when
-translated (a function inside a record isn't seen yet: [[B150]]). Ordering (`<` and the
+Functions can't be compared, nor values holding one (a list of functions, or a record or
+variant with one among its fields): an error when translated. Ordering (`<` and the
 rest) is only for numbers, `String`s (by their characters' code points, as a `Char`) and
 `Char`s ([[checking.operators]]).
 
@@ -117,6 +117,7 @@ true b
 ```candy errors
 (sig f (Fn (Int) Int)) (defn f (n) n) (put (= f f)) => =: a function can't be compared, got (Fn (Int) Int)
 (sig fs (List (Fn (Int) Int))) (def fs empty-list) (put (!= fs fs)) => !=: a function can't be compared
+(deft F ((f (Fn (Int) Int)))) (deft S (A ((f F))) (B)) (put (= B B)) => =: a function can't be compared, got S
 ```
 
 <a id="expr.logic"></a>

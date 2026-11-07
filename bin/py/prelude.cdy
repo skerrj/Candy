@@ -7,9 +7,9 @@
 ;;; is also speed, since Candy adds to a list by copying it. The prelude holds what is
 ;;; built on top of them.
 
-;; All of `xs` but the first item.
+;; All of `xs` but the first item; the empty list's rest is empty, as `drop`'s.
 (sig rest (Fn ((List a)) (List a)))
-(defn rest (xs) (slice xs 1 (len xs)))
+(defn rest (xs) (drop 1 xs))
 
 ;; An optional value, *lasting* (spec/60-library.md, library.maybe): `(Some v)`, or `None`.
 (deft (Maybe a) (Some ((v a))) (None))
