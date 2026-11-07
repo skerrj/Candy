@@ -83,8 +83,8 @@ initial value is required. Both are top level only (`10-programs.md`), and a nam
 defined once. A `def` is a constant (*lasting*, [[programs.top-level]]).
 
 A top-level function can call one defined after it, but a value is only there once its
-`def` has run (forms run in order), so using it earlier fails at run time with Python's
-`NameError` (*for now*: [[B31]]).
+`def` has run (forms run in order), so using it earlier is an error
+([[programs.def-order]]).
 
 ```candy run
 (sig double (Fn (Int) Int))

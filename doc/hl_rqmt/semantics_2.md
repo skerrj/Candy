@@ -151,6 +151,21 @@ changes `system.cdy` or the prelude stages the library next to `bin` before buil
    `rest`, `zip`, `range`, `repeat`); two string built-ins that still read Python's
    negative indexes are [[B159]].
 3. **`def` order** ([[B147]]; [[B31]]).
+
+   *Done (2026-11-06). As built:* a pass after the type check, `check-order`
+   (`check.cdy`, "def order"), runs over the whole program's tops in the order Python
+   runs them (the imports' first), with the names defined so far. A `def`'s initial value
+   and a top-level expression (`(put y)` runs at the start too, which the HLD's wording
+   left out) are checked: each global they use (`uses`, a `fn` in them counted as
+   called) must be defined already, and so must each global reached through the bodies
+   of the functions among them (`reach`, with the names seen, so a cycle ends). Not only
+   values: a function used at the start must be defined too, and a record's or variant's
+   constructor (a Python class, defined where its `deft` is), so the errors say which
+   (`g is used before its defn`, `A is used before its deft`), and name the function a
+   reached name came through (`y is used before its def, through f`), at the use in the
+   initial value. A function's body still uses any name. The spec: `programs.def-order`
+   (new), and `types.sig`'s *for now* gone. The translator was in order already; the
+   check costs about 4% of its build (0.88 s to 0.92 s). One boot step, `boot/55`.
 4. **Errors** ([[B148]]; [[B39]]): `fail` a panic, `Result` in the prelude.
 5. **Docs** ([[B157]]): CLAUDE.md, `semantics.md` (a pointer to here), the epic's second branch
    *done*, `multi_target.md` (sizes, panics); "Looking back".

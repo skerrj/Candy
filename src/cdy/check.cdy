@@ -49,8 +49,12 @@
 ;; with the first type error.
 (sig type-check (Fn ((List Top) (Map String Builtin)) (List Top)))
 (defn type-check (tops builtins)
-  (let (((typed-tops errors) (check-program tops builtins)))
-    (if (= (len errors) 0) typed-tops (fail (at errors 0)))))
+  (let (((typed-tops errors) (check-program tops builtins))
+        (order-errors (if (= (len errors) 0) (check-order tops (order-of tops (Order empty-map empty-map)) empty-map empty-list) empty-list)))
+    (cond
+      ((> (len errors) 0) (fail (at errors 0)))
+      ((> (len order-errors) 0) (fail (at order-errors 0)))
+      (else typed-tops))))
 
 ;; `tops` typed, and the type errors in them, in order.
 (sig check-program (Fn ((List Top) (Map String Builtin)) (Tup (List Top) (List String))))
@@ -1099,6 +1103,101 @@
     ((TVar name) (if (or (is-flexible name) (contains name acc)) acc (+ acc (to-list name))))
     ((TCon _ args) (fold (fn (a x) (rigid-vars x a)) acc args))
     ((TFn params ret) (rigid-vars ret (fold (fn (a x) (rigid-vars x a)) acc params)))))
+
+;; --- def order (spec/10-programs.md, programs.def-order) ---
+
+;; What each top-level name is ("def", "defn" or "deft", a record's or variant's
+;; constructor), and each function's body.
+(deft Order ((kinds (Map String String)) (bodies (Map String Expr))))
+
+(sig order-of (Fn ((List Top) Order) Order))
+(defn order-of (tops acc)
+  (fold (fn (o top)
+          (match top
+            ((TDef name _ _ _) (assoc o kinds (map-set (get o kinds) name "def")))
+            ((TDefn name _ body _ _)
+              (Order (map-set (get o kinds) name "defn") (map-set (get o bodies) name body)))
+            (else (fold (fn (o2 n) (assoc o2 kinds (map-set (get o2 kinds) n "deft"))) o (defined-by top)))))
+        acc tops))
+
+;; The names a top defines: a def's or defn's, a record's, a sum's variants.
+(sig defined-by (Fn (Top) (List String)))
+(defn defined-by (top)
+  (match top
+    ((TDeft name _ _) (List name))
+    ((TDeftSum _ _ variants) (map (fn (v) (get v name)) variants))
+    ((TDef name _ _ _) (List name))
+    ((TDefn name _ _ _ _) (List name))
+    ((TExpr _) empty-list)))
+
+;; The order errors in `tops`, run in order: a def's initial value, or a top-level
+;; expression, runs when the program starts, so each top-level name it uses must be
+;; defined before it (`defined`), and each name the bodies of the functions it uses do,
+;; through them. A function's body itself runs only when called.
+(sig check-order (Fn ((List Top) Order (Map String Bool) (List String)) (List String)))
+(defn check-order (tops order defined acc)
+  (if (= (len tops) 0)
+    acc
+    (let ((top (at tops 0))
+          (errors (match top
+                    ((TDef _ init _ _) (order-errors init order defined))
+                    ((TExpr e) (order-errors e order defined))
+                    (else empty-list))))
+      (check-order (rest tops) order
+        (fold (fn (d n) (map-set d n true)) defined (defined-by top))
+        (+ acc errors)))))
+
+;; The order errors of `e`, run now: for each top-level name it uses, the name itself and,
+;; if it is a function, every name its body reaches.
+(sig order-errors (Fn (Expr Order (Map String Bool)) (List String)))
+(defn order-errors (e order defined)
+  (concat
+    (map (fn (u)
+           (let (((name pos) u)
+                 (reached (reach (List name) order (map-from (List (tup name true))))))
+             (map (fn (n) (+ (pos-text pos) (used-early n name order)))
+                  (filter (fn (n) (and (map-has (get order kinds) n) (not (map-has defined n)))) (map-keys reached)))))
+         (uses e empty-list))))
+
+;; The message for `n`, used before its definition, through `name` (unless it is `n`).
+(sig used-early (Fn (String String Order) String))
+(defn used-early (n name order)
+  (let ((through (if (= n name) "" (+ ", through " (shown-name name)))))
+    (format "{(shown-name n)} is used before its {(map-get (get order kinds) n)}{through}")))
+
+;; The top-level names reached from `todo`, through the bodies of the functions among them;
+;; `seen` holds those found so far.
+(sig reach (Fn ((List String) Order (Map String Bool)) (Map String Bool)))
+(defn reach (todo order seen)
+  (if (= (len todo) 0)
+    seen
+    (let ((name (at todo 0))
+          (found (if (map-has (get order bodies) name)
+                   (filter (fn (n) (not (map-has seen n))) (map (fn (u) (at u 0)) (uses (map-get (get order bodies) name) empty-list)))
+                   empty-list)))
+      (reach (+ (rest todo) found) order (fold (fn (m n) (map-set m n true)) seen found)))))
+
+;; The globals `e` uses, with where, added to `acc`: in a `fn` too, counted as called.
+(sig uses (Fn (Expr (List (Tup String Pos))) (List (Tup String Pos))))
+(defn uses (e acc)
+  (match e
+    ((Global name pos _) (+ acc (List (tup name pos))))
+    ((Call callee args _ _) (uses-all args (uses callee acc)))
+    ((If test then other _ _) (uses other (uses then (uses test acc))))
+    ((Do body _ _) (uses-all body acc))
+    ((Lambda _ body _ _) (uses body acc))
+    ((Tuple items _ _) (uses-all items acc))
+    ((ListOf items _ _) (uses-all items acc))
+    ((Fmt parts _ _) (fold (fn (a p) (match p ((FHole x) (uses x a)) (else a))) acc parts))
+    ((Field obj _ _ _) (uses obj acc))
+    ((Assoc obj fields _ _) (uses-all (map (fn (f) (at f 1)) fields) (uses obj acc)))
+    ((MatchE subject clauses default _ _)
+      (uses-all default (uses-all (map (fn (c) (get c body)) clauses) (uses subject acc))))
+    (else acc)))
+
+(sig uses-all (Fn ((List Expr) (List (Tup String Pos))) (List (Tup String Pos))))
+(defn uses-all (es acc)
+  (fold (fn (a x) (uses x a)) acc es))
 
 ;; --- messages ---
 

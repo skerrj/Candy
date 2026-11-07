@@ -42,6 +42,74 @@ first
 (sig x Int) (def x 1) (def x 2) => defined more than once: x
 ```
 
+<a id="programs.def-order"></a>
+**Definition order:** a `def`'s initial value and a top-level expression run when the
+program starts, so each top-level name they use must be defined before them: a value
+(`def`), a function (`defn`), or a record's or variant's constructor (`deft`). So must
+each name used by the body of a function they use, and by the functions that body uses,
+and so on: those bodies run then too. A `fn` written in them counts as called. Otherwise
+it is an error when translated, *lasting* (a `def` that uses itself, or a cycle, too).
+The body of a function that nothing runs at the start can use any top-level name,
+before or after it, so functions can call each other in any order.
+
+```candy run
+(sig even (Fn (Int) Bool))
+(defn even (n) (if (= n 0) true (odd (- n 1))))
+(sig odd (Fn (Int) Bool))
+(defn odd (n) (if (= n 0) false (even (- n 1))))
+(sig base Int)
+(def base 10)
+(sig scaled (Fn (Int) Int))
+(defn scaled (n) (* n base))
+(sig x Int)
+(def x (scaled 4))
+(put x (even x))
+```
+```expect
+40 true
+```
+
+So mutual recursion is in any order, and so is a reference inside another function's
+body: `total` below uses `offset`, defined after it, and is only called after both. Types
+are in any order too, since a type is only read by the translator (in Python, an
+annotation, which isn't run): a `sig` or a field can name a `deft` that comes later, and
+two `deft`s can name each other. So are macros: a `defmacro` can come after its uses,
+since a file's macros are all compiled before any is expanded.
+
+```candy run
+(sig total (Fn (Int) Int))
+(defn total (n) (+ n offset))
+(sig offset Int)
+(def offset 5)
+
+(sig wrap (Fn (Int) Box))
+(defn wrap (n) (Box (Item n)))
+(deft Box ((item Item)))
+(deft Item ((n Int)))
+
+(deft Tree (Leaf) (Node ((kids Forest))))
+(deft Forest (Empty) (More ((first Tree) (others Forest))))
+(sig f Forest)
+(def f (More (Node Empty) Empty))
+
+(put (total 1) (wrap 2) f (twice 3))
+(defmacro twice (x) (quasi (* 2 (unq x))))
+```
+```expect
+6 (Box (Item 2)) (More (Node Empty) Empty) 6
+```
+
+```candy errors
+(sig x Int) (def x y) (sig y Int) (def y 1) => y is used before its def
+(put y) (sig y Int) (def y 1) => y is used before its def
+(sig x Int) (def x (+ x 1)) => x is used before its def
+(sig x Int) (def x (g 1)) (sig g (Fn (Int) Int)) (defn g (n) n) => g is used before its defn
+(sig x S) (def x (A 1)) (deft S (A ((v Int))) (B)) => A is used before its deft
+(sig f (Fn (Int) Int)) (defn f (n) (+ n y)) (sig x Int) (def x (f 1)) (sig y Int) (def y 1) => y is used before its def, through f
+(sig f (Fn (Int) Int)) (defn f (n) (h n)) (sig h (Fn (Int) Int)) (defn h (n) y) (sig x Int) (def x (f 1)) (sig y Int) (def y 1) => line 1, column 101: y is used before its def, through f
+(sig k (Fn (Int) Int)) (def k (fn (n) (+ n y))) (sig y Int) (def y 1) => y is used before its def
+```
+
 <a id="programs.main"></a>
 ## main (since `self-host-cleanup`)
 

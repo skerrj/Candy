@@ -30,7 +30,6 @@ By kind, then priority.
 | [B17](B17-tup-destructuring.md) | Taking a `tup` apart is a stopgap | leak | open | normal |
 | [B18](B18-any-escape-hatch.md) | `Any` turns checking off | leak | open | normal |
 | [B29](B29-records-are-tuples.md) | Records and variants are `NamedTuple`s | leak | open | normal |
-| [B31](B31-value-before-def.md) | A top-level value used before its `def` fails at run time | leak | open | normal |
 | [B34](B34-no-collection.md) | No `Collection` interface | leak | open | normal |
 | [B37](B37-self-tail-calls-only.md) | Only self tail calls are loops | leak | open | normal |
 | [B39](B39-fail-for-errors.md) | `fail` stands in for errors | leak | open | normal |
@@ -88,7 +87,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B147](B147-semantics-2-step-3.md) | semantics-2 step 3: `def` order | task | open | normal |
 | [B148](B148-semantics-2-step-4.md) | semantics-2 step 4: errors: panics and `Result` | task | open | normal |
 | [B157](B157-semantics-2-step-5.md) | semantics-2 step 5: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
@@ -161,7 +159,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [syntax.strings](../spec/00-syntax.md#syntax.strings): [B74](B74-py-str-not-repr.md)
 - [types.constructors](../spec/20-types.md#types.constructors): [B152](B152-tup-and-tup-constructor.md)
 - [types.records](../spec/20-types.md#types.records): [B7](B7-record-name-lowercase.md), [B29](B29-records-are-tuples.md), [B113](B113-field-leading-underscore.md), [B114](B114-field-tuple-method.md)
-- [types.sig](../spec/20-types.md#types.sig): [B4](B4-def-name-not-a-name.md), [B31](B31-value-before-def.md)
+- [types.sig](../spec/20-types.md#types.sig): [B4](B4-def-name-not-a-name.md)
 - [types.table](../spec/20-types.md#types.table): [B7](B7-record-name-lowercase.md), [B18](B18-any-escape-hatch.md)
 - [types.tuples](../spec/20-types.md#types.tuples): [B17](B17-tup-destructuring.md), [B29](B29-records-are-tuples.md), [B48](B48-operators-no-type.md), [B152](B152-tup-and-tup-constructor.md)
 
@@ -187,6 +185,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B27](B27-equality-is-python.md) | `=` is Python's `==` | leak | done | normal |
 | [B28](B28-char-is-str.md) | A `Char` is a one-character `str` | leak | done | low |
 | [B30](B30-get-assoc-unchecked.md) | `get` and `assoc` field names are checked by mypy, not Candy | leak | done | normal |
+| [B31](B31-value-before-def.md) | A top-level value used before its `def` fails at run time | leak | done | normal |
 | [B33](B33-no-unary-minus.md) | No unary minus | leak | kept | normal |
 | [B35](B35-at-slice-python.md) | `at` and `slice` behave as Python's subscripts | leak | done | normal |
 | [B36](B36-values-print-as-python.md) | Values print as Python shows them | leak | done | high |
@@ -241,6 +240,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B144](B144-semantics-step-5.md) | semantics step 5: narrowing and field constraints | task | done | normal |
 | [B145](B145-semantics-2-step-1.md) | semantics-2 step 1: numbers | task | done | normal |
 | [B146](B146-semantics-2-step-2.md) | semantics-2 step 2: `at` and `slice` bounds | task | done | normal |
+| [B147](B147-semantics-2-step-3.md) | semantics-2 step 3: `def` order | task | done | normal |
 | [B149](B149-semantics-step-10.md) | semantics step 10: docs | task | done | normal |
 | [B150](B150-show-function-field.md) | A record with a function field is shown when run, not refused when translated | defect | done | low |
 | [B151](B151-show-float-without-literal.md) | A float with no Candy literal is shown as Python writes it | leak | done | low |
