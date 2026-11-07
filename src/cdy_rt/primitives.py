@@ -112,9 +112,17 @@ def show_items(head: str, items: Sequence[str]) -> str:
 
 
 def show_float(x: float) -> str:
-    """A float as Candy writes it, digits on both sides of its ``.`` (Python's ``repr``
-    where Candy has no literal: ``1e+20``, ``inf``)."""
-    return repr(x)
+    """A float as Candy writes it, digits on both sides of its ``.`` and an exponent with
+    no ``+`` or leading zeros (``1.0e20``, ``1.5e-5``); Python's ``repr`` for ``inf`` and
+    ``nan``, which have no literal."""
+    text = repr(x)
+    if "e" not in text:
+        return text
+    mantissa, exponent = text.split("e")
+    if "." not in mantissa:
+        mantissa += ".0"
+    sign = "-" if exponent.startswith("-") else ""
+    return f"{mantissa}e{sign}{exponent.lstrip('+-').lstrip('0') or '0'}"
 
 
 def show_string(text: str) -> str:

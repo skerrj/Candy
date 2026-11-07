@@ -485,11 +485,22 @@
 
 ;; --- operators (special.cdy) ---
 
-(sig NUMBERS (List String))
-(def NUMBERS (tup "Int" "Long" "Byte" "Float" "Double"))
+(sig INTEGERS (List String))
+(def INTEGERS (List "Int" "Long" "Byte"))
 
-;; `+` takes one type, a number type or String; `-`, `*`, `/` and `quot` one number type
-;; (`/` gives Double); the comparisons one type, giving Bool; `and`, `or`, `not` Bools.
+(sig FLOATS (List String))
+(def FLOATS (List "Float" "Double"))
+
+(sig NUMBERS (List String))
+(def NUMBERS (+ INTEGERS FLOATS))
+
+;; What the orderings (`<` ...) take.
+(sig ORDERED (List String))
+(def ORDERED (+ NUMBERS (List "String" "Char")))
+
+;; `+` takes one type, a number type, String or a list; `-` and `*` one number type, `/`
+;; a float type, `quot` and `mod` an integer type; the comparisons one type, giving Bool,
+;; the orderings (`<` ...) a number type, String or Char; `and`, `or`, `not` Bools.
 (sig infer-op (Fn (String (List Expr) Ctx St) Res))
 (defn infer-op (name args ctx st)
   (let ((r (infer-all args ctx st empty-list))
@@ -501,7 +512,9 @@
         (let ((one (join-all types name ctx (Res (at types 0) st1)))
               (t1 (prune (get one t) (get (get one st) subst))))
           (cond
-            ((in name (tup "=" "!=" "<" ">" "<=" ">="))
+            ((in name (tup "<" ">" "<=" ">="))
+              (Res (tcon "Bool") (needs-kind t1 ORDERED "a number, String or Char" name ctx (get one st))))
+            ((in name (tup "=" "!="))
               (Res (tcon "Bool")
                 (if (has-fn t1 (get (get one st) subst))
                   (report (format "{name}: a function can't be compared, got {(show t1 (get (get one st) subst))}") ctx (get one st))
@@ -510,8 +523,9 @@
               (Res t1
                 (if (= (tcon-name t1) "List")
                   (get one st)
-                  (needs-kind t1 (+ NUMBERS (to-list "String")) "a number, String or a list" name ctx (get one st)))))
-            ((= name "/") (Res (tcon "Double") (needs-kind t1 NUMBERS "a number" name ctx (get one st))))
+                  (needs-kind t1 (+ NUMBERS (List "String")) "a number, String or a list" name ctx (get one st)))))
+            ((= name "/") (Res t1 (needs-kind t1 FLOATS "a Float or Double" name ctx (get one st))))
+            ((in name (tup "quot" "mod")) (Res t1 (needs-kind t1 INTEGERS "an Int, Long or Byte" name ctx (get one st))))
             (else (Res t1 (needs-kind t1 NUMBERS "a number" name ctx (get one st))))))))))
 
 ;; Whether `t` is, or holds, a function type (a list of them, say); a record's fields

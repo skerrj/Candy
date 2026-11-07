@@ -120,7 +120,7 @@
   (let ((word (slice text pos end))
         (kind (number-kind word)))
     (cond
-      ((!= kind "") (tup (number-form word kind (pos-at src pos)) end))
+      ((!= kind "") (tup (number-form src text pos word kind) end))
       ((= word "true") (tup (BoolLit true (pos-at src pos)) end))
       ((= word "false") (tup (BoolLit false (pos-at src pos)) end))
       ((symbol-start (at text pos))
@@ -150,8 +150,8 @@
 (defn digits-end (word pos)
   (if (and (< pos (len word)) (is-decimal (at word pos))) (digits-end word (+ pos 1)) pos))
 
-;; What literal `word` is: "int" (100), "long" (1500l), "byte" (1b), "double" (10.0),
-;; "float" (3.14f), or "" if it isn't a number. The digits may follow a `-`.
+;; What literal `word` is: "int" (100), "long" (1500l), "byte" (1b), "double" (10.0,
+;; 1.5e-3), "float" (3.14f), or "" if it isn't a number. The digits may follow a `-`.
 (sig number-kind (Fn (String) String))
 (defn number-kind (word)
   (let ((start (if (= (at word 0) "-") 1 0))
@@ -164,23 +164,48 @@
       ((= rest "b") "byte")
       ((= (at rest 0) ".")
         (let ((j (digits-end word (+ i 1)))
-              (tail (slice word j (len word))))
+              (tail (slice word (exponent-end word j) (len word))))
           (cond
-            ((= j (+ i 1)) "")
+            ((or (= j (+ i 1)) (= (exponent-end word j) 0)) "")
             ((= tail "") "double")
             ((= tail "f") "float")
             (else ""))))
       (else ""))))
 
-(sig number-form (Fn (String String Pos) Form))
-(defn number-form (word kind where)
-  (let ((body (slice word 0 (- (len word) 1))))
-    (cond
-      ((= kind "int") (IntLit (to-int word) where))
-      ((= kind "long") (LongLit (to-int body) where))
-      ((= kind "byte") (ByteLit (to-int body) where))
-      ((= kind "double") (DoubleLit (to-float word) where))
-      (else (FloatLit (to-float body) where)))))
+;; Where the exponent from `pos` (`e`, maybe `-`, digits) ends: `pos` if there is none,
+;; 0 if it has no digits.
+(sig exponent-end (Fn (String Int) Int))
+(defn exponent-end (word pos)
+  (if (and (< pos (len word)) (= (at word pos) "e"))
+    (let ((start (if (and (< (+ pos 1) (len word)) (= (at word (+ pos 1)) "-")) (+ pos 2) (+ pos 1)))
+          (end (digits-end word start)))
+      (if (= end start) 0 end))
+    pos))
+
+;; The literal `word` of `kind` at `pos`, or an error if its value is out of its type's range.
+(sig number-form (Fn (Source String Int String String) Form))
+(defn number-form (src text pos word kind)
+  (let ((body (slice word 0 (- (len word) 1)))
+        (where (pos-at src pos))
+        (form (cond
+                ((= kind "int") (IntLit (to-int word) where))
+                ((= kind "long") (LongLit (to-int body) where))
+                ((= kind "byte") (ByteLit (to-int body) where))
+                ((= kind "double") (DoubleLit (to-float word) where))
+                (else (FloatLit (to-float body) where))))
+        (range (number-range form)))
+    (if (= range "") form (fail (parse-error src text pos (format "{word} is out of range: {range}"))))))
+
+;; "" if the literal `form` is in its type's range (the sizes: syntax.numbers), else the range.
+(sig number-range (Fn (Form) String))
+(defn number-range (form)
+  (match form
+    ((IntLit v _) (if (and (>= v (- 0 (to-int "2147483648"))) (<= v (to-int "2147483647"))) "" "an Int is -2147483648 to 2147483647"))
+    ((LongLit v _) (if (and (>= v (- 0 (to-int "9223372036854775808"))) (<= v (to-int "9223372036854775807"))) "" "a Long is -9223372036854775808 to 9223372036854775807"))
+    ((ByteLit v _) (if (and (>= v 0) (<= v 255)) "" "a Byte is 0 to 255"))
+    ((FloatLit v _) (if (<= (- 0.0 (to-float "3.4028234663852886e38")) v (to-float "3.4028234663852886e38")) "" "a Float is -3.4028234663852886e38 to 3.4028234663852886e38"))
+    ((DoubleLit v _) (if (<= (- 0.0 (to-float "1.7976931348623157e308")) v (to-float "1.7976931348623157e308")) "" "a Double is -1.7976931348623157e308 to 1.7976931348623157e308"))
+    (else "")))
 
 ;; --- strings ---
 

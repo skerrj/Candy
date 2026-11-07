@@ -64,7 +64,7 @@ alike.
 | `100`, `-7` | `Int` | digits, after an optional `-` |
 | `1500l` | `Long` | an `Int`, then `l` |
 | `1b` | `Byte` | an `Int`, then `b` |
-| `10.0`, `-0.5` | `Double` | digits, `.`, digits |
+| `10.0`, `-0.5`, `1.5e-3` | `Double` | digits, `.`, digits, then maybe `e`, an optional `-` and digits |
 | `3.14f` | `Float` | a `Double`, then `f` |
 | `true`, `false` | `Bool` | |
 | `\e` | `Char` | `\` and one character that isn't whitespace |
@@ -75,25 +75,54 @@ A literal must end at a delimiter: whitespace, a parenthesis, `;`, or the end of
 
 ```candy run
 (put 100 -7 1500l 1b)
-(put 10.0 -0.5 3.14f)
+(put 10.0 -0.5 3.14f 1.5e-3 2.5e20f)
 (put (if true 1 0) (if false 1 0))
 ```
 ```expect
 100 -7 1500l 1b
-10.0 -0.5 3.14f
+10.0 -0.5 3.14f 0.0015 2.5e20f
 1 0
 ```
 
 <a id="syntax.numbers"></a>
-A number has digits on both sides of its `.`, and its suffix comes last; anything else
-that starts with a digit is an error. A word that starts with `.` or `-` and isn't a
-number is a name (`.5`, `-x`):
+A number has digits on both sides of its `.`, its exponent has digits, and its suffix
+comes last; anything else that starts with a digit is an error. A word that starts with
+`.` or `-` and isn't a number is a name (`.5`, `-x`):
 
 ```candy errors
 (put 12x) => unexpected 1
 (put 1.5l) => unexpected 1
 (put 1.) => unexpected 1
+(put 1e5) => unexpected 1
+(put 1.0e) => unexpected 1
+(put 1.0e+5) => unexpected 1
 (put .5) => unknown name .5
+```
+
+The number types have sizes, *lasting*, as Java's and Kotlin's: a `Byte` is 8 bits,
+unsigned (0 to 255), an `Int` 32 bits and a `Long` 64, signed, a `Float` 32 bits and a
+`Double` 64 (IEEE 754). A literal out of its type's range is an error. Arithmetic that
+overflows isn't checked, and a `Float` is 64 bits on Python (*for now*: [[B22]]).
+
+```candy run
+(put -2147483648 2147483647 255b 0b)
+(put -9223372036854775808l 9223372036854775807l)
+(put 3.0e38f 1.0e308)
+```
+```expect
+-2147483648 2147483647 255b 0b
+-9223372036854775808l 9223372036854775807l
+3.0e38f 1.0e308
+```
+
+```candy errors
+(put 300b) => 300b is out of range: a Byte is 0 to 255
+(put -1b) => -1b is out of range: a Byte is 0 to 255
+(put 2147483648) => 2147483648 is out of range: an Int is -2147483648 to 2147483647
+(put -2147483649) => an Int is -2147483648 to 2147483647
+(put 9223372036854775808l) => a Long is -9223372036854775808 to 9223372036854775807
+(put 1.0e39f) => a Float is -3.4028234663852886e38 to 3.4028234663852886e38
+(put 1.0e309) => a Double is -1.7976931348623157e308 to 1.7976931348623157e308
 ```
 
 <a id="syntax.chars"></a>

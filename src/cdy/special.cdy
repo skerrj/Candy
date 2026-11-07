@@ -40,6 +40,7 @@
 (op * variadic)
 (op / variadic)
 (op quot variadic)
+(op mod variadic)
 
 ;; --- comparison: chains ---
 (op = variadic)

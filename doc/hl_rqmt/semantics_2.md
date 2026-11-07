@@ -107,6 +107,22 @@ changes `system.cdy` or the prelude stages the library next to `bin` before buil
 
 1. **Numbers** ([[B145]]; [[B23]], [[B22]]): `/` on floats, `mod`, literal ranges; with Question
    1's [[B153]] and [[B151]].
+
+   *Done (2026-11-06). As built:* `infer-op` (`src/cdy/check.cdy`) gives `/` a float
+   type (`FLOATS`), `quot` and `mod` an integer type (`INTEGERS`), and the orderings a
+   number type, `String` or `Char`, each `needs-kind`'s error (`/: expected a Float or
+   Double, got Int`); `mod` is declared in `special.cdy` and spelt `%` in `spelling.py`.
+   The reader (`read.cdy`) checks a literal's range in `number-form` (`number-range`, the
+   bounds written as `to-int` and `to-float` of strings, so that the translator's own
+   source has no literal it can't read), a parse error `300b is out of range: a Byte is 0
+   to 255`; and reads an exponent (`exponent-end`: `e`, an optional `-`, digits, after
+   the fraction), so [[B151]]'s fix is `show_float` (`primitives.py`) writing Python's
+   `1e+20` as `1.0e20`. Infinity, not-a-number and `(/ 1.0 0.0)`, which fails on Python,
+   are a new item, [[B158]]. The spec: `expr.arithmetic`, `expr.equality`,
+   `checking.operators`, `syntax.numbers` (the sizes, now with a run example and the range
+   errors), `types.table` and `library.show`; [[B22]] is reworded to what remains. One
+   boot step, `boot/53`: the translator used no `/`, no `quot` on a float and no
+   ordering on anything but numbers and strings.
 2. **`at` and `slice`** ([[B146]]; [[B35]], [[B71]]): bounds checked, the cost measured on the
    translator's build; with [[B150]].
 3. **`def` order** ([[B147]]; [[B31]]).

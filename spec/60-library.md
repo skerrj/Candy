@@ -184,7 +184,9 @@ as the literal (`42`, `1500l`, `1b`, `3.14f`, `10.0`, `true`, `\a`, `"a \"b\""`,
 and anything else as its constructor applied to its parts ([[types.constructors]]):
 `(List 1 2)`, `(Tup 1 "a")`, `(Map (Tup "k" 1))` (*for now*, until a map literal), a
 record or variant `(Vec 1 2)`, one with no fields by its name, `Dot`; a `(Maybe t)` is
-`(Some x)` or `None`. It goes by `x`'s type, so `1` as a `Long` is `1l`. `put` and a
+`(Some x)` or `None`. It goes by `x`'s type, so `1` as a `Long` is `1l`. A float is
+shown with an exponent when Python's `repr` gives one (`1.0e20`, `1.5e-5`); infinity and
+not-a-number have no literal, and are shown as `inf` and `nan` (*for now*: [[B158]]). `put` and a
 `format` hole show what they are given, but write a `String` or a `Char` as its text.
 
 A function can't be shown; nor can a value whose type is a type variable (*for now*:
@@ -199,6 +201,7 @@ can't tell a `Char` from a `String`, the integer and float sizes apart, or a `Tu
 (deft (Tree a) (Leaf) (Node ((l (Tree a)) (v a) (r (Tree a)))))
 
 (put 42 1500l 1b 3.14f 10.0 true nil)
+(put 1.0e20 -1.5e-5 1.0e20f (* 1.0e300 1.0e300))
 (put \a "text" (show \a) (show "say \"hi\""))
 (put (List 1 2) (Tup 1 "a") (rest (List 1)) (map-from (List (Tup "k" 1))))
 (put (Vec 1 2) (Circle 1.0) Dot (Node Leaf 2 (Node Leaf 3 Leaf)))
@@ -208,6 +211,7 @@ can't tell a `Char` from a `String`, the integer and float sizes apart, or a `Tu
 ```
 ```expect
 42 1500l 1b 3.14f 10.0 true nil
+1.0e20 -1.5e-5 1.0e20f inf
 a text \a "say \"hi\""
 (List 1 2) (Tup 1 "a") (List) (Map (Tup "k" 1))
 (Vec 1 2) (Circle 1.0) Dot (Node Leaf 2 (Node Leaf 3 Leaf))

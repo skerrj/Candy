@@ -97,6 +97,7 @@ MATH: Spellings = {
     "*": Spelling("*", "binop"),
     "/": Spelling("/", "binop"),
     "quot": Spelling("//", "binop"),  # integer division, rounding down
+    "mod": Spelling("%", "binop"),  # its remainder, with the divisor's sign
 }
 
 BOOL: Spellings = {

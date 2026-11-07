@@ -131,17 +131,19 @@ loud
 ## Operators
 
 The operators have fixed rules (Candy has no overloading). `+` takes arguments of one
-type, a number type, `String` or a list (`+` joins lists, as it joins strings); `-`, `*`
-and `quot` one number type; `/` numbers of one type, and gives a `Double`. The comparisons take arguments of one type and give a
-`Bool`; `and`, `or` and `not` take `Bool`s. The number types don't mix: `(+ 1 1.0)` is
-an error.
+type, a number type, `String` or a list (`+` joins lists, as it joins strings); `-` and
+`*` one number type; `/` a `Float` or a `Double`; `quot` and `mod` an `Int`, `Long` or
+`Byte`. The comparisons take arguments of one type and give a `Bool`: `=` and `!=` any
+type but a function's ([[expr.equality]]), the orderings (`<`, `>`, `<=`, `>=`) a number
+type, `String` or `Char` (lists and records aren't ordered, *for now*: [[B124]]). `and`,
+`or` and `not` take `Bool`s. The number types don't mix: `(+ 1 1.0)` is an error.
 
 ```candy run
-(put (+ 1 2) (+ "a" "b") (/ 7 2) (if (< 1 2 3) "yes" "no"))
+(put (+ 1 2) (+ "a" "b") (/ 7.0 2.0) (if (< 1 2 3) "yes" "no") (< "ab" "b") (< \a \b))
 (put (len (+ (to-list 1) (to-list 2) (to-list 3))))
 ```
 ```expect
-3 ab 3.5 yes
+3 ab 3.5 yes true true
 3
 ```
 
@@ -150,6 +152,12 @@ an error.
 (put (+ 1 1.0)) => +: expected Int, got Double
 (put (- "a" "b")) => -: expected a number, got String
 (put (< 1 "a")) => <: expected Int, got String
+(put (/ 7 2)) => /: expected a Float or Double, got Int
+(put (quot 1.0 2.0)) => quot: expected an Int, Long or Byte, got Double
+(put (< true false)) => <: expected a number, String or Char, got Bool
+(put (> (List 1) (List 2))) => >: expected a number, String or Char, got (List Int)
+(deft V ((x Int))) (put (<= (V 1) (V 2))) => <=: expected a number, String or Char, got V
+(put (>= nil nil)) => >=: expected a number, String or Char, got Unit
 (put (and 1 true)) => and: expected Bool, got Int
 (put (not "a")) => not: expected Bool, got String
 ```

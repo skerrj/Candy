@@ -43,3 +43,13 @@ variable, which a program's own `sig`s can use; `=` is declared for every type
   comparisons become bodiless `sig`s in `system.cdy`, `not` a one-argument function.
   Infix Python (`(a + b)`) is the backend's business, a spelling (`spelling.py`), not the
   language's; mypy's view of the variadic, constrained signatures is the cost, in `emit`.
+- 2026-11-06, Claude: since `semantics-2` step 1, `/` takes a float type, `quot` and `mod`
+  an integer type, and the orderings a number type, `String` or `Char`
+  ([[checking.operators]]); ordering lists and records waits for this item.
+- 2026-11-06, the owner and Claude, in `semantics-2` step 1's review: `check.cdy`'s
+  `INTEGERS`, `FLOATS`, `NUMBERS` and `ORDERED`, the lists of type names `infer-op`
+  checks an operator's arguments against, are ad-hoc type classes (Haskell's `Integral`
+  and `Fractional`, Elm's `number` and `comparable`): this item's constraint variables
+  replace them. The owner asked whether they could be an enumeration type (a sum of
+  variants with no fields); for the `collections` HLD: is a constraint kind an
+  enumeration or a declared interface ([[B34]])?

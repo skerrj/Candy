@@ -21,8 +21,8 @@ in `30-match.md`.
 
 | Type | Values |
 |---|---|
-| `Int`, `Long`, `Byte` | whole numbers |
-| `Float`, `Double` | floating-point numbers |
+| `Int`, `Long`, `Byte` | whole numbers: 32 and 64 bits signed, 8 unsigned ([[syntax.numbers]]) |
+| `Float`, `Double` | floating-point numbers: 32 and 64 bits |
 | `Bool` | `true`, `false` |
 | `Char`, `String` | a character, text |
 | `Unit` | `nil` only |
