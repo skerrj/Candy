@@ -66,6 +66,10 @@ From `src/cdy/candy-special.md`:
   **Open:**
   - Byte's range, Int/Long sizes, overflow and Float precision. These matter once there is a
     second target; see `doc/hl_rqmt/multi_target.md`. The parser checks no ranges yet.
+    *Since `semantics-2`* ([[syntax.numbers]]): a `Byte` is 8 bits unsigned, an `Int` 32
+    and a `Long` 64 signed, a `Float` 32 and a `Double` 64, *lasting*; a literal out of its
+    type's range is a parse error (`300b`), and a `Float` or `Double` may have an exponent
+    (`2.5e20f`); overflow and `Float`'s 32 bits on Python are [[B22]]'s.
   - Named chars for characters that can't follow `\` directly, such as space and newline
     (Clojure uses `\space`, `\newline`, `\tab`). `\` followed by whitespace is
     currently an error.

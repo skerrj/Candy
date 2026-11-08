@@ -254,6 +254,16 @@ fixed-size numbers can't.
   fit their type, such as `300b`? The iMVP parser checks no ranges.
 - **Char.** Is a `Char` a Unicode code point, a UTF-16 unit, or a byte?
 
+*Decided in part (branch `semantics-2`, 2026-11-07):* the sizes are the spec's, *lasting*
+([[syntax.numbers]]): a `Byte` 8 bits unsigned (0 to 255), an `Int` 32 and a `Long` 64
+signed, a `Float` 32 and a `Double` 64; a literal out of range is an error when
+translated. Overflow (trap or wrap) and a 32-bit `Float` on Python are still open
+([[B22]], for `porting-surface`). Two more meanings a target must give the same way: `/`
+is on floats only, `quot` and `mod` round down ([[expr.arithmetic]]); and an index out of
+range (`at`, `slice`, no negative index) or a `fail` is a **panic**, which stops the
+program with `candy: ` and its message ([[library.bounds]], [[library.errors]]), each
+target catching its own host's error for it (Python's `IndexError`, [[B160]]).
+
 ## To be written
 
 - The candidate targets and which comes first.

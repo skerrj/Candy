@@ -1,6 +1,6 @@
 # Semantics, part 2 (HLD)
 
-**Status: accepted (2026-11-06; proposed 2026-11-04), for branch `semantics-2`. Epic: `python_complete.md`
+**Status: done (2026-11-07), steps 1 to 5 (tag `semantics-2`). Accepted 2026-11-06; proposed 2026-11-04, for branch `semantics-2`. Epic: `python_complete.md`
 (its second branch, continued). After tag `semantics`.** Steps 6 to 9 of
 `semantics.md`, moved here at its checkpoint (its Question 1): numbers, `at` and
 `slice`, a `def`'s order, and errors. Their design was decided there (its Questions 4,
@@ -182,6 +182,39 @@ changes `system.cdy` or the prelude stages the library next to `bin` before buil
    `candy panic` checks there is no traceback. One boot step, `boot/56`.
 5. **Docs** ([[B157]]): CLAUDE.md, `semantics.md` (a pointer to here), the epic's second branch
    *done*, `multi_target.md` (sizes, panics); "Looking back".
+
+   *Done (2026-11-07). As built:* CLAUDE.md's history (the branch), literals (the sizes,
+   exponents), the prelude (`Result`), errors (a panic, `stop_on_panic`), type checking
+   (`check-order`) and the spec's `candy panic` blocks; `semantics.md`'s step 9 points
+   here; `python_complete.md`'s second branch is done; `multi_target.md`'s open
+   language-level questions are decided in part (the sizes, `/`, panics; overflow and
+   `Float` still [[B22]]'s); the iMVP doc's open number questions get a *since* note.
+   The spec's new rules came with their steps.
+
+## Looking back
+
+What steps 1 to 4 taught, and what a later branch will meet again:
+
+- **A check finds what the program relied on,** not only bugs. Bounds-checked `slice`
+  (step 2) found the translator cutting slices short in eleven places, and `rest` of
+  the empty list empty by accident, now by the spec ([[library.rest]]); the `def`-order
+  check (step 3) found the translator already in order. A borrowed meaning is used
+  without anyone choosing to.
+- **Strict or lenient is per built-in,** and the spec must list which: `at` and `slice`
+  panic, while `take`, `drop`, `rest`, `zip`, `range` and `repeat` stop at the ends
+  ([[library.bounds]]). Listing them found two string built-ins still reading Python's
+  negative indexes ([[B159]]).
+- **Measure, then decide:** the checks cost about 6% of the translator's build (step
+  2's `at` and `slice`) and 4% (step 3's order check), and with the numbers the owner
+  kept the check on every index (Question 3, *lasting*).
+- **A panic is the host's exception,** so each target catches its own: on Python a hook
+  (`stop_on_panic`) for the panics Candy defines, and Python's other errors still show
+  through ([[B160]]). The spec's runner needed a third outcome beside running and
+  failing to translate, `candy panic`, and a later one needs [[B139]]'s catch or a
+  process per example.
+- **The operators' kind lists are type classes by hand** (step 1's `INTEGERS`,
+  `FLOATS`, `ORDERED` in `check.cdy`): each new rule on numbers adds one; [[B124]]'s
+  constraint variables, in `collections`, replace them.
 
 ## Questions
 

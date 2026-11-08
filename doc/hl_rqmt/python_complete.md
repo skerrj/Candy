@@ -335,7 +335,9 @@ brackets:
    2026-11-04): `show`, the constructors, `=`, `and`/`or`, `Char`, `def` constancy,
    `Maybe` and missing values, narrowing and field constraints; numbers, `at` and
    `slice`, `def` order and errors are `semantics-2`, next (`semantics.md`, steps 6
-   to 9).*
+   to 9).* *Done (tag `semantics-2`, 2026-11-07; `semantics_2.md`): numbers (`/` on
+   floats, `mod`, the sizes and literal ranges), `at` and `slice` bounds (a panic), `def`
+   order, and errors (`fail` a panic, `Result` in the prelude).*
 3. **`collections`:** the list literal, tuple types, variadics (typed rest
    parameters; `put` and `format` as macros over `semantics`' `show`; the operators as
    values, [[B38]]), `++` and the constraint variables `number`, `comparable` and

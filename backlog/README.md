@@ -87,7 +87,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B157](B157-semantics-2-step-5.md) | semantics-2 step 5: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -249,3 +248,4 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B153](B153-ordering-is-pythons.md) | `<` and the other orderings are Python's on anything but numbers and strings | leak | done | low |
 | [B154](B154-emit-locals-across-modules.md) | emit bound one module's locals into another's functions | defect | done | high |
 | [B155](B155-cond-missing-else-message.md) | A `cond` with no `else` isn't reported as an `if` with no `else` is | defect | done | normal |
+| [B157](B157-semantics-2-step-5.md) | semantics-2 step 5: docs | task | done | normal |
