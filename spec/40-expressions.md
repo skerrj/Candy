@@ -214,7 +214,10 @@ then zero positive
 
 `(let ((name init) ...) expr)` binds each name to its `init`'s value, in order, so an
 `init` sees the names bound before it (like Scheme's `let*`), then evaluates `expr`. A
-binding shadows an outer name of the same name. A binding `((a b ...) init)` takes a
+binding shadows an outer name of the same name, *lasting*: an outer local, or a top-level
+one (a `def`, a `defn`, a built-in), which inside the `let` is the local and outside it
+is unchanged (a `def` is a constant, [[programs.top-level]]). So does a function's
+parameter, and a `match` clause's name. A binding `((a b ...) init)` takes a
 tuple apart, as a `tup` pattern does (`30-match.md`).
 
 ```candy run
@@ -223,11 +226,15 @@ tuple apart, as a `tup` pattern does (`30-match.md`).
 (put (let ((x 1) (y (+ x 1))) (* x y)))
 (put x)
 (put (let (((q r) (tup 17 5))) (- q r)))
+(sig f (Fn (Int) Int))
+(defn f (x) (* x 2))
+(put (f 3) (let ((map 7) (f 1)) (+ map f)) (f 3) x)
 ```
 ```expect
 2
 100
 12
+6 8 6 100
 ```
 
 ```candy errors
