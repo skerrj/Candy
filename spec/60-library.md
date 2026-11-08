@@ -38,8 +38,7 @@ now*: Candy can't write those types yet, [[B34]], [[B48]], [[B49]]).
 file 7 3
 ```
 
-`fail` stops the program with a message (Candy has no exceptions yet); in `main` it
-prints `candy: ` and the message (`10-programs.md`). Five built-ins are only for the
+`fail` is a panic: the program stops with its message ([[library.errors]]). Five built-ins are only for the
 translator: `py-spellings`, `load-macros`, `call-macro`, `module-dir` and `fresh-name`.
 
 <a id="library.lists"></a>
@@ -113,8 +112,9 @@ as `drop`'s is:
 `(at xs i)` is the item at index `i` of a list, a tuple or a string, counting from 0, and
 `i` must be `0 <= i < (len xs)`. `(slice xs i j)` is the items from index `i` up to, not
 including, `j`, and needs `0 <= i <= j <= (len xs)`; a string's slice is a string. Out of
-range is a panic, *lasting*: the program stops, with `index out of range` in its message
-(the rest of the message is the target's, *for now*: [[B39]]). A negative index doesn't
+range is a panic, *lasting* ([[library.errors]]): the program stops, with `index out of
+range` in its message (for an index written as a number, the rest of the message is the
+target's, *for now*: [[B160]]). A negative index doesn't
 count from the end, and a slice isn't cut short.
 
 The functions that take a count, or a list that may be empty, stop at the ends instead,
@@ -318,4 +318,43 @@ prelude Candy, over the built-ins `find-index` and `elem-index`, which give `-1`
 (Some 3) None
 (Some 2) -1
 1 -1
+```
+
+<a id="library.errors"></a>
+## Errors
+
+**A panic is a bug,** *lasting*: `(fail msg)`, or an index out of range
+([[library.bounds]]). The program stops: it writes `candy: ` and the message to standard
+error, and exits with 1, with or without `main` ([[programs.main]]). Candy can't catch a
+panic, and has no exceptions (a narrow catch for tools is [[B139]]). `fail`'s result is
+typed as anything, since it never returns, so it fits where any value does. The other
+errors Python can raise (an integer divided by zero, a missing map key) aren't panics yet,
+and stop with Python's traceback (*for now*: [[B160]]).
+
+```candy panic
+(sig half (Fn (Int) Int))
+(defn half (n) (if (= (mod n 2) 0) (quot n 2) (fail (format "half: {n} is odd"))))
+(put (half 4))
+(put (half 3))
+```
+```expect-panic
+candy: half: 3 is odd
+```
+
+**An expected failure is a value,** *lasting*: the prelude's `(deft (Result a e) (Ok ((v
+a))) (Err ((err e))))`, either `(Ok v)`, with an `a`, or `(Err err)`, with an `e`, taken
+apart with `match` ([[match.sum-types]]).
+
+```candy run
+(sig parse-number (Fn (String) (Result Int String)))
+(defn parse-number (s)
+  (if (is-decimal s) (Ok (to-int s)) (Err (format "not a number: {s}"))))
+(sig describe (Fn ((Result Int String)) String))
+(defn describe (r) (match r ((Ok v) (format "got {v}")) ((Err err) err)))
+(put (parse-number "42") (parse-number "x"))
+(put (describe (parse-number "42")) (describe (parse-number "x")))
+```
+```expect
+(Ok 42) (Err "not a number: x")
+got 42 not a number: x
 ```

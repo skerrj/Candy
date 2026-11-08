@@ -167,6 +167,19 @@ changes `system.cdy` or the prelude stages the library next to `bin` before buil
    (new), and `types.sig`'s *for now* gone. The translator was in order already; the
    check costs about 4% of its build (0.88 s to 0.92 s). One boot step, `boot/55`.
 4. **Errors** ([[B148]]; [[B39]]): `fail` a panic, `Result` in the prelude.
+
+   *Done (2026-11-06). As built:* a panic, a `fail` or an index out of range, stops the
+   program with `candy: ` and its message on standard error, and exit status 1, with or
+   without `main`: every translated program first calls the runtime's `stop_on_panic`
+   (`python-of` in `cdyc.cdy`), which makes `panic_hook` Python's `sys.excepthook`. The
+   hook takes `CandyFail` and `IndexError` (an `(at xs 0)` is `xs[0]`); any other Python
+   error keeps its traceback, so a bug in the translator still shows where it is (a
+   division by zero, a missing map key: [[B160]], with `IndexError`'s Python words). A
+   `main`'s panics were already `candy: ` messages (`run_main`); they are unchanged, and
+   so is the runtime's `CandyFail`, now a panic's class. The prelude has `(deft (Result a
+   e) (Ok ((v a))) (Err ((err e))))`; nothing in the translator or the tests used the
+   names. The spec's new rule is `library.errors` (`60-library.md`), and the runner's
+   `candy panic` checks there is no traceback. One boot step, `boot/56`.
 5. **Docs** ([[B157]]): CLAUDE.md, `semantics.md` (a pointer to here), the epic's second branch
    *done*, `multi_target.md` (sizes, panics); "Looking back".
 

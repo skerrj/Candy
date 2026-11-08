@@ -7,6 +7,7 @@ import re
 import cdy_rt.spelling
 import cdy_rt.primitives
 
+cdy_rt.primitives.stop_on_panic()
 
 def prelude__rest[a](xs: tuple[a, ...]) -> tuple[a, ...]:
     return cdy_rt.primitives.list_drop(1, xs)
@@ -30,6 +31,27 @@ class prelude__None(_cdy_NamedTuple):
         return hash((type(self), tuple(self)))
 cdy_rt.primitives.register_type(prelude__None, 'None', ('a',), ())
 type prelude__Maybe[a] = prelude__Some[a] | prelude__None
+
+class prelude__Ok[a](_cdy_NamedTuple):
+    v: a
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(prelude__Ok, 'Ok', ('a', 'e'), ("'a",))
+
+class prelude__Err[e](_cdy_NamedTuple):
+    err: e
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(prelude__Err, 'Err', ('a', 'e'), ("'e",))
+type prelude__Result[a, e] = prelude__Ok[a] | prelude__Err[e]
 
 def prelude__find[a](keep: _cdy_Callable[[a], bool], xs: tuple[a, ...]) -> prelude__Maybe[a]:
     i = cdy_rt.primitives.list_find_index(keep, xs)
@@ -6794,7 +6816,7 @@ def python_of(tops: tuple[core__Top, ...]) -> str:
     stmts = lower__lower_program(tops, 0, ())
     globals_ = emit__global_names(tops, emit__Env({}, {}, {}, emit__generic_variants(tops, {}), cdy_rt.spelling.SPELLINGS, {}, emit__deft_field_types(tops, {})))
     env = emit__bind_locals(emit__bound_locals(stmts, ()), globals_)
-    return (emit__HEADER + emit__emit_imports(emit__PY_IMPORTS, '') + '\n' + emit__emit_stmts(stmts, 0, env, '') + (emit__emit_main(env) if core__has_main(tops) else ''))
+    return (emit__HEADER + emit__emit_imports(emit__PY_IMPORTS, '') + '\ncdy_rt.primitives.stop_on_panic()\n' + emit__emit_stmts(stmts, 0, env, '') + (emit__emit_main(env) if core__has_main(tops) else ''))
 
 def translate_text(text: str) -> str:
     return translate_modules(include__text_modules(text), read__read_hole)

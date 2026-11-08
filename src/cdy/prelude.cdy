@@ -14,6 +14,10 @@
 ;; An optional value, *lasting* (spec/60-library.md, library.maybe): `(Some v)`, or `None`.
 (deft (Maybe a) (Some ((v a))) (None))
 
+;; A result that may be an expected failure, *lasting* (spec/60-library.md, library.errors):
+;; `(Ok v)`, or `(Err err)`, taken apart with `match`. A bug is a panic, `fail`.
+(deft (Result a e) (Ok ((v a))) (Err ((err e))))
+
 ;; The first item of `xs` that `keep` is true of.
 (sig find (Fn ((Fn (a) Bool) (List a)) (Maybe a)))
 (defn find (keep xs) (let ((i (find-index keep xs))) (if (< i 0) None (Some (at xs i)))))

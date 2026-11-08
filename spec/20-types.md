@@ -30,6 +30,7 @@ in `30-match.md`.
 | `(Tup a b ...)` | a fixed-size tuple: an `a`, then a `b`, ... |
 | `(Map k v)` | a map from `k`s to `v`s |
 | `(Maybe a)` | `(Some v)`, with an `a`, or `None`: the prelude's sum ([[library.maybe]]) |
+| `(Result a e)` | `(Ok v)`, with an `a`, or `(Err err)`, with an `e`: the prelude's sum ([[library.errors]]) |
 | `(Fn (a b ...) r)` | a function from an `a`, a `b`, ... to an `r` |
 | `Name`, `(Name a ...)` | a `deft` type, possibly generic |
 | `Any` | anything: an escape hatch, which turns checking off |

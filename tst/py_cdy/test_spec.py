@@ -172,6 +172,7 @@ def test_panic(example: Example, t1: ModuleType, tmp_path: Path) -> None:
     done = run(translate_with(t1, example.source), tmp_path)
     assert done.returncode != 0, done.stdout
     assert example.expected in done.stderr
+    assert "Traceback" not in done.stderr, done.stderr
 
 
 @pytest.mark.parametrize("example", cases("setup"))

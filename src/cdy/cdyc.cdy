@@ -101,7 +101,8 @@
 (defn translate-expanded (forms parse macros quoting)
   (python-of (analyse-program forms (library-builtins nil) parse macros quoting)))
 
-;; The definitions `tops` as a Python module.
+;; The definitions `tops` as a Python module, which first makes a panic stop the program
+;; with its message (`stop_on_panic`; spec/60-library.md, library.errors).
 (sig python-of (Fn ((List Top)) String))
 (defn python-of (tops)
   (let ((stmts (lower-program tops 0 empty-list))
@@ -109,7 +110,7 @@
         (env (bind-locals (bound-locals stmts empty-list) globals)))
     (+ HEADER
        (emit-imports PY_IMPORTS "")
-       "\n"
+       "\ncdy_rt.primitives.stop_on_panic()\n"
        (emit-stmts stmts 0 env "")
        (if (has-main tops) (emit-main env) ""))))
 

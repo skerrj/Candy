@@ -22,6 +22,7 @@ import itertools
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
+from types import TracebackType
 from typing import Any, NoReturn, cast
 
 # Where ``slurp`` looks for a Candy file that isn't found at the given path.
@@ -486,12 +487,30 @@ def path_resolve(path: str) -> str:
 
 
 class CandyFail(Exception):
-    """Raised by ``fail``: a Candy program (such as the self-hosted translator) gave up."""
+    """Raised by ``fail`` and the bounds checks: a panic, which a Candy program can't catch
+    (spec/60-library.md, library.errors)."""
 
 
 def fail(msg: str) -> NoReturn:
-    """Stop with the error ``msg`` (Candy has no exceptions yet)."""
+    """Panic with the message ``msg``: the program stops."""
     raise CandyFail(msg)
+
+
+def panic_hook(kind: type[BaseException], err: BaseException, trace: TracebackType | None) -> None:
+    """``sys.excepthook`` for a Candy program: a panic nothing caught (a ``fail``, or an
+    index out of range, which is Python's ``IndexError`` for ``xs[0]``) prints ``candy:
+    <message>``, and Python then exits with 1; any other error keeps Python's traceback
+    (*for now*: B160)."""
+    if issubclass(kind, (CandyFail, IndexError)):
+        print(f"candy: {err}", file=sys.stderr)
+    else:
+        sys.__excepthook__(kind, err, trace)
+
+
+def stop_on_panic() -> None:
+    """Make a panic stop the program with its message, not a traceback (``panic_hook``);
+    every translated program calls it first."""
+    sys.excepthook = panic_hook
 
 
 def get_args() -> tuple[str, ...]:

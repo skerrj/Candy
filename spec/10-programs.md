@@ -116,9 +116,9 @@ since a file's macros are all compiled before any is expanded.
 A program that defines `main`, typed `(Fn ((List String)) Int)`, runs it after its
 top-level forms, with the command-line arguments (without the program's name), and exits
 with its result. `main` runs only when the program is run, not when it is imported (as
-the translator's own `main`, its driver, isn't when the tests load it). A `fail` in
-`main` prints `candy: ` and the message to standard error, and exits with 1
-(`test_self_host.py`'s `test_bin_driver`). Only the top file's `main` is the program's: a `main` in a
+the translator's own `main`, its driver, isn't when the tests load it). A panic in
+`main`, as anywhere, prints `candy: ` and the message to standard error, and exits with 1
+([[library.errors]]; `test_self_host.py`'s `test_bin_driver`). Only the top file's `main` is the program's: a `main` in a
 module it imports is an ordinary function (`tst/cdy/cdyc/modules.cdy`, whose `lib/tags`
 defines one).
 
@@ -142,8 +142,9 @@ main: 0 argument(s)
 ## The prelude (since `system-prelude`)
 
 Every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: what is built
-on the built-ins (declared in `src/cdy/system.cdy`): `rest`, `map-update`, and `Maybe`
-with `find`, `index-of` and `with-default` ([[library.maybe]]).
+on the built-ins (declared in `src/cdy/system.cdy`): `rest`, `map-update`, `Maybe`
+with `find`, `index-of` and `with-default` ([[library.maybe]]), and `Result`
+([[library.errors]]).
 Macro code doesn't get it ([[B52]]). A file's own definition of a
 prelude or built-in name wins over it; a module the file imports that defines one is a
 clash, as between any two imports.

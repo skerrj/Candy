@@ -1,6 +1,7 @@
 """Tests for the primitives in ``cdy_rt.primitives``."""
 
 import re
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
@@ -31,6 +32,7 @@ from cdy_rt.primitives import (
     map_keys,
     map_set,
     module_dir,
+    panic_hook,
     path_dir,
     path_join,
     path_resolve,
@@ -43,6 +45,7 @@ from cdy_rt.primitives import (
     show_any,
     slice_,
     spit,
+    stop_on_panic,
     text_any,
     to_float,
     to_list,
@@ -132,6 +135,17 @@ def test_maps() -> None:
 def test_fail() -> None:
     with pytest.raises(CandyFail, match="boom"):
         fail("boom")
+
+
+def test_panic_hook(capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.excepthook", None)
+    stop_on_panic()
+    assert sys.excepthook is panic_hook
+    panic_hook(CandyFail, CandyFail("boom"), None)
+    panic_hook(IndexError, IndexError("tuple index out of range"), None)
+    assert capsys.readouterr().err == "candy: boom\ncandy: tuple index out of range\n"
+    panic_hook(ValueError, ValueError("not a panic"), None)  # Python's own report
+    assert capsys.readouterr().err == "ValueError: not a panic\n"
 
 
 HOME = "Form"  # a name the "translator" defines, which load_macros is asked to put back
