@@ -19,7 +19,8 @@
    (taken (Map String Bool))
    (generic (Map String (List String)))
    (spellings (Map String (Tup String String)))
-   (narrowed (Map Int (Tup String (List String))))))
+   (narrowed (Map Int (Tup String (List String))))
+   (fields (Map String (List CType)))))
 
 (sig HEADER String)
 (def HEADER "from __future__ import annotations
@@ -102,7 +103,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (sig py-mangle (Fn (String) String))
 (defn py-mangle (name)
   (let ((out (mangle-chars name 0 "")))
-    (if (or (map-has PY_RESERVED out) (= (slice out 0 5) "_cdy_")) (+ out "_") out)))
+    (if (or (map-has PY_RESERVED out) (starts-with out "_cdy_")) (+ out "_") out)))
 
 (sig mangle-chars (Fn (String Int String) String))
 (defn mangle-chars (name i acc)
@@ -235,6 +236,22 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
       (if (= (len tvars) 0)
         acc
         (fold (fn (m v) (map-set m (get v name) (generic-fields (get v fields)))) acc variants)))
+    (else acc)))
+
+;; The field types of each record and variant in `tops`, and each sum's variants (as
+;; types), added to `acc`: what `show-type` looks into for a function.
+(sig deft-field-types (Fn ((List Top) (Map String (List CType))) (Map String (List CType))))
+(defn deft-field-types (tops acc)
+  (fold (fn (m top) (top-field-types top m)) acc tops))
+
+(sig top-field-types (Fn (Top (Map String (List CType))) (Map String (List CType))))
+(defn top-field-types (top acc)
+  (match top
+    ((TDeft name _ fields) (map-set acc name (field-types fields empty-list)))
+    ((TDeftSum name _ variants)
+      (fold (fn (m v) (map-set m (get v name) (field-types (get v fields) empty-list)))
+        (map-set acc name (map (fn (v) (TCon (get v name) empty-list)) variants))
+        variants))
     (else acc)))
 
 (sig generic-fields (Fn ((List (Tup String CType))) (List String)))
@@ -389,7 +406,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
       ((in name (tup "String" "Char")) x)
       ((= name "Int") (format "str({x})"))
       ((= name "Any") (format "cdy_rt.primitives.text_any({x})"))
-      (else (show-call x (get e t) pos)))))
+      (else (show-call x (get e t) pos env)))))
 
 ;; An argument of `put` (Python's print): as `emit-text`, an Int as it is.
 (sig emit-put-arg (Fn (Expr Pos Env) String))
@@ -398,24 +415,43 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     ((TCon name _) (if (= name "Int") (emit-expr e env) (emit-text e pos env)))
     (else (emit-text e pos env))))
 
-(sig show-call (Fn (String CType Pos) String))
-(defn show-call (x t pos) (format "cdy_rt.primitives.show({x}, {(show-type t pos)})"))
+(sig show-call (Fn (String CType Pos Env) String))
+(defn show-call (x t pos env) (format "cdy_rt.primitives.show({x}, {(show-type t pos env)})"))
 
 ;; The type `t` as cdy_rt's show reads it (its ShowType): a type's name, or a tuple of its
-;; name and its arguments' types. A function can't be shown, nor a value whose type is a
-;; type variable, *for now*: a generic function can show its type variables' values once
-;; interfaces let it say so.
-(sig show-type (Fn (CType Pos) String))
-(defn show-type (t pos)
+;; name and its arguments' types. A function can't be shown, nor a record holding one
+;; among its fields, nor a value whose type is a type variable, *for now*: a generic
+;; function can show its type variables' values once interfaces let it say so.
+(sig show-type (Fn (CType Pos Env) String))
+(defn show-type (t pos env)
   (match t
     ((TCon name args)
-      (if (= (len args) 0)
-        (py-str name)
-        (format "({(comma-join (+ (to-list (py-str name)) (map (fn (a) (show-type a pos)) args)))})")))
+      (cond
+        ((holds-fn name env (List name))
+          (fail (+ (pos-text pos) (format "show: a function can't be shown, and {name} holds one"))))
+        ((= (len args) 0) (py-str name))
+        (else (format "({(comma-join (+ (to-list (py-str name)) (map (fn (a) (show-type a pos env)) args)))})"))))
     ((TFn _ _) (fail (+ (pos-text pos) "show: a function can't be shown")))
     ((TVar name)
       (let ((shown (if (starts-with name "?") (+ "t" (slice name 1 (len name))) name)))
         (fail (+ (pos-text pos) (format "show: can't show a value of type {shown}, a type variable")))))))
+
+;; Whether the record or variant `name` has a field whose type is, or holds, a function, or
+;; the sum `name` a variant that does; its type variables, which its arguments give, are
+;; looked at by `show-type`. `seen` holds the types already looked into.
+(sig holds-fn (Fn (String Env (List String)) Bool))
+(defn holds-fn (name env seen)
+  (and (map-has (get env fields) name)
+       (any (fn (t) (field-holds-fn t env seen)) (map-get (get env fields) name))))
+
+(sig field-holds-fn (Fn (CType Env (List String)) Bool))
+(defn field-holds-fn (t env seen)
+  (match t
+    ((TFn _ _) true)
+    ((TCon name args)
+      (or (any (fn (a) (field-holds-fn a env seen)) args)
+          (and (not (contains name seen)) (holds-fn name env (+ seen (List name))))))
+    (else false)))
 
 ;; A record's or variant's field type as cdy_rt's show reads it: its type variable `a` as
 ;; "'a", to be bound to the type's arguments; a function as "Fn", which show refuses.
@@ -474,7 +510,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
   (cond
     ((= name "show")
       (match t
-        ((TFn params _) (format "(lambda _cdy_x: {(show-call \"_cdy_x\" (at params 0) pos)})"))
+        ((TFn params _) (format "(lambda _cdy_x: {(show-call \"_cdy_x\" (at params 0) pos env)})"))
         (else (fail (+ (pos-text pos) "show: its type isn't known here")))))
     ((in (spelling-kind (get env spellings) name) TYPED_KINDS) (at (map-get (get env spellings) name) 0))
     (else (fail (+ (pos-text pos) (format "the operator {name} can't be used as a value yet; wrap it in a fn"))))))
@@ -487,20 +523,27 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
         (cond
           ((in name (tup "put" "print" "display"))
             (format "print({(comma-join (map (fn (a) (emit-put-arg a pos env)) args))})"))
-          ((= name "show") (show-call (at strs 0) (get (at args 0) t) pos))
-          (else (emit-prim-call name strs env))))
+          ((= name "show") (show-call (at strs 0) (get (at args 0) t) pos env))
+          (else (emit-prim-call name args strs env))))
       (else (format "{(emit-expr callee env)}({(comma-join strs)})")))))
 
-(sig emit-prim-call (Fn (String (List String) Env) String))
-(defn emit-prim-call (name strs env)
+;; Whether `e` is an index literal that can't be negative, so `at` needs no check of it:
+;; Python's subscript fails on the high side by itself (library.bounds).
+(sig is-index-literal (Fn (Expr) Bool))
+(defn is-index-literal (e)
+  (match e
+    ((Lit form _) (match form ((IntLit v _) (>= v 0)) (else false)))
+    (else false)))
+
+(sig emit-prim-call (Fn (String (List Expr) (List String) Env) String))
+(defn emit-prim-call (name args strs env)
   (let ((kind (at (map-get (get env spellings) name) 1))
         (py (at (map-get (get env spellings) name) 0))
         (op (+ " " py " ")))
     (cond
       ((in kind (tup "binop" "compare" "boolop")) (format "({(join strs op)})"))
       ((= kind "unary") (format "({py} {(at strs 0)})"))
-      ((= kind "index") (format "{(at strs 0)}[{(at strs 1)}]"))
-      ((= kind "slice") (format "{(at strs 0)}[{(at strs 1)}:{(at strs 2)}]"))
+      ((and (= kind "index") (is-index-literal (at args 1))) (format "{(at strs 0)}[{(at strs 1)}]"))
       (else (format "{py}({(comma-join strs)})")))))
 
 ;; --- types ---

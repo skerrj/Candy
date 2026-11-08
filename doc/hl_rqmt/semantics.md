@@ -498,7 +498,8 @@ says only `at`'s four uses need it.
 
    *Moved (2026-11-04):* steps 6 to 9 go to branch `semantics-2`, with their tasks
    ([[B145]] to [[B148]]) and this HLD's answers for them (Questions 4, 5, 9, 10, 11),
-   as the owner chose at Question 1's checkpoint, after step 5.
+   as the owner chose at Question 1's checkpoint, after step 5. *Done there
+   (2026-11-07):* `semantics_2.md`, its steps 1 to 4 (tag `semantics-2`).
 10. **Docs:** CLAUDE.md, the iMVP doc, `multi_target.md` ("Open: showing values"
     closed), `python_complete.md`; "Looking back".
 

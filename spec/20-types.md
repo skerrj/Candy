@@ -21,8 +21,8 @@ in `30-match.md`.
 
 | Type | Values |
 |---|---|
-| `Int`, `Long`, `Byte` | whole numbers |
-| `Float`, `Double` | floating-point numbers |
+| `Int`, `Long`, `Byte` | whole numbers: 32 and 64 bits signed, 8 unsigned ([[syntax.numbers]]) |
+| `Float`, `Double` | floating-point numbers: 32 and 64 bits |
 | `Bool` | `true`, `false` |
 | `Char`, `String` | a character, text |
 | `Unit` | `nil` only |
@@ -30,6 +30,7 @@ in `30-match.md`.
 | `(Tup a b ...)` | a fixed-size tuple: an `a`, then a `b`, ... |
 | `(Map k v)` | a map from `k`s to `v`s |
 | `(Maybe a)` | `(Some v)`, with an `a`, or `None`: the prelude's sum ([[library.maybe]]) |
+| `(Result a e)` | `(Ok v)`, with an `a`, or `(Err err)`, with an `e`: the prelude's sum ([[library.errors]]) |
 | `(Fn (a b ...) r)` | a function from an `a`, a `b`, ... to an `r` |
 | `Name`, `(Name a ...)` | a `deft` type, possibly generic |
 | `Any` | anything: an escape hatch, which turns checking off |
@@ -83,8 +84,8 @@ initial value is required. Both are top level only (`10-programs.md`), and a nam
 defined once. A `def` is a constant (*lasting*, [[programs.top-level]]).
 
 A top-level function can call one defined after it, but a value is only there once its
-`def` has run (forms run in order), so using it earlier fails at run time with Python's
-`NameError` (*for now*: [[B31]]).
+`def` has run (forms run in order), so using it earlier is an error
+([[programs.def-order]]).
 
 ```candy run
 (sig double (Fn (Int) Int))

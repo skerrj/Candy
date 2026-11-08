@@ -38,8 +38,7 @@ now*: Candy can't write those types yet, [[B34]], [[B48]], [[B49]]).
 file 7 3
 ```
 
-`fail` stops the program with a message (Candy has no exceptions yet); in `main` it
-prints `candy: ` and the message (`10-programs.md`). Five built-ins are only for the
+`fail` is a panic: the program stops with its message ([[library.errors]]). Five built-ins are only for the
 translator: `py-spellings`, `load-macros`, `call-macro`, `module-dir` and `fresh-name`.
 
 <a id="library.lists"></a>
@@ -97,13 +96,83 @@ true false
 ```
 
 <a id="library.rest"></a>
-The prelude's `rest` is all of a list but its first item:
+The prelude's `rest` is all of a list but its first item; the empty list's rest is empty,
+as `drop`'s is:
 
 ```candy run
-(put (len (rest (tup 1 2 3))) (len (rest (tup "only"))))
+(put (len (rest (tup 1 2 3))) (len (rest (tup "only"))) (rest (rest (List 1))))
 ```
 ```expect
-2 0
+2 0 (List)
+```
+
+<a id="library.bounds"></a>
+## at and slice
+
+`(at xs i)` is the item at index `i` of a list, a tuple or a string, counting from 0, and
+`i` must be `0 <= i < (len xs)`. `(slice xs i j)` is the items from index `i` up to, not
+including, `j`, and needs `0 <= i <= j <= (len xs)`; a string's slice is a string. Out of
+range is a panic, *lasting* ([[library.errors]]): the program stops, with `index out of
+range` in its message (for an index written as a number, the rest of the message is the
+target's, *for now*: [[B160]]). A negative index doesn't
+count from the end, and a slice isn't cut short.
+
+The functions that take a count, or a list that may be empty, stop at the ends instead,
+*lasting*: `(take n xs)` is all of `xs` when `n` is past its end, and empty when `n` is
+negative; `(drop n xs)` the reverse; `rest` of the empty list is empty; `zip` stops at the
+shorter list; `(range a b)` is empty when `b <= a`; and `(repeat s n)` is `""` when `n`
+is negative.
+
+```candy run
+(sig xs (List Int))
+(def xs (List 10 20 30))
+(sig i Int)
+(def i 2)
+(put (at xs 0) (at xs i) (slice xs 1 3) (slice xs 3 3) (at "abc" i) (slice "candy" 1 3))
+```
+```expect
+10 30 (List 20 30) (List) c an
+```
+
+```candy run
+(sig none (List Int))
+(def none empty-list)
+(put (take 5 (List 1 2)) (take -1 (List 1 2)) (drop 5 (List 1 2)) (drop -1 (List 1 2)))
+(put (rest none) (zip (List 1 2 3) (List "a")) (range 3 1) (len (repeat "ab" -1)))
+```
+```expect
+(List 1 2) (List) (List) (List 1 2)
+(List) (List (Tup 1 "a")) (List) 0
+```
+
+```candy panic
+(sig i Int)
+(def i -1)
+(put (at (List 1 2) i))
+```
+```expect-panic
+at: index out of range: -1, for length 2
+```
+
+```candy panic
+(put (at (List 1 2) 2))
+```
+```expect-panic
+index out of range
+```
+
+```candy panic
+(put (slice "abc" 2 4))
+```
+```expect-panic
+slice: index out of range: 2 to 4, for length 3
+```
+
+```candy panic
+(put (slice "abc" 2 1))
+```
+```expect-panic
+slice: index out of range: 2 to 1
 ```
 
 <a id="library.strings"></a>
@@ -184,11 +253,14 @@ as the literal (`42`, `1500l`, `1b`, `3.14f`, `10.0`, `true`, `\a`, `"a \"b\""`,
 and anything else as its constructor applied to its parts ([[types.constructors]]):
 `(List 1 2)`, `(Tup 1 "a")`, `(Map (Tup "k" 1))` (*for now*, until a map literal), a
 record or variant `(Vec 1 2)`, one with no fields by its name, `Dot`; a `(Maybe t)` is
-`(Some x)` or `None`. It goes by `x`'s type, so `1` as a `Long` is `1l`. `put` and a
+`(Some x)` or `None`. It goes by `x`'s type, so `1` as a `Long` is `1l`. A float is
+shown with an exponent when Python's `repr` gives one (`1.0e20`, `1.5e-5`); infinity and
+not-a-number have no literal, and are shown as `inf` and `nan` (*for now*: [[B158]]). `put` and a
 `format` hole show what they are given, but write a `String` or a `Char` as its text.
 
-A function can't be shown; nor can a value whose type is a type variable (*for now*:
-interfaces will let a generic function say its type can be shown): both are errors when
+A function can't be shown, nor a value holding one (a list of them, or a record or variant
+with one among its fields); nor can a value whose type is a type variable (*for now*:
+interfaces will let a generic function say its type can be shown): all are errors when
 translated. A value typed `Any` is shown from what it is when the program runs, which
 can't tell a `Char` from a `String`, the integer and float sizes apart, or a `Tup` from a
 `List` (*for now*: [[B18]]).
@@ -199,6 +271,7 @@ can't tell a `Char` from a `String`, the integer and float sizes apart, or a `Tu
 (deft (Tree a) (Leaf) (Node ((l (Tree a)) (v a) (r (Tree a)))))
 
 (put 42 1500l 1b 3.14f 10.0 true nil)
+(put 1.0e20 -1.5e-5 1.0e20f (* 1.0e300 1.0e300))
 (put \a "text" (show \a) (show "say \"hi\""))
 (put (List 1 2) (Tup 1 "a") (rest (List 1)) (map-from (List (Tup "k" 1))))
 (put (Vec 1 2) (Circle 1.0) Dot (Node Leaf 2 (Node Leaf 3 Leaf)))
@@ -208,6 +281,7 @@ can't tell a `Char` from a `String`, the integer and float sizes apart, or a `Tu
 ```
 ```expect
 42 1500l 1b 3.14f 10.0 true nil
+1.0e20 -1.5e-5 1.0e20f inf
 a text \a "say \"hi\""
 (List 1 2) (Tup 1 "a") (List) (Map (Tup "k" 1))
 (Vec 1 2) (Circle 1.0) Dot (Node Leaf 2 (Node Leaf 3 Leaf))
@@ -218,6 +292,8 @@ a (List true) and text
 
 ```candy errors
 (put (fn (x) x)) => show: a function can't be shown
+(deft F ((f (Fn (Int) Int)))) (put (F (fn (n) n))) => show: a function can't be shown, and F holds one
+(deft F ((f (Fn (Int) Int)))) (deft S (A ((f F))) (B)) (put B) => show: a function can't be shown, and S holds one
 (sig f (Fn (a) Unit)) (defn f (x) (put x)) => show: can't show a value of type a, a type variable
 (put empty-list) => , a type variable
 ```
@@ -242,4 +318,43 @@ prelude Candy, over the built-ins `find-index` and `elem-index`, which give `-1`
 (Some 3) None
 (Some 2) -1
 1 -1
+```
+
+<a id="library.errors"></a>
+## Errors
+
+**A panic is a bug,** *lasting*: `(fail msg)`, or an index out of range
+([[library.bounds]]). The program stops: it writes `candy: ` and the message to standard
+error, and exits with 1, with or without `main` ([[programs.main]]). Candy can't catch a
+panic, and has no exceptions (a narrow catch for tools is [[B139]]). `fail`'s result is
+typed as anything, since it never returns, so it fits where any value does. The other
+errors Python can raise (an integer divided by zero, a missing map key) aren't panics yet,
+and stop with Python's traceback (*for now*: [[B160]]).
+
+```candy panic
+(sig half (Fn (Int) Int))
+(defn half (n) (if (= (mod n 2) 0) (quot n 2) (fail (format "half: {n} is odd"))))
+(put (half 4))
+(put (half 3))
+```
+```expect-panic
+candy: half: 3 is odd
+```
+
+**An expected failure is a value,** *lasting*: the prelude's `(deft (Result a e) (Ok ((v
+a))) (Err ((err e))))`, either `(Ok v)`, with an `a`, or `(Err err)`, with an `e`, taken
+apart with `match` ([[match.sum-types]]).
+
+```candy run
+(sig parse-number (Fn (String) (Result Int String)))
+(defn parse-number (s)
+  (if (is-decimal s) (Ok (to-int s)) (Err (format "not a number: {s}"))))
+(sig describe (Fn ((Result Int String)) String))
+(defn describe (r) (match r ((Ok v) (format "got {v}")) ((Err err) err)))
+(put (parse-number "42") (parse-number "x"))
+(put (describe (parse-number "42")) (describe (parse-number "x")))
+```
+```expect
+(Ok 42) (Err "not a number: x")
+got 42 not a number: x
 ```

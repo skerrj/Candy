@@ -7,12 +7,16 @@
 ;;; is also speed, since Candy adds to a list by copying it. The prelude holds what is
 ;;; built on top of them.
 
-;; All of `xs` but the first item.
+;; All of `xs` but the first item; the empty list's rest is empty, as `drop`'s.
 (sig rest (Fn ((List a)) (List a)))
-(defn rest (xs) (slice xs 1 (len xs)))
+(defn rest (xs) (drop 1 xs))
 
 ;; An optional value, *lasting* (spec/60-library.md, library.maybe): `(Some v)`, or `None`.
 (deft (Maybe a) (Some ((v a))) (None))
+
+;; A result that may be an expected failure, *lasting* (spec/60-library.md, library.errors):
+;; `(Ok v)`, or `(Err err)`, taken apart with `match`. A bug is a panic, `fail`.
+(deft (Result a e) (Ok ((v a))) (Err ((err e))))
 
 ;; The first item of `xs` that `keep` is true of.
 (sig find (Fn ((Fn (a) Bool) (List a)) (Maybe a)))

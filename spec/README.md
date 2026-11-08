@@ -22,7 +22,7 @@ examples use features a later file specifies (`00-syntax.md` uses `defn`, `if` a
 | `30-match.md` | patterns and match: sum types (`deft` with variants), `match`, `tup` patterns |
 | `40-expressions.md` | names and calls, the operators, `do`, `if`, `cond`, `let`, `fn`, `defn`, `Unit` |
 | `50-macros.md` | `defmacro`, quoting, `gensym`, macro files (`import-macros`), `cond` as a macro |
-| `60-library.md` | the built-ins, the prelude, and `format` |
+| `60-library.md` | the built-ins, the prelude, `format`, and errors (panics and `Result`) |
 
 ## Writing a spec file
 
@@ -83,6 +83,17 @@ of its own, with the prelude and the prelude macros as every program has them.
   ```
   ```expect-error
   unknown name nope
+  ```
+
+- **`candy panic`**, followed by **`expect-panic`**: the program must translate, and
+  running it must fail (a panic, as an index out of range is), writing the
+  `expect-panic` text to stderr, and no Python traceback ([[library.errors]]):
+
+  ```candy panic
+  (put (slice "abc" 2 4))
+  ```
+  ```expect-panic
+  index out of range
   ```
 
 - **`candy errors`**: a table of error examples, one per line, `source => message`, for a

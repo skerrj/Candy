@@ -34,10 +34,11 @@ SPELLING_MODULE = "cdy_rt.spelling"
 #   unary    - prefix operator, ``not a``
 #   call     - a function call, ``py(args...)``
 #   value    - a Python expression, used as is (``math.pi``, ``None``)
-#   index    - indexing, ``coll[i]`` (``py`` is the runtime helper, for use as a value)
-#   slice    - slicing, ``coll[i:j]``, so a ``String`` slice stays a ``str`` (likewise)
+#   index    - indexing: ``coll[i]`` for a literal index that can't be negative (Python's
+#              IndexError covers the high side), else ``py``, the runtime helper, which
+#              checks the bounds (spec/60-library.md, library.bounds)
 #   type     - a built-in type, ``tuple[{}, ...]``: its arguments, joined, replace ``{}``
-Kind = Literal["binop", "compare", "boolop", "unary", "call", "value", "index", "slice", "type"]
+Kind = Literal["binop", "compare", "boolop", "unary", "call", "value", "index", "type"]
 
 
 class Spelling(NamedTuple):
@@ -97,6 +98,7 @@ MATH: Spellings = {
     "*": Spelling("*", "binop"),
     "/": Spelling("/", "binop"),
     "quot": Spelling("//", "binop"),  # integer division, rounding down
+    "mod": Spelling("%", "binop"),  # its remainder, with the divisor's sign
 }
 
 BOOL: Spellings = {
@@ -141,7 +143,7 @@ COLLECTION: Spellings = {
     # Rendered as ``coll[i]``, which mypy types precisely (``t[0]`` of a ``tuple[str, int]``
     # is a ``str``); ``primitives.at`` would type it as the join of the element types.
     "at": Spelling(f"{PRIMITIVES_MODULE}.at", "index"),
-    "slice": Spelling(f"{PRIMITIVES_MODULE}.slice_", "slice"),
+    "slice": primitive("slice_"),
     "join": primitive("join"),
     "is-coll": primitive("is_coll"),
     "to-list": primitive("to_list"),

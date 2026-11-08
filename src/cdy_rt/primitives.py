@@ -22,6 +22,7 @@ import itertools
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
+from types import TracebackType
 from typing import Any, NoReturn, cast
 
 # Where ``slurp`` looks for a Candy file that isn't found at the given path.
@@ -112,9 +113,17 @@ def show_items(head: str, items: Sequence[str]) -> str:
 
 
 def show_float(x: float) -> str:
-    """A float as Candy writes it, digits on both sides of its ``.`` (Python's ``repr``
-    where Candy has no literal: ``1e+20``, ``inf``)."""
-    return repr(x)
+    """A float as Candy writes it, digits on both sides of its ``.`` and an exponent with
+    no ``+`` or leading zeros (``1.0e20``, ``1.5e-5``); Python's ``repr`` for ``inf`` and
+    ``nan``, which have no literal."""
+    text = repr(x)
+    if "e" not in text:
+        return text
+    mantissa, exponent = text.split("e")
+    if "." not in mantissa:
+        mantissa += ".0"
+    sign = "-" if exponent.startswith("-") else ""
+    return f"{mantissa}e{sign}{exponent.lstrip('+-').lstrip('0') or '0'}"
 
 
 def show_string(text: str) -> str:
@@ -173,13 +182,20 @@ _SHOW_BUILT: dict[str, Callable[[Any, tuple[ShowType, ...]], str]] = {
 
 
 def at[T](coll: Sequence[T], i: int) -> T:
-    """The item at index ``i``."""
-    return coll[i]
+    """The item at index ``i``, which must be ``0 <= i < len(coll)`` (spec/60-library.md,
+    library.bounds): a negative index doesn't count from the end."""
+    if 0 <= i < len(coll):
+        return coll[i]
+    raise CandyFail(f"at: index out of range: {i}, for length {len(coll)}")
 
 
-def slice_[T](coll: Sequence[T], i: int, j: int) -> Sequence[T]:
-    """Items ``i`` up to (not including) ``j``."""
-    return coll[i:j]
+def slice_[S: Sequence[Any]](coll: S, i: int, j: int) -> S:
+    """Items ``i`` up to (not including) ``j``, which must be ``0 <= i <= j <= len(coll)``:
+    neither counts from the end, and the slice isn't cut short. A string's slice is a
+    string, a tuple's a tuple."""
+    if 0 <= i <= j <= len(coll):
+        return cast(S, coll[i:j])
+    raise CandyFail(f"slice: index out of range: {i} to {j}, for length {len(coll)}")
 
 
 def join(coll: Sequence[str], delim: str) -> str:
@@ -471,12 +487,30 @@ def path_resolve(path: str) -> str:
 
 
 class CandyFail(Exception):
-    """Raised by ``fail``: a Candy program (such as the self-hosted translator) gave up."""
+    """Raised by ``fail`` and the bounds checks: a panic, which a Candy program can't catch
+    (spec/60-library.md, library.errors)."""
 
 
 def fail(msg: str) -> NoReturn:
-    """Stop with the error ``msg`` (Candy has no exceptions yet)."""
+    """Panic with the message ``msg``: the program stops."""
     raise CandyFail(msg)
+
+
+def panic_hook(kind: type[BaseException], err: BaseException, trace: TracebackType | None) -> None:
+    """``sys.excepthook`` for a Candy program: a panic nothing caught (a ``fail``, or an
+    index out of range, which is Python's ``IndexError`` for ``xs[0]``) prints ``candy:
+    <message>``, and Python then exits with 1; any other error keeps Python's traceback
+    (*for now*: B160)."""
+    if issubclass(kind, (CandyFail, IndexError)):
+        print(f"candy: {err}", file=sys.stderr)
+    else:
+        sys.__excepthook__(kind, err, trace)
+
+
+def stop_on_panic() -> None:
+    """Make a panic stop the program with its message, not a traceback (``panic_hook``);
+    every translated program calls it first."""
+    sys.excepthook = panic_hook
 
 
 def get_args() -> tuple[str, ...]:

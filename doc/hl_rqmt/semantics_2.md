@@ -1,6 +1,6 @@
 # Semantics, part 2 (HLD)
 
-**Status: accepted (2026-11-06; proposed 2026-11-04), for branch `semantics-2`. Epic: `python_complete.md`
+**Status: done (2026-11-07), steps 1 to 5 (tag `semantics-2`). Accepted 2026-11-06; proposed 2026-11-04, for branch `semantics-2`. Epic: `python_complete.md`
 (its second branch, continued). After tag `semantics`.** Steps 6 to 9 of
 `semantics.md`, moved here at its checkpoint (its Question 1): numbers, `at` and
 `slice`, a `def`'s order, and errors. Their design was decided there (its Questions 4,
@@ -107,12 +107,114 @@ changes `system.cdy` or the prelude stages the library next to `bin` before buil
 
 1. **Numbers** ([[B145]]; [[B23]], [[B22]]): `/` on floats, `mod`, literal ranges; with Question
    1's [[B153]] and [[B151]].
+
+   *Done (2026-11-06). As built:* `infer-op` (`src/cdy/check.cdy`) gives `/` a float
+   type (`FLOATS`), `quot` and `mod` an integer type (`INTEGERS`), and the orderings a
+   number type, `String` or `Char`, each `needs-kind`'s error (`/: expected a Float or
+   Double, got Int`); `mod` is declared in `special.cdy` and spelt `%` in `spelling.py`.
+   The reader (`read.cdy`) checks a literal's range in `number-form` (`number-range`, the
+   bounds written as `to-int` and `to-float` of strings, so that the translator's own
+   source has no literal it can't read), a parse error `300b is out of range: a Byte is 0
+   to 255`; and reads an exponent (`exponent-end`: `e`, an optional `-`, digits, after
+   the fraction), so [[B151]]'s fix is `show_float` (`primitives.py`) writing Python's
+   `1e+20` as `1.0e20`. Infinity, not-a-number and `(/ 1.0 0.0)`, which fails on Python,
+   are a new item, [[B158]]. The spec: `expr.arithmetic`, `expr.equality`,
+   `checking.operators`, `syntax.numbers` (the sizes, now with a run example and the range
+   errors), `types.table` and `library.show`; [[B22]] is reworded to what remains. One
+   boot step, `boot/53`: the translator used no `/`, no `quot` on a float and no
+   ordering on anything but numbers and strings.
 2. **`at` and `slice`** ([[B146]]; [[B35]], [[B71]]): bounds checked, the cost measured on the
    translator's build; with [[B150]].
+
+   *Done (2026-11-06). As built:* the runtime's `at` and `slice_` (`primitives.py`)
+   check `0 <= i < len` and `0 <= i <= j <= len`, failing with `at: index out of range:
+   -1, for length 2` (`CandyFail`, until step 4's panics); `slice_` is typed by its
+   argument (`S: Sequence[Any]`), so a string's slice stays a `str`. `emit-prim-call`
+   (`emit.cdy`) writes `xs[0]` for an `at` on a literal index that can't be negative
+   (`is-index-literal`), whose `IndexError` covers the high side, and the helper for the
+   rest; the `slice` spelling kind is gone (`slice` is a call). The spec's runner got a
+   `candy panic` block (`expect-panic`, in stderr; `spec/README.md`), for the new rule,
+   `library.bounds`. **What the checks found:** the translator relied on cut-short
+   slices in two ways, a slice to the end of a list shorter than its start (`(slice
+   items 2 (len items))`, eight of them, now `drop` and `take`, and the prelude's `rest`
+   and `form.cdy`'s `rest-of` on an empty list, now `(drop 1 xs)`, so `rest` of the
+   empty list is empty, `library.rest`), and `py-mangle`'s `(slice out 0 5)` on a
+   shorter name (now `starts-with`). No `at` was out of range. [[B150]]: `show-type`
+   (`holds-fn`, over a new `Env` field, `fields`) and the checker's `has-fn`
+   (`fields-have-fn`) look into fields and variants, with the types seen so far.
+   **The cost** (Question 3): the translator translating itself took 0.75 s before this
+   step and 0.88 s after (five runs each, `bin` on `cdyc.cdy`); with the checks swapped
+   for plain subscripts, 0.84 s: the checks are 0.05 s, about 6%, for 1.8 million `at`
+   and 0.2 million `slice` calls, and the rest is the step's other changes. One boot
+   step, `boot/54`. In review the owner kept `rest` of the empty list empty, and
+   `library.bounds` now lists the functions that stop at a list's end (`take`, `drop`,
+   `rest`, `zip`, `range`, `repeat`); two string built-ins that still read Python's
+   negative indexes are [[B159]].
 3. **`def` order** ([[B147]]; [[B31]]).
+
+   *Done (2026-11-06). As built:* a pass after the type check, `check-order`
+   (`check.cdy`, "def order"), runs over the whole program's tops in the order Python
+   runs them (the imports' first), with the names defined so far. A `def`'s initial value
+   and a top-level expression (`(put y)` runs at the start too, which the HLD's wording
+   left out) are checked: each global they use (`uses`, a `fn` in them counted as
+   called) must be defined already, and so must each global reached through the bodies
+   of the functions among them (`reach`, with the names seen, so a cycle ends). Not only
+   values: a function used at the start must be defined too, and a record's or variant's
+   constructor (a Python class, defined where its `deft` is), so the errors say which
+   (`g is used before its defn`, `A is used before its deft`), and name the function a
+   reached name came through (`y is used before its def, through f`), at the use in the
+   initial value. A function's body still uses any name. The spec: `programs.def-order`
+   (new), and `types.sig`'s *for now* gone. The translator was in order already; the
+   check costs about 4% of its build (0.88 s to 0.92 s). One boot step, `boot/55`.
 4. **Errors** ([[B148]]; [[B39]]): `fail` a panic, `Result` in the prelude.
+
+   *Done (2026-11-06). As built:* a panic, a `fail` or an index out of range, stops the
+   program with `candy: ` and its message on standard error, and exit status 1, with or
+   without `main`: every translated program first calls the runtime's `stop_on_panic`
+   (`python-of` in `cdyc.cdy`), which makes `panic_hook` Python's `sys.excepthook`. The
+   hook takes `CandyFail` and `IndexError` (an `(at xs 0)` is `xs[0]`); any other Python
+   error keeps its traceback, so a bug in the translator still shows where it is (a
+   division by zero, a missing map key: [[B160]], with `IndexError`'s Python words). A
+   `main`'s panics were already `candy: ` messages (`run_main`); they are unchanged, and
+   so is the runtime's `CandyFail`, now a panic's class. The prelude has `(deft (Result a
+   e) (Ok ((v a))) (Err ((err e))))`; nothing in the translator or the tests used the
+   names. The spec's new rule is `library.errors` (`60-library.md`), and the runner's
+   `candy panic` checks there is no traceback. One boot step, `boot/56`.
 5. **Docs** ([[B157]]): CLAUDE.md, `semantics.md` (a pointer to here), the epic's second branch
    *done*, `multi_target.md` (sizes, panics); "Looking back".
+
+   *Done (2026-11-07). As built:* CLAUDE.md's history (the branch), literals (the sizes,
+   exponents), the prelude (`Result`), errors (a panic, `stop_on_panic`), type checking
+   (`check-order`) and the spec's `candy panic` blocks; `semantics.md`'s step 9 points
+   here; `python_complete.md`'s second branch is done; `multi_target.md`'s open
+   language-level questions are decided in part (the sizes, `/`, panics; overflow and
+   `Float` still [[B22]]'s); the iMVP doc's open number questions get a *since* note.
+   The spec's new rules came with their steps.
+
+## Looking back
+
+What steps 1 to 4 taught, and what a later branch will meet again:
+
+- **A check finds what the program relied on,** not only bugs. Bounds-checked `slice`
+  (step 2) found the translator cutting slices short in eleven places, and `rest` of
+  the empty list empty by accident, now by the spec ([[library.rest]]); the `def`-order
+  check (step 3) found the translator already in order. A borrowed meaning is used
+  without anyone choosing to.
+- **Strict or lenient is per built-in,** and the spec must list which: `at` and `slice`
+  panic, while `take`, `drop`, `rest`, `zip`, `range` and `repeat` stop at the ends
+  ([[library.bounds]]). Listing them found two string built-ins still reading Python's
+  negative indexes ([[B159]]).
+- **Measure, then decide:** the checks cost about 6% of the translator's build (step
+  2's `at` and `slice`) and 4% (step 3's order check), and with the numbers the owner
+  kept the check on every index (Question 3, *lasting*).
+- **A panic is the host's exception,** so each target catches its own: on Python a hook
+  (`stop_on_panic`) for the panics Candy defines, and Python's other errors still show
+  through ([[B160]]). The spec's runner needed a third outcome beside running and
+  failing to translate, `candy panic`, and a later one needs [[B139]]'s catch or a
+  process per example.
+- **The operators' kind lists are type classes by hand** (step 1's `INTEGERS`,
+  `FLOATS`, `ORDERED` in `check.cdy`): each new rule on numbers adds one; [[B124]]'s
+  constraint variables, in `collections`, replace them.
 
 ## Questions
 
@@ -132,3 +234,5 @@ changes `system.cdy` or the prelude stages the library next to `bin` before buil
    slower, keep it, or check only where the index isn't a literal or a loop's counter?
    **Proposed: measure in step 2, and decide there** with the numbers (the literal case
    is exempt already). *Answer (2026-11-06, the owner): as proposed.*
+   *Decided (2026-11-06, the owner), with step 2's numbers (the checks about 6% of the
+   translator's build): the check stays on every index,* *lasting*.

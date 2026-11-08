@@ -42,23 +42,34 @@ prints them with a space between.
 <a id="expr.arithmetic"></a>
 ## Operators
 
-The operators are declared in `src/cdy/special.cdy`. `+`, `-`, `*`, `/` and `quot` take
-two or more arguments and fold left; `+` also joins strings, and lists. Their arguments
-have one type, and the number types don't mix ([[checking.operators]]). `/` divides into a
-`Double` (*for now*, Python's: [[B23]]), and `quot` divides whole numbers rounding down,
-toward minus infinity, as Haskell's `div` and Python's `//` do (*lasting*: [[B24]]; a
-target whose division truncates spells it otherwise). There is no unary minus: a
-negative number is a literal (`-5`), and `(- 0 x)` negates (*lasting*: [[B33]]).
+The operators are declared in `src/cdy/special.cdy`. `+`, `-`, `*`, `/`, `quot` and
+`mod` take two or more arguments and fold left; `+` also joins strings, and lists. Their
+arguments have one type, and the number types don't mix ([[checking.operators]]). `/`
+divides a `Float` or `Double`, giving the same type, *lasting* (`(/ 7 2)` is an error).
+`quot` divides whole numbers rounding down, toward minus infinity, as Haskell's `div` and
+Python's `//` do (*lasting*: [[B24]]; a target whose division truncates spells it
+otherwise), and `mod` is its remainder, so that `a` is `(+ (* b (quot a b)) (mod a b))`:
+it takes `b`'s sign, as Haskell's `mod` (*lasting*). There is no unary minus: a negative
+number is a literal (`-5`), and `(- 0 x)` negates (*lasting*: [[B33]]). Overflow isn't
+checked (*for now*: [[B22]]; [[syntax.numbers]] has the sizes).
 
 ```candy run
 (put (- 10 2 3) (* 2 3 4) (+ "a" "b" "c"))
-(put (/ 7 2) (quot 7 2) (quot -7 2))
+(put (/ 7.0 2.0) (/ 1.0f 4.0f) (quot 7 2) (quot -7 2))
+(put (mod 7 2) (mod -7 2) (mod 7 -2) (mod 7l 4l))
 (put (len (+ (to-list 1) (to-list 2))))
 ```
 ```expect
 5 24 abc
-3.5 3 -4
+3.5 0.25f 3 -4
+1 1 -1 3l
 2
+```
+
+```candy errors
+(put (/ 7 2)) => /: expected a Float or Double, got Int
+(put (quot 7.0 2.0)) => quot: expected an Int, Long or Byte, got Double
+(put (mod 1.0f 2.0f)) => mod: expected an Int, Long or Byte, got Float
 ```
 
 <a id="expr.comparisons"></a>
@@ -83,9 +94,10 @@ yes no yes yes
 *lasting*: two lists with equal items, two tuples, two records of one type with equal
 fields, two maps with equal pairs; two variants only if they are the same variant, with
 equal fields. `Float`s and `Double`s compare as IEEE 754 does (`0.0` is `-0.0`).
-Functions can't be compared, nor values holding one (a list of functions): an error when
-translated (a function inside a record isn't seen yet: [[B150]]). Ordering (`<` and the
-rest) on anything but numbers and strings is Python's, *for now* ([[B153]]).
+Functions can't be compared, nor values holding one (a list of functions, or a record or
+variant with one among its fields): an error when translated. Ordering (`<` and the
+rest) is only for numbers, `String`s (by their characters' code points, as a `Char`) and
+`Char`s ([[checking.operators]]).
 
 ```candy run
 (deft S (A ((x Int))) (B ((x Int))) (C))
@@ -105,6 +117,7 @@ true b
 ```candy errors
 (sig f (Fn (Int) Int)) (defn f (n) n) (put (= f f)) => =: a function can't be compared, got (Fn (Int) Int)
 (sig fs (List (Fn (Int) Int))) (def fs empty-list) (put (!= fs fs)) => !=: a function can't be compared
+(deft F ((f (Fn (Int) Int)))) (deft S (A ((f F))) (B)) (put (= B B)) => =: a function can't be compared, got S
 ```
 
 <a id="expr.logic"></a>

@@ -5,6 +5,8 @@ A spec file's fenced blocks are its examples:
 - ``candy run``, then ``expect``: the program's output must be the ``expect`` block;
 - ``candy error``, then ``expect-error``: translating it must fail, with a message that
   contains the ``expect-error`` text;
+- ``candy panic``, then ``expect-panic``: it must translate, and running it must fail,
+  with the ``expect-panic`` text in what it writes to stderr;
 - ``candy errors``: one error example per line, ``source => message``, after any setup
   lines ended by a ``---`` line (one per table), which go before each row's source and
   must translate on their own;
@@ -49,13 +51,21 @@ class SpecError(Exception):
 
 
 class Example(NamedTuple):
-    """An example: a program, and its output (``run``) or part of its message (``error``);
-    a ``setup`` (an error table's) has no expected text, and must translate."""
+    """An example: a program, and its output (``run``) or part of its message (``error``,
+    ``panic``); a ``setup`` (an error table's) has no expected text, and must translate."""
 
-    kind: Literal["run", "error", "setup"]
+    kind: Literal["run", "error", "panic", "setup"]
     source: str
     expected: str
     line: int
+
+
+# The blocks an expect block follows, and the kind of example they make.
+PAIRS: dict[str, Literal["run", "error", "panic"]] = {
+    "candy run": "run",
+    "candy error": "error",
+    "candy panic": "panic",
+}
 
 
 def examples(text: str, name: str) -> tuple[Example, ...]:
@@ -64,17 +74,16 @@ def examples(text: str, name: str) -> tuple[Example, ...]:
     pending: Block | None = None
     for block in blocks(text):
         if pending is not None:
-            want = "expect" if pending.info == "candy run" else "expect-error"
+            kind = PAIRS[pending.info]
+            want = "expect" if kind == "run" else f"expect-{kind}"
             if block.info != want:
                 raise SpecError(f"{name}:{pending.line}: {pending.info} needs {want} after it")
-            if want == "expect":
-                found = (*found, Example("run", pending.text, block.text, pending.line))
-            else:
-                found = (*found, Example("error", pending.text, block.text.strip(), pending.line))
+            expected = block.text if kind == "run" else block.text.strip()
+            found = (*found, Example(kind, pending.text, expected, pending.line))
             pending = None
-        elif block.info in ("candy run", "candy error"):
+        elif block.info in PAIRS:
             pending = block
-        elif block.info in ("expect", "expect-error"):
+        elif block.info in ("expect", "expect-error", "expect-panic"):
             raise SpecError(f"{name}:{block.line}: {block.info} with no example before it")
         elif block.info == "candy errors":
             found = (*found, *error_table(block, name))
@@ -158,6 +167,14 @@ def test_error(example: Example, t1: ModuleType) -> None:
         translate_with(t1, example.source)
 
 
+@pytest.mark.parametrize("example", cases("panic"))
+def test_panic(example: Example, t1: ModuleType, tmp_path: Path) -> None:
+    done = run(translate_with(t1, example.source), tmp_path)
+    assert done.returncode != 0, done.stdout
+    assert example.expected in done.stderr
+    assert "Traceback" not in done.stderr, done.stderr
+
+
 @pytest.mark.parametrize("example", cases("setup"))
 def test_setup(example: Example, t1: ModuleType) -> None:
     translate_with(t1, example.source)
@@ -205,12 +222,14 @@ def test_examples_pair_up() -> None:
         "```candy run\n(put 1)\n```\n```expect\n1\n```\n"
         "```candy error\n(put x)\n```\n```expect-error\nunknown name x\n```\n"
         "```candy errors\n(put y) => unknown name y\n\n(put ()) => empty form\n```\n"
+        "```candy panic\n(put (at (List) 0))\n```\n```expect-panic\nIndexError\n```\n"
     )
     assert examples(text, "t.md") == (
         Example("run", "(put 1)\n", "1\n", 1),
         Example("error", "(put x)\n", "unknown name x", 7),
         Example("error", "(put y)", "unknown name y", 14),
         Example("error", "(put ())", "empty form", 16),
+        Example("panic", "(put (at (List) 0))\n", "IndexError", 18),
     )
 
 
@@ -228,10 +247,21 @@ def test_error_table_setup() -> None:
         ("```candy run\n(put 1)\n```\n```candy\nx\n```\n", "t.md:1: candy run needs expect"),
         ("```expect\n1\n```\n", "t.md:1: expect with no example before it"),
         ("```candy error\n(put x)\n```\n", "t.md:1: candy error at the end"),
+        (
+            "```candy panic\n(put 1)\n```\n```expect\n1\n```\n",
+            "t.md:1: candy panic needs expect-panic",
+        ),
         ("```candy errors\n(put x)\n```\n", "t.md:2: expected source => message"),
         ("```candy errors\n(def a 1)\n---\n---\n```\n", "t.md:4: a second ---"),
     ],
-    ids=["no-expect", "orphan-expect", "unclosed-pair", "bad-row", "second-separator"],
+    ids=[
+        "no-expect",
+        "orphan-expect",
+        "unclosed-pair",
+        "panic-no-expect",
+        "bad-row",
+        "second-separator",
+    ],
 )
 def test_examples_that_dont_pair_up(text: str, message: str) -> None:
     with pytest.raises(SpecError, match=re.escape(message)):
