@@ -103,7 +103,6 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ),
         ('(put (format "a\n  {(f 1)}"))', "lib/b.cdy:2:5: unknown name f"),
         ('(put\n  (format "{x"))', "lib/b.cdy:2:3: format: unmatched {"),
-        ("(put\n  (fold + 0 (tup 1)))", "lib/b.cdy:2:9: the operator + can't be used as a value"),
     ],
 )
 def test_errors_say_where(

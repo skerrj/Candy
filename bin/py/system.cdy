@@ -138,8 +138,9 @@
 (sig isspace-at (Fn (String Int) Bool))
 (sig isspace (Fn (String) Bool))
 
-;; --- the spellings, for the translator (each built-in's Python text and kind) ---
-(sig py-spellings (Map String (Tup String String)))
+;; --- the spellings, for the translator (each built-in's Python text and kind, and an
+;; operator's function as a value) ---
+(sig py-spellings (Map String (Tup String String String)))
 
 ;; --- macros, for the translator (the macros are Python functions on Forms) ---
 (sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))

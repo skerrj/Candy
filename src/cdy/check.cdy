@@ -321,8 +321,7 @@
 (defn callee-typed (callee r)
   (Res (get r t) (typed callee (get (as-value r) t) (get r st))))
 
-;; A built-in as a value: its type, instantiated; an operator is Any (it isn't a function
-;; Candy can type: it takes any number of arguments).
+;; A built-in as a value: its type, instantiated (an operator's too: system.cdy).
 (sig prim-type (Fn (String Ctx St) Res))
 (defn prim-type (name ctx st)
   (if (map-has (get ctx builtins) name)

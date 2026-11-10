@@ -28,6 +28,88 @@ from typing import Any, NoReturn, cast
 # Where ``slurp`` looks for a Candy file that isn't found at the given path.
 SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 
+# --- the operators as values (spec/40-expressions.md, expr.operator-values) ---
+
+# An operator used as a value is the function of its two arguments (one for ``not``), each
+# typed as its Candy ``sig`` (system.cdy) with the constraint variable a constrained type
+# variable; a call is still Python's operator (spelling.py).
+
+
+def add[T: (int, float, str, tuple[Any, ...])](a: T, b: T) -> T:
+    """``+``: numbers, strings or lists (``addable``)."""
+    return a + b
+
+
+def sub[T: (int, float)](a: T, b: T) -> T:
+    """``-``."""
+    return a - b
+
+
+def mul[T: (int, float)](a: T, b: T) -> T:
+    """``*``."""
+    return a * b
+
+
+def div(a: float, b: float) -> float:
+    """``/``, on a ``Float`` or ``Double``."""
+    return a / b
+
+
+def quot(a: int, b: int) -> int:
+    """``quot``: rounding down."""
+    return a // b
+
+
+def mod(a: int, b: int) -> int:
+    """``mod``: with the divisor's sign."""
+    return a % b
+
+
+def eq[T](a: T, b: T) -> bool:
+    """``=``: by structure and class (each record's and variant's ``__eq__``)."""
+    return a == b
+
+
+def ne[T](a: T, b: T) -> bool:
+    """``!=``."""
+    return a != b
+
+
+def lt[T: (int, float, str)](a: T, b: T) -> bool:
+    """``<``."""
+    return a < b
+
+
+def gt[T: (int, float, str)](a: T, b: T) -> bool:
+    """``>``."""
+    return a > b
+
+
+def le[T: (int, float, str)](a: T, b: T) -> bool:
+    """``<=``."""
+    return a <= b
+
+
+def ge[T: (int, float, str)](a: T, b: T) -> bool:
+    """``>=``."""
+    return a >= b
+
+
+def and_(a: bool, b: bool) -> bool:
+    """``and``: both arguments are values already, so nothing is left to short-circuit."""
+    return a and b
+
+
+def or_(a: bool, b: bool) -> bool:
+    """``or``."""
+    return a or b
+
+
+def not_(a: bool) -> bool:
+    """``not``."""
+    return not a
+
+
 # --- showing values (spec/60-library.md, library.show) ---
 
 # A type as ``show`` reads it, written by the translator from the value's static type: a

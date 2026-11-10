@@ -2163,12 +2163,12 @@ def core__is_special(name: str, builtins: _cdy_Mapping[str, core__Builtin]) -> b
         _cdy_t35 = _cdy_t33
     return _cdy_t35
 
-def core__read_builtins(decls: tuple[form__Form, ...], sigs: tuple[form__Form, ...], spellings: _cdy_Mapping[str, tuple[str, str]]) -> _cdy_Mapping[str, core__Builtin]:
+def core__read_builtins(decls: tuple[form__Form, ...], sigs: tuple[form__Form, ...], spellings: _cdy_Mapping[str, tuple[str, str, str]]) -> _cdy_Mapping[str, core__Builtin]:
     builtins = core__read_sigs(sigs, spellings, core__read_decls(decls, spellings, {}))
     checked = core__all_declared(cdy_rt.primitives.map_keys(spellings), builtins)
     return builtins
 
-def core__spelling_kind(spellings: _cdy_Mapping[str, tuple[str, str]], name: str) -> str:
+def core__spelling_kind(spellings: _cdy_Mapping[str, tuple[str, str, str]], name: str) -> str:
     if cdy_rt.primitives.map_has(spellings, name):
         return cdy_rt.primitives.map_get(spellings, name)[1]
     else:
@@ -2178,7 +2178,7 @@ core__TYPED_KINDS: tuple[str, ...] = ('call', 'value', 'index')
 core__OPERATOR_KINDS: tuple[str, ...] = ('binop', 'compare', 'boolop', 'unary')
 core__TYPE_KINDS: tuple[str, ...] = ('type',)
 
-def core__read_decls(forms: tuple[form__Form, ...], spellings: _cdy_Mapping[str, tuple[str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
+def core__read_decls(forms: tuple[form__Form, ...], spellings: _cdy_Mapping[str, tuple[str, str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
     while True:
         if (len(forms) == 0):
             return acc
@@ -2206,7 +2206,7 @@ def core__kinds_of(class_: str) -> tuple[str, ...]:
     else:
         return core__TYPED_KINDS
 
-def core__read_sigs(forms: tuple[form__Form, ...], spellings: _cdy_Mapping[str, tuple[str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
+def core__read_sigs(forms: tuple[form__Form, ...], spellings: _cdy_Mapping[str, tuple[str, str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
     while True:
         if (len(forms) == 0):
             return acc
@@ -2229,7 +2229,7 @@ def core__read_sigs(forms: tuple[form__Form, ...], spellings: _cdy_Mapping[str, 
                 forms, acc = (prelude__rest(forms), cdy_rt.primitives.map_set(acc, name, core__Typed(core__analyse_type(items[2]))))
                 continue
 
-def core__read_type(form: form__Form, items: tuple[form__Form, ...], where: str, spellings: _cdy_Mapping[str, tuple[str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
+def core__read_type(form: form__Form, items: tuple[form__Form, ...], where: str, spellings: _cdy_Mapping[str, tuple[str, str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
     header = (items[1] if (len(items) == 2) else form)
     _cdy_t37: object = header
     if isinstance(_cdy_t37, form__Sym):
@@ -3778,7 +3778,7 @@ class emit__Env(_cdy_NamedTuple):
     locals_: _cdy_Mapping[int, str]
     taken: _cdy_Mapping[str, bool]
     generic: _cdy_Mapping[str, tuple[str, ...]]
-    spellings: _cdy_Mapping[str, tuple[str, str]]
+    spellings: _cdy_Mapping[str, tuple[str, str, str]]
     narrowed: _cdy_Mapping[int, tuple[str, tuple[str, ...]]]
     fields: _cdy_Mapping[str, tuple[core__CType, ...]]
     def __eq__(self, other: object) -> bool:
@@ -3787,7 +3787,7 @@ class emit__Env(_cdy_NamedTuple):
         return not self == other
     def __hash__(self) -> int:
         return hash((type(self), tuple(self)))
-cdy_rt.primitives.register_type(emit__Env, 'Env', (), (('Map', 'String', 'String'), ('Map', 'Int', 'String'), ('Map', 'String', 'Bool'), ('Map', 'String', ('List', 'String')), ('Map', 'String', ('Tup', 'String', 'String')), ('Map', 'Int', ('Tup', 'String', ('List', 'String'))), ('Map', 'String', ('List', 'core__CType'))))
+cdy_rt.primitives.register_type(emit__Env, 'Env', (), (('Map', 'String', 'String'), ('Map', 'Int', 'String'), ('Map', 'String', 'Bool'), ('Map', 'String', ('List', 'String')), ('Map', 'String', ('Tup', 'String', 'String', 'String')), ('Map', 'Int', ('Tup', 'String', ('List', 'String'))), ('Map', 'String', ('List', 'core__CType'))))
 emit__HEADER: str = 'from __future__ import annotations\n\nfrom collections.abc import Callable as _cdy_Callable, Mapping as _cdy_Mapping\nfrom typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_cast\n'
 
 def emit__comma_join(strs: tuple[str, ...]) -> str:
@@ -4337,8 +4337,10 @@ def emit__emit_prim(name: str, pos: form__Pos, t: core__CType, env: emit__Env) -
             return cdy_rt.primitives.fail((form__pos_text(pos) + "show: its type isn't known here"))
     elif cdy_rt.primitives.in_(core__spelling_kind(env.spellings, name), core__TYPED_KINDS):
         return cdy_rt.primitives.map_get(env.spellings, name)[0]
+    elif (cdy_rt.primitives.map_get(env.spellings, name)[2] != ''):
+        return cdy_rt.primitives.map_get(env.spellings, name)[2]
     else:
-        return cdy_rt.primitives.fail((form__pos_text(pos) + ('the operator ' + name + " can't be used as a value yet; wrap it in a fn")))
+        return cdy_rt.primitives.fail((form__pos_text(pos) + ('the operator ' + name + " can't be used as a value, for now; wrap it in a fn")))
 
 def emit__emit_call(callee: core__Expr, args: tuple[core__Expr, ...], env: emit__Env) -> str:
     strs = emit__emit_exprs(args, env, ())
@@ -4411,7 +4413,7 @@ def emit__emit_types(types: tuple[core__CType, ...], env: emit__Env, acc: tuple[
             types, acc = (prelude__rest(types), (acc + cdy_rt.primitives.to_list(emit__emit_type(types[0], env))))
             continue
 
-def emit__emit_tcon(name: str, args: tuple[str, ...], spellings: _cdy_Mapping[str, tuple[str, str]]) -> str:
+def emit__emit_tcon(name: str, args: tuple[str, ...], spellings: _cdy_Mapping[str, tuple[str, str, str]]) -> str:
     if (cdy_rt.primitives.map_has(spellings, name) and (cdy_rt.primitives.map_get(spellings, name)[1] == 'type')):
         return cdy_rt.primitives.replace(cdy_rt.primitives.map_get(spellings, name)[0], '{}', emit__comma_join(args))
     elif (name == 'Tup'):

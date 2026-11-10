@@ -177,6 +177,31 @@ Each operator takes the number of arguments its type says: two or more, a rest p
 (put (not 1 2)) => (not ...) takes 1 argument(s), got 2
 ```
 
+<a id="expr.operator-values"></a>
+**An operator as a value** (since `collections`) is its function of two arguments, the
+ones before its rest parameter ([[expr.rest]]), and `not` of one: `+` is an `(Fn (addable
+addable) addable)` ([[checking.operators]]), so `(fold + 0 xs)` adds. `and` and `or` as
+values evaluate both arguments, as any function does; only a call written out
+short-circuits. `=` and `!=` as values are `(Fn (a a) Bool)`, which doesn't keep `a` off
+functions, as a generic function's `=` doesn't either (*for now*: [[B173]]).
+
+```candy run
+(put (fold + 0 (List 1 2 3)) (fold * 1.0 (List 2.0 3.0)) (fold + "" (List "a" "b")))
+(put (fold quot 100 (List 2 5)) (fold and true (List true false)) (map not (List true false)))
+(sig check (Fn ((Fn (Int Int) Bool) Int Int) Bool))
+(defn check (f a b) (f a b))
+(put (check < 1 2) (check >= 1 2) (check = 2 2) (check != 2 2) (let ((plus +)) (plus 1 2)))
+```
+```expect
+6 6.0 ab
+10 false (List false true)
+true false true false 3
+```
+
+```candy errors
+(put (map + (List 1))) => got (Fn (addable addable) addable)
+```
+
 <a id="expr.conditionals"></a>
 ## do, if and cond
 

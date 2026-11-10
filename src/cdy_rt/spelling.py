@@ -42,10 +42,13 @@ Kind = Literal["binop", "compare", "boolop", "unary", "call", "value", "index", 
 
 
 class Spelling(NamedTuple):
-    """What one Candy symbol translates to."""
+    """What one Candy symbol translates to: an operator's ``value`` is the Python function
+    it is as a value (``(fold + 0 xs)``; spec/40-expressions.md, expr.operator-values), or
+    ``""`` if it can't be one."""
 
     py: str
     kind: Kind
+    value: str = ""
 
 
 Spellings = Mapping[str, Spelling]
@@ -64,6 +67,12 @@ def primitive(name: str) -> Spelling:
 def value(py: str) -> Spelling:
     """An entry for a Python expression used as a value."""
     return Spelling(py, "value")
+
+
+def operator(py: str, kind: Kind, name: str = "") -> Spelling:
+    """An operator's entry: ``py`` infix (or prefix), and as a value the primitive
+    ``name`` in ``primitives.py`` (none if ``name`` is empty)."""
+    return Spelling(py, kind, f"{PRIMITIVES_MODULE}.{name}" if name else "")
 
 
 def type_(py: str) -> Spelling:
@@ -93,24 +102,24 @@ MATH: Spellings = {
     "sin": call("math.sin"),
     "cos": call("math.cos"),
     "tan": call("math.tan"),
-    "+": Spelling("+", "binop"),
-    "-": Spelling("-", "binop"),
-    "*": Spelling("*", "binop"),
-    "/": Spelling("/", "binop"),
-    "quot": Spelling("//", "binop"),  # integer division, rounding down
-    "mod": Spelling("%", "binop"),  # its remainder, with the divisor's sign
+    "+": operator("+", "binop", "add"),
+    "-": operator("-", "binop", "sub"),
+    "*": operator("*", "binop", "mul"),
+    "/": operator("/", "binop", "div"),
+    "quot": operator("//", "binop", "quot"),  # integer division, rounding down
+    "mod": operator("%", "binop", "mod"),  # its remainder, with the divisor's sign
 }
 
 BOOL: Spellings = {
-    "=": Spelling("==", "compare"),
-    "!=": Spelling("!=", "compare"),
-    "<": Spelling("<", "compare"),
-    ">": Spelling(">", "compare"),
-    "<=": Spelling("<=", "compare"),
-    ">=": Spelling(">=", "compare"),
-    "and": Spelling("and", "boolop"),
-    "or": Spelling("or", "boolop"),
-    "not": Spelling("not", "unary"),
+    "=": operator("==", "compare", "eq"),
+    "!=": operator("!=", "compare", "ne"),
+    "<": operator("<", "compare", "lt"),
+    ">": operator(">", "compare", "gt"),
+    "<=": operator("<=", "compare", "le"),
+    ">=": operator(">=", "compare", "ge"),
+    "and": operator("and", "boolop", "and_"),
+    "or": operator("or", "boolop", "or_"),
+    "not": operator("not", "unary", "not_"),
     "nil": value("None"),
 }
 

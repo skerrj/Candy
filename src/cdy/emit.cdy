@@ -18,7 +18,7 @@
    (locals (Map Int String))
    (taken (Map String Bool))
    (generic (Map String (List String)))
-   (spellings (Map String (Tup String String)))
+   (spellings (Map String (Tup String String String)))
    (narrowed (Map Int (Tup String (List String))))
    (fields (Map String (List CType)))))
 
@@ -513,7 +513,9 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
         ((TFn params _) (format "(lambda _cdy_x: {(show-call \"_cdy_x\" (at params 0) pos env)})"))
         (else (fail (+ (pos-text pos) "show: its type isn't known here")))))
     ((in (spelling-kind (get env spellings) name) TYPED_KINDS) (at (map-get (get env spellings) name) 0))
-    (else (fail (+ (pos-text pos) (format "the operator {name} can't be used as a value yet; wrap it in a fn"))))))
+    ;; An operator as a value is its function (spelling.py; expr.operator-values).
+    ((!= (at (map-get (get env spellings) name) 2) "") (at (map-get (get env spellings) name) 2))
+    (else (fail (+ (pos-text pos) (format "the operator {name} can't be used as a value, for now; wrap it in a fn"))))))
 
 (sig emit-call (Fn (Expr (List Expr) Env) String))
 (defn emit-call (callee args env)
@@ -570,7 +572,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 
 ;; A built-in type's spelling.py entry (kind "type") is its Python text, with `{}` for its
 ;; arguments; `Tup` isn't declared (system.cdy), and a program's own type is its name.
-(sig emit-tcon (Fn (String (List String) (Map String (Tup String String))) String))
+(sig emit-tcon (Fn (String (List String) (Map String (Tup String String String))) String))
 (defn emit-tcon (name args spellings)
   (cond
     ((and (map-has spellings name) (= (at (map-get spellings name) 1) "type"))

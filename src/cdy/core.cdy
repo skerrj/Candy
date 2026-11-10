@@ -941,7 +941,7 @@
 ;; (deft (Name a ...))). They are checked against `spellings`,
 ;; the target's spellings, both ways: each needs an entry of its kind there, and every
 ;; entry needs a declaration.
-(sig read-builtins (Fn ((List Form) (List Form) (Map String (Tup String String))) (Map String Builtin)))
+(sig read-builtins (Fn ((List Form) (List Form) (Map String (Tup String String String))) (Map String Builtin)))
 (defn read-builtins (decls sigs spellings)
   (let ((builtins (read-sigs sigs spellings (read-decls decls spellings empty-map)))
         (checked (all-declared (map-keys spellings) builtins)))
@@ -949,7 +949,7 @@
 
 ;; The kind of the built-in `name`'s entry in `spellings`, the target's (spelling.py:
 ;; each built-in's Python text and kind), or "" if it has none.
-(sig spelling-kind (Fn ((Map String (Tup String String)) String) String))
+(sig spelling-kind (Fn ((Map String (Tup String String String)) String) String))
 (defn spelling-kind (spellings name) (if (map-has spellings name) (at (map-get spellings name) 1) ""))
 
 ;; The spelling kinds of each built-in class: an entry's kind must be one of its class's. A
@@ -964,7 +964,7 @@
 (sig TYPE_KINDS (List String))
 (def TYPE_KINDS (tup "type"))
 
-(sig read-decls (Fn ((List Form) (Map String (Tup String String)) (Map String Builtin)) (Map String Builtin)))
+(sig read-decls (Fn ((List Form) (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
 (defn read-decls (forms spellings acc)
   (if (= (len forms) 0)
     acc
@@ -996,7 +996,7 @@
     ((= class "special") SPECIAL_KINDS)
     (else TYPED_KINDS)))
 
-(sig read-sigs (Fn ((List Form) (Map String (Tup String String)) (Map String Builtin)) (Map String Builtin)))
+(sig read-sigs (Fn ((List Form) (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
 (defn read-sigs (forms spellings acc)
   (if (= (len forms) 0)
     acc
@@ -1015,7 +1015,7 @@
 
 ;; `acc` with the built-in type `form`, a bodiless (deft Name) or (deft (Name a ...)): its
 ;; arity is its number of type variables.
-(sig read-type (Fn (Form (List Form) String (Map String (Tup String String)) (Map String Builtin)) (Map String Builtin)))
+(sig read-type (Fn (Form (List Form) String (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
 (defn read-type (form items where spellings acc)
   (let ((header (if (= (len items) 2) (at items 1) form))
         (parts (match header ((Sym _ _) (to-list header)) ((Lst xs _) xs) (else empty-list)))

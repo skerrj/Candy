@@ -263,6 +263,22 @@ commit, and `bootstrap.py --tag` tags a step only once it passes.
    `expr.operator-arity`. The translator's build: 0.98 s to 1.00 s. One boot step,
    `boot/58`, staged `old-library` (Bootstrap, above).
 3. **Operators as values** ([[B163]]; [[B38]]): the runtime's functions, emit's spelling.
+
+   *Done (2026-11-09). As built:* each operator's `spelling.py` entry has a third field,
+   `value`, the function it is as a value (`operator("+", "binop", "add")`: a primitive,
+   `cdy_rt.primitives.add`), so `py-spellings` is a map of triples; `emit-prim` writes it
+   for an operator used as a value, and a call is still Python's operator. The
+   primitives are typed as the `sig`s, a constraint variable a constrained type variable
+   (`def add[T: (int, float, str, tuple[Any, ...])]`). The checker needed nothing: since
+   step 2 an operator's value has its type, the function of its arguments before the
+   rest (step 1's rule). `and` and `or` are values too: their arguments are values
+   already, so there is nothing to short-circuit. `=` and `!=` are values too, an `(Fn (a
+   a) Bool)` that doesn't keep `a` off functions; not being values ([[B172]], dropped)
+   closed nothing, since a generic function's `=` compares functions already, a defect
+   found here ([[B173]]: an `equatable` constraint, later). The spec:
+   `expr.operator-values` (new). One
+   boot step, `boot/59`, no staging (the library change, `py-spellings`' type, is one
+   `bin` reads: `test_newest_step_reads_the_library`).
 4. **`++`**, and `+` on numbers only ([[B164]]): two boot steps, a script rewriting the
    translator's `+`s by type.
 5. **Tuples** ([[B165]]; [[B152]], [[B17]], [[B29]]'s part): `tup` to `Tup` or `List`,
