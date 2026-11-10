@@ -139,7 +139,8 @@ A collection's operations are typed by what they take, *for now* until interface
   goes, *lasting*, and with it `(special tup)` in `special.cdy`.
 - **`Tup` and `List`:** `Tup` stays the analyser's own constructor, since its type is
   its number of items, which no `sig` can say; `List` becomes an ordinary built-in, `(sig
-  List (Fn ((Rest a)) (List a)))`, zero items or more.
+  List (Fn ((Rest a)) (List a)))`, zero items or more. (*As built,* step 1: `List`
+  stays the analyser's constructor, *for now*: [[B171]].)
 - **Maps:** `map-size` for `len`.
 
 `is-coll` and `is-str` are the translator's (forms read as `Any` before `Form`, [[B79]]);
@@ -174,7 +175,7 @@ one of them ([[B123]]); most of its quadratic copies go with them ([[B69]]).
 
 | Rule | File | Step |
 |---|---|---|
-| `types.table`, `types.sig`, `expr.functions`: rest parameters, `(Rest t)` | `20-types.md`, `40-expressions.md` | 1 |
+| `types.table`, `types.sig`, `expr.rest` (new; *as built*, for `expr.functions`): rest parameters, `(Rest t)` | `20-types.md`, `40-expressions.md` | 1 |
 | `checking.constraints` (new): the constraint variables; `checking.operators` rewritten as `sig`s; `checking.generics` | `25-checking.md` | 2 |
 | `expr.arithmetic`, `expr.comparisons`: the operators' `sig`s; as values | `40-expressions.md` | 2, 3 |
 | `expr.append` (new): `++`; `+` numbers only | `40-expressions.md` | 4 |
@@ -210,6 +211,24 @@ stages the library next to `bin` before building.
 1. **Rest parameters** ([[B161]]; [[B99]]): `(Rest t)` in a `Fn` type, last; the checker (the
    arguments from the rest on, each against `t`; as a value, the arguments before it)
    and emit (Python's `*rest: T`); `List` a built-in over it.
+
+   *Done (2026-11-08). As built:* `(Rest t)` is a type form (`analyse-type`), held as a
+   `TCon "Rest"`, so no other part of the translator needs a new kind of type; a `sig`'s
+   type may end its function type's arguments with one (`check-sig-type`), and anywhere
+   else it is an error (`check-type`: a field, a nested `Fn`, a value's type), as is a
+   `def` with a variadic type. The checker reads a call's callee with its rest
+   (`infer-callee`), spreading the item type over the arguments from there on
+   (`spread-rest`), with "takes at least N argument(s)" when too few; a name used as a
+   value loses it (`as-value`); in the body the parameter is a `(List t)`
+   (`body-types`). A built-in's call checks the same arity in `core.cdy`
+   (`check-call`), for those to come. Python writes `*name: T` (`emit-param`). A
+   variadic `defn` isn't made a loop (`lower-top`): its self call would rebind the rest
+   from a list. `List` stays the analyser's constructor, *for now* ([[B171]], the
+   owner's choice): an ordinary built-in needs one built-in name to be a type and a
+   value, which the built-ins map and `spelling.py` can't hold, and its value would be
+   only an `(Fn () (List a))` by the value rule. The spec: `expr.rest` (new),
+   `expr.tail-calls`, `types.table`, `types.sig`, `types.constructors`. One boot step,
+   `boot/57`.
 2. **Constraint variables and the operators' `sig`s** ([[B162]]; [[B124]], [[B135]], [[B48]]):
    `number`, `integer`, `float`, `comparable`, `appendable` in the checker; the
    operators move from `(op ...)` to `system.cdy` `sig`s, `infer-op` goes.

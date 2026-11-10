@@ -270,11 +270,45 @@ ML: `(defn run (_) ...)`, called as `(run nil)`. `defn` may become a macro over 
 7
 ```
 
+<a id="expr.rest"></a>
+**A rest parameter** (since `collections`): a `defn` whose `sig`'s last argument type is
+`(Rest t)` takes any number of `t`s there, zero or more, after the arguments before it,
+*lasting*. The parameter carries no marker: the `sig` says which it is. In the body it is
+a `(List t)` of the arguments from there on; each of those is checked against `t`, and
+too few arguments is an error. A list isn't spread over it: `(sum (List 1 2))` passes one
+argument (no `apply`, *for now*). `(Rest t)` is only for the last argument of a `sig`'s
+function type, and only a `defn` takes one: a `fn` has no `sig` to say so (*for now*:
+[[B169]]). Used as a value, a function with a rest parameter is the function of its
+arguments before the rest: `sum` below is an `(Fn (Int) Int)`.
+
+```candy run
+(sig sum (Fn (Int (Rest Int)) Int))
+(defn sum (first more) (fold (fn (a b) (+ a b)) first more))
+(sig names (Fn ((Rest String)) (List String)))
+(defn names (ns) ns)
+(sig twice (Fn ((Fn (Int) Int)) Int))
+(defn twice (f) (f (f 1)))
+(put (sum 1) (sum 1 2 3) (names) (names "a" "b") (twice sum))
+```
+```expect
+1 6 (List) (List "a" "b") 1
+```
+
+```candy errors
+(sig sum (Fn (Int (Rest Int)) Int)) (defn sum (n ns) n) (put (sum)) => (sum ...) takes at least 1 argument(s), got 0
+(sig sum (Fn (Int (Rest Int)) Int)) (defn sum (n ns) n) (put (sum 1 2 "x")) => argument 3 of sum: expected Int, got String
+(sig sum (Fn (Int (Rest Int)) Int)) (defn sum (n ns) n) (put (sum (List 1 2))) => argument 1 of sum: expected Int, got (List Int)
+(sig f (Fn ((Rest Int) Int) Int)) (defn f (ns n) n) => (Rest t) is only for the last argument of a sig's function type
+(sig f (Fn ((Fn ((Rest Int)) Int)) Int)) (defn f (g) 1) => (Rest t) is only for the last argument of a sig's function type
+(sig f (Fn ((Rest Int Int)) Int)) (defn f (ns) 1) => bad rest type: expected (Rest Type)
+(sig f (Fn ((Rest Int)) Int)) (def f (fn (n) 1)) => def f: only a defn can take a rest parameter
+```
+
 <a id="expr.tail-calls"></a>
 A `defn` that calls itself in tail position runs as a loop, so it can recur any number of
-times. Other recursion (not in tail position, mutual, or in a `defn` that makes a `fn`)
-uses the host's stack, about 1000 calls deep (*for now*:
-[[B37]]).
+times, unless it has a rest parameter. Other recursion (not in tail position, mutual, in
+a `defn` that makes a `fn`, or with a rest parameter) uses the host's stack, about 1000
+calls deep (*for now*: [[B37]]).
 
 ```candy run
 (sig count (Fn (Int Int) Int))

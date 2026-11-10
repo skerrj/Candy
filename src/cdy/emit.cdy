@@ -851,7 +851,14 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
       (rest params)
       (rest types)
       env
-      (+ acc (to-list (format "{(emit-expr (at params 0) env)}: {(emit-type (at types 0) env)}"))))))
+      (+ acc (to-list (emit-param (at params 0) (at types 0) env))))))
+
+;; `name: T`, or a rest parameter's `*name: T`, T its items' type (types.rest).
+(sig emit-param (Fn (Expr CType Env) String))
+(defn emit-param (param t env)
+  (if (is-rest t)
+    (format "*{(emit-expr param env)}: {(emit-type (at (rest-item t) 0) env)}")
+    (format "{(emit-expr param env)}: {(emit-type t env)}")))
 
 ;; A top-level function: its locals start afresh, since a local's id is unique only in its
 ;; module, and the program's top-level locals (every module's, bound in `python-of`) aren't

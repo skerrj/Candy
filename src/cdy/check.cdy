@@ -81,10 +81,17 @@
       (let ((c (assoc ctx here pos)))
         (match t
           ((TFn ptypes ret)
-            (check-expr body ret (format "defn {(shown-name name)}") (assoc c env (bind-all params ptypes (get c env) 0)) (typed-all params ptypes st)))
+            (let ((inside (body-types ptypes)))
+              (check-expr body ret (format "defn {(shown-name name)}") (assoc c env (bind-all params inside (get c env) 0)) (typed-all params inside st))))
           (else st))))
     ((TExpr e) (get (infer e ctx st) st))
     (else st)))
+
+;; A function's parameter types as its body sees them: a rest parameter, `(Rest t)`, is a
+;; `(List t)` (types.rest).
+(sig body-types (Fn ((List CType)) (List CType)))
+(defn body-types (ptypes)
+  (map (fn (p) (if (is-rest p) (TCon "List" (rest-item p)) p)) ptypes))
 
 ;; `env` with each of `params` (Locals) bound to the type at its index in `types`.
 (sig bind-all (Fn ((List Expr) (List CType) (Map String CType) Int) (Map String CType)))
@@ -241,9 +248,8 @@
       ((Local name _ _ _)
         (let ((key (local-key e)))
           (Res (if (map-has (get ctx env) key) (map-get (get ctx env) key) ANY) st)))
-      ((Global name _ _)
-        (if (map-has (get ctx globals) name) (instantiate (map-get (get ctx globals) name) st) (Res ANY st)))
-      ((Prim name _ _) (prim-type name ctx st))
+      ((Global _ _ _) (as-value (name-type e ctx st)))
+      ((Prim _ _ _) (as-value (name-type e ctx st)))
       ((Call callee args _ _) (infer-call callee args ctx st))
       ((If test then other _ _)
         (let ((rt (infer test ctx st))
@@ -277,6 +283,38 @@
     ((CharLit _ _) (tcon "Char"))
     ((BoolLit _ _) (tcon "Bool"))
     (else ANY)))
+
+;; A name's type, instantiated: a global's sig or constructor's, or a built-in's. A
+;; variadic function's keeps its `(Rest t)`, which a call reads (infer-callee).
+(sig name-type (Fn (Expr Ctx St) Res))
+(defn name-type (e ctx st)
+  (match e
+    ((Global name _ _)
+      (if (map-has (get ctx globals) name) (instantiate (map-get (get ctx globals) name) st) (Res ANY st)))
+    ((Prim name _ _) (prim-type name ctx st))
+    (else (Res ANY st))))
+
+;; A variadic function as a value is the function of its arguments before the rest
+;; (types.rest).
+(sig as-value (Fn (Res) Res))
+(defn as-value (r)
+  (match (get r t)
+    ((TFn params ret)
+      (if (is-variadic (get r t)) (Res (TFn (slice params 0 (- (len params) 1)) ret) (get r st)) r))
+    (else r)))
+
+;; A callee's type: a name's with its rest parameter, if it has one; its node is typed as
+;; the name's value.
+(sig infer-callee (Fn (Expr Ctx St) Res))
+(defn infer-callee (callee ctx st)
+  (match callee
+    ((Global _ _ _) (callee-typed callee (name-type callee ctx st)))
+    ((Prim _ _ _) (callee-typed callee (name-type callee ctx st)))
+    (else (infer callee ctx st))))
+
+(sig callee-typed (Fn (Expr Res) Res))
+(defn callee-typed (callee r)
+  (Res (get r t) (typed callee (get (as-value r) t) (get r st))))
 
 ;; A built-in as a value: its type, instantiated; an operator is Any (it isn't a function
 ;; Candy can type: it takes any number of arguments).
@@ -367,16 +405,22 @@
 ;; A call of anything else: its type is a function, Any, or not known yet.
 (sig infer-called (Fn (Expr (List Expr) Ctx St) Res))
 (defn infer-called (callee args ctx st)
-  (let ((rc (infer callee ctx st))
+  (let ((rc (infer-callee callee ctx st))
         (ct (prune (get rc t) (get (get rc st) subst)))
         (name (callee-name callee)))
     (match ct
       ((TFn params ret)
-        (if (!= (len params) (len args))
-          (let ((unit (if (map-has (get ctx shapes) (global-of callee)) "field(s)" "argument(s)"))
-                (st1 (report (format "({name} ...) takes {(len params)} {unit}, got {(len args)}") ctx (get rc st))))
-            (Res ret (at (infer-all args ctx st1 empty-list) 1)))
-          (Res ret (check-args args params name ctx (get rc st)))))
+        (cond
+          ((is-variadic ct)
+            (if (< (len args) (- (len params) 1))
+              (let ((st1 (report (format "({name} ...) takes at least {(- (len params) 1)} argument(s), got {(len args)}") ctx (get rc st))))
+                (Res ret (at (infer-all args ctx st1 empty-list) 1)))
+              (Res ret (check-args args (spread-rest params (len args)) name ctx (get rc st)))))
+          ((!= (len params) (len args))
+            (let ((unit (if (map-has (get ctx shapes) (global-of callee)) "field(s)" "argument(s)"))
+                  (st1 (report (format "({name} ...) takes {(len params)} {unit}, got {(len args)}") ctx (get rc st))))
+              (Res ret (at (infer-all args ctx st1 empty-list) 1))))
+          (else (Res ret (check-args args params name ctx (get rc st))))))
       ((TVar v)
         (if (is-flexible v)
           (let ((r (infer-all args ctx (get rc st) empty-list))
@@ -388,6 +432,14 @@
         (if (is-any ct)
           (Res ANY (at (infer-all args ctx (get rc st) empty-list) 1))
           (Res ANY (report (format "expected a function, got {(show ct (get (get rc st) subst))}") ctx (get rc st))))))))
+
+;; A variadic function's parameter types for a call of `count` arguments: those before the
+;; rest, then the rest's item type for each argument after them.
+(sig spread-rest (Fn ((List CType) Int) (List CType)))
+(defn spread-rest (params count)
+  (let ((fixed (slice params 0 (- (len params) 1)))
+        (item (at (rest-item (at params (- (len params) 1))) 0)))
+    (+ fixed (map (fn (_) item) (range 0 (- count (len fixed)))))))
 
 ;; The arguments against the parameter types: the ones that aren't fns first, then the
 ;; fns, so their parameters' types are known when their bodies are read.

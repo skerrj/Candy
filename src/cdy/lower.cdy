@@ -423,7 +423,11 @@
         (tup (+ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))
     ((TDefn name params body t _)
       (let (((stmts n1) (if (returns-unit t) (effect body n) (tail body n))))
-        (tup (to-list (SFunc name params (loop-tail-calls name params stmts (returns-unit t)) t)) n1)))
+        (tup
+          (to-list
+            ;; A variadic defn's self call would rebind its rest parameter from a list.
+            (SFunc name params (if (is-variadic t) stmts (loop-tail-calls name params stmts (returns-unit t))) t))
+          n1)))
     ((TExpr e) (effect e n))))
 
 ;; --- self tail calls ---

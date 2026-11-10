@@ -163,8 +163,8 @@
 
 ;; The built-in types whose name is also their constructor, taking any number of items
 ;; (spec/20-types.md, types.constructors): a form of their own, since a type's name is in
-;; the built-ins as a type (`List` is system.cdy's), and their items are typed by the
-;; checker, as Candy has no typed rest parameters yet.
+;; the built-ins as a type (`List` is system.cdy's), which can't also be a value (*for now*,
+;; B171); the checker types their items.
 (sig BUILTIN_CONSTRUCTORS (List String))
 (def BUILTIN_CONSTRUCTORS (tup "List" "Tup"))
 
@@ -183,13 +183,15 @@
 
 ;; Fail if a built-in is called with the wrong number of arguments: an operator says how
 ;; many it takes (special.cdy), and any other built-in's type (system.cdy), unless that is
-;; Any or not a function.
+;; Any or not a function. A variadic one (types.rest) takes its arguments before the rest,
+;; or more.
 (sig check-call (Fn (Expr Int Scope) Bool))
 (defn check-call (callee count scope)
   (match callee
     ((Prim name _ _)
       (let ((builtin (map-get (get scope builtins) name))
             (variadic (match builtin ((Op unary) (not unary)) (else false)))
+            (rest-of-type (match builtin ((Typed type) (is-variadic type)) (else false)))
             (arity
               (match builtin
                 ((Op unary) (if unary 1 -1))
@@ -198,6 +200,10 @@
         (cond
           ((and variadic (< count 2))
             (fail (located scope (format "({name} ...) needs at least 2 arguments, got {count}"))))
+          (rest-of-type
+            (if (< count (- arity 1))
+              (fail (located scope (format "({name} ...) takes at least {(- arity 1)} argument(s), got {count}")))
+              true))
           ((and (>= arity 0) (!= arity count))
             (fail (located scope (format "({name} ...) takes {arity} argument(s), got {count}"))))
           (else true))))
@@ -761,6 +767,10 @@
           (if (= (len items) 3)
             (TFn (analyse-types (list-items (at items 1)) empty-list) (analyse-type (at items 2)))
             (fail (+ (pos-text (form-pos form)) "bad function type: expected (Fn (Arg+) Ret)"))))
+        ((= (sym-name (at items 0)) "Rest")
+          (if (= (len items) 2)
+            (TCon "Rest" (to-list (analyse-type (at items 1))))
+            (fail (+ (pos-text (form-pos form)) "bad rest type: expected (Rest Type)"))))
         (else (TCon (sym-name (at items 0)) (analyse-types (rest items) empty-list)))))
     (else (fail (+ (pos-text (form-pos form)) "bad type")))))
 
@@ -1249,8 +1259,22 @@
       ((map-has (get prog sigs) name) (fail (located scope (format "more than one sig for {name}"))))
       (else
         (let ((t (analyse-type (at items 2)))
-              (checked (check-type t scope)))
+              (checked (check-sig-type t scope)))
           (assoc prog sigs (map-set (get prog sigs) name t)))))))
+
+;; A sig's type, checked: a function type's last argument may be `(Rest t)` (a rest
+;; parameter, types.rest), and nothing else may.
+(sig check-sig-type (Fn (CType Scope) Bool))
+(defn check-sig-type (t scope)
+  (if (is-variadic t)
+    (match t
+      ((TFn params ret)
+        (let ((last (at params (- (len params) 1))))
+          (and (check-types (slice params 0 (- (len params) 1)) scope)
+               (check-types (rest-item last) scope)
+               (check-type ret scope))))
+      (else (check-type t scope)))
+    (check-type t scope)))
 
 ;; Fail unless every type in `t` exists, with as many arguments as it takes: a built-in
 ;; type (system.cdy), one the program defines or imports, or `Tup`, which takes any number.
@@ -1265,6 +1289,8 @@
             (arity
               (cond
                 ((= name "Tup") (len args))
+                ((= name "Rest")
+                  (fail (located scope "(Rest t) is only for the last argument of a sig's function type")))
                 ((map-has (get scope types) name) (map-get (get scope types) name))
                 ((is-builtin-type name builtins)
                   (match (map-get builtins name) ((BType n) n) (else 0)))
@@ -1399,7 +1425,9 @@
     (let ((name (sym-name (at items 1)))
           (t (needs-sig name prog scope))
           ((init n) (analyse-expr (at items 2) scope (get prog n))))
-      (mark-defined (add-top prog (TDef name init t (get scope here)) n) name))))
+      (if (is-variadic t)
+        (fail (located scope (format "def {name}: only a defn can take a rest parameter, (Rest t)")))
+        (mark-defined (add-top prog (TDef name init t (get scope here)) n) name)))))
 
 (sig top-defn (Fn ((List Form) Scope Prog) Prog))
 (defn top-defn (items scope prog)
@@ -1416,12 +1444,34 @@
           (fail (located scope (format "defn {name}: its sig must be a function type with one type per argument"))))
         (else (mark-defined (add-top prog (TDefn name params body t (get scope here)) n2) name))))))
 
-;; How many arguments a function type takes; -1 if it isn't a function type.
+;; How many arguments a function type takes; -1 if it isn't a function type. A variadic
+;; one's rest parameter counts as one (it is one parameter).
 (sig fn-arity (Fn (CType) Int))
 (defn fn-arity (t)
   (match t
     ((TFn params _) (len params))
     (else -1)))
+
+;; Whether a function type is variadic: its last parameter is `(Rest t)` (types.rest), a
+;; TCon here, since only a sig's function type may hold one (check-sig-type).
+(sig is-variadic (Fn (CType) Bool))
+(defn is-variadic (t)
+  (match t
+    ((TFn params _) (and (> (len params) 0) (is-rest (at params (- (len params) 1)))))
+    (else false)))
+
+(sig is-rest (Fn (CType) Bool))
+(defn is-rest (t)
+  (match t
+    ((TCon name _) (= name "Rest"))
+    (else false)))
+
+;; `(Rest t)`'s `t`, as a list of one (none if it isn't a Rest).
+(sig rest-item (Fn (CType) (List CType)))
+(defn rest-item (t)
+  (match t
+    ((TCon name args) (if (= name "Rest") args empty-list))
+    (else empty-list)))
 
 ;; Fresh Locals for the parameter names, and the scope that includes them.
 (sig bind-params (Fn ((List Form) Scope Int (List Expr)) (Tup (List Expr) Scope Int)))
