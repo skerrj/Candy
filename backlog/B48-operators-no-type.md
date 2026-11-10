@@ -15,3 +15,8 @@ arity check. `not` is a one-argument function, typable today. Fix: variadic type
 ([[B99]]), then move what they let be typed into `system.cdy`. From
 `doc/archive/leaks_system_prelude.md` ("Operators have no Candy type", "Built-ins typed
 `Any`") and `doc/archive/leaks_symbol_table.md`.
+
+## Notes
+- 2026-11-09, Claude: the operators are typed now (`collections` step 2, [[B162]]): each a
+  bodiless `sig` in `system.cdy`, with a rest parameter ([[B99]], done) and constraint
+  variables. `tup` (step 5) and `put`, `print`, `display` (step 6) remain.

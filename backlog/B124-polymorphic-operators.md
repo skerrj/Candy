@@ -1,10 +1,10 @@
 # B124: The operators are polymorphic, but a program can't write a polymorphic function
 
 kind: leak
-state: open
+state: done
 priority: normal
 found: master, 2026-10-30
-fixed:
+fixed: collections
 where: `src/cdy/check.cdy` (`infer-op`), `src/cdy/special.cdy`
 refs: [[checking.operators]], [[checking.generics]], [[B34]], [[B38]], [[B48]]
 
@@ -53,3 +53,9 @@ variable, which a program's own `sig`s can use; `=` is declared for every type
   replace them. The owner asked whether they could be an enumeration type (a sum of
   variants with no fields); for the `collections` HLD: is a constraint kind an
   enumeration or a declared interface ([[B34]])?
+- 2026-11-09, Claude: fixed by `collections` step 2 ([[B162]]): the constraint variables
+  `number`, `integer`, `float`, `comparable` and `appendable` ([[checking.constraints]]),
+  which a program's own `sig` can use, and the operators typed with them in
+  `system.cdy`; `infer-op` and its kind lists are gone. `+` still takes strings and lists
+  (`addable`) until `++`, step 4 ([[B164]]); ordering lists and records is still
+  [[B153]]'s.

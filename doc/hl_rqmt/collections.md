@@ -232,6 +232,29 @@ stages the library next to `bin` before building.
 2. **Constraint variables and the operators' `sig`s** ([[B162]]; [[B124]], [[B135]], [[B48]]):
    `number`, `integer`, `float`, `comparable`, `appendable` in the checker; the
    operators move from `(op ...)` to `system.cdy` `sig`s, `infer-op` goes.
+
+   *Done (2026-11-09). As built:* the constraints are a table in `core.cdy`
+   (`CONSTRAINTS`, `constraint-of`, shared with `emit`); a sig's `number2` is `number`'s.
+   A fresh variable made from one is named `?N:number`, so `unify` stays a function of
+   the substitution: binding one (`bind-constrained`) checks the type is one the
+   constraint takes (a tuple as a list, for now), binds an unconstrained variable to it,
+   and meets another constrained one at the narrower (`within`), or at the one type they
+   share (`appendable` and `comparable` at `String`); a sig's own variable only if its
+   constraint is within. A message shows an unsolved one as its constraint (`expected
+   number, got String`). The operators are bodiless `sig`s in `system.cdy`, with rest
+   parameters (step 1); `special.cdy` has only the special forms, `Op` is gone from
+   `Builtin`, and `spelling.py`'s operator kinds are a typed built-in's (`OPERATOR_KINDS`).
+   `and` and `or` are typed built-ins too, not special forms as this HLD said: their
+   short-circuit was always `lower`'s, by name, so a `sig` costs nothing; as values they
+   are step 3's question. `+` takes `addable` (the numbers, `String`, a list), *for now*,
+   until `++` (step 4). `=` and `!=` are `(Fn (a a (Rest a)) Bool)`, with the function
+   check after the call (`infer-compare`). In Python, `integer` and `float` are `int` and
+   `float`, and the other constraint variables constrained type parameters
+   (`[number: (int, float)]`). [[B124]] and [[B135]] are done (an error is at its
+   argument), [[B48]] is the operators' part done. The spec: `checking.constraints`
+   (new), `checking.operators` rewritten, `checking.generics`, `expr.arithmetic`,
+   `expr.operator-arity`. The translator's build: 0.98 s to 1.00 s. One boot step,
+   `boot/58`.
 3. **Operators as values** ([[B163]]; [[B38]]): the runtime's functions, emit's spelling.
 4. **`++`**, and `+` on numbers only ([[B164]]): two boot steps, a script rewriting the
    translator's `+`s by type.

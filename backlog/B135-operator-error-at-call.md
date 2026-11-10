@@ -1,10 +1,10 @@
 # B135: An operator's type error is at the call, not the argument
 
 kind: defect
-state: open
+state: done
 priority: low
 found: typed-core, 2026-10-31
-fixed:
+fixed: collections
 where: `src/cdy/check.cdy`
 refs: [[checking.operators]], [[B124]], [[B48]]
 
@@ -21,23 +21,30 @@ The fix is expected with `collections`: constraint variables (`number`, `compara
 they are checked as calls are, argument by argument ([[B124]]). Until then, `join-all`
 could carry each argument's node and report at the first that disagrees.
 
-## Repro
-
-The translator should fail:
-
-```candy error
-(sig x Int)
-(def x 1)
-(put (+ x
-  "b"))
-```
-```expect-error
-line 4, column 3: +: expected Int, got String
-```
-
 ## Notes
 
 - 2026-10-31, the owner, in B129's review: asked why an error in a `format` hole,
   `"a {(+ x \"b\")} c"`, points at the `(+`. It isn't the hole: outside one the same
   `(+ x "b")` is reported at the call too. Not because `+` lost its polymorphism (it
   still takes numbers, `String`s and lists): because an operator has no `sig`.
+- 2026-11-09, Claude: fixed by `collections` step 2 ([[B162]]): an operator is checked
+  as a call, argument by argument, so `"a {(+ x \"b\")} c"` is reported at the `"b"`
+  (`argument 2 of +: expected Int, got String`).
+- 2026-11-09, Claude: its repro moved to the spec, `checking.operators` (the error now at
+  the `"b"`, `argument 2 of +: expected Int, got String`); it was:
+
+  ````text
+  ## Repro
+
+  The translator should fail:
+
+  ```candy error
+  (sig x Int)
+  (def x 1)
+  (put (+ x
+    "b"))
+  ```
+  ```expect-error
+  line 4, column 3: +: expected Int, got String
+  ```
+  ````

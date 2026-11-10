@@ -20,7 +20,6 @@ By kind, then priority.
 | [B9](B9-nil-redefinable.md) | `nil` can be defined | defect | open | low |
 | [B13](B13-long-cond-value.md) | A `cond` of about 200 clauses, used as a value, doesn't compile | defect | open | low |
 | [B131](B131-errors-without-position.md) | Python-name errors have no position, and a format hole's column can be off | defect | open | low |
-| [B135](B135-operator-error-at-call.md) | An operator's type error is at the call, not the argument | defect | open | low |
 
 ### leak
 
@@ -41,7 +40,6 @@ By kind, then priority.
 | [B51](B51-with-default-builtin.md) | `with-default` is a built-in, not prelude | leak | open | normal |
 | [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | open | normal |
 | [B54](B54-slurp-fallback.md) | `slurp` searches `src/`, `tst/` and `lib/` when a path is missing | leak | open | normal |
-| [B124](B124-polymorphic-operators.md) | The operators are polymorphic, but a program can't write a polymorphic function | leak | open | normal |
 | [B22](B22-numbers-unbounded.md) | Overflow isn't checked, and a `Float` is 64 bits on Python | leak | open | low |
 | [B32](B32-regexes-python.md) | Regexes are Python's | leak | open | low |
 | [B38](B38-operators-not-values.md) | Operators can't be values | leak | open | low |
@@ -89,7 +87,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B162](B162-collections-step-2-constraint-variables.md) | collections step 2: constraint variables and the operators' sigs | task | open | normal |
 | [B163](B163-collections-step-3-operators-as-values.md) | collections step 3: operators as values | task | open | normal |
 | [B164](B164-collections-step-4-plus-plus.md) | collections step 4: `++`, and `+` on numbers only | task | open | normal |
 | [B165](B165-collections-step-5-tuples.md) | collections step 5: tuples | task | open | normal |
@@ -126,10 +123,8 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 
 - [checking.any](../spec/25-checking.md#checking.any): [B133](B133-let-polymorphism.md)
 - [checking.calls](../spec/25-checking.md#checking.calls): [B134](B134-one-type-error-at-a-time.md)
-- [checking.generics](../spec/25-checking.md#checking.generics): [B124](B124-polymorphic-operators.md)
 - [checking.if](../spec/25-checking.md#checking.if): [B156](B156-macro-errors-name-expansion.md)
 - [checking.locals](../spec/25-checking.md#checking.locals): [B133](B133-let-polymorphism.md)
-- [checking.operators](../spec/25-checking.md#checking.operators): [B124](B124-polymorphic-operators.md), [B135](B135-operator-error-at-call.md)
 - [editor.not-yet](../editors/vscode-candy/README.md#editor.not-yet): [B1](B1-markdown-injection.md)
 - [expr.arithmetic](../spec/40-expressions.md#expr.arithmetic): [B22](B22-numbers-unbounded.md), [B158](B158-float-infinity-nan.md)
 - [expr.calls](../spec/40-expressions.md#expr.calls): [B38](B38-operators-not-values.md)
@@ -237,12 +232,14 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B120](B120-get-before-type-known.md) | `get` or `assoc` on a value whose type isn't known yet is an error | leak | done | low |
 | [B121](B121-no-narrowing-in-match-clause.md) | Inside a `match` clause, the subject isn't narrowed to its variant | leak | done | low |
 | [B122](B122-leaf-error-position.md) | A type error in a leaf is reported at its parent | leak | done | low |
+| [B124](B124-polymorphic-operators.md) | The operators are polymorphic, but a program can't write a polymorphic function | leak | done | normal |
 | [B126](B126-typed-core-step-1.md) | typed-core step 1: positions on literal forms and Core's leaves | task | done | normal |
 | [B127](B127-typed-core-step-2.md) | typed-core step 2: types in Core | task | done | normal |
 | [B128](B128-typed-core-step-3.md) | typed-core step 3: nested functions typed | task | done | normal |
 | [B129](B129-typed-core-step-4.md) | typed-core step 4: the messages | task | done | normal |
 | [B130](B130-typed-core-step-5.md) | typed-core step 5: docs | task | done | normal |
 | [B132](B132-unsolved-types-reviewed.md) | Go over the types the checker leaves unsolved | task | done | normal |
+| [B135](B135-operator-error-at-call.md) | An operator's type error is at the call, not the argument | defect | done | low |
 | [B137](B137-variants-compare-equal.md) | Two variants of one sum with the same fields are equal | defect | done | normal |
 | [B140](B140-semantics-step-1.md) | semantics step 1: the small ones: unsolved types, `Any` defaulted | task | done | normal |
 | [B141](B141-semantics-step-2.md) | semantics step 2: `show`, and the `List` and `Tup` constructors | task | done | normal |
@@ -261,3 +258,4 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B155](B155-cond-missing-else-message.md) | A `cond` with no `else` isn't reported as an `if` with no `else` is | defect | done | normal |
 | [B157](B157-semantics-2-step-5.md) | semantics-2 step 5: docs | task | done | normal |
 | [B161](B161-collections-step-1-rest-parameters.md) | collections step 1: rest parameters | task | done | normal |
+| [B162](B162-collections-step-2-constraint-variables.md) | collections step 2: constraint variables and the operators' sigs | task | done | normal |

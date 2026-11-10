@@ -42,7 +42,7 @@ prints them with a space between.
 <a id="expr.arithmetic"></a>
 ## Operators
 
-The operators are declared in `src/cdy/special.cdy`. `+`, `-`, `*`, `/`, `quot` and
+The operators are typed built-ins, declared in `src/cdy/system.cdy` ([[checking.operators]]). `+`, `-`, `*`, `/`, `quot` and
 `mod` take two or more arguments and fold left; `+` also joins strings, and lists. Their
 arguments have one type, and the number types don't mix ([[checking.operators]]). `/`
 divides a `Float` or `Double`, giving the same type, *lasting* (`(/ 7 2)` is an error).
@@ -67,9 +67,9 @@ checked (*for now*: [[B22]]; [[syntax.numbers]] has the sizes).
 ```
 
 ```candy errors
-(put (/ 7 2)) => /: expected a Float or Double, got Int
-(put (quot 7.0 2.0)) => quot: expected an Int, Long or Byte, got Double
-(put (mod 1.0f 2.0f)) => mod: expected an Int, Long or Byte, got Float
+(put (/ 7 2)) => argument 1 of /: expected float, got Int
+(put (quot 7.0 2.0)) => argument 1 of quot: expected integer, got Double
+(put (mod 1.0f 2.0f)) => argument 1 of mod: expected integer, got Float
 ```
 
 <a id="expr.comparisons"></a>
@@ -167,13 +167,13 @@ in
 ```
 
 <a id="expr.operator-arity"></a>
-Each operator takes the number of arguments `special.cdy` declares: two or more, and one
-for `not`.
+Each operator takes the number of arguments its type says: two or more, a rest parameter
+([[expr.rest]]), and one for `not`.
 
 ```candy errors
-(put (+ 1)) => needs at least 2 arguments
-(put (- 5)) => needs at least 2 arguments
-(put (and true)) => (and ...) needs at least 2 arguments, got 1
+(put (+ 1)) => (+ ...) takes at least 2 argument(s), got 1
+(put (- 5)) => (- ...) takes at least 2 argument(s), got 1
+(put (and true)) => (and ...) takes at least 2 argument(s), got 1
 (put (not 1 2)) => (not ...) takes 1 argument(s), got 2
 ```
 

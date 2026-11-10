@@ -552,7 +552,12 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (sig emit-type (Fn (CType Env) String))
 (defn emit-type (t env)
   (match t
-    ((TVar name) (if (starts-with name "?") "_cdy_Any" (py-mangle name)))
+    ((TVar name)
+      (cond
+        ((starts-with name "?") "_cdy_Any")
+        ((= (constraint-of name) "integer") "int")
+        ((= (constraint-of name) "float") "float")
+        (else (py-mangle name))))
     ((TFn params ret)
       (format "_cdy_Callable[[{(comma-join (emit-types params env empty-list))}], {(emit-type ret env)}]"))
     ((TCon name args) (emit-tcon name (emit-types args env empty-list) (get env spellings)))))
@@ -679,13 +684,23 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ;; PEP 695 type parameters: "" or "[a, b]".
 (sig type-params (Fn ((List String)) String))
 (defn type-params (tvars)
-  (if (= (len tvars) 0) "" (format "[{(comma-join (mangle-all tvars empty-list))}]")))
+  (let ((params (filter (fn (v) (not (in (constraint-of v) (tup "integer" "float")))) tvars)))
+    (if (= (len params) 0) "" (format "[{(comma-join (map type-param params))}]"))))
 
-(sig mangle-all (Fn ((List String) (List String)) (List String)))
-(defn mangle-all (names acc)
-  (if (= (len names) 0)
-    acc
-    (mangle-all (rest names) (+ acc (to-list (py-mangle (at names 0)))))))
+;; A type parameter: a constraint variable's (checking.constraints) with the Python types
+;; it takes, a constrained type variable; `integer` and `float` are each one Python type,
+;; so they aren't parameters (emit-type writes `int`, `float`).
+(sig type-param (Fn (String) String))
+(defn type-param (v)
+  (let ((c (constraint-of v))
+        (takes
+          (cond
+            ((= c "number") "(int, float)")
+            ((= c "comparable") "(int, float, str)")
+            ((= c "appendable") "(str, tuple[_cdy_Any, ...])")
+            ((= c "addable") "(int, float, str, tuple[_cdy_Any, ...])")
+            (else ""))))
+    (if (= takes "") (py-mangle v) (format "{(py-mangle v)}: {takes}"))))
 
 ;; A record's or variant's equality (spec/40-expressions.md, expr.equality): a NamedTuple
 ;; compares as a plain tuple, so two variants with equal fields would be equal (B137);

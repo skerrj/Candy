@@ -3,11 +3,10 @@
 ;;; says how Python spells it. The translator checks the two against each other, and a
 ;;; built-in's arity is its type's. Only here may a sig have no definition. Each bodiless
 ;;; deft declares a built-in type, whose type variables say how many arguments it takes
-;;; (doc/hl_rqmt/name_checks.md); `Fn` and `Tup` aren't here, since a type can't say "any
-;;; number" yet (backlog [[B99]]).
+;;; (doc/hl_rqmt/name_checks.md); `Fn` and `Tup` aren't here, since they take any number of
+;;; type arguments.
 ;;;
-;;; Not here: the special forms, and the operators (+, =, and, not, ...), which take two or
-;;; more arguments (or one); special.cdy declares those. `Any` marks a type Candy can't write yet: built-ins
+;;; Not here: the special forms, which special.cdy declares. `Any` marks a type Candy can't write yet: built-ins
 ;;; that take any number of arguments, or work on lists, strings and maps alike (Collection,
 ;;; later), or return Python objects with no Candy type. Each is a leak (backlog [[B48]],
 ;;; [[B34]], [[B49]]).
@@ -26,6 +25,27 @@
 (deft Any)
 (deft (List a))
 (deft (Map k v))
+
+;; --- the operators (spec/25-checking.md, checking.constraints) ---
+;; Typed as any function, with constraint variables and rest parameters; spelling.py
+;; spells them infix: arithmetic folds left, comparisons chain, and `and` and `or`
+;; short-circuit (lower.cdy). `+` takes `addable`, a number, String or list, until `++`
+;; (collections step 4).
+(sig + (Fn (addable addable (Rest addable)) addable))
+(sig - (Fn (number number (Rest number)) number))
+(sig * (Fn (number number (Rest number)) number))
+(sig / (Fn (float float (Rest float)) float))
+(sig quot (Fn (integer integer (Rest integer)) integer))
+(sig mod (Fn (integer integer (Rest integer)) integer))
+(sig = (Fn (a a (Rest a)) Bool))
+(sig != (Fn (a a (Rest a)) Bool))
+(sig < (Fn (comparable comparable (Rest comparable)) Bool))
+(sig > (Fn (comparable comparable (Rest comparable)) Bool))
+(sig <= (Fn (comparable comparable (Rest comparable)) Bool))
+(sig >= (Fn (comparable comparable (Rest comparable)) Bool))
+(sig and (Fn (Bool Bool (Rest Bool)) Bool))
+(sig or (Fn (Bool Bool (Rest Bool)) Bool))
+(sig not (Fn (Bool) Bool))
 
 ;; --- math ---
 (sig PI Double)

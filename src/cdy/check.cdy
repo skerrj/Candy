@@ -2,7 +2,12 @@
 ;;; name has its sig, every built-in its type (system.cdy); locals get fresh type
 ;;; variables, solved by unification (no let-polymorphism). A type variable the checker
 ;;; makes is named ?N; one a sig writes (a) is rigid in its definition and instantiated
-;;; with fresh ones at each use. `Any` unifies with everything.
+;;; with fresh ones at each use. A fresh one for a constraint variable (`number`,
+;;; spec/25-checking.md, checking.constraints) carries the constraint in its name, after a
+;;; colon, ?N:number (keep-constraint), which bind-constrained reads back: the name keeps
+;;; unify a function of the substitution alone. No program can write a ?-name (it isn't
+;;; lowercase, so it is read as a type), and a message shows one as its constraint. `Any`
+;;; unifies with everything.
 ;;; A type error is the translator's error (type-check), at the innermost node with a
 ;;; position. Checked, every node of Core has its type (`t`; see "typed Core", below).
 
@@ -384,15 +389,10 @@
         (infer-called callee args ctx st)))
     ((Prim name _ _)
       (cond
-        ((is-op name ctx) (typed-callee callee args (infer-op name args ctx st)))
+        ((in name (tup "=" "!=")) (infer-compare name callee args ctx st))
         ((and (= name "at") (is-tup-item args)) (typed-callee callee args (infer-tup-item args ctx st)))
         (else (infer-called callee args ctx st))))
     (else (infer-called callee args ctx st))))
-
-(sig is-op (Fn (String Ctx) Bool))
-(defn is-op (name ctx)
-  (and (map-has (get ctx builtins) name)
-       (match (map-get (get ctx builtins) name) ((Op _) true) (else false))))
 
 ;; A let's binding, ((fn (x) body) init): x has init's type (no let-polymorphism).
 (sig infer-applied (Fn ((List Expr) Expr (List Expr) Ctx St) Res))
@@ -539,50 +539,18 @@
     ((TCon _ args) args)
     (else empty-list)))
 
-;; --- operators (special.cdy) ---
+;; --- equality (spec/40-expressions.md, expr.equality) ---
 
-(sig INTEGERS (List String))
-(def INTEGERS (List "Int" "Long" "Byte"))
-
-(sig FLOATS (List String))
-(def FLOATS (List "Float" "Double"))
-
-(sig NUMBERS (List String))
-(def NUMBERS (+ INTEGERS FLOATS))
-
-;; What the orderings (`<` ...) take.
-(sig ORDERED (List String))
-(def ORDERED (+ NUMBERS (List "String" "Char")))
-
-;; `+` takes one type, a number type, String or a list; `-` and `*` one number type, `/`
-;; a float type, `quot` and `mod` an integer type; the comparisons one type, giving Bool,
-;; the orderings (`<` ...) a number type, String or Char; `and`, `or`, `not` Bools.
-(sig infer-op (Fn (String (List Expr) Ctx St) Res))
-(defn infer-op (name args ctx st)
-  (let ((r (infer-all args ctx st empty-list))
-        (types (at r 0))
-        (st1 (at r 1)))
-    (cond
-      ((in name (tup "and" "or" "not")) (Res (tcon "Bool") (expect-all (tcon "Bool") types name ctx st1)))
-      (else
-        (let ((one (join-all types name ctx (Res (at types 0) st1)))
-              (t1 (prune (get one t) (get (get one st) subst))))
-          (cond
-            ((in name (tup "<" ">" "<=" ">="))
-              (Res (tcon "Bool") (needs-kind t1 ORDERED "a number, String or Char" name ctx (get one st))))
-            ((in name (tup "=" "!="))
-              (Res (tcon "Bool")
-                (if (has-fn t1 (get (get one st) subst) ctx empty-list)
-                  (report (format "{name}: a function can't be compared, got {(show t1 (get (get one st) subst))}") ctx (get one st))
-                  (get one st))))
-            ((= name "+")
-              (Res t1
-                (if (= (tcon-name t1) "List")
-                  (get one st)
-                  (needs-kind t1 (+ NUMBERS (List "String")) "a number, String or a list" name ctx (get one st)))))
-            ((= name "/") (Res t1 (needs-kind t1 FLOATS "a Float or Double" name ctx (get one st))))
-            ((in name (tup "quot" "mod")) (Res t1 (needs-kind t1 INTEGERS "an Int, Long or Byte" name ctx (get one st))))
-            (else (Res t1 (needs-kind t1 NUMBERS "a number" name ctx (get one st))))))))))
+;; `=` and `!=`, typed `(Fn (a a (Rest a)) Bool)`, take any type but a function's: checked
+;; as a call, then the type of their arguments looked into.
+(sig infer-compare (Fn (String Expr (List Expr) Ctx St) Res))
+(defn infer-compare (name callee args ctx st)
+  (let ((r (infer-called callee args ctx st))
+        (subst (get (get r st) subst))
+        (t1 (if (= (len args) 0) ANY (resolve-type (recorded (at args 0) (get r st)) subst))))
+    (if (has-fn t1 subst ctx empty-list)
+      (Res (get r t) (report (format "{name}: a function can't be compared, got {(show t1 subst)}") ctx (get r st)))
+      r)))
 
 ;; Whether `t` is, or holds, a function type: a list of them, say, or a record or variant
 ;; with one among its fields, or a sum with such a variant. `seen` holds the records and
@@ -606,18 +574,6 @@
     ((map-has (get ctx sums) name)
       (any (fn (v) (has-fn (TCon (at v 0) empty-list) subst ctx seen)) (get (map-get (get ctx sums) name) fields)))
     (else false)))
-
-;; Report unless `t` is one of `names`, Any, or not known yet.
-(sig needs-kind (Fn (CType (List String) String String Ctx St) St))
-(defn needs-kind (t names what name ctx st)
-  (match t
-    ((TCon tn args) (if (or (= tn "Any") (and (= (len args) 0) (contains tn names))) st (report (format "{name}: expected {what}, got {(show t (get st subst))}") ctx st)))
-    ((TVar v) (if (is-flexible v) st (report (format "{name}: expected {what}, got {v}") ctx st)))
-    (else (report (format "{name}: expected {what}, got {(show t (get st subst))}") ctx st))))
-
-(sig expect-all (Fn (CType (List CType) String Ctx St) St))
-(defn expect-all (want types what ctx st)
-  (if (= (len types) 0) st (expect-all want (rest types) what ctx (expect want (at types 0) what ctx st))))
 
 (sig join-all (Fn ((List CType) String Ctx Res) Res))
 (defn join-all (types what ctx acc)
@@ -975,8 +931,8 @@
 
 ;; --- types: unification ---
 
-;; Whether a type variable is one the checker made (?N), which unification may solve;
-;; a sig's (a) is rigid.
+;; Whether a type variable is one the checker made (?N, or ?N:number for a constraint
+;; variable's), which unification may solve; a sig's (a) is rigid.
 (sig is-flexible (Fn (String) Bool))
 (defn is-flexible (name) (starts-with name "?"))
 
@@ -1052,7 +1008,41 @@
   (cond
     ((match t ((TVar other) (= other v)) (else false)) (tup true subst))
     ((occurs v t subst) (tup false subst))
-    (else (tup true (map-set subst v t)))))
+    ((= (constraint-of v) "") (tup true (map-set subst v t)))
+    (else (bind-constrained v (constraint-of v) t subst))))
+
+;; A variable of the constraint `c` (`?N:number`, checking.constraints) bound to `t`: a
+;; type `c` lists (a tuple as a list, for now: B29); a variable, unconstrained or of a
+;; constraint within `c` (bound to the narrower), or one that shares a single type with
+;; `c` (both bound to it); a sig's variable only if its own constraint is within `c`.
+(sig bind-constrained (Fn (String String CType (Map String CType)) (Tup Bool (Map String CType))))
+(defn bind-constrained (v c t subst)
+  (let ((takes (map-get CONSTRAINTS c)))
+    (match t
+      ((TCon name _)
+        (cond
+          ((and (= name "Tup") (contains "List" takes)) (tup true (map-set subst v (as-list t))))
+          ((contains name takes) (tup true (map-set subst v t)))
+          (else (tup false subst))))
+      ((TVar other)
+        (let ((oc (constraint-of other)))
+          (cond
+            ((not (is-flexible other))
+              (if (and (!= oc "") (within oc c)) (tup true (map-set subst v t)) (tup false subst)))
+            ((= oc "") (tup true (map-set subst other (TVar v))))
+            ((within c oc) (tup true (map-set subst other (TVar v))))
+            ((within oc c) (tup true (map-set subst v t)))
+            (else
+              (let ((both (filter (fn (x) (contains x (map-get CONSTRAINTS oc))) takes)))
+                (if (and (= (len both) 1) (!= (at both 0) "List"))
+                  (tup true (map-set (map-set subst v (tcon (at both 0))) other (tcon (at both 0))))
+                  (tup false subst)))))))
+      (else (tup false subst)))))
+
+;; Whether every type the constraint `a` takes, `b` takes too.
+(sig within (Fn (String String) Bool))
+(defn within (a b)
+  (all (fn (x) (contains x (map-get CONSTRAINTS b))) (map-get CONSTRAINTS a)))
 
 (sig is-any (Fn (CType) Bool))
 (defn is-any (t)
@@ -1124,11 +1114,9 @@
             (Res pa (assoc st subst (at u 1)))
             (Res ANY (report (mismatch what (show pa (get st subst)) (show pb (get st subst)) ctx) ctx st))))))))
 
-;; Two types that aren't one: "if: the branches are Int and String", or for an operator,
-;; whose first argument sets the type, "+: expected Int, got String".
+;; Two types that aren't one: "if: the branches are Int and String".
 (sig mismatch (Fn (String String String Ctx) String))
-(defn mismatch (what a b ctx)
-  (if (is-op what ctx) (format "{what}: expected {a}, got {b}") (format "{what} are {a} and {b}")))
+(defn mismatch (what a b ctx) (format "{what} are {a} and {b}"))
 
 ;; A (Tup t ...) as a (List t); a Tup of mixed types is a (List Any).
 (sig as-list (Fn (CType) CType))
@@ -1146,8 +1134,16 @@
   (let ((names (rigid-vars t empty-list)))
     (if (= (len names) 0)
       (Res t st)
-      (let ((fr (fresh-types (len names) st empty-list)))
-        (Res (put-vars t (zip-map names (at fr 0) empty-map)) (at fr 1))))))
+      (let ((fr (fresh-types (len names) st empty-list))
+            (vars (map (fn (i) (keep-constraint (at names i) (at (at fr 0) i))) (range 0 (len names)))))
+        (Res (put-vars t (zip-map names vars empty-map)) (at fr 1))))))
+
+;; A fresh variable `?N` for the sig's variable `name`: `?N:number` if `name` is a
+;; constraint variable (checking.constraints).
+(sig keep-constraint (Fn (String CType) CType))
+(defn keep-constraint (name fresh-var)
+  (let ((c (constraint-of name)))
+    (if (= c "") fresh-var (TVar (format "{(tvar-name fresh-var)}:{c}")))))
 
 (sig rigid-vars (Fn (CType (List String)) (List String)))
 (defn rigid-vars (t acc)
@@ -1267,7 +1263,11 @@
         (shown-name name)
         (format "({(shown-name name)} {(join (map (fn (a) (show a subst)) args) \" \")})")))
     ((TFn params ret) (format "(Fn ({(join (map (fn (p) (show p subst)) params) \" \")}) {(show ret subst)})"))
-    ((TVar name) (if (is-flexible name) (+ "t" (slice name 1 (len name))) name))))
+    ((TVar name)
+      (cond
+        ((not (is-flexible name)) name)
+        ((!= (constraint-of name) "") (constraint-of name))
+        (else (+ "t" (slice name 1 (len name))))))))
 
 ;; A global name as the program wrote it: util__greet is greet.
 (sig shown-name (Fn (String) String))

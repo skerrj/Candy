@@ -103,7 +103,7 @@ of its own, with the prelude and the prelude macros as every program has them.
 
   ```candy errors
   (put ()) => empty form
-  (put (+ 1)) => needs at least 2 arguments
+  (put (+ 1)) => takes at least 2 argument(s)
   ```
   ```candy errors
   (sig n Int)

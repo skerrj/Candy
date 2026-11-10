@@ -91,7 +91,7 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(import nope)", "lib/b.cdy:1:1: import: can't find nope.cdy in lib"),
         ("\n  (import)", "lib/b.cdy:2:3: import: expected (import name)"),
         ("(put\n  (f 1))", "lib/b.cdy:2:4: unknown name f"),
-        ("(sig x Int)\n(def x (+ 1))", "lib/b.cdy:2:8: (+ ...) needs at least 2 arguments"),
+        ("(sig x Int)\n(def x (+ 1))", "lib/b.cdy:2:8: (+ ...) takes at least 2 argument(s)"),
         ("(def x 1)", "lib/b.cdy:1:1: x needs a (sig x Type)"),
         ("(sig x Int) (def x 1)\n(sig y Int) (def x 2)", "lib/b.cdy:2:18: defined more than once"),
         ("(sig f (Fn (Int) Int))\n(defn f (n) (if 1))", "lib/b.cdy:2:13: if: expected"),
@@ -99,11 +99,11 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(deft T (A) (b))", "lib/b.cdy:1:13: deft: variant names are Capitalised"),
         (
             '(sig x Int) (def x 1)\n(put (format "a {(+ x \\"b\\")}"))',
-            "lib/b.cdy:2:18: +: expected",
+            "lib/b.cdy:2:23: argument 2 of +: expected Int",
         ),
         ('(put (format "a\n  {(f 1)}"))', "lib/b.cdy:2:5: unknown name f"),
         ('(put\n  (format "{x"))', "lib/b.cdy:2:3: format: unmatched {"),
-        ("(put\n  (map + (tup 1)))", "lib/b.cdy:2:8: the operator + can't be used as a value"),
+        ("(put\n  (fold + 0 (tup 1)))", "lib/b.cdy:2:9: the operator + can't be used as a value"),
     ],
 )
 def test_errors_say_where(
@@ -513,8 +513,8 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
             "system.cdy: expected (deft Name) or (deft (Name",
         ),
         (
-            "special.cdy",
-            ("(op not unary)\n", ""),
+            "system.cdy",
+            ("(sig not (Fn (Bool) Bool))\n", ""),
             "spelling.py: not is declared in neither special.cdy nor system.cdy",
         ),
         (
@@ -522,18 +522,8 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
             ("", "(special len)\n"),
             "special.cdy: len is a special form, so spelling.py can't spell it",
         ),
-        (
-            "special.cdy",
-            ("", "(op len variadic)\n"),
-            "special.cdy: len has no variadic entry in spelling.py",
-        ),
-        (
-            "special.cdy",
-            ("", "(op len unary)\n"),
-            "special.cdy: len has no unary entry in spelling.py",
-        ),
         ("special.cdy", ("", "(special if)\n"), "special.cdy: if is declared more than once"),
-        ("special.cdy", ("", "(op - binary)\n"), "special.cdy: expected (special name), (op name"),
+        ("special.cdy", ("", "(op + variadic)\n"), "special.cdy: expected (special name)"),
     ],
 )
 def test_library_errors(

@@ -57,7 +57,8 @@ line 3, column 3: def x: expected Int, got String
 A `sig` with type variables (`(Fn (a a Bool) a)`) is generic: each use gives its type
 variables fresh types, so one function works on `Int`s in one call and `String`s in the
 next. Inside its own body a type variable is one fixed, unknown type, so the body can't
-treat it as an `Int`.
+treat it as an `Int`, nor add or compare it, unless it is a constraint variable
+([[checking.constraints]]).
 
 ```candy run
 (sig pick (Fn (a a Bool) a))
@@ -69,7 +70,7 @@ treat it as an `Int`.
 ```
 
 ```candy errors
-(sig f (Fn (a) a)) (defn f (x) (+ x 1)) => expected a, got Int
+(sig f (Fn (a) a)) (defn f (x) (+ x 1)) => argument 1 of +: expected addable, got a
 (sig pick (Fn (a a Bool) a)) (defn pick (x y left) (if left x y)) (put (pick 1 "a" true)) => argument 2 of pick: expected Int, got String
 ```
 
@@ -92,7 +93,7 @@ hi!
 ```
 
 ```candy errors
-(put (let ((n 1)) (+ n "a"))) => +: expected Int, got String
+(put (let ((n 1)) (+ n "a"))) => argument 2 of +: expected Int, got String
 (put (let ((id (fn (x) x))) (do (id 1) (id "a")))) => argument 1 of id: expected Int, got String
 ```
 
@@ -127,16 +128,62 @@ loud
 (put (cond (false 1))) => if: with no else, the then is Int, not Unit
 ```
 
+<a id="checking.constraints"></a>
+## Constraint variables (since `collections`)
+
+A type variable named for a constraint takes only the types the constraint lists,
+*lasting* (until interfaces, [[B34]]), as Elm's do:
+
+| Variable | Takes |
+|---|---|
+| `number` | `Int`, `Long`, `Byte`, `Float`, `Double` |
+| `integer` | `Int`, `Long`, `Byte` |
+| `float` | `Float`, `Double` |
+| `comparable` | the numbers, `String`, `Char` |
+| `appendable` | `String`, `(List a)` |
+
+Any other lowercase name is an ordinary type variable, which takes any type. Like one,
+each use of a constraint variable is one type in a `sig`: `(Fn (number number) number)`
+takes two numbers of one type. A second, independent one is numbered: `number2`,
+`comparable2`. A program's own `sig` can use them, so a generic function can add or
+compare its arguments; inside its body, a `number` is one unknown number type, so it
+isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
+
+```candy run
+(sig total (Fn ((List number) number) number))
+(defn total (xs zero) (fold (fn (a b) (+ a b)) zero xs))
+(sig biggest (Fn (comparable comparable) comparable))
+(defn biggest (a b) (if (> a b) a b))
+(sig scale (Fn (number number2) number))
+(defn scale (x n) x)
+(put (total (List 1 2 3) 0) (total (List 1.5 2.5) 0.0) (biggest "ab" "b") (biggest 3 2) (scale 1 2.0))
+```
+```expect
+6 4.0 b 3 1
+```
+
+```candy errors
+(sig total (Fn ((List number) number) number)) (defn total (xs z) z) (put (total (List "a") "b")) => argument 1 of total: expected (List number), got (List String)
+(sig big (Fn (comparable comparable) comparable)) (defn big (a b) a) (put (big true false)) => argument 1 of big: expected comparable, got Bool
+(sig f (Fn (number) number)) (defn f (x) (+ x 1)) => argument 2 of +: expected number, got Int
+(sig f (Fn (a) a)) (defn f (x) (+ x x)) => argument 1 of +: expected addable, got a
+(sig f (Fn (comparable) Int)) (defn f (x) (quot x 2)) => argument 1 of quot: expected integer, got comparable
+(sig f (Fn (number Int) Bool)) (defn f (x n) (< x n)) => argument 2 of <: expected number, got Int
+```
+
 <a id="checking.operators"></a>
 ## Operators
 
-The operators have fixed rules (Candy has no overloading). `+` takes arguments of one
-type, a number type, `String` or a list (`+` joins lists, as it joins strings); `-` and
-`*` one number type; `/` a `Float` or a `Double`; `quot` and `mod` an `Int`, `Long` or
-`Byte`. The comparisons take arguments of one type and give a `Bool`: `=` and `!=` any
-type but a function's ([[expr.equality]]), the orderings (`<`, `>`, `<=`, `>=`) a number
-type, `String` or `Char` (lists and records aren't ordered, *for now*: [[B124]]). `and`,
-`or` and `not` take `Bool`s. The number types don't mix: `(+ 1 1.0)` is an error.
+The operators are typed built-ins, as any function, with constraint variables and rest
+parameters ([[expr.rest]]), declared in `src/cdy/system.cdy`; Candy has no overloading.
+`+` takes one type, a number type, `String` or a list (`+` joins lists, as it joins
+strings: `addable`, *for now*, until `++` does those, `collections` step 4); `-` and `*`
+take a `number`, `/` a `float`, `quot` and `mod` an `integer`. The comparisons take
+arguments of one type and give a `Bool`: `=` and `!=` any type but a function's
+([[expr.equality]]), the orderings (`<`, `>`, `<=`, `>=`) a `comparable` (lists and
+records aren't ordered, *for now*, until interfaces: [[B34]]). `and` and `or` take two `Bool`s or more,
+and `not` one. Each argument is checked as a function's is, and its error is at it. The
+number types don't mix: `(+ 1 1.0)` is an error.
 
 ```candy run
 (put (+ 1 2) (+ "a" "b") (/ 7.0 2.0) (if (< 1 2 3) "yes" "no") (< "ab" "b") (< \a \b))
@@ -148,18 +195,31 @@ type, `String` or `Char` (lists and records aren't ordered, *for now*: [[B124]])
 ```
 
 ```candy errors
-(put (+ 1 "a")) => +: expected Int, got String
-(put (+ 1 1.0)) => +: expected Int, got Double
-(put (- "a" "b")) => -: expected a number, got String
-(put (< 1 "a")) => <: expected Int, got String
-(put (/ 7 2)) => /: expected a Float or Double, got Int
-(put (quot 1.0 2.0)) => quot: expected an Int, Long or Byte, got Double
-(put (< true false)) => <: expected a number, String or Char, got Bool
-(put (> (List 1) (List 2))) => >: expected a number, String or Char, got (List Int)
-(deft V ((x Int))) (put (<= (V 1) (V 2))) => <=: expected a number, String or Char, got V
-(put (>= nil nil)) => >=: expected a number, String or Char, got Unit
-(put (and 1 true)) => and: expected Bool, got Int
-(put (not "a")) => not: expected Bool, got String
+(put (+ 1 "a")) => argument 2 of +: expected Int, got String
+(put (+ 1 1.0)) => argument 2 of +: expected Int, got Double
+(put (- "a" "b")) => argument 1 of -: expected number, got String
+(put (< 1 "a")) => argument 2 of <: expected Int, got String
+(put (/ 7 2)) => argument 1 of /: expected float, got Int
+(put (quot 1.0 2.0)) => argument 1 of quot: expected integer, got Double
+(put (< true false)) => argument 1 of <: expected comparable, got Bool
+(put (> (List 1) (List 2))) => argument 1 of >: expected comparable, got (List Int)
+(deft V ((x Int))) (put (<= (V 1) (V 2))) => argument 1 of <=: expected comparable, got V
+(put (>= nil nil)) => argument 1 of >=: expected comparable, got Unit
+(put (and 1 true)) => argument 1 of and: expected Bool, got Int
+(put (not "a")) => argument 1 of not: expected Bool, got String
+(put (+ 1 2 (- 3 "x"))) => argument 2 of -: expected Int, got String
+```
+
+The error is at the argument, not the call ([[B135]]):
+
+```candy error
+(sig x Int)
+(def x 1)
+(put (+ x
+  "b"))
+```
+```expect-error
+line 4, column 3: argument 2 of +: expected Int, got String
 ```
 
 <a id="checking.tup-lists"></a>
@@ -331,9 +391,9 @@ gives the value or a fallback. A `(Maybe (Maybe t))` is two layers, `(Some None)
 ```candy errors
 (sig m (Maybe Int)) (def m 5) => def m: expected (Maybe Int), got Int
 (sig m (Maybe Int)) (def m nil) => def m: expected (Maybe Int), got Unit
-(sig m (Maybe Int)) (def m (Some 1)) (put (+ m m)) => +: expected a number, String or a list, got (Maybe Int)
+(sig m (Maybe Int)) (def m (Some 1)) (put (+ m m)) => argument 1 of +: expected addable, got (Maybe Int)
 (sig n Int) (def n nil) => def n: expected Int, got Unit
-(sig m (Maybe Int)) (def m (Some 1)) (put (+ m 1)) => +: expected (Maybe Int), got Int
+(sig m (Maybe Int)) (def m (Some 1)) (put (+ 1 m)) => argument 2 of +: expected Int, got (Maybe Int)
 ```
 
 <a id="checking.any"></a>
