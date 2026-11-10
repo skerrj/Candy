@@ -13,7 +13,8 @@ the result must equal the step's checked-in ``bin``, byte for byte.
     python script/bootstrap.py --step C         one step, from its parent step's checked-in bin
     python script/bootstrap.py --check          every step that way (each on its own)
     python script/bootstrap.py --from-scratch   the true chain, each output into the next
-    python script/bootstrap.py --tag            tag the steps boot/00, boot/01, ...
+    python script/bootstrap.py --tag            tag the steps boot/00, boot/01, ..., each new
+                                                one only once it passes (as --step)
 
 The steps are the ``boot/NN`` tags, then the commits after them found with ``git log``
 (not tagged yet). A step that needed staging says how in its tag's message, on a line
@@ -27,6 +28,10 @@ a bridge: the translator before translates the step's translator source, and the
 - ``old-runtime``: ``src/cdy/cdyc.cdy`` through ``translate_file``, with the runtime of the
   step's parent commit. For a step that removes a table entry the translator before still
   needs (``cond``, when it became a macro), since a translator reads the live table.
+- ``old-library``: the step's parent's library (``bin/<target>/*.cdy``) next to the
+  translator before, which reads it as it runs, for a step whose library that translator
+  can't read (the operators' ``sig``s in ``system.cdy``, ``collections`` step 2); the
+  step's ``self_host.py`` then builds as usual, putting the step's own library back.
 """
 
 import argparse
@@ -54,6 +59,7 @@ RECURSION_LIMIT = 20_000
 STAGING = {
     "84bf89a5ef63d5ac4dfe4b7a08438a21e935345e": "joined form read include core lower emit cdyc",
     "a0499db578e82a82e7a929d2cc20c283e6a27875": "old-runtime",
+    "f0f062d88f55f6016c8e47390bb60f7afd7790ad": "old-library",
 }
 
 
@@ -154,6 +160,14 @@ def stage(step: Step, tree: Path) -> None:
         )
         subprocess.run(("tar", "-x", "-C", str(parent)), input=archive.stdout, check=True)
         run_python(tree, parent / "src", str(Path(__file__)), "--bridge", *staging)
+    elif kind == "old-library":
+        archive = subprocess.run(
+            ("git", "archive", f"{step.commit}^", "--", ":(glob)bin/*/*.cdy"),
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(("tar", "-x", "-C", str(tree)), input=archive.stdout, check=True)
     else:
         raise StepFailed(f"unknown staging {kind!r}")
 
@@ -243,19 +257,24 @@ def step_index(chain: tuple[Step, ...], name: str) -> int:
     raise SystemExit(f"{name} is not a step of the chain")
 
 
-def tag_steps() -> None:
+def tag_steps() -> bool:
     """Tag each step found in the history that has no ``boot/NN`` tag yet, numbering on
-    from the tags there are."""
-    tagged = {step.commit for step in tagged_steps()}
-    number = len(tagged)
-    for step in found_steps():
-        if step.commit in tagged:
+    from the tags there are, once it passes (``check_step``); stop at the first that fails,
+    untagged. Whether every new step was tagged."""
+    chain = steps()
+    number = len(tagged_steps())
+    for index, step in enumerate(chain):
+        if step.label.startswith("boot/") or step.label == FIRST:
             continue
+        if not check_step(chain, index):
+            print(f"not tagged: {step.commit[:7]} (needs staging in STAGING, or a fix)")
+            return False
         staging = " ".join(staging_of(step)) or "none"
         name = f"boot/{number:02}"
         git("tag", "-a", name, step.commit, "-m", f"{name}: {PYTHON}\nstaging: {staging}")
         print(f"tagged {name} {step.commit[:7]} (staging: {staging})")
         number += 1
+    return True
 
 
 def main() -> None:
@@ -272,9 +291,6 @@ def main() -> None:
     if args.bridge:
         bridge(tuple(args.bridge))
         return
-    if args.tag:
-        tag_steps()
-        return
     chain = steps()
     if args.list:
         for index, step in enumerate(chain):
@@ -282,7 +298,9 @@ def main() -> None:
             print(f"{index:02} {step.label:12} {step.commit[:7]} {feature_of(step):18} {staging}")
         return
     WORK.mkdir(parents=True, exist_ok=True)
-    if args.step:
+    if args.tag:
+        passed = tag_steps()
+    elif args.step:
         passed = check_step(chain, step_index(chain, args.step))
     elif args.check:
         results = tuple(check_step(chain, index) for index in range(len(chain)))  # all of them

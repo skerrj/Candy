@@ -206,6 +206,13 @@ the typed collection operations (step 6: the new names into `bin`, then the tran
 onto them, then the old names out). A step that changes `system.cdy` or the prelude
 stages the library next to `bin` before building.
 
+*As built (step 2):* the other way round too: a step's check runs the translator before
+it with the step's own library, so a library that translator can't read needs `old-library`
+staging (`script/bootstrap.py`: the parent step's library next to it), or two steps if
+`src/` needs the new library as well. Step 2's operator `sig`s were the first (`boot/58`).
+`test_newest_step_reads_the_library` (`tst/py_cdy/test_bootstrap.py`) finds it before the
+commit, and `bootstrap.py --tag` tags a step only once it passes.
+
 ## Steps
 
 1. **Rest parameters** ([[B161]]; [[B99]]): `(Rest t)` in a `Fn` type, last; the checker (the
@@ -254,7 +261,7 @@ stages the library next to `bin` before building.
    argument), [[B48]] is the operators' part done. The spec: `checking.constraints`
    (new), `checking.operators` rewritten, `checking.generics`, `expr.arithmetic`,
    `expr.operator-arity`. The translator's build: 0.98 s to 1.00 s. One boot step,
-   `boot/58`.
+   `boot/58`, staged `old-library` (Bootstrap, above).
 3. **Operators as values** ([[B163]]; [[B38]]): the runtime's functions, emit's spelling.
 4. **`++`**, and `+` on numbers only ([[B164]]): two boot steps, a script rewriting the
    translator's `+`s by type.
