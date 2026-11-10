@@ -28,7 +28,7 @@
 (sig test Form)
 (def test (quo (ready)))
 (sig args (List Form))
-(def args (tup (quo a) (quo (b c))))
+(def args (Tup (quo a) (quo (b c))))
 (put (show (quasi (when (unq test) (go (unq-sp args)) (unq-sp empty-list) done))))
 (put (show (quasi (unq (Sym "plain" NOWHERE)))))
 (put (show (quasi ((unq-sp args)))))

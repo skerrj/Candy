@@ -102,7 +102,7 @@
 (defn read-list (src text pos acc start)
   (cond
     ((>= pos (len text)) (fail (parse-error src text start "( is never closed")))
-    ((= (at text pos) ")") (tup (Lst acc (pos-at src start)) (+ pos 1)))
+    ((= (at text pos) ")") (Tup (Lst acc (pos-at src start)) (+ pos 1)))
     (else
       (let (((form next) (read-form src text pos)))
         (read-list src text (skip text next) (++ acc (to-list form)) start)))))
@@ -111,7 +111,7 @@
 (sig read-char (Fn (Source String Int) (Tup Form Int)))
 (defn read-char (src text pos)
   (if (and (< (+ pos 1) (len text)) (not (isspace-at text (+ pos 1))) (ends-at text (+ pos 2)))
-    (tup (CharLit (at text (+ pos 1)) (pos-at src pos)) (+ pos 2))
+    (Tup (CharLit (at text (+ pos 1)) (pos-at src pos)) (+ pos 2))
     (fail (parse-error src text pos "a char is \\ and one character, then a delimiter"))))
 
 ;; A number, boolean or symbol; the word (up to the next delimiter) runs to `end`.
@@ -120,15 +120,15 @@
   (let ((word (slice text pos end))
         (kind (number-kind word)))
     (cond
-      ((!= kind "") (tup (number-form src text pos word kind) end))
-      ((= word "true") (tup (BoolLit true (pos-at src pos)) end))
-      ((= word "false") (tup (BoolLit false (pos-at src pos)) end))
+      ((!= kind "") (Tup (number-form src text pos word kind) end))
+      ((= word "true") (Tup (BoolLit true (pos-at src pos)) end))
+      ((= word "false") (Tup (BoolLit false (pos-at src pos)) end))
       ((symbol-start (at text pos))
         (let ((stop (symbol-end text (+ pos 1)))
               (name (slice text pos stop)))
           (if (in "__" name)
             (fail (parse-error src text pos "a name can't contain __ (only gensym makes such names)"))
-            (tup (Sym name (pos-at src pos)) stop))))
+            (Tup (Sym name (pos-at src pos)) stop))))
       (else (fail (parse-error src text pos (format "unexpected {(at text pos)}")))))))
 
 ;; --- symbols ---
@@ -215,7 +215,7 @@
 (defn read-str (src text pos acc start)
   (cond
     ((>= pos (len text)) (fail (parse-error src text start "string is never closed")))
-    ((= (at text pos) "\"") (tup (Txt acc (pos-at src start)) (+ pos 1)))
+    ((= (at text pos) "\"") (Tup (Txt acc (pos-at src start)) (+ pos 1)))
     ((= (at text pos) "\\")
       (let (((ch next) (escape src text pos)))
         (read-str src text next (++ acc ch) start)))
@@ -226,14 +226,14 @@
 (defn escape (src text pos)
   (let ((c (if (< (+ pos 1) (len text)) (at text (+ pos 1)) "")))
     (cond
-      ((in c (tup "\\" "/" "\"")) (tup c (+ pos 2)))
-      ((= c "b") (tup "\b" (+ pos 2)))
-      ((= c "f") (tup "\f" (+ pos 2)))
-      ((= c "n") (tup "\n" (+ pos 2)))
-      ((= c "r") (tup "\r" (+ pos 2)))
-      ((= c "t") (tup "\t" (+ pos 2)))
+      ((in c (List "\\" "/" "\"")) (Tup c (+ pos 2)))
+      ((= c "b") (Tup "\b" (+ pos 2)))
+      ((= c "f") (Tup "\f" (+ pos 2)))
+      ((= c "n") (Tup "\n" (+ pos 2)))
+      ((= c "r") (Tup "\r" (+ pos 2)))
+      ((= c "t") (Tup "\t" (+ pos 2)))
       ((and (= c "u") (<= (+ pos 6) (len text)) (all-hex text (+ pos 2) (+ pos 6)))
-        (tup (hex-char (slice text (+ pos 2) (+ pos 6))) (+ pos 6)))
+        (Tup (hex-char (slice text (+ pos 2) (+ pos 6))) (+ pos 6)))
       (else (fail (parse-error src text pos "bad escape sequence"))))))
 
 (sig all-hex (Fn (String Int Int) Bool))
@@ -254,6 +254,6 @@
 (sig row-col (Fn (String Int Int Int Int) (Tup Int Int)))
 (defn row-col (text i pos row col)
   (cond
-    ((>= i pos) (tup row col))
+    ((>= i pos) (Tup row col))
     ((= (at text i) "\n") (row-col text (+ i 1) pos (+ row 1) 1))
     (else (row-col text (+ i 1) pos row (+ col 1)))))

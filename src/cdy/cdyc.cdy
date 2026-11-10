@@ -89,7 +89,7 @@
   (if (= (len imps) 0)
     acc
     (let ((imp (at imps 0)))
-      (imported (rest imps) by-key (++ acc (to-list (tup (map-get by-key (get imp key)) (get imp pos))))))))
+      (imported (rest imps) by-key (++ acc (to-list (Tup (map-get by-key (get imp key)) (get imp pos))))))))
 
 ;; A macro program (expand.cdy) as Python. It is macro code, so it can quote.
 (sig compile-macros (Fn ((List Form)) String))

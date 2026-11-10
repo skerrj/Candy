@@ -263,14 +263,14 @@ binding shadows an outer name of the same name, *lasting*: an outer local, or a 
 one (a `def`, a `defn`, a built-in), which inside the `let` is the local and outside it
 is unchanged (a `def` is a constant, [[programs.top-level]]). So does a function's
 parameter, and a `match` clause's name. A binding `((a b ...) init)` takes a
-tuple apart, as a `tup` pattern does (`30-match.md`).
+tuple apart, as a `Tup` pattern does (`30-match.md`).
 
 ```candy run
 (sig x Int)
 (def x 100)
 (put (let ((x 1) (y (+ x 1))) (* x y)))
 (put x)
-(put (let (((q r) (tup 17 5))) (- q r)))
+(put (let (((q r) (Tup 17 5))) (- q r)))
 (sig f (Fn (Int) Int))
 (defn f (x) (* x 2))
 (put (f 3) (let ((map 7) (f 1)) (+ map f)) (f 3) x)

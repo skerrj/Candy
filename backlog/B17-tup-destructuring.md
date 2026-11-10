@@ -21,3 +21,9 @@ checker, and patterns everywhere. From `doc/archive/leaks_imvp_py_translator.md`
   against a `(Tup ...)` (`(put (match (tup 1 2) ((tup a b c) a))) => a (Tup Int Int) has
   2 items, not 3`, a row of `[[checking.match]]`); it said "The translator doesn't check
   its arity (mypy does, with a `sig`; otherwise an `IndexError` at run time)".
+- 2026-11-09, Claude: narrowed by [[B165]] (`collections` step 5): `tup` is gone for
+  `Tup` (so it is no special form, [[B48]]'s part), `at` on a tuple is an error, the
+  pattern's own read excepted, and a `Tup` pattern on a typed value that isn't a tuple
+  (a record, a function) is an error, "a Tup pattern takes a tuple, not a P" (a row of
+  [[checking.match]]). What stays: the pattern is still a temporary read with `at` in
+  Core, a value typed `Any` is taken apart unchecked, and parameters can't be patterns.

@@ -26,15 +26,15 @@
 (sig read-token (Fn (String Int String) (Tup String Int)))
 (defn read-token (text pos acc)
   (if (or (>= pos (len text)) (delim? (at text pos)))
-    (tup acc pos)
+    (Tup acc pos)
     (read-token text (+ pos 1) (++ acc (at text pos)))))
 
 ;; A string literal, from just after its opening quote; `acc` starts as the quote.
 (sig read-str (Fn (String Int String) (Tup String Int)))
 (defn read-str (text pos acc)
   (cond
-    ((>= pos (len text)) (tup acc pos))
-    ((= (at text pos) "\"") (tup (++ acc "\"") (+ pos 1)))
+    ((>= pos (len text)) (Tup acc pos))
+    ((= (at text pos) "\"") (Tup (++ acc "\"") (+ pos 1)))
     ((= (at text pos) "\\") (read-str text (+ pos 2) (++ acc (slice text pos (+ pos 2)))))
     (else (read-str text (+ pos 1) (++ acc (at text pos))))))
 
@@ -45,8 +45,8 @@
 (defn read-list (text pos acc)
   (let ((pos (skip-space text pos)))
     (cond
-      ((>= pos (len text)) (tup acc pos))
-      ((= (at text pos) ")") (tup acc (+ pos 1)))
+      ((>= pos (len text)) (Tup acc pos))
+      ((= (at text pos) ")") (Tup acc (+ pos 1)))
       (else
         (let (((form next) (read-form text pos)))
           (read-list text next (++ acc (to-list form))))))))
@@ -59,7 +59,7 @@
       ((= (at text pos) "\"") (read-str text (+ pos 1) "\""))
       (else
         (let (((tok next) (read-token text pos "")))
-          (tup (atom tok) next))))))
+          (Tup (atom tok) next))))))
 
 (sig read-all (Fn (String Int (List Any)) (List Any)))
 (defn read-all (text pos acc)

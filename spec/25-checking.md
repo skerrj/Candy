@@ -222,15 +222,16 @@ line 4, column 3: argument 2 of +: expected Int, got String
 ```
 
 <a id="checking.tup-lists"></a>
-## Tuples as lists
+## Tuples aren't lists
 
-A `(Tup t ...)` whose items are all `t`s is accepted where a `(List t)` is expected, so
-`tup` writes a list too (*for now*: a tuple is a list in Python, [[B29]]); `(List
-item*)` writes one directly, its items one type ([[types.constructors]]).
+A `(Tup t ...)` isn't a `(List t)`, even with its items all one type, *lasting*: a
+tuple's size is its type's, a list's isn't. `(List item*)` writes a list, its items one
+type ([[types.constructors]]). (Until `collections`, such a tuple was accepted as a list,
+and `tup` wrote both.)
 
 ```candy run
 (sig names (List String))
-(def names (tup "ann" "bo"))
+(def names (List "ann" "bo"))
 (put (len names) (join names ","))
 ```
 ```expect
@@ -238,7 +239,8 @@ item*)` writes one directly, its items one type ([[types.constructors]]).
 ```
 
 ```candy errors
-(sig xs (List Int)) (def xs (tup 1 "a")) => def xs: expected (List Int), got (Tup Int String)
+(sig xs (List String)) (def xs (Tup "ann" "bo")) => def xs: expected (List String), got (Tup String String)
+(sig xs (List Int)) (def xs (Tup 1 "a")) => def xs: expected (List Int), got (Tup Int String)
 ```
 
 <a id="checking.records"></a>
@@ -344,8 +346,9 @@ annbo
 ## match
 
 A `match`'s subject is of the sum its clauses take apart; each clause's names have their
-fields' types; all the clauses (and the `else`) have one type, the `match`'s. A `tup`
-pattern takes a `(Tup ...)` with as many items as it has names.
+fields' types; all the clauses (and the `else`) have one type, the `match`'s. A `Tup`
+pattern takes a `(Tup ...)` with as many items as it has names, and only a tuple (or an
+`Any`).
 
 ```candy run
 (deft Shape (Circle ((r Int))) (Sq ((s Int))))
@@ -360,7 +363,8 @@ pattern takes a `(Tup ...)` with as many items as it has names.
 ```candy errors
 (deft S (A ((x Int))) (B)) (sig f (Fn (S) Int)) (defn f (s) (match s ((A x) x) ((B) "none"))) => match: the clauses are Int and String
 (deft S (A) (B)) (put (match 1 ((A) 1) ((B) 2))) => match: the subject is Int, not S
-(put (match (tup 1 2) ((tup a b c) a))) => a (Tup Int Int) has 2 items, not 3
+(put (match (Tup 1 2) ((Tup a b c) a))) => a (Tup Int Int) has 2 items, not 3
+(deft P ((a Int) (b Int))) (put (let (((x y) (P 1 2))) x)) => a Tup pattern takes a tuple, not a P
 ```
 
 <a id="checking.maybe"></a>

@@ -301,6 +301,27 @@ commit, and `bootstrap.py --tag` tags a step only once it passes.
    `checking.maybe`. One boot step, `boot/60`.
 5. **Tuples** ([[B165]]; [[B152]], [[B17]], [[B29]]'s part): `tup` to `Tup` or `List`,
    `checking.tup-lists` gone, `at` on a tuple an error, then `tup` gone.
+
+   *Done (2026-11-09). As built:* the translator's 203 `tup`s became `Tup`s, then, with
+   the checker strict (`accepts` is `unify`: `accepts-each`, `as-list`, `tup-list-type`
+   and `join-types`' and `bind-constrained`'s tuple branches gone), the 43 that were lists
+   became `List`s, found by one-off scripts (not kept) from the typed Core: 27 where a
+   `(List t)` is typed, 15 passed to `in` (an `Any`), one by hand; the tests' and the
+   spec's likewise. `at` on a tuple is an error (`check-at`: "at doesn't take a tuple, a
+   (Tup Int String): take it apart with a pattern"), the pattern's own read excepted
+   (`is-tup-item`); the translator had 70 such `at`s, not 13, since its `tup`s were now
+   `Tup`s too, mostly `infer-all`'s `(Tup (List CType) St)` and `unify`'s `(Tup Bool
+   ...)`: all patterns now (`args-st` for a call whose arguments' types aren't needed). A
+   `Tup` pattern on a typed value that isn't a tuple (a record, a function) is an error
+   too, "a Tup pattern takes a tuple, not a P" ([[B17]]'s part). `tup` is gone, with
+   `(special tup)` and the editor grammar's keyword. `checking.tup-lists` keeps its id
+   (other docs link it), its rule now the opposite: "Tuples aren't lists", *lasting*.
+   [[B175]] came along: `spelling-py`, `spelling-kind` and `spelling-value` in
+   `core.cdy` read a spelling, where `emit` read it by position; `lower`'s `and`/`or`
+   stay by name, since short-circuiting is the language's ([[expr.logic]]), not the
+   spelling's. The spec: `types.tuples`, `checking.tup-lists`, `checking.match`,
+   `match.tup`, `expr.let`, `library.zip`, `library.rest`, `library.maps`, and
+   `programs.prelude`'s example. One boot step, `boot/61`.
 6. **Typed collection operations** ([[B166]]; [[B34]] *for now*, [[B18]], [[B48]]): lists',
    strings' and maps' own operations, `in` gone, `put` a macro over `text`; two boot
    steps. *Checkpoint* (as `semantics`' Question 1): merge here, and do step 7 as

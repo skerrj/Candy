@@ -231,7 +231,7 @@
     "head": {
       "patterns": [
         {
-          "match": "(?<=\\()(import-macros|import|do|if|cond|let|fn|quo|quasi|unq-sp|unq|tup|get|assoc|match|else)(?=[\\s();}]|$)",
+          "match": "(?<=\\()(import-macros|import|do|if|cond|let|fn|quo|quasi|unq-sp|unq|get|assoc|match|else)(?=[\\s();}]|$)",
           "name": "keyword.control.candy"
         },
         {
@@ -363,7 +363,7 @@
       ]
     },
     "let": {
-      "comment": "(let (bindings) body): each binding's name, or the names of a tup taken apart, is a parameter, not a call.",
+      "comment": "(let (bindings) body): each binding's name, or the names of a Tup taken apart, is a parameter, not a call.",
       "begin": "(?<=\\()(let)\\s+(\\()",
       "beginCaptures": {
         "1": {

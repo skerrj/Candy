@@ -13,7 +13,7 @@ in `30-match.md`.
 (deft (Name tvar+) ((field Type)*))
 (get expr field)
 (assoc expr field value (field value)*)
-(tup expr+)
+(Tup expr+)
 ```
 
 <a id="types.table"></a>
@@ -171,23 +171,22 @@ the types ([[checking.records]]).
 ## Tuples
 
 `(Tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`
-([[types.constructors]]); `tup` is the same (*for now*, the name the translator's own
-code uses). `at` reads an item by its position, from 0, and `len` is its size. A tuple
-is taken apart with a `Tup` (or `tup`) pattern, in `match` or a `let` binding
-(`30-match.md`).
+([[types.constructors]]), and `len` is its size. A tuple is taken apart with a `Tup`
+pattern, in `match` or a `let` binding (`30-match.md`), and only so, *lasting*: `at` on
+a tuple is an error, since an item's type depends on its position.
 
 ```candy run
 (sig p (Tup Int String Int))
-(def p (tup 1 "two" 3))
-(put (at p 1) (len p))
+(def p (Tup 1 "two" 3))
+(put (let (((_ name _) p)) name) (len p))
 ```
 ```expect
 two 3
 ```
 
 ```candy errors
-(put (tup)) => at least one item
 (put (Tup)) => at least one item
+(put (at (Tup 1 "two") 0)) => at doesn't take a tuple, a (Tup Int String): take it apart with a pattern
 ```
 
 <a id="types.constructors"></a>

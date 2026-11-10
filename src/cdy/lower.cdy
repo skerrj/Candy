@@ -65,7 +65,7 @@
       (match callee
         ((Lambda params body _ _)
           (let (((stmts vals n1) (value-seq args n)))
-            (tup (++ stmts (assigns params vals empty-list)) body n1)))
+            (Tup (++ stmts (assigns params vals empty-list)) body n1)))
         (else (fail "internal error: lower: not an applied fn"))))
     (else (fail "internal error: lower: not an applied fn"))))
 
@@ -122,21 +122,21 @@
             (temp (Temp (get low n) ANY))
             ((cases n2) (lower-cases clauses mode tmp (+ (get low n) 1) empty-list))
             ((default-stmts n3) (lower-default default mode tmp n2)))
-        (tup (++ (get low stmts) (to-list (SMatch temp (get low expr) cases default-stmts))) n3)))
+        (Tup (++ (get low stmts) (to-list (SMatch temp (get low expr) cases default-stmts))) n3)))
     (else (fail "internal error: lower: not a match"))))
 
 ;; The else clause's statements: none, or one list.
 (sig lower-default (Fn ((List Expr) String Expr Int) (Tup (List (List Stmt)) Int)))
 (defn lower-default (default mode tmp n)
   (if (= (len default) 0)
-    (tup empty-list n)
+    (Tup empty-list n)
     (let (((stmts n1) (lower-body (at default 0) mode tmp n)))
-      (tup (to-list stmts) n1))))
+      (Tup (to-list stmts) n1))))
 
 (sig lower-cases (Fn ((List Clause) String Expr Int (List Case)) (Tup (List Case) Int)))
 (defn lower-cases (clauses mode tmp n acc)
   (if (= (len clauses) 0)
-    (tup acc n)
+    (Tup acc n)
     (let ((clause (at clauses 0))
           ((body n1) (lower-body (get clause body) mode tmp n)))
       (lower-cases
@@ -153,7 +153,7 @@
     ((= mode "effect") (effect e n))
     (else
       (let ((low (value e n)))
-        (tup (++ (get low stmts) (to-list (SAssign tmp (get low expr)))) (get low n))))))
+        (Tup (++ (get low stmts) (to-list (SAssign tmp (get low expr)))) (get low n))))))
 
 ;; fn: a lambda if its body is one expression, otherwise a nested function (SLocalFunc: a
 ;; nested Python def; Candy has no nested def or defn).
@@ -197,11 +197,11 @@
   (if (= (len fields) 0)
     acc
     (let (((f _) (at fields 0)))
-      (refill (rest fields) (rest vals) (++ acc (to-list (tup f (at vals 0))))))))
+      (refill (rest fields) (rest vals) (++ acc (to-list (Tup f (at vals 0))))))))
 
 (sig value-call (Fn (Expr (List Expr) Pos CType Int) Low))
 (defn value-call (callee args pos ty n)
-  (if (in (prim-name callee) (tup "and" "or"))
+  (if (in (prim-name callee) (List "and" "or"))
     (value-boolop callee args pos ty n)
     (let (((stmts items n1) (value-seq (++ (to-list callee) args) n)))
       (Low stmts (Call (at items 0) (rest items) pos ty) n1))))
@@ -260,7 +260,7 @@
 (sig low-all (Fn ((List Expr) Int (List Low)) (Tup (List Low) Int)))
 (defn low-all (exprs n acc)
   (if (= (len exprs) 0)
-    (tup acc n)
+    (Tup acc n)
     (let ((low (value (at exprs 0) n)))
       (low-all (rest exprs) (get low n) (++ acc (to-list low))))))
 
@@ -274,7 +274,7 @@
 (sig seq-build (Fn ((List Low) Int (List Stmt) (List Expr)) (Tup (List Stmt) (List Expr) Int)))
 (defn seq-build (lows n stmts out)
   (if (= (len lows) 0)
-    (tup stmts out n)
+    (Tup stmts out n)
     (let ((low (at lows 0))
           (later (rest lows)))
       (if (and (has-stmts later) (not (is-simple (get low expr))))
@@ -350,7 +350,7 @@
   (if (is-applied e)
     (let (((stmts body n1) (bind-applied e n))
           ((more n2) (tail body n1)))
-      (tup (++ stmts more) n2))
+      (Tup (++ stmts more) n2))
     (tail-plain e n)))
 
 (sig tail-plain (Fn (Expr Int) (Tup (List Stmt) Int)))
@@ -360,22 +360,22 @@
       (let ((t (value test n))
             ((a n1) (tail then (get t n)))
             ((b n2) (tail other n1)))
-        (tup (++ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
+        (Tup (++ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
     ((Do body _ _)
       (let (((stmts n1) (effect-all (all-but-last body) n empty-list))
             ((last n2) (tail (last-of body) n1)))
-        (tup (++ stmts last) n2)))
+        (Tup (++ stmts last) n2)))
     ((MatchE _ _ _ _ _) (lower-match e "tail" NIL n))
     (else
       (let ((low (value e n)))
-        (tup (++ (get low stmts) (to-list (SReturn (get low expr)))) (get low n))))))
+        (Tup (++ (get low stmts) (to-list (SReturn (get low expr)))) (get low n))))))
 
 (sig effect (Fn (Expr Int) (Tup (List Stmt) Int)))
 (defn effect (e n)
   (if (is-applied e)
     (let (((stmts body n1) (bind-applied e n))
           ((more n2) (effect body n1)))
-      (tup (++ stmts more) n2))
+      (Tup (++ stmts more) n2))
     (effect-plain e n)))
 
 (sig effect-plain (Fn (Expr Int) (Tup (List Stmt) Int)))
@@ -385,19 +385,19 @@
       (let ((t (value test n))
             ((a n1) (effect then (get t n)))
             ((b n2) (effect other n1)))
-        (tup (++ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
+        (Tup (++ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
     ((Do body _ _) (effect-all body n empty-list))
     ((MatchE _ _ _ _ _) (lower-match e "effect" NIL n))
     (else
       (if (is-simple e)
-        (tup empty-list n)
+        (Tup empty-list n)
         (let ((low (value e n)))
-          (tup (++ (get low stmts) (to-list (SExpr (get low expr)))) (get low n)))))))
+          (Tup (++ (get low stmts) (to-list (SExpr (get low expr)))) (get low n)))))))
 
 (sig effect-all (Fn ((List Expr) Int (List Stmt)) (Tup (List Stmt) Int)))
 (defn effect-all (exprs n acc)
   (if (= (len exprs) 0)
-    (tup acc n)
+    (Tup acc n)
     (let (((stmts n1) (effect (at exprs 0) n)))
       (effect-all (rest exprs) n1 (++ acc stmts)))))
 
@@ -416,14 +416,14 @@
 (sig lower-top (Fn (Top Int) (Tup (List Stmt) Int)))
 (defn lower-top (top n)
   (match top
-    ((TDeft name tvars fields) (tup (to-list (SRecord name tvars fields)) n))
-    ((TDeftSum name tvars variants) (tup (to-list (SSum name tvars variants)) n))
+    ((TDeft name tvars fields) (Tup (to-list (SRecord name tvars fields)) n))
+    ((TDeftSum name tvars variants) (Tup (to-list (SSum name tvars variants)) n))
     ((TDef name init t _)
       (let ((low (value init n)))
-        (tup (++ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))
+        (Tup (++ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))
     ((TDefn name params body t _)
       (let (((stmts n1) (if (returns-unit t) (effect body n) (tail body n))))
-        (tup
+        (Tup
           (to-list
             ;; A variadic defn's self call would rebind its rest parameter from a list.
             (SFunc name params (if (is-variadic t) stmts (loop-tail-calls name params stmts (returns-unit t))) t))
@@ -517,7 +517,7 @@
 (sig changed (Fn ((List Expr) (List Expr) (List Expr) (List Expr)) (Tup (List Expr) (List Expr))))
 (defn changed (params args targets vals)
   (cond
-    ((= (len params) 0) (tup targets vals))
+    ((= (len params) 0) (Tup targets vals))
     ((same-local (at params 0) (at args 0))
       (changed (rest params) (rest args) targets vals))
     (else

@@ -51,7 +51,7 @@
 (defn prelude-module (key)
   (let ((path (library-path "prelude.cdy"))
         (prelude (path-resolve path)))
-    (if (= prelude key) empty-list (to-list (tup path (Imp prelude NOWHERE))))))
+    (if (= prelude key) empty-list (to-list (Tup path (Imp prelude NOWHERE))))))
 
 ;; The path of the library file `name` (form.cdy, special.cdy, system.cdy, the prelude and its macros), which
 ;; is kept next to the translator (in bin/py/; py_cdy/self_host.py copies the library there).
@@ -76,7 +76,7 @@
         (if (= name "")
           acc
           (let ((path (import-path "import" dir name (form-pos form))))
-            (++ acc (to-list (tup path (Imp (path-resolve path) (form-pos form)))))))))))
+            (++ acc (to-list (Tup path (Imp (path-resolve path) (form-pos form)))))))))))
 
 (sig imp-list (Fn ((List (Tup String Imp)) (List Imp)) (List Imp)))
 (defn imp-list (imports acc)
@@ -191,7 +191,7 @@
     (cond
       ((or (= (len items) 0) (!= (sym-name (at items 0)) "import-macros")) form)
       ((and (= (len items) 2) (!= (sym-name (at items 1)) ""))
-        (Lst (tup (at items 0) (Txt (import-path "import-macros" dir (sym-name (at items 1)) pos) pos)) pos))
+        (Lst (List (at items 0) (Txt (import-path "import-macros" dir (sym-name (at items 1)) pos) pos)) pos))
       (else (fail (++ (pos-text pos) "import-macros: expected (import-macros name)"))))))
 
 ;; The name in `(import name)`, or "" if `form` isn't an import.

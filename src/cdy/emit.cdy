@@ -47,7 +47,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 
 ;; The modules every generated file imports: those spelling.py's spellings refer to.
 (sig PY_IMPORTS (List String))
-(def PY_IMPORTS (tup "math" "re" "cdy_rt.spelling" "cdy_rt.primitives"))
+(def PY_IMPORTS (List "math" "re" "cdy_rt.spelling" "cdy_rt.primitives"))
 
 ;; The names `names` as a set (each mapped to true), added to `acc`.
 (sig name-set (Fn ((List String) (Map String Bool)) (Map String Bool)))
@@ -60,7 +60,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (def PY_RESERVED
   (name-set
     (++
-      (tup
+      (List
     "ArithmeticError" "AssertionError" "AttributeError" "BaseException"
     "BaseExceptionGroup" "BlockingIOError" "BrokenPipeError" "BufferError"
     "BytesWarning" "ChildProcessError" "ConnectionAbortedError" "ConnectionError"
@@ -90,7 +90,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     "pass" "pow" "print" "property" "quit" "raise" "range" "repr" "return" "reversed"
     "round" "set" "setattr" "slice" "sorted" "staticmethod" "str" "sum" "super" "try"
     "tuple" "type" "vars" "while" "with" "yield" "zip")
-      (tup "math" "re" "cdy_rt"))
+      (List "math" "re" "cdy_rt"))
     empty-map))
 
 ;; The characters py-mangle spells as letters.
@@ -256,7 +256,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 
 (sig generic-fields (Fn ((List (Tup String CType))) (List String)))
 (defn generic-fields (fields)
-  (map (fn (f) (at f 0)) (filter (fn (f) (> (len (type-vars (to-list (at f 1)) empty-list)) 0)) fields)))
+  (map (fn (f) (let (((name _t) f)) name)) (filter (fn (f) (let (((_name t) f)) (> (len (type-vars (to-list t) empty-list)) 0))) fields)))
 
 ;; A local's Python name, chosen when its scope was entered (bind-locals).
 (sig local-py (Fn (String Int Env) String))
@@ -355,7 +355,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (sig emit-obj (Fn (Expr Env) String))
 (defn emit-obj (obj env)
   (match obj
-    ((Local _ id _ _) (if (map-has (get env narrowed) id) (at (map-get (get env narrowed) id) 0) (emit-expr obj env)))
+    ((Local _ id _ _) (if (map-has (get env narrowed) id) (let (((tmp _fields) (map-get (get env narrowed) id))) tmp) (emit-expr obj env)))
     (else (emit-expr obj env))))
 
 ;; A get: of a field with a type variable, on a local narrowed from a generic sum, cast to
@@ -366,7 +366,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
   (let ((text (format "{(emit-obj obj env)}.{(py-mangle field)}")))
     (match obj
       ((Local _ id _ _)
-        (if (and (map-has (get env narrowed) id) (in field (at (map-get (get env narrowed) id) 1)))
+        (if (and (map-has (get env narrowed) id) (let (((_tmp fields) (map-get (get env narrowed) id))) (in field fields)))
           (format "_cdy_cast('{(emit-type t env)}', {text})")
           text))
       (else text))))
@@ -403,7 +403,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
   (let ((x (emit-expr e env))
         (name (match (get e t) ((TCon name _) name) (else ""))))
     (cond
-      ((in name (tup "String" "Char")) x)
+      ((in name (List "String" "Char")) x)
       ((= name "Int") (format "str({x})"))
       ((= name "Any") (format "cdy_rt.primitives.text_any({x})"))
       (else (show-call x (get e t) pos env)))))
@@ -470,7 +470,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (sig register-line (Fn (String String (List String) (List (Tup String CType)) Int Env) String))
 (defn register-line (name shown tvars fields level env)
   (line level
-    (format "cdy_rt.primitives.register_type({(map-get (get env globals) name)}, {(py-str shown)}, {(py-tuple (map py-str tvars))}, {(py-tuple (map (fn (f) (field-show-type (at f 1))) fields))})")))
+    (format "cdy_rt.primitives.register_type({(map-get (get env globals) name)}, {(py-str shown)}, {(py-tuple (map py-str tvars))}, {(py-tuple (map (fn (f) (let (((_name t) f)) (field-show-type t))) fields))})")))
 
 ;; Python's text for a tuple of the texts `items`: `()`, `(a,)`, `(a, b)`.
 (sig py-tuple (Fn ((List String)) String))
@@ -512,9 +512,9 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
       (match t
         ((TFn params _) (format "(lambda _cdy_x: {(show-call \"_cdy_x\" (at params 0) pos env)})"))
         (else (fail (++ (pos-text pos) "show: its type isn't known here")))))
-    ((in (spelling-kind (get env spellings) name) TYPED_KINDS) (at (map-get (get env spellings) name) 0))
+    ((in (spelling-kind (get env spellings) name) TYPED_KINDS) (spelling-py (get env spellings) name))
     ;; An operator as a value is its function (spelling.py; expr.operator-values).
-    ((!= (at (map-get (get env spellings) name) 2) "") (at (map-get (get env spellings) name) 2))
+    ((!= (spelling-value (get env spellings) name) "") (spelling-value (get env spellings) name))
     (else (fail (++ (pos-text pos) (format "the operator {name} can't be used as a value, for now; wrap it in a fn"))))))
 
 (sig emit-call (Fn (Expr (List Expr) Env) String))
@@ -523,7 +523,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     (match callee
       ((Prim name pos _)
         (cond
-          ((in name (tup "put" "print" "display"))
+          ((in name (List "put" "print" "display"))
             (format "print({(comma-join (map (fn (a) (emit-put-arg a pos env)) args))})"))
           ((= name "show") (show-call (at strs 0) (get (at args 0) t) pos env))
           (else (emit-prim-call name args strs env))))
@@ -539,11 +539,11 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 
 (sig emit-prim-call (Fn (String (List Expr) (List String) Env) String))
 (defn emit-prim-call (name args strs env)
-  (let ((kind (at (map-get (get env spellings) name) 1))
-        (py (at (map-get (get env spellings) name) 0))
+  (let ((kind (spelling-kind (get env spellings) name))
+        (py (spelling-py (get env spellings) name))
         (op (++ " " py " ")))
     (cond
-      ((in kind (tup "binop" "compare" "boolop")) (format "({(join strs op)})"))
+      ((in kind (List "binop" "compare" "boolop")) (format "({(join strs op)})"))
       ((= kind "unary") (format "({py} {(at strs 0)})"))
       ((and (= kind "index") (is-index-literal (at args 1))) (format "{(at strs 0)}[{(at strs 1)}]"))
       (else (format "{py}({(comma-join strs)})")))))
@@ -575,8 +575,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (sig emit-tcon (Fn (String (List String) (Map String (Tup String String String))) String))
 (defn emit-tcon (name args spellings)
   (cond
-    ((and (map-has spellings name) (= (at (map-get spellings name) 1) "type"))
-      (replace (at (map-get spellings name) 0) "{}" (comma-join args)))
+    ((= (spelling-kind spellings name) "type") (replace (spelling-py spellings name) "{}" (comma-join args)))
     ((= name "Tup") (format "tuple[{(comma-join args)}]"))
     ((= (len args) 0) (py-mangle name))
     (else (format "{(py-mangle name)}[{(comma-join args)}]"))))
@@ -686,7 +685,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ;; PEP 695 type parameters: "" or "[a, b]".
 (sig type-params (Fn ((List String)) String))
 (defn type-params (tvars)
-  (let ((params (filter (fn (v) (not (in (constraint-of v) (tup "integer" "float")))) tvars)))
+  (let ((params (filter (fn (v) (not (in (constraint-of v) (List "integer" "float")))) tvars)))
     (if (= (len params) 0) "" (format "[{(comma-join (map type-param params))}]"))))
 
 ;; A type parameter: a constraint variable's (checking.constraints) with the Python types
@@ -829,7 +828,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
   (match subject
     ((Local _ id _ _)
       (let ((fields (if (map-has (get env generic) variant) (map-get (get env generic) variant) empty-list)))
-        (assoc env narrowed (map-set (get env narrowed) id (tup subj fields)))))
+        (assoc env narrowed (map-set (get env narrowed) id (Tup subj fields)))))
     (else env)))
 
 ;; A clause's fields, each read into its name. A generic variant's names are annotated

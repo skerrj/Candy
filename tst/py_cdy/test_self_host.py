@@ -391,7 +391,7 @@ def test_programs_cant_see_the_python_helpers(t1: ModuleType, name: str) -> None
 
 def test_list_functions_are_built_in(t1: ModuleType) -> None:
     # Fast: the runtime's, not Candy loops that copy the list for each item.
-    source = translate_with(t1, "(put (map (fn (n) n) (tup 1)) (filter (fn (n) true) (tup 1)))")
+    source = translate_with(t1, "(put (map (fn (n) n) (List 1)) (filter (fn (n) true) (List 1)))")
     assert "cdy_rt.primitives.list_map(" in source and "cdy_rt.primitives.list_filter(" in source
 
 

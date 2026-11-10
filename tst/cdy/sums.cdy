@@ -56,7 +56,7 @@
   (if (= (len xs) 0) t (build (insert t (at xs 0)) (slice xs 1 (len xs)))))
 
 (sig tree (Tree Int))
-(def tree (build Leaf (tup 5 2 8 1 9 3)))
+(def tree (build Leaf (List 5 2 8 1 9 3)))
 
 (put (area (Circle 1.0)))
 (put (describe (Rect 2.0 3.0)))

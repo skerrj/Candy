@@ -35,10 +35,10 @@
   (Fn ((List Form) (Fn ((List Form)) String)) (Tup (List Form) (Map String Macro))))
 (defn expand-program (forms compile)
   (let ((done (expand-file forms false compile empty-list)))
-    (tup (get done forms) (get done macros))))
+    (Tup (get done forms) (get done macros))))
 
 (sig MACRO_HEADS (List String))
-(def MACRO_HEADS (tup "defmacro" "import-macros"))
+(def MACRO_HEADS (List "defmacro" "import-macros"))
 
 ;; `forms` expanded. In a macro file (`macro-file`), the other forms are helpers, which can
 ;; use only the imported macros (the file's own are compiled with them). `loading` holds the
@@ -47,12 +47,12 @@
 (defn expand-file (forms macro-file compile loading)
   (let ((imports
           (import-all
-            (++ (prelude-import loading) (pick-forms forms (tup "import-macros") true empty-list))
+            (++ (prelude-import loading) (pick-forms forms (List "import-macros") true empty-list))
             compile
             loading
             (Imports empty-list empty-list empty-map)))
         (imported (macro-map (get imports macros) empty-map))
-        (defs (expand-defs (pick-forms forms (tup "defmacro") true empty-list) imported empty-list))
+        (defs (expand-defs (pick-forms forms (List "defmacro") true empty-list) imported empty-list))
         (rest (pick-forms forms MACRO_HEADS false empty-list))
         (helpers (if macro-file (expand-all rest imported empty-list) empty-list))
         (own
@@ -72,7 +72,7 @@
   (let ((path (library-path "prelude_macros.cdy")))
     (if (in (path-resolve path) loading)
       empty-list
-      (to-list (Lst (tup (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))))
+      (to-list (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))))
 
 ;; The forms whose heads are in `heads` (or, if `keep` is false, the others).
 (sig pick-forms (Fn ((List Form) (List String) Bool (List Form)) (List Form)))
@@ -127,7 +127,7 @@
         (let ((done (expand-file (read-program path) true compile (++ loading (to-list key)))))
           (Imports
             (++ (get acc macros) (get done own))
-            (add-helpers (++ (get done helpers) (to-list (tup key (get done forms)))) (get acc helpers))
+            (add-helpers (++ (get done helpers) (to-list (Tup key (get done forms)))) (get acc helpers))
             (map-set (get acc seen) key true)))))))
 
 ;; The path in (import-macros "path"), which include.cdy put there.
@@ -201,14 +201,14 @@
           (pos (form-pos (at defs 0)))
           (fname (Sym (macro-fn (sym-name (at items 1))) pos))
           (args (Sym "args__" pos))
-          (type (Lst (tup (Sym "Fn" pos) (Lst (to-list (Lst (tup (Sym "List" pos) (Sym "Form" pos)) pos)) pos) (Sym "Form" pos)) pos))
-          (body (Lst (tup (Sym "let" pos) (Lst (param-binds (at items 2) args pos) pos) (at items 3)) pos)))
+          (type (Lst (List (Sym "Fn" pos) (Lst (to-list (Lst (List (Sym "List" pos) (Sym "Form" pos)) pos)) pos) (Sym "Form" pos)) pos))
+          (body (Lst (List (Sym "let" pos) (Lst (param-binds (at items 2) args pos) pos) (at items 3)) pos)))
       (macro-program
         (rest defs)
         builtins
         (++ acc
-           (to-list (Lst (tup (Sym "sig" pos) fname type) pos))
-           (to-list (Lst (tup (Sym "defn" pos) fname (Lst (to-list args) pos) body) pos)))))))
+           (to-list (Lst (List (Sym "sig" pos) fname type) pos))
+           (to-list (Lst (List (Sym "defn" pos) fname (Lst (to-list args) pos) body) pos)))))))
 
 ;; The items of (defmacro name params body), checked; a special form (in `builtins`)
 ;; can't be a macro's name.
@@ -243,7 +243,7 @@
 (defn param-binds (params args pos)
   (if (= (sym-name params) "")
     (arg-binds (list-items params) args 0 pos empty-list)
-    (to-list (Lst (tup params args) pos))))
+    (to-list (Lst (List params args) pos))))
 
 (sig arg-binds (Fn ((List Form) Form Int Pos (List Form)) (List Form)))
 (defn arg-binds (params args i pos acc)
@@ -254,7 +254,7 @@
       args
       (+ i 1)
       pos
-      (++ acc (to-list (Lst (tup (at params 0) (Lst (tup (Sym "at" pos) args (IntLit i pos)) pos)) pos))))))
+      (++ acc (to-list (Lst (List (at params 0) (Lst (List (Sym "at" pos) args (IntLit i pos)) pos)) pos))))))
 
 ;; The name of the function a macro is compiled into.
 (sig macro-fn (Fn (String) String))
@@ -302,10 +302,10 @@
         (cond
           ((map-has macros head)
             (expand-form (expand-call (map-get macros head) (rest items) pos) macros))
-          ((in head (tup "sig" "deft" "import" "import-macros" "quo" "quasi")) form)
+          ((in head (List "sig" "deft" "import" "import-macros" "quo" "quasi")) form)
           ((= head "defn") (Lst (expand-after items 3 macros) pos))
           ((= head "fn") (Lst (expand-after items 2 macros) pos))
-          ((in head (tup "let" "match")) (Lst (expand-clauses head items macros) pos))
+          ((in head (List "let" "match")) (Lst (expand-clauses head items macros) pos))
           (else (Lst (expand-all items macros empty-list) pos)))))
     (else form)))
 
@@ -324,10 +324,10 @@
     ((and (= head "let") (= (len items) 3))
       (match (at items 1)
         ((Lst binds p)
-          (tup (at items 0) (Lst (each-clause binds 1 macros empty-list) p) (expand-form (at items 2) macros)))
+          (List (at items 0) (Lst (each-clause binds 1 macros empty-list) p) (expand-form (at items 2) macros)))
         (else (expand-all items macros empty-list))))
     ((and (= head "match") (> (len items) 1))
-      (++ (tup (at items 0) (expand-form (at items 1) macros))
+      (++ (List (at items 0) (expand-form (at items 1) macros))
          (each-clause (drop 2 items) 1 macros empty-list)))
     (else (expand-all items macros empty-list))))
 

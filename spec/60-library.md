@@ -88,8 +88,8 @@ true false
 
 ```candy run
 (sig pairs (List (Tup Int String)))
-(def pairs (zip (range 1 6) (tup "a" "b" "c")))
-(put (len pairs) (join (map (fn (p) (format "{(at p 0)}{(at p 1)}")) pairs) " "))
+(def pairs (zip (range 1 6) (List "a" "b" "c")))
+(put (len pairs) (join (map (fn (p) (let (((n s) p)) (format "{n}{s}"))) pairs) " "))
 ```
 ```expect
 3 1a 2b 3c
@@ -100,7 +100,7 @@ The prelude's `rest` is all of a list but its first item; the empty list's rest 
 as `drop`'s is:
 
 ```candy run
-(put (len (rest (tup 1 2 3))) (len (rest (tup "only"))) (rest (rest (List 1))))
+(put (len (rest (List 1 2 3))) (len (rest (List "only"))) (rest (rest (List 1))))
 ```
 ```expect
 2 0 (List)
@@ -206,7 +206,7 @@ the value at a key, which must be in the map, by a function of it.
 
 ```candy run
 (sig ages (Map String Int))
-(def ages (map-from (tup (tup "ann" 30) (tup "bo" 4) (tup "ann" 31))))
+(def ages (map-from (List (Tup "ann" 30) (Tup "bo" 4) (Tup "ann" 31))))
 
 (put (join (map-keys ages) " ") (map-get ages "ann"))
 (put (map-get (map-update ages "bo" (fn (n) (+ n 1))) "bo") (map-get ages "bo"))

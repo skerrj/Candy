@@ -29,7 +29,6 @@
 (special let)
 (special fn)
 (special format)
-(special tup)
 (special get)
 (special assoc)
 (special match)
