@@ -15,7 +15,7 @@
     (else "positive")))
 
 (sig shout (Fn (String) Unit))
-(defn shout (s) (do (put s) (put (+ s "!"))))
+(defn shout (s) (do (put s) (put (++ s "!"))))
 
 ;; A do in value position needs a temporary.
 (sig noisy (Fn (Int) Int))

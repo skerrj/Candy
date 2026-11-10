@@ -20,7 +20,7 @@
 
 (sig show-all (Fn ((List Form) (List String)) (List String)))
 (defn show-all (forms acc)
-  (if (= (len forms) 0) acc (show-all (rest-of forms) (+ acc (to-list (show (at forms 0)))))))
+  (if (= (len forms) 0) acc (show-all (rest-of forms) (++ acc (to-list (show (at forms 0)))))))
 
 (put (show (quo (if (< x 1) "small" (f x 2.5 3.0f 7l 2b \c true ())))))
 (put (= (form-pos (quo x)) NOWHERE))

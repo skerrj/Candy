@@ -42,9 +42,11 @@ prints them with a space between.
 <a id="expr.arithmetic"></a>
 ## Operators
 
-The operators are typed built-ins, declared in `src/cdy/system.cdy` ([[checking.operators]]). `+`, `-`, `*`, `/`, `quot` and
-`mod` take two or more arguments and fold left; `+` also joins strings, and lists. Their
-arguments have one type, and the number types don't mix ([[checking.operators]]). `/`
+The operators are typed built-ins, declared in `src/cdy/system.cdy`
+([[checking.operators]]). `+`, `-`, `*`, `/`, `quot` and `mod` take two or more numbers
+and fold left; `+` adds numbers only, and `++` joins strings and lists
+([[expr.append]]). Their arguments have one type, and the number types don't mix
+([[checking.operators]]). `/`
 divides a `Float` or `Double`, giving the same type, *lasting* (`(/ 7 2)` is an error).
 `quot` divides whole numbers rounding down, toward minus infinity, as Haskell's `div` and
 Python's `//` do (*lasting*: [[B24]]; a target whose division truncates spells it
@@ -54,22 +56,40 @@ number is a literal (`-5`), and `(- 0 x)` negates (*lasting*: [[B33]]). Overflow
 checked (*for now*: [[B22]]; [[syntax.numbers]] has the sizes).
 
 ```candy run
-(put (- 10 2 3) (* 2 3 4) (+ "a" "b" "c"))
+(put (- 10 2 3) (* 2 3 4) (+ 1 2 3))
 (put (/ 7.0 2.0) (/ 1.0f 4.0f) (quot 7 2) (quot -7 2))
 (put (mod 7 2) (mod -7 2) (mod 7 -2) (mod 7l 4l))
-(put (len (+ (to-list 1) (to-list 2))))
 ```
 ```expect
-5 24 abc
+5 24 6
 3.5 0.25f 3 -4
 1 1 -1 3l
-2
 ```
 
 ```candy errors
 (put (/ 7 2)) => argument 1 of /: expected float, got Int
 (put (quot 7.0 2.0)) => argument 1 of quot: expected integer, got Double
 (put (mod 1.0f 2.0f)) => argument 1 of mod: expected integer, got Float
+(put (+ "a" "b")) => argument 1 of +: expected number, got String
+```
+
+<a id="expr.append"></a>
+`++` (since `collections`) joins two strings or more, or two lists or more, of one type,
+folding left: an `appendable` ([[checking.constraints]]). `+` is only for numbers,
+*lasting*: joining isn't adding, and a target's `+` may not join (Rust's doesn't, on a
+`Vec`).
+
+```candy run
+(put (++ "a" "b" "c") (++ (List 1) (List 2 3)) (len (++ (to-list 1) (to-list 2))))
+```
+```expect
+abc (List 1 2 3) 2
+```
+
+```candy errors
+(put (++ 1 2)) => argument 1 of ++: expected appendable, got Int
+(put (++ "a" (List "b"))) => argument 2 of ++: expected String, got (List String)
+(put (++ (List 1) (List "b"))) => argument 2 of ++: expected (List Int), got (List String)
 ```
 
 <a id="expr.comparisons"></a>
@@ -179,14 +199,14 @@ Each operator takes the number of arguments its type says: two or more, a rest p
 
 <a id="expr.operator-values"></a>
 **An operator as a value** (since `collections`) is its function of two arguments, the
-ones before its rest parameter ([[expr.rest]]), and `not` of one: `+` is an `(Fn (addable
-addable) addable)` ([[checking.operators]]), so `(fold + 0 xs)` adds. `and` and `or` as
+ones before its rest parameter ([[expr.rest]]), and `not` of one: `+` is an `(Fn (number
+number) number)` ([[checking.operators]]), so `(fold + 0 xs)` adds. `and` and `or` as
 values evaluate both arguments, as any function does; only a call written out
 short-circuits. `=` and `!=` as values are `(Fn (a a) Bool)`, which doesn't keep `a` off
 functions, as a generic function's `=` doesn't either (*for now*: [[B173]]).
 
 ```candy run
-(put (fold + 0 (List 1 2 3)) (fold * 1.0 (List 2.0 3.0)) (fold + "" (List "a" "b")))
+(put (fold + 0 (List 1 2 3)) (fold * 1.0 (List 2.0 3.0)) (fold ++ "" (List "a" "b")))
 (put (fold quot 100 (List 2 5)) (fold and true (List true false)) (map not (List true false)))
 (sig check (Fn ((Fn (Int Int) Bool) Int Int) Bool))
 (defn check (f a b) (f a b))
@@ -199,7 +219,7 @@ true false true false 3
 ```
 
 ```candy errors
-(put (map + (List 1))) => got (Fn (addable addable) addable)
+(put (map + (List 1))) => got (Fn (number number) number)
 ```
 
 <a id="expr.conditionals"></a>

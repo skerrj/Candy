@@ -75,7 +75,7 @@
     (let ((named (retype-top (at tops 0) (fn (t k) (TVar (format "?e{k}")))))
           (st1 (solve-pending ctx (check-top named ctx (assoc (assoc st subst empty-map) types empty-map))))
           (done (retype-top named (fn (t k) (node-type t st1)))))
-      (check-tops (rest tops) ctx st1 (+ acc (to-list done))))))
+      (check-tops (rest tops) ctx st1 (++ acc (to-list done))))))
 
 (sig check-top (Fn (Top Ctx St) St))
 (defn check-top (top ctx st)
@@ -335,7 +335,7 @@
   (if (= (len es) 0)
     (tup acc st)
     (let ((r (infer (at es 0) ctx st)))
-      (infer-all (rest es) ctx (get r st) (+ acc (to-list (get r t)))))))
+      (infer-all (rest es) ctx (get r st) (++ acc (to-list (get r t)))))))
 
 ;; (List item*): a (List t), each item a t (the first item's type, or a new variable).
 (sig infer-list-of (Fn ((List Expr) Ctx St) Res))
@@ -372,7 +372,7 @@
 (defn fresh-types (count st acc)
   (if (= count 0)
     (tup acc st)
-    (fresh-types (- count 1) (assoc st n (+ (get st n) 1)) (+ acc (to-list (TVar (format "?{(get st n)}")))))))
+    (fresh-types (- count 1) (assoc st n (+ (get st n) 1)) (++ acc (to-list (TVar (format "?{(get st n)}")))))))
 
 (sig fresh (Fn (St) Res))
 (defn fresh (st) (Res (TVar (format "?{(get st n)}")) (assoc st n (+ (get st n) 1))))
@@ -438,7 +438,7 @@
 (defn spread-rest (params count)
   (let ((fixed (slice params 0 (- (len params) 1)))
         (item (at (rest-item (at params (- (len params) 1))) 0)))
-    (+ fixed (map (fn (_) item) (range 0 (- count (len fixed)))))))
+    (++ fixed (map (fn (_) item) (range 0 (- count (len fixed)))))))
 
 ;; The arguments against the parameter types: the ones that aren't fns first, then the
 ;; fns, so their parameters' types are known when their bodies are read.
@@ -560,7 +560,7 @@
     ((TFn _ _) true)
     ((TCon name args)
       (or (any (fn (a) (has-fn a subst ctx seen)) args)
-          (and (not (contains name seen)) (fields-have-fn name subst ctx (+ seen (List name))))))
+          (and (not (contains name seen)) (fields-have-fn name subst ctx (++ seen (List name))))))
     (else false)))
 
 ;; Whether the record or variant `name` has a field holding a function, or the sum `name`
@@ -647,7 +647,7 @@
       (if (is-flexible v)
         (let ((r (fresh st))
               (p (Pending obj field what ot (get r t) (get ctx here))))
-          (Res (get r t) (assoc (get r st) pending (+ (get (get r st) pending) (to-list p)))))
+          (Res (get r t) (assoc (get r st) pending (++ (get (get r st) pending) (to-list p)))))
         (Res ANY (report (format "{what}: {v} has no fields") ctx st))))
     (else
       (let ((f (field-of ot field ctx)))
@@ -688,7 +688,7 @@
         ((st1 left) (solve-each ps ctx (assoc st pending empty-list) empty-list)))
     (cond
       ((= (len left) 0) st1)
-      ((< (len left) (len ps)) (solve-pending ctx (assoc st1 pending (+ (get st1 pending) left))))
+      ((< (len left) (len ps)) (solve-pending ctx (assoc st1 pending (++ (get st1 pending) left))))
       (else (report-pending left ctx st1)))))
 
 (sig solve-each (Fn ((List Pending) Ctx St (List Pending)) (Tup St (List Pending))))
@@ -698,9 +698,9 @@
     (let ((p (at ps 0))
           (on (prune (get p on) (get st subst))))
       (cond
-        ((map-has (get st subst) (+ "any" (tvar-name on)))
+        ((map-has (get st subst) (++ "any" (tvar-name on)))
           (solve-each (rest ps) ctx (assoc st subst (mark-any (get p t) (get st subst))) left))
-        ((is-var on) (solve-each (rest ps) ctx st (+ left (to-list p))))
+        ((is-var on) (solve-each (rest ps) ctx st (++ left (to-list p))))
         (else
           (let ((c (assoc ctx here (get p here)))
                 (r (field-type on (get p obj) (get p field) (get p what) c st))
@@ -753,7 +753,7 @@
     (if (= (len default) 0)
       (join-all (at rc 0) "match: the clauses" ctx (Res (at (at rc 0) 0) (at rc 1)))
       (let ((rd (infer (at default 0) ctx (at rc 1))))
-        (join-all (+ (at rc 0) (to-list (get rd t))) "match: the clauses" ctx (Res (at (at rc 0) 0) (get rd st)))))))
+        (join-all (++ (at rc 0) (to-list (get rd t))) "match: the clauses" ctx (Res (at (at rc 0) 0) (get rd st)))))))
 
 ;; Each clause's type: its names bound to their fields' types, and a local subject
 ;; narrowed to the clause's variant (checking.narrowing).
@@ -768,7 +768,7 @@
                    ((Local _ _ _ _) (assoc bound narrowed (map-set (get ctx narrowed) (local-key subject) (get c variant))))
                    (else bound)))
           (r (infer (get c body) inner (typed-binds (get c binds) (get inner env) st))))
-      (infer-clauses subject (rest clauses) vars ctx (get r st) (+ acc (to-list (get r t)))))))
+      (infer-clauses subject (rest clauses) vars ctx (get r st) (++ acc (to-list (get r t)))))))
 
 ;; `env` with each (field, Local) of a pattern bound to the field's type.
 (sig bind-fields (Fn ((List (Tup String Expr)) (List (Tup String CType)) (Map String CType) (Map String CType)) (Map String CType)))
@@ -832,7 +832,7 @@
   (match (prune t subst)
     ((TCon name args) (TCon name (map (fn (a) (final-type a subst)) args)))
     ((TFn params ret) (TFn (map (fn (p) (final-type p subst)) params) (final-type ret subst)))
-    ((TVar name) (if (map-has subst (+ "any" name)) ANY (TVar name)))))
+    ((TVar name) (if (map-has subst (++ "any" name)) ANY (TVar name)))))
 
 ;; `top` with each node's type `(f t k)`, its old type and its number.
 (sig retype-top (Fn (Top (Fn (CType Int) CType)) Top))
@@ -899,7 +899,7 @@
   (if (= (len es) 0)
     (tup acc n)
     (let (((e n1) (retype (at es 0) f n)))
-      (retype-all (rest es) f n1 (+ acc (to-list e))))))
+      (retype-all (rest es) f n1 (++ acc (to-list e))))))
 
 (sig retype-pairs (Fn ((List (Tup String Expr)) (Fn (CType Int) CType) Int (List (Tup String Expr))) (Tup (List (Tup String Expr)) Int)))
 (defn retype-pairs (pairs f n acc)
@@ -907,7 +907,7 @@
     (tup acc n)
     (let (((name e) (at pairs 0))
           ((e1 n1) (retype e f n)))
-      (retype-pairs (rest pairs) f n1 (+ acc (to-list (tup name e1)))))))
+      (retype-pairs (rest pairs) f n1 (++ acc (to-list (tup name e1)))))))
 
 (sig retype-parts (Fn ((List FPart) (Fn (CType Int) CType) Int (List FPart)) (Tup (List FPart) Int)))
 (defn retype-parts (parts f n acc)
@@ -916,8 +916,8 @@
     (match (at parts 0)
       ((FHole e)
         (let (((e1 n1) (retype e f n)))
-          (retype-parts (rest parts) f n1 (+ acc (to-list (FHole e1))))))
-      (else (retype-parts (rest parts) f n (+ acc (to-list (at parts 0))))))))
+          (retype-parts (rest parts) f n1 (++ acc (to-list (FHole e1))))))
+      (else (retype-parts (rest parts) f n (++ acc (to-list (at parts 0))))))))
 
 (sig retype-clauses (Fn ((List Clause) (Fn (CType Int) CType) Int (List Clause)) (Tup (List Clause) Int)))
 (defn retype-clauses (clauses f n acc)
@@ -926,7 +926,7 @@
     (let ((c (at clauses 0))
           ((bs n1) (retype-pairs (get c binds) f n empty-list))
           ((b n2) (retype (get c body) f n1)))
-      (retype-clauses (rest clauses) f n2 (+ acc (to-list (Clause (get c variant) bs b)))))))
+      (retype-clauses (rest clauses) f n2 (++ acc (to-list (Clause (get c variant) bs b)))))))
 
 ;; --- types: unification ---
 
@@ -991,7 +991,7 @@
 (sig mark-any (Fn (CType (Map String CType)) (Map String CType)))
 (defn mark-any (t subst)
   (match (prune t subst)
-    ((TVar name) (if (is-flexible name) (map-set subst (+ "any" name) ANY) subst))
+    ((TVar name) (if (is-flexible name) (map-set subst (++ "any" name) ANY) subst))
     ((TCon _ args) (fold (fn (s a) (mark-any a s)) subst args))
     ((TFn params ret) (mark-any ret (fold (fn (s p) (mark-any p s)) subst params)))))
 
@@ -1087,7 +1087,7 @@
   (let ((u (accepts want actual (get st subst))))
     (if (at u 0)
       (assoc st subst (at u 1))
-      (let ((lead (if (= what "") "" (+ what ": "))))
+      (let ((lead (if (= what "") "" (++ what ": "))))
         (report (format "{lead}expected {(show want (get st subst))}, got {(show actual (get st subst))}") ctx st)))))
 
 ;; Like expect, for what has one right type: "if: the test is Int, not Bool".
@@ -1147,7 +1147,7 @@
 (sig rigid-vars (Fn (CType (List String)) (List String)))
 (defn rigid-vars (t acc)
   (match t
-    ((TVar name) (if (or (is-flexible name) (contains name acc)) acc (+ acc (to-list name))))
+    ((TVar name) (if (or (is-flexible name) (contains name acc)) acc (++ acc (to-list name))))
     ((TCon _ args) (fold (fn (a x) (rigid-vars x a)) acc args))
     ((TFn params ret) (rigid-vars ret (fold (fn (a x) (rigid-vars x a)) acc params)))))
 
@@ -1192,7 +1192,7 @@
                     (else empty-list))))
       (check-order (rest tops) order
         (fold (fn (d n) (map-set d n true)) defined (defined-by top))
-        (+ acc errors)))))
+        (++ acc errors)))))
 
 ;; The order errors of `e`, run now: for each top-level name it uses, the name itself and,
 ;; if it is a function, every name its body reaches.
@@ -1202,14 +1202,14 @@
     (map (fn (u)
            (let (((name pos) u)
                  (reached (reach (List name) order (map-from (List (tup name true))))))
-             (map (fn (n) (+ (pos-text pos) (used-early n name order)))
+             (map (fn (n) (++ (pos-text pos) (used-early n name order)))
                   (filter (fn (n) (and (map-has (get order kinds) n) (not (map-has defined n)))) (map-keys reached)))))
          (uses e empty-list))))
 
 ;; The message for `n`, used before its definition, through `name` (unless it is `n`).
 (sig used-early (Fn (String String Order) String))
 (defn used-early (n name order)
-  (let ((through (if (= n name) "" (+ ", through " (shown-name name)))))
+  (let ((through (if (= n name) "" (++ ", through " (shown-name name)))))
     (format "{(shown-name n)} is used before its {(map-get (get order kinds) n)}{through}")))
 
 ;; The top-level names reached from `todo`, through the bodies of the functions among them;
@@ -1222,13 +1222,13 @@
           (found (if (map-has (get order bodies) name)
                    (filter (fn (n) (not (map-has seen n))) (map (fn (u) (at u 0)) (uses (map-get (get order bodies) name) empty-list)))
                    empty-list)))
-      (reach (+ (rest todo) found) order (fold (fn (m n) (map-set m n true)) seen found)))))
+      (reach (++ (rest todo) found) order (fold (fn (m n) (map-set m n true)) seen found)))))
 
 ;; The globals `e` uses, with where, added to `acc`: in a `fn` too, counted as called.
 (sig uses (Fn (Expr (List (Tup String Pos))) (List (Tup String Pos))))
 (defn uses (e acc)
   (match e
-    ((Global name pos _) (+ acc (List (tup name pos))))
+    ((Global name pos _) (++ acc (List (tup name pos))))
     ((Call callee args _ _) (uses-all args (uses callee acc)))
     ((If test then other _ _) (uses other (uses then (uses test acc))))
     ((Do body _ _) (uses-all body acc))
@@ -1250,7 +1250,7 @@
 
 (sig report (Fn (String Ctx St) St))
 (defn report (msg ctx st)
-  (assoc st errors (+ (get st errors) (to-list (+ (pos-text (get ctx here)) msg)))))
+  (assoc st errors (++ (get st errors) (to-list (++ (pos-text (get ctx here)) msg)))))
 
 ;; A type as a program writes it: (List Int), (Fn (a) a); a module's type without its
 ;; prefix; a variable the checker made as t1, t2.
@@ -1266,7 +1266,7 @@
       (cond
         ((not (is-flexible name)) name)
         ((!= (constraint-of name) "") (constraint-of name))
-        (else (+ "t" (slice name 1 (len name))))))))
+        (else (++ "t" (slice name 1 (len name))))))))
 
 ;; A global name as the program wrote it: util__greet is greet.
 (sig shown-name (Fn (String) String))

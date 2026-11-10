@@ -35,8 +35,13 @@ SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 # variable; a call is still Python's operator (spelling.py).
 
 
-def add[T: (int, float, str, tuple[Any, ...])](a: T, b: T) -> T:
-    """``+``: numbers, strings or lists (``addable``)."""
+def add[T: (int, float)](a: T, b: T) -> T:
+    """``+``: numbers."""
+    return a + b
+
+
+def append[T: (str, tuple[Any, ...])](a: T, b: T) -> T:
+    """``++``: strings or lists (``appendable``)."""
     return a + b
 
 

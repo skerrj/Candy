@@ -46,8 +46,8 @@
     acc
     (let ((m (at modules (len acc)))
           ((forms macros) (expand-program (get m forms) compile-macros))
-          (prefix (if (= (len acc) top) "" (+ (get m stem) "__"))))
-      (expand-modules modules top (+ acc (to-list (Ready m forms macros (module-exports forms (get m stem) prefix))))))))
+          (prefix (if (= (len acc) top) "" (++ (get m stem) "__"))))
+      (expand-modules modules top (++ acc (to-list (Ready m forms macros (module-exports forms (get m stem) prefix))))))))
 
 (sig exports-by-key (Fn ((List Ready) (Map String Exports)) (Map String Exports)))
 (defn exports-by-key (ready acc)
@@ -60,7 +60,7 @@
 (defn exports-of (ready acc)
   (if (= (len ready) 0)
     acc
-    (exports-of (rest ready) (+ acc (to-list (get (at ready 0) exports))))))
+    (exports-of (rest ready) (++ acc (to-list (get (at ready 0) exports))))))
 
 ;; The definitions of all the modules, in order.
 (sig analyse-modules
@@ -81,7 +81,7 @@
               (fn (text where) (expand-all (parse text where) macros empty-list))
               macros
               false)))
-      (analyse-modules (rest ready) by-key elsewhere builtins parse (+ acc tops)))))
+      (analyse-modules (rest ready) by-key elsewhere builtins parse (++ acc tops)))))
 
 ;; The exports of each import, with where it is.
 (sig imported (Fn ((List Imp) (Map String Exports) (List (Tup Exports Pos))) (List (Tup Exports Pos))))
@@ -89,7 +89,7 @@
   (if (= (len imps) 0)
     acc
     (let ((imp (at imps 0)))
-      (imported (rest imps) by-key (+ acc (to-list (tup (map-get by-key (get imp key)) (get imp pos))))))))
+      (imported (rest imps) by-key (++ acc (to-list (tup (map-get by-key (get imp key)) (get imp pos))))))))
 
 ;; A macro program (expand.cdy) as Python. It is macro code, so it can quote.
 (sig compile-macros (Fn ((List Form)) String))
@@ -108,7 +108,7 @@
   (let ((stmts (lower-program tops 0 empty-list))
         (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) py-spellings empty-map (deft-field-types tops empty-map))))
         (env (bind-locals (bound-locals stmts empty-list) globals)))
-    (+ HEADER
+    (++ HEADER
        (emit-imports PY_IMPORTS "")
        "\ncdy_rt.primitives.stop_on_panic()\n"
        (emit-stmts stmts 0 env "")
@@ -134,7 +134,7 @@
   (if (or (= (len args) 0) (> (len args) 2))
     (do (put-err USAGE) 2)
     (let ((src (at args 0))
-          (out (if (= (len args) 2) (at args 1) (path-join "output" (+ (path-stem src) ".py"))))
+          (out (if (= (len args) 2) (at args 1) (path-join "output" (++ (path-stem src) ".py"))))
           (python (translate-file src)))
       (do
         (make-dirs (path-dir out))

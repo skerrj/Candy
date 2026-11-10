@@ -29,9 +29,9 @@
 ;; --- the operators (spec/25-checking.md, checking.constraints) ---
 ;; Typed as any function, with constraint variables and rest parameters; spelling.py
 ;; spells them infix: arithmetic folds left, comparisons chain, and `and` and `or`
-;; short-circuit (lower.cdy). `+` takes `addable`, a number, String or list, until `++`
-;; (collections step 4).
-(sig + (Fn (addable addable (Rest addable)) addable))
+;; short-circuit (lower.cdy). `+` adds numbers, `++` appends strings or lists.
+(sig + (Fn (number number (Rest number)) number))
+(sig ++ (Fn (appendable appendable (Rest appendable)) appendable))
 (sig - (Fn (number number (Rest number)) number))
 (sig * (Fn (number number (Rest number)) number))
 (sig / (Fn (float float (Rest float)) float))

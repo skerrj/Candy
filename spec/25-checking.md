@@ -48,7 +48,7 @@ line 3, column 3: def x: expected Int, got String
 ```candy errors
 (sig x Int) (def x "a") => def x: expected Int, got String
 (sig f (Fn (Int) String)) (defn f (n) n) => defn f: expected String, got Int
-(sig f (Fn (String) Int)) (defn f (s) (+ s 1)) => +: expected String, got Int
+(sig f (Fn (String) Int)) (defn f (s) (++ s 1)) => argument 2 of ++: expected String, got Int
 ```
 
 <a id="checking.generics"></a>
@@ -70,7 +70,7 @@ treat it as an `Int`, nor add or compare it, unless it is a constraint variable
 ```
 
 ```candy errors
-(sig f (Fn (a) a)) (defn f (x) (+ x 1)) => argument 1 of +: expected addable, got a
+(sig f (Fn (a) a)) (defn f (x) (+ x 1)) => argument 1 of +: expected number, got a
 (sig pick (Fn (a a Bool) a)) (defn pick (x y left) (if left x y)) (put (pick 1 "a" true)) => argument 2 of pick: expected Int, got String
 ```
 
@@ -83,7 +83,7 @@ checker infers it from how it is made and used. A local has one type, so a `fn` 
 
 ```candy run
 (put (let ((n 3) (m (* n n))) (+ m 1)))
-(put (join (map (fn (s) (+ s "!")) (to-list "hi")) ""))
+(put (join (map (fn (s) (++ s "!")) (to-list "hi")) ""))
 (put (let ((sq (fn (x) (* x x)))) (sq 3)))
 ```
 ```expect
@@ -166,7 +166,7 @@ isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
 (sig total (Fn ((List number) number) number)) (defn total (xs z) z) (put (total (List "a") "b")) => argument 1 of total: expected (List number), got (List String)
 (sig big (Fn (comparable comparable) comparable)) (defn big (a b) a) (put (big true false)) => argument 1 of big: expected comparable, got Bool
 (sig f (Fn (number) number)) (defn f (x) (+ x 1)) => argument 2 of +: expected number, got Int
-(sig f (Fn (a) a)) (defn f (x) (+ x x)) => argument 1 of +: expected addable, got a
+(sig f (Fn (a) a)) (defn f (x) (+ x x)) => argument 1 of +: expected number, got a
 (sig f (Fn (comparable) Int)) (defn f (x) (quot x 2)) => argument 1 of quot: expected integer, got comparable
 (sig f (Fn (number Int) Bool)) (defn f (x n) (< x n)) => argument 2 of <: expected number, got Int
 ```
@@ -176,18 +176,17 @@ isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
 
 The operators are typed built-ins, as any function, with constraint variables and rest
 parameters ([[expr.rest]]), declared in `src/cdy/system.cdy`; Candy has no overloading.
-`+` takes one type, a number type, `String` or a list (`+` joins lists, as it joins
-strings: `addable`, *for now*, until `++` does those, `collections` step 4); `-` and `*`
-take a `number`, `/` a `float`, `quot` and `mod` an `integer`. The comparisons take
-arguments of one type and give a `Bool`: `=` and `!=` any type but a function's
-([[expr.equality]]), the orderings (`<`, `>`, `<=`, `>=`) a `comparable` (lists and
-records aren't ordered, *for now*, until interfaces: [[B34]]). `and` and `or` take two `Bool`s or more,
-and `not` one. Each argument is checked as a function's is, and its error is at it. The
-number types don't mix: `(+ 1 1.0)` is an error.
+`+`, `-` and `*` take a `number`, `/` a `float`, `quot` and `mod` an `integer`, and `++`
+an `appendable`, a `String` or a list ([[expr.append]]). The comparisons take arguments
+of one type and give a `Bool`: `=` and `!=` any type but a function's ([[expr.equality]]),
+the orderings (`<`, `>`, `<=`, `>=`) a `comparable` (lists and records aren't ordered,
+*for now*, until interfaces: [[B34]]). `and` and `or` take two `Bool`s or more, and `not`
+one. Each argument is checked as a function's is, and its error is at it. The number
+types don't mix: `(+ 1 1.0)` is an error.
 
 ```candy run
-(put (+ 1 2) (+ "a" "b") (/ 7.0 2.0) (if (< 1 2 3) "yes" "no") (< "ab" "b") (< \a \b))
-(put (len (+ (to-list 1) (to-list 2) (to-list 3))))
+(put (+ 1 2) (++ "a" "b") (/ 7.0 2.0) (if (< 1 2 3) "yes" "no") (< "ab" "b") (< \a \b))
+(put (len (++ (to-list 1) (to-list 2) (to-list 3))))
 ```
 ```expect
 3 ab 3.5 yes true true
@@ -328,7 +327,7 @@ ann
 
 ```candy run
 (deft P ((name String)))
-(put (let ((name-of (fn (p) (get p name))) (rename (fn (p) (assoc p name "bo")))) (+ (name-of (P "ann")) (get (rename (P "x")) name))))
+(put (let ((name-of (fn (p) (get p name))) (rename (fn (p) (assoc p name "bo")))) (++ (name-of (P "ann")) (get (rename (P "x")) name))))
 ```
 ```expect
 annbo
@@ -391,7 +390,7 @@ gives the value or a fallback. A `(Maybe (Maybe t))` is two layers, `(Some None)
 ```candy errors
 (sig m (Maybe Int)) (def m 5) => def m: expected (Maybe Int), got Int
 (sig m (Maybe Int)) (def m nil) => def m: expected (Maybe Int), got Unit
-(sig m (Maybe Int)) (def m (Some 1)) (put (+ m m)) => argument 1 of +: expected addable, got (Maybe Int)
+(sig m (Maybe Int)) (def m (Some 1)) (put (+ m m)) => argument 1 of +: expected number, got (Maybe Int)
 (sig n Int) (def n nil) => def n: expected Int, got Unit
 (sig m (Maybe Int)) (def m (Some 1)) (put (+ 1 m)) => argument 2 of +: expected Int, got (Maybe Int)
 ```

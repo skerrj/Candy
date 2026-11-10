@@ -1941,7 +1941,7 @@ def core__join_parts(parts: tuple[core__Expr, ...]) -> core__Expr:
     elif (len(parts) == 1):
         return parts[0]
     else:
-        return core__Call(core__Prim('+', form__NOWHERE, core__ANY), parts, form__NOWHERE, core__ANY)
+        return core__Call(core__Prim('++', form__NOWHERE, core__ANY), parts, form__NOWHERE, core__ANY)
 
 def core__is_lower(name: str) -> bool:
     return ((len(name) > 0) and (cdy_rt.primitives.slice_(name, 0, 1) >= 'a') and (cdy_rt.primitives.slice_(name, 0, 1) <= 'z'))
@@ -1972,7 +1972,7 @@ def core__analyse_type(form: form__Form) -> core__CType:
             return core__TCon(form__sym_name(items[0]), core__analyse_types(prelude__rest(items), ()))
     else:
         return cdy_rt.primitives.fail((form__pos_text(form__form_pos(form)) + 'bad type'))
-core__CONSTRAINTS: _cdy_Mapping[str, tuple[str, ...]] = cdy_rt.primitives.map_from((('number', ('Int', 'Long', 'Byte', 'Float', 'Double')), ('integer', ('Int', 'Long', 'Byte')), ('float', ('Float', 'Double')), ('comparable', ('Int', 'Long', 'Byte', 'Float', 'Double', 'String', 'Char')), ('appendable', ('String', 'List')), ('addable', ('Int', 'Long', 'Byte', 'Float', 'Double', 'String', 'List'))))
+core__CONSTRAINTS: _cdy_Mapping[str, tuple[str, ...]] = cdy_rt.primitives.map_from((('number', ('Int', 'Long', 'Byte', 'Float', 'Double')), ('integer', ('Int', 'Long', 'Byte')), ('float', ('Float', 'Double')), ('comparable', ('Int', 'Long', 'Byte', 'Float', 'Double', 'String', 'Char')), ('appendable', ('String', 'List'))))
 
 def core__constraint_of(name: str) -> str:
     parts = cdy_rt.primitives.split(name, ':')
@@ -4568,7 +4568,7 @@ def emit__type_params(tvars: tuple[str, ...]) -> str:
 
 def emit__type_param(v: str) -> str:
     c = core__constraint_of(v)
-    takes = ('(int, float)' if (c == 'number') else ('(int, float, str)' if (c == 'comparable') else ('(str, tuple[_cdy_Any, ...])' if (c == 'appendable') else ('(int, float, str, tuple[_cdy_Any, ...])' if (c == 'addable') else ''))))
+    takes = ('(int, float)' if (c == 'number') else ('(int, float, str)' if (c == 'comparable') else ('(str, tuple[_cdy_Any, ...])' if (c == 'appendable') else '')))
     if (takes == ''):
         return emit__py_mangle(v)
     else:

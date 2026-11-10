@@ -235,7 +235,7 @@
           "name": "keyword.control.candy"
         },
         {
-          "match": "(?<=\\()(\\+|-|\\*|/|=|!=|<|>|<=|>=|and|or|not)(?=[\\s();}]|$)",
+          "match": "(?<=\\()(\\+\\+|\\+|-|\\*|/|quot|mod|=|!=|<|>|<=|>=|and|or|not)(?=[\\s();}]|$)",
           "name": "keyword.operator.expression.candy"
         },
         {

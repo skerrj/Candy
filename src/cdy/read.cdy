@@ -31,7 +31,7 @@
 (defn line-starts (text pos acc)
   (cond
     ((>= pos (len text)) acc)
-    ((= (at text pos) "\n") (line-starts text (+ pos 1) (+ acc (to-list (+ pos 1)))))
+    ((= (at text pos) "\n") (line-starts text (+ pos 1) (++ acc (to-list (+ pos 1)))))
     (else (line-starts text (+ pos 1) acc))))
 
 ;; The position of offset `pos`.
@@ -59,7 +59,7 @@
   (if (>= pos (len text))
     acc
     (let (((form next) (read-form src text pos)))
-      (read-all src text (skip text next) (+ acc (to-list form))))))
+      (read-all src text (skip text next) (++ acc (to-list form))))))
 
 ;; --- whitespace and comments ---
 
@@ -105,7 +105,7 @@
     ((= (at text pos) ")") (tup (Lst acc (pos-at src start)) (+ pos 1)))
     (else
       (let (((form next) (read-form src text pos)))
-        (read-list src text (skip text next) (+ acc (to-list form)) start)))))
+        (read-list src text (skip text next) (++ acc (to-list form)) start)))))
 
 ;; A char literal: `\` and one character that isn't whitespace, then a delimiter.
 (sig read-char (Fn (Source String Int) (Tup Form Int)))
@@ -218,8 +218,8 @@
     ((= (at text pos) "\"") (tup (Txt acc (pos-at src start)) (+ pos 1)))
     ((= (at text pos) "\\")
       (let (((ch next) (escape src text pos)))
-        (read-str src text next (+ acc ch) start)))
-    (else (read-str src text (+ pos 1) (+ acc (at text pos)) start))))
+        (read-str src text next (++ acc ch) start)))
+    (else (read-str src text (+ pos 1) (++ acc (at text pos)) start))))
 
 ;; The escape sequence whose `\` is at `pos`: what it stands for, and the position after it.
 (sig escape (Fn (Source String Int) (Tup String Int)))

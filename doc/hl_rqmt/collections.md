@@ -206,7 +206,9 @@ the typed collection operations (step 6: the new names into `bin`, then the tran
 onto them, then the old names out). A step that changes `system.cdy` or the prelude
 stages the library next to `bin` before building.
 
-*As built (step 2):* the other way round too: a step's check runs the translator before
+*As built (step 4):* `++` and its uses were one boot step, not two (step 4's note): a
+built-in is the library's, so a staged library is enough. *As built (step 2):* the other
+way round too: a step's check runs the translator before
 it with the step's own library, so a library that translator can't read needs `old-library`
 staging (`script/bootstrap.py`: the parent step's library next to it), or two steps if
 `src/` needs the new library as well. Step 2's operator `sig`s were the first (`boot/58`).
@@ -281,6 +283,22 @@ commit, and `bootstrap.py --tag` tags a step only once it passes.
    `bin` reads: `test_newest_step_reads_the_library`).
 4. **`++`**, and `+` on numbers only ([[B164]]): two boot steps, a script rewriting the
    translator's `+`s by type.
+
+   *Done (2026-11-09). As built:* one boot step, not two: a built-in is the library's
+   (`system.cdy`, `spelling.py`), not the translator's code, so `bin` (`boot/59`), with
+   the library staged next to it, translates a `src/` that uses `++` (and needs no
+   `old-library` staging: `test_newest_step_reads_the_library`). `++` is `(Fn (appendable
+   appendable (Rest appendable)) appendable)`, spelled Python's `+`, its value
+   `primitives.append`; `+` is a `number`'s, and `addable` is gone (the table, `emit`'s
+   type parameters, `primitives.add`). The rewrite was a one-off script (not kept), which
+   read each `+` call's type from the typed Core and wrote `(++` at its position: 233 of
+   the translator's 349 `+`s (none of unknown type; one in a `format` hole, one at a
+   line's end), 7 in `tst/cdy/`'s programs, and by hand the `quasi` lists' join
+   (`join-parts`, macro code, unchecked) and one in a macro file; the spec's by hand. The
+   editor grammar highlights `++` (and `quot`, `mod`). The spec: `expr.append` (new),
+   `expr.arithmetic`, `expr.operator-values`, `checking.operators`, `checking.constraints`,
+   `checking.generics`, `checking.locals`, `checking.definitions`, `checking.order`,
+   `checking.maybe`. One boot step, `boot/60`.
 5. **Tuples** ([[B165]]; [[B152]], [[B17]], [[B29]]'s part): `tup` to `Tup` or `List`,
    `checking.tup-lists` gone, `at` on a tuple an error, then `tup` gone.
 6. **Typed collection operations** ([[B166]]; [[B34]] *for now*, [[B18]], [[B48]]): lists',

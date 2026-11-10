@@ -103,6 +103,7 @@ MATH: Spellings = {
     "cos": call("math.cos"),
     "tan": call("math.tan"),
     "+": operator("+", "binop", "add"),
+    "++": operator("+", "binop", "append"),  # strings or lists (tuples)
     "-": operator("-", "binop", "sub"),
     "*": operator("*", "binop", "mul"),
     "/": operator("/", "binop", "div"),
