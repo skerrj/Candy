@@ -36,7 +36,7 @@
 (defn program-tops (modules parse builtins)
   (let ((ready (expand-modules modules (- (len modules) 1) empty-list))
         (by-key (exports-by-key ready empty-map))
-        (elsewhere (elsewhere-names (exports-of ready empty-list) empty-map)))
+        (elsewhere (elsewhere-names (exports-of ready empty-list))))
     (analyse-modules ready by-key elsewhere builtins parse empty-list)))
 
 ;; Each of `modules` with its macros expanded; `top` is the top module's index.
@@ -105,7 +105,7 @@
 ;; with its message (`stop_on_panic`; spec/60-library.md, library.errors).
 (sig python-of (Fn ((List Top)) String))
 (defn python-of (tops)
-  (let ((stmts (lower-program tops 0 empty-list))
+  (let ((stmts (lower-program tops 0))
         (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) py-spellings empty-map (deft-field-types tops empty-map))))
         (env (bind-locals (bound-locals stmts empty-list) globals)))
     (++ HEADER

@@ -167,7 +167,7 @@
         (checked (unique-names defs builtins empty-map))
         (form-forms (form-defs nil))
         (python (compile (++ form-forms helpers (macro-program defs builtins empty-list))))
-        (loaded (load-macros python sym-name (mangled-names (map-keys (top-names form-forms empty-map)) empty-map))))
+        (loaded (load-macros python sym-name (mangled-names (map-keys (top-names form-forms)) empty-map))))
     (macro-list defs loaded empty-list)))
 
 ;; The built-ins, from special.cdy and system.cdy, which are kept next to the translator

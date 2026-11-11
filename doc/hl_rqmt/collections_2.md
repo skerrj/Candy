@@ -118,6 +118,24 @@ calls come in that step or the next. `to-list`'s removal is two steps (above).
    the checker inferred. The translator's build: 1.02 s to 0.93 s. One boot step,
    `boot/63`, no staging (`boot/62` reads the new library).
 2. **The loops in `core.cdy` and `lower.cdy`** ([[B177]]; 45).
+
+   *Done (2026-11-11). As built:* 40 functions there had an `acc` argument, not 45 (step
+   1 took five); two weren't loops (`add-name`, `read-type`). Of the 38 loops, 31 are
+   one call now: 15 `map`s (three inlined where the per-item work was a function already,
+   `(map sym-name ...)`, `(map quoted ...)`, `(map analyse-type ...)`, their `defn`s gone),
+   one `filter` (`missing-variants`), 12 `fold`s (the maps built a name at a time:
+   `top-names`, `read-decls`, `read-sigs`, `put-all`, `stems-for`; `deft-fields`, which
+   reads the fields so far; `holes`), and three `map-acc`s: `let-bindings` (each binding's
+   pairs, then `concat`; its per-binding work is `let-binding`, new), `destructure` (over
+   `(zip (range ...) names)` for the index) and `lower-program` (then `concat`). A
+   function keeps its name; an `acc` every caller passed empty goes, and one a caller
+   seeds (`add-names`, `read-sigs`, `put-all`) is the fold's `start`. Seven stay loops:
+   `tup-binds` and `pattern-binds` (each name checked against those bound so far, `_`
+   skipped but counted), `assoc-fields` (two forms at a time), `format-parts` (a text),
+   and `assigns`, `fill-holes` and `refill` (two lists at once). `src/cdy` is 71 lines
+   shorter. The translator's build: 0.97 s to 1.00 s (medians of seven, against step
+   1's `bin`), likely a `fn` call per item costing more than the copies saved, these
+   lists being short (a form's items, a deft's fields).
 3. **The loops in `check.cdy`** ([[B178]]; 20).
 4. **The loops in `emit.cdy`** ([[B179]]; 27).
 5. **The loops in `expand.cdy`, `include.cdy`, `cdyc.cdy`, `read.cdy`** ([[B180]]; 31).

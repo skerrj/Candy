@@ -86,7 +86,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B177](B177-collections-2-step-2.md) | collections-2 step 2: the loops in core and lower | task | open | normal |
 | [B178](B178-collections-2-step-3.md) | collections-2 step 3: the loops in check | task | open | normal |
 | [B179](B179-collections-2-step-4.md) | collections-2 step 4: the loops in emit | task | open | normal |
 | [B180](B180-collections-2-step-5.md) | collections-2 step 5: the other loops | task | open | normal |
@@ -273,3 +272,4 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B168](B168-collections-step-8-docs.md) | collections step 8: docs | task | done | normal |
 | [B172](B172-equality-not-a-value.md) | `=` and `!=` aren't values | leak | dropped | low |
 | [B175](B175-spelling-by-position.md) | A spelling is read by position, and `and`/`or` by name | tech-debt | done | low |
+| [B177](B177-collections-2-step-2.md) | collections-2 step 2: the loops in core and lower | task | done | normal |

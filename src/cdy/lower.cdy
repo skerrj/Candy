@@ -99,13 +99,13 @@
         (let (((stmts vals n1) (value-seq items n)))
           (Low stmts (Tuple vals pos ty) n1)))
       ((Fmt parts pos ty)
-        (let (((stmts vals n1) (value-seq (holes parts empty-list) n)))
+        (let (((stmts vals n1) (value-seq (holes parts) n)))
           (Low stmts (Fmt (fill-holes parts vals empty-list) pos ty) n1)))
       ((Field obj field pos ty)
         (let ((low (value obj n)))
           (Low (get low stmts) (Field (get low expr) field pos ty) (get low n))))
       ((Assoc obj fields pos ty)
-        (let (((stmts vals n1) (value-seq (++ (to-list obj) (field-vals fields empty-list)) n)))
+        (let (((stmts vals n1) (value-seq (++ (to-list obj) (field-vals fields)) n)))
           (Low stmts (Assoc (at vals 0) (refill fields (rest vals) empty-list) pos ty) n1)))
       ((MatchE _ _ _ _ ty)
         (let ((tmp (Temp n ty))
@@ -163,15 +163,9 @@
       (else
         (Low (to-list (SLocalFunc (Temp n1 ty) params stmts ty)) (Temp n1 ty) (+ n1 1))))))
 
-(sig holes (Fn ((List FPart) (List Expr)) (List Expr)))
-(defn holes (parts acc)
-  (if (= (len parts) 0)
-    acc
-    (holes
-      (rest parts)
-      (match (at parts 0)
-        ((FHole e) (++ acc (to-list e)))
-        ((FText _) acc)))))
+(sig holes (Fn ((List FPart)) (List Expr)))
+(defn holes (parts)
+  (fold (fn (acc part) (match part ((FHole e) (++ acc (List e))) ((FText _) acc))) empty-list parts))
 
 ;; The parts again, with the holes' lowered values in place.
 (sig fill-holes (Fn ((List FPart) (List Expr) (List FPart)) (List FPart)))
@@ -183,12 +177,9 @@
         (fill-holes (rest parts) (rest vals) (++ acc (to-list (FHole (at vals 0))))))
       ((FText text) (fill-holes (rest parts) vals (++ acc (to-list (FText text))))))))
 
-(sig field-vals (Fn ((List (Tup String Expr)) (List Expr)) (List Expr)))
-(defn field-vals (fields acc)
-  (if (= (len fields) 0)
-    acc
-    (let (((_ v) (at fields 0)))
-      (field-vals (rest fields) (++ acc (to-list v))))))
+(sig field-vals (Fn ((List (Tup String Expr))) (List Expr)))
+(defn field-vals (fields)
+  (map (fn (field) (let (((_ v) field)) v)) fields))
 
 (sig refill (Fn ((List (Tup String Expr)) (List Expr) (List (Tup String Expr))) (List (Tup String Expr))))
 (defn refill (fields vals acc)
@@ -226,7 +217,7 @@
              (to-list (guard op tmp (guarded op later tmp))))
           tmp
           (+ n1 1)))
-      (Low (get first stmts) (Call op (low-exprs lows empty-list) pos ty) n1))))
+      (Low (get first stmts) (Call op (low-exprs lows) pos ty) n1))))
 
 ;; The rest of `and`/`or`: each argument's statements, then its value into `tmp`, and the
 ;; ones after it only if that didn't decide the result.
@@ -242,11 +233,9 @@
 (defn guard (op tmp body)
   (SIf (if (= (prim-name op) "and") tmp (Call (Prim "not" NOWHERE ANY) (to-list tmp) NOWHERE ANY)) body empty-list))
 
-(sig low-exprs (Fn ((List Low) (List Expr)) (List Expr)))
-(defn low-exprs (lows acc)
-  (if (= (len lows) 0)
-    acc
-    (low-exprs (rest lows) (++ acc (to-list (get (at lows 0) expr))))))
+(sig low-exprs (Fn ((List Low)) (List Expr)))
+(defn low-exprs (lows)
+  (map (fn (low) (get low expr)) lows))
 
 ;; Each expression in value mode, keeping left-to-right order: an earlier value that isn't
 ;; simple goes in a Temp if a later one needs statements.
@@ -454,25 +443,16 @@
       (to-list (SIf test (retail-all then name params) (retail-all other name params))))
     ((SMatch temp subject cases default)
       (to-list
-        (SMatch temp subject (retail-cases cases name params empty-list) (retail-lists default name params empty-list))))
+        (SMatch temp subject (retail-cases cases name params) (retail-lists default name params))))
     (else (to-list s))))
 
-(sig retail-cases (Fn ((List Case) String (List Expr) (List Case)) (List Case)))
-(defn retail-cases (cases name params acc)
-  (if (= (len cases) 0)
-    acc
-    (let ((c (at cases 0)))
-      (retail-cases
-        (rest cases)
-        name
-        params
-        (++ acc (to-list (assoc c body (retail-all (get c body) name params))))))))
+(sig retail-cases (Fn ((List Case) String (List Expr)) (List Case)))
+(defn retail-cases (cases name params)
+  (map (fn (c) (assoc c body (retail-all (get c body) name params))) cases))
 
-(sig retail-lists (Fn ((List (List Stmt)) String (List Expr) (List (List Stmt))) (List (List Stmt))))
-(defn retail-lists (lists name params acc)
-  (if (= (len lists) 0)
-    acc
-    (retail-lists (rest lists) name params (++ acc (to-list (retail-all (at lists 0) name params))))))
+(sig retail-lists (Fn ((List (List Stmt)) String (List Expr)) (List (List Stmt))))
+(defn retail-lists (lists name params)
+  (map (fn (stmts) (retail-all stmts name params)) lists))
 
 (sig is-self-call (Fn (Expr String (List Expr)) Bool))
 (defn is-self-call (e name params)
@@ -575,15 +555,13 @@
     ((Do body _ _) (any-lambda body))
     ((Tuple items _ _) (any-lambda items))
     ((ListOf items _ _) (any-lambda items))
-    ((Fmt parts _ _) (any-lambda (holes parts empty-list)))
+    ((Fmt parts _ _) (any-lambda (holes parts)))
     ((Field obj _ _ _) (has-lambda obj))
-    ((Assoc obj fields _ _) (or (has-lambda obj) (any-lambda (field-vals fields empty-list))))
+    ((Assoc obj fields _ _) (or (has-lambda obj) (any-lambda (field-vals fields))))
     ((MatchE subject _ _ _ _) (has-lambda subject))
     (else false)))
 
-(sig lower-program (Fn ((List Top) Int (List Stmt)) (List Stmt)))
-(defn lower-program (tops n acc)
-  (if (= (len tops) 0)
-    acc
-    (let (((stmts n1) (lower-top (at tops 0) n)))
-      (lower-program (rest tops) n1 (++ acc stmts)))))
+(sig lower-program (Fn ((List Top) Int) (List Stmt)))
+(defn lower-program (tops n)
+  (let (((last parts) (map-acc (fn (k top) (let (((stmts k1) (lower-top top k))) (Tup k1 stmts))) n tops)))
+    (concat parts)))

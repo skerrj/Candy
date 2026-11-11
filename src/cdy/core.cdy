@@ -260,7 +260,7 @@
       (fail (located scope "let: expected (let ((name init)*) body)")))
     ((= (len (list-items (at args 0))) 0) (analyse-expr (at args 1) scope n))
     (else
-    (let (((pairs inner n1) (let-bindings (list-items (at args 0)) scope n empty-list))
+    (let (((pairs inner n1) (let-bindings (list-items (at args 0)) scope n))
           ((body n2) (analyse-expr (at args 1) inner n1)))
       (Tup (nest pairs body (get scope here)) n2)))))
 
@@ -271,50 +271,52 @@
     (else false)))
 
 ;; Each binding's Local and init, in order, and the scope after them all.
-(sig let-bindings
-  (Fn ((List Form) Scope Int (List (Tup Expr Expr))) (Tup (List (Tup Expr Expr)) Scope Int)))
-(defn let-bindings (bindings scope n acc)
-  (if (= (len bindings) 0)
-    (Tup acc scope n)
-    (let ((items (list-items (at bindings 0))))
-      (if (!= (len items) 2)
-        (fail (located scope "let: binding must be (name init)"))
-        (let (((init n1) (analyse-expr (at items 1) scope n))
-              (target (at items 0)))
-          (match target
-            ((Lst names _)
-              (let ((tmp (Local "_tup" n1 (get scope here) ANY))
-                    ((more inner n2) (destructure names tmp 0 scope (+ n1 1) empty-list)))
-                (let-bindings (rest bindings) inner n2 (++ acc (to-list (Tup tmp init)) more))))
-            (else
-              (let ((name (sym-name target))
-                    (loc (Local name n1 (form-pos target) ANY)))
-                (if (or (= name "") (is-special name (get scope builtins)))
-                  (fail (located scope "let name must be a name, not a special form"))
-                  (let-bindings
-                    (rest bindings)
-                    (bind-local scope name loc)
-                    (+ n1 1)
-                    (++ acc (to-list (Tup loc init)))))))))))))
+(sig let-bindings (Fn ((List Form) Scope Int) (Tup (List (Tup Expr Expr)) Scope Int)))
+(defn let-bindings (bindings scope n)
+  (let (((last pairs) (map-acc let-binding (Tup scope n) bindings))
+        ((sc k) last))
+    (Tup (concat pairs) sc k)))
+
+;; One (name init) binding's (local init) pairs (a tuple pattern's temporary, then its
+;; names), with the scope and the next local's number after it.
+(sig let-binding (Fn ((Tup Scope Int) Form) (Tup (Tup Scope Int) (List (Tup Expr Expr)))))
+(defn let-binding (state binding)
+  (let (((scope n) state)
+        (items (list-items binding)))
+    (if (!= (len items) 2)
+      (fail (located scope "let: binding must be (name init)"))
+      (let (((init n1) (analyse-expr (at items 1) scope n))
+            (target (at items 0)))
+        (match target
+          ((Lst names _)
+            (let ((tmp (Local "_tup" n1 (get scope here) ANY))
+                  ((more inner n2) (destructure names tmp scope (+ n1 1))))
+              (Tup (Tup inner n2) (++ (List (Tup tmp init)) more))))
+          (else
+            (let ((name (sym-name target))
+                  (loc (Local name n1 (form-pos target) ANY)))
+              (if (or (= name "") (is-special name (get scope builtins)))
+                (fail (located scope "let name must be a name, not a special form"))
+                (Tup (Tup (bind-local scope name loc) (+ n1 1)) (List (Tup loc init)))))))))))
 
 ;; ((x y) e): one binding per name, (at tmp i).
-(sig destructure
-  (Fn ((List Form) Expr Int Scope Int (List (Tup Expr Expr))) (Tup (List (Tup Expr Expr)) Scope Int)))
-(defn destructure (names tmp i scope n acc)
-  (if (= (len names) 0)
-    (Tup acc scope n)
-    (let ((name (sym-name (at names 0)))
-          (loc (Local name n (form-pos (at names 0)) ANY))
-          (item (Call (Prim "at" (get scope here) ANY) (List tmp (Lit (IntLit i (get scope here)) ANY)) (get scope here) ANY)))
-      (if (= name "")
-        (fail (located scope "let name must be a name"))
-        (destructure
-          (rest names)
-          tmp
-          (+ i 1)
-          (bind-local scope name loc)
-          (+ n 1)
-          (++ acc (to-list (Tup loc item))))))))
+(sig destructure (Fn ((List Form) Expr Scope Int) (Tup (List (Tup Expr Expr)) Scope Int)))
+(defn destructure (names tmp scope n)
+  (let (((last pairs)
+          (map-acc
+            (fn (state item)
+              (let (((sc k) state)
+                    ((i form) item)
+                    (name (sym-name form))
+                    (loc (Local name k (form-pos form) ANY))
+                    (read (Call (Prim "at" (get sc here) ANY) (List tmp (Lit (IntLit i (get sc here)) ANY)) (get sc here) ANY)))
+                (if (= name "")
+                  (fail (located sc "let name must be a name"))
+                  (Tup (Tup (bind-local sc name loc) (+ k 1)) (Tup loc read)))))
+            (Tup scope n)
+            (zip (range 0 (len names)) names)))
+        ((sc k) last))
+    (Tup pairs sc k)))
 
 ;; ((fn (a) ((fn (b) body) e2)) e1), at `pos`.
 (sig nest (Fn ((List (Tup Expr Expr)) Expr Pos) Expr))
@@ -453,18 +455,12 @@
 (sig global-clauses (Fn (Expr (Map String String)) Expr))
 (defn global-clauses (m names)
   (match m
-    ((MatchE subject clauses default pos _) (MatchE subject (rename-clauses clauses names empty-list) default pos ANY))
+    ((MatchE subject clauses default pos _) (MatchE subject (rename-clauses clauses names) default pos ANY))
     (else m)))
 
-(sig rename-clauses (Fn ((List Clause) (Map String String) (List Clause)) (List Clause)))
-(defn rename-clauses (clauses names acc)
-  (if (= (len clauses) 0)
-    acc
-    (let ((c (at clauses 0)))
-      (rename-clauses
-        (rest clauses)
-        names
-        (++ acc (to-list (assoc c variant (global-name (get c variant) names))))))))
+(sig rename-clauses (Fn ((List Clause) (Map String String)) (List Clause)))
+(defn rename-clauses (clauses names)
+  (map (fn (c) (assoc c variant (global-name (get c variant) names))) clauses))
 
 ;; Whether a clause's pattern is (Tup ...).
 (sig is-tup-clause (Fn (Form) Bool))
@@ -527,20 +523,15 @@
 (defn check-exhaustive (m sum scope)
   (match m
     ((MatchE _ clauses default _ _)
-      (let ((missing (missing-variants (map-get (get scope sums) sum) clauses empty-list)))
+      (let ((missing (missing-variants (map-get (get scope sums) sum) clauses)))
         (if (and (= (len default) 0) (> (len missing) 0))
           (fail (located scope (format "match on {sum}: no clause for {(join missing \", \")} (or add else)")))
           m)))
     (else m)))
 
-(sig missing-variants (Fn ((List String) (List Clause) (List String)) (List String)))
-(defn missing-variants (names clauses acc)
-  (if (= (len names) 0)
-    acc
-    (missing-variants
-      (rest names)
-      clauses
-      (if (has-clause (at names 0) clauses) acc (++ acc (to-list (at names 0)))))))
+(sig missing-variants (Fn ((List String) (List Clause)) (List String)))
+(defn missing-variants (names clauses)
+  (filter (fn (name) (not (has-clause name clauses))) names))
 
 (sig has-clause (Fn (String (List Clause)) Bool))
 (defn has-clause (name clauses)
@@ -666,12 +657,9 @@
 (defn quoted (form)
   (match form
     ((Sym name _) (Call (Global "Sym" NOWHERE ANY) (List (Lit (Txt name NOWHERE) ANY) (Global "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
-    ((Lst items _) (Call (Global "Lst" NOWHERE ANY) (List (form-list (quoted-all items empty-list)) (Global "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
+    ((Lst items _) (Call (Global "Lst" NOWHERE ANY) (List (form-list (map quoted items)) (Global "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
     (else (Call (Global (literal-variant form) NOWHERE ANY) (List (Lit form ANY) (Global "NOWHERE" NOWHERE ANY)) NOWHERE ANY))))
 
-(sig quoted-all (Fn ((List Form) (List Expr)) (List Expr)))
-(defn quoted-all (forms acc)
-  (if (= (len forms) 0) acc (quoted-all (rest forms) (++ acc (to-list (quoted (at forms 0)))))))
 
 ;; A (List Form) of `items` (Exprs that make Forms).
 (sig form-list (Fn ((List Expr)) Expr))
@@ -758,13 +746,13 @@
         ((= (len items) 0) (fail (++ (pos-text (form-pos form)) "bad type ()")))
         ((= (sym-name (at items 0)) "Fn")
           (if (= (len items) 3)
-            (TFn (analyse-types (list-items (at items 1)) empty-list) (analyse-type (at items 2)))
+            (TFn (map analyse-type (list-items (at items 1))) (analyse-type (at items 2)))
             (fail (++ (pos-text (form-pos form)) "bad function type: expected (Fn (Arg+) Ret)"))))
         ((= (sym-name (at items 0)) "Rest")
           (if (= (len items) 2)
             (TCon "Rest" (to-list (analyse-type (at items 1))))
             (fail (++ (pos-text (form-pos form)) "bad rest type: expected (Rest Type)"))))
-        (else (TCon (sym-name (at items 0)) (analyse-types (rest items) empty-list)))))
+        (else (TCon (sym-name (at items 0)) (map analyse-type (rest items))))))
     (else (fail (++ (pos-text (form-pos form)) "bad type")))))
 
 ;; --- constraint variables (spec/25-checking.md, checking.constraints) ---
@@ -796,11 +784,6 @@
     (trim-digits (substring s 0 (- (str-len s) 1)))
     s))
 
-(sig analyse-types (Fn ((List Form) (List CType)) (List CType)))
-(defn analyse-types (forms acc)
-  (if (= (len forms) 0)
-    acc
-    (analyse-types (rest forms) (++ acc (to-list (analyse-type (at forms 0)))))))
 
 ;; --- top level ---
 
@@ -813,24 +796,24 @@
    (defined (Map String Bool))))
 
 ;; The names that def and defn define, so that any form can refer to them.
-(sig top-names (Fn ((List Form) (Map String Bool)) (Map String Bool)))
-(defn top-names (forms acc)
-  (if (= (len forms) 0)
-    acc
-    (let ((items (list-items (at forms 0)))
-          (head (if (> (len items) 1) (sym-name (at items 0)) "")))
-      (top-names
-        (rest forms)
+(sig top-names (Fn ((List Form)) (Map String Bool)))
+(defn top-names (forms)
+  (fold
+    (fn (acc form)
+      (let ((items (list-items form))
+            (head (if (> (len items) 1) (sym-name (at items 0)) "")))
         (cond
           ((or (= head "def") (= head "defn")) (add-name (sym-name (at items 1)) (form-pos (at items 1)) acc))
           ((and (= head "deft") (is-sum-body (drop 2 items)))
             ;; A sum's own name is a type, but in Python it is a name like the others.
             (add-names
-              (variant-names (drop 2 items) empty-list)
+              (variant-names (drop 2 items))
               (form-pos (at items 1))
               (map-set (add-name (deft-name (at items 1)) (form-pos (at items 1)) acc) (deft-name (at items 1)) false)))
           ((= head "deft") (add-name (deft-name (at items 1)) (form-pos (at items 1)) acc))
-          (else acc))))))
+          (else acc))))
+    empty-map
+    forms))
 
 ;; Top-level names map to true for values, false for a sum's type name.
 ;; `pos` is where the name is defined, for the error.
@@ -841,10 +824,8 @@
     (map-set acc name true)))
 
 (sig add-names (Fn ((List String) Pos (Map String Bool)) (Map String Bool)))
-(defn add-names (names pos acc)
-  (if (= (len names) 0)
-    acc
-    (add-names (rest names) pos (add-name (at names 0) pos acc))))
+(defn add-names (names pos start)
+  (fold (fn (acc name) (add-name name pos acc)) start names))
 
 ;; Whether a deft body (what follows the name) lists variants, not one field list: each
 ;; variant starts with a symbol, (Circle ...) or (Leaf); a field list starts with a list.
@@ -864,11 +845,9 @@
   (let ((items (list-items form)))
     (if (= (len items) 0) (Lst empty-list NOWHERE) (at items 0))))
 
-(sig variant-names (Fn ((List Form) (List String)) (List String)))
-(defn variant-names (body acc)
-  (if (= (len body) 0)
-    acc
-    (variant-names (rest body) (++ acc (to-list (sym-name (first-item (at body 0))))))))
+(sig variant-names (Fn ((List Form)) (List String)))
+(defn variant-names (body)
+  (map (fn (v) (sym-name (first-item v))) body))
 
 ;; Each variant's sum and field names, and each sum's variants, before analysing them.
 (sig find-variants (Fn ((List Form) Scope) Scope))
@@ -885,7 +864,7 @@
             (add-variants
               sum
               body
-              (assoc scope sums (map-set (get scope sums) sum (variant-names body empty-list)))))
+              (assoc scope sums (map-set (get scope sums) sum (variant-names body)))))
           scope)))))
 
 (sig add-variants (Fn (String (List Form) Scope) Scope))
@@ -894,17 +873,15 @@
     scope
     (let ((v-items (list-items (at body 0)))
           (name (sym-name (at v-items 0)))
-          (fields (if (= (len v-items) 2) (field-names (list-items (at v-items 1)) empty-list) empty-list)))
+          (fields (if (= (len v-items) 2) (field-names (list-items (at v-items 1))) empty-list)))
       (add-variants
         sum
         (rest body)
         (assoc scope variants (map-set (get scope variants) name (VInfo sum fields)))))))
 
-(sig field-names (Fn ((List Form) (List String)) (List String)))
-(defn field-names (fields acc)
-  (if (= (len fields) 0)
-    acc
-    (field-names (rest fields) (++ acc (to-list (sym-name (first-item (at fields 0))))))))
+(sig field-names (Fn ((List Form)) (List String)))
+(defn field-names (fields)
+  (map (fn (field) (sym-name (first-item field))) fields))
 
 ;; The name in (deft Name ...) or (deft (Name a b) ...).
 (sig deft-name (Fn (Form) String))
@@ -939,7 +916,7 @@
 ;; entry needs a declaration.
 (sig read-builtins (Fn ((List Form) (List Form) (Map String (Tup String String String))) (Map String Builtin)))
 (defn read-builtins (decls sigs spellings)
-  (let ((builtins (read-sigs sigs spellings (read-decls decls spellings empty-map)))
+  (let ((builtins (read-sigs sigs spellings (read-decls decls spellings)))
         (checked (all-declared (map-keys spellings) builtins)))
     builtins))
 
@@ -969,31 +946,32 @@
 (sig TYPE_KINDS (List String))
 (def TYPE_KINDS (List "type"))
 
-(sig read-decls (Fn ((List Form) (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
-(defn read-decls (forms spellings acc)
-  (if (= (len forms) 0)
-    acc
-    (let ((form (at forms 0))
-          (items (list-items form))
-          (head (if (> (len items) 0) (sym-name (at items 0)) ""))
-          (name (if (> (len items) 1) (sym-name (at items 1)) ""))
-          (where (pos-text (form-pos form)))
-          (decl
-            (cond
-              ((= name "") (Tup "" Special))
-              ((and (= head "special") (= (len items) 2)) (Tup "special" Special))
-              (else (Tup "" Special))))
-          ((class kind) decl))
-      (cond
-        ((= class "")
-          (fail (++ where "special.cdy: expected (special name)")))
-        ((map-has acc name) (fail (format "{where}special.cdy: {name} is declared more than once")))
-        ((not (contains (spelling-kind spellings name) (kinds-of class)))
-          (fail
-            (if (= class "special")
-              (format "{where}special.cdy: {name} is a special form, so spelling.py can't spell it")
-              (format "{where}special.cdy: {name} has no {class} entry in spelling.py"))))
-        (else (read-decls (rest forms) spellings (map-set acc name kind)))))))
+(sig read-decls (Fn ((List Form) (Map String (Tup String String String))) (Map String Builtin)))
+(defn read-decls (forms spellings)
+  (fold
+    (fn (acc form)
+      (let ((items (list-items form))
+            (head (if (> (len items) 0) (sym-name (at items 0)) ""))
+            (name (if (> (len items) 1) (sym-name (at items 1)) ""))
+            (where (pos-text (form-pos form)))
+            (decl
+              (cond
+                ((= name "") (Tup "" Special))
+                ((and (= head "special") (= (len items) 2)) (Tup "special" Special))
+                (else (Tup "" Special))))
+            ((class kind) decl))
+        (cond
+          ((= class "")
+            (fail (++ where "special.cdy: expected (special name)")))
+          ((map-has acc name) (fail (format "{where}special.cdy: {name} is declared more than once")))
+          ((not (contains (spelling-kind spellings name) (kinds-of class)))
+            (fail
+              (if (= class "special")
+                (format "{where}special.cdy: {name} is a special form, so spelling.py can't spell it")
+                (format "{where}special.cdy: {name} has no {class} entry in spelling.py"))))
+          (else (map-set acc name kind)))))
+    empty-map
+    forms))
 
 (sig kinds-of (Fn (String) (List String)))
 (defn kinds-of (class)
@@ -1002,21 +980,22 @@
     (else TYPED_KINDS)))
 
 (sig read-sigs (Fn ((List Form) (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
-(defn read-sigs (forms spellings acc)
-  (if (= (len forms) 0)
-    acc
-    (let ((form (at forms 0))
-          (items (list-items form))
-          (head (if (> (len items) 0) (sym-name (at items 0)) ""))
-          (name (if (and (= (len items) 3) (= head "sig")) (sym-name (at items 1)) ""))
-          (where (pos-text (form-pos form))))
-      (cond
-        ((= head "deft") (read-sigs (rest forms) spellings (read-type form items where spellings acc)))
-        ((= name "") (fail (++ where "system.cdy: expected (sig name Type) or (deft Name)")))
-        ((map-has acc name) (fail (format "{where}system.cdy: {name} is already declared")))
-        ((not (contains (spelling-kind spellings name) (++ TYPED_KINDS OPERATOR_KINDS)))
-          (fail (format "{where}system.cdy: {name} has no Python mapping in spelling.py")))
-        (else (read-sigs (rest forms) spellings (map-set acc name (Typed (analyse-type (at items 2))))))))))
+(defn read-sigs (forms spellings start)
+  (fold
+    (fn (acc form)
+      (let ((items (list-items form))
+            (head (if (> (len items) 0) (sym-name (at items 0)) ""))
+            (name (if (and (= (len items) 3) (= head "sig")) (sym-name (at items 1)) ""))
+            (where (pos-text (form-pos form))))
+        (cond
+          ((= head "deft") (read-type form items where spellings acc))
+          ((= name "") (fail (++ where "system.cdy: expected (sig name Type) or (deft Name)")))
+          ((map-has acc name) (fail (format "{where}system.cdy: {name} is already declared")))
+          ((not (contains (spelling-kind spellings name) (++ TYPED_KINDS OPERATOR_KINDS)))
+            (fail (format "{where}system.cdy: {name} has no Python mapping in spelling.py")))
+          (else (map-set acc name (Typed (analyse-type (at items 2))))))))
+    start
+    forms))
 
 ;; `acc` with the built-in type `form`, a bodiless (deft Name) or (deft (Name a ...)): its
 ;; arity is its number of type variables.
@@ -1068,30 +1047,28 @@
 ;; What `forms` define, as the module `stem`, whose global names start with `prefix`.
 (sig module-exports (Fn ((List Form) String String) Exports))
 (defn module-exports (forms stem prefix)
-  (let ((top (top-names forms empty-map))
+  (let ((top (top-names forms))
         (found (find-variants forms (blank-scope top))))
     (Exports
-      stem top (get found variants) (get found sums) (prefixed (map-keys top) prefix empty-map)
-      (type-arities forms empty-map))))
+      stem top (get found variants) (get found sums) (prefixed (map-keys top) prefix)
+      (type-arities forms))))
 
 ;; The types `forms` define, each with its number of type variables: (deft (Box a) ...) is 1.
-(sig type-arities (Fn ((List Form) (Map String Int)) (Map String Int)))
-(defn type-arities (forms acc)
-  (if (= (len forms) 0)
-    acc
-    (let ((items (list-items (at forms 0)))
-          (head (if (> (len items) 1) (sym-name (at items 0)) "")))
-      (type-arities
-        (rest forms)
+(sig type-arities (Fn ((List Form)) (Map String Int)))
+(defn type-arities (forms)
+  (fold
+    (fn (acc form)
+      (let ((items (list-items form))
+            (head (if (> (len items) 1) (sym-name (at items 0)) "")))
         (if (and (= head "deft") (!= (deft-name (at items 1)) ""))
           (map-set acc (deft-name (at items 1)) (match (at items 1) ((Lst xs _) (- (len xs) 1)) (else 0)))
-          acc)))))
+          acc)))
+    empty-map
+    forms))
 
-(sig prefixed (Fn ((List String) String (Map String String)) (Map String String)))
-(defn prefixed (names prefix acc)
-  (if (= (len names) 0)
-    acc
-    (prefixed (rest names) prefix (map-set acc (at names 0) (++ prefix (at names 0))))))
+(sig prefixed (Fn ((List String) String) (Map String String)))
+(defn prefixed (names prefix)
+  (fold (fn (acc name) (map-set acc name (++ prefix name))) empty-map names))
 
 ;; A scope with only `top`, for finding variants.
 (sig blank-scope (Fn ((Map String Bool)) Scope))
@@ -1114,8 +1091,8 @@
   (let ((seen (with-own (with-imports imports (Seen (Exports "" empty-map empty-map empty-map empty-map empty-map) empty-map)) own))
         (vis (get seen vis))
         (scope (Scope empty-map (get vis top) parse (get vis variants) (get vis sums) NOWHERE macros quoting (get vis names) elsewhere builtins (get vis types)))
-        (prog (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms empty-map) empty-map))))
-    (rename-tops (get prog out) (get vis names) empty-list)))
+        (prog (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms) empty-map))))
+    (rename-tops (get prog out) (get vis names))))
 
 ;; What a module sees: its imports' exports and its own, merged; and which module each
 ;; imported name comes from (by stem).
@@ -1167,82 +1144,64 @@
 
 ;; `acc` with the entries of `m` for `keys`.
 (sig put-all (Fn ((Map String a) (List String) (Map String a)) (Map String a)))
-(defn put-all (m keys acc)
-  (if (= (len keys) 0)
-    acc
-    (put-all m (rest keys) (map-set acc (at keys 0) (map-get m (at keys 0))))))
+(defn put-all (m keys start)
+  (fold (fn (acc key) (map-set acc key (map-get m key))) start keys))
 
 ;; The names other modules define, each with its module's stem.
-(sig elsewhere-names (Fn ((List Exports) (Map String String)) (Map String String)))
-(defn elsewhere-names (exports acc)
-  (if (= (len exports) 0)
-    acc
-    (let ((ex (at exports 0)))
-      (elsewhere-names
-        (rest exports)
-        (put-all (stems-for (map-keys (get ex top)) (get ex stem) empty-map) (map-keys (get ex top)) acc)))))
+(sig elsewhere-names (Fn ((List Exports)) (Map String String)))
+(defn elsewhere-names (exports)
+  (fold
+    (fn (acc ex) (put-all (stems-for (map-keys (get ex top)) (get ex stem)) (map-keys (get ex top)) acc))
+    empty-map
+    exports))
 
-(sig stems-for (Fn ((List String) String (Map String String)) (Map String String)))
-(defn stems-for (names stem acc)
-  (if (= (len names) 0) acc (stems-for (rest names) stem (map-set acc (at names 0) stem))))
+(sig stems-for (Fn ((List String) String) (Map String String)))
+(defn stems-for (names stem)
+  (fold (fn (acc name) (map-set acc name stem)) empty-map names))
 
 ;; `tops` with the names they define, and the types they use, by global name.
-(sig rename-tops (Fn ((List Top) (Map String String) (List Top)) (List Top)))
-(defn rename-tops (tops names acc)
-  (if (= (len tops) 0)
-    acc
-    (rename-tops (rest tops) names (++ acc (to-list (rename-top (at tops 0) names))))))
+(sig rename-tops (Fn ((List Top) (Map String String)) (List Top)))
+(defn rename-tops (tops names)
+  (map (fn (top) (rename-top top names)) tops))
 
 (sig rename-top (Fn (Top (Map String String)) Top))
 (defn rename-top (top names)
   (match top
-    ((TDeft name tvars fields) (TDeft (global-name name names) tvars (rename-fields fields names empty-list)))
+    ((TDeft name tvars fields) (TDeft (global-name name names) tvars (rename-fields fields names)))
     ((TDeftSum name tvars variants)
-      (TDeftSum (global-name name names) tvars (rename-variants variants names empty-list)))
+      (TDeftSum (global-name name names) tvars (rename-variants variants names)))
     ((TDef name init t pos) (TDef (global-name name names) init (rename-type t names) pos))
     ((TDefn name params body t pos) (TDefn (global-name name names) params body (rename-type t names) pos))
     ((TExpr _) top)))
 
-(sig rename-variants (Fn ((List Variant) (Map String String) (List Variant)) (List Variant)))
-(defn rename-variants (variants names acc)
-  (if (= (len variants) 0)
-    acc
-    (let ((v (at variants 0)))
-      (rename-variants
-        (rest variants)
-        names
-        (++ acc (to-list (Variant (global-name (get v name) names) (rename-fields (get v fields) names empty-list))))))))
+(sig rename-variants (Fn ((List Variant) (Map String String)) (List Variant)))
+(defn rename-variants (variants names)
+  (map (fn (v) (Variant (global-name (get v name) names) (rename-fields (get v fields) names))) variants))
 
-(sig rename-fields
-  (Fn ((List (Tup String CType)) (Map String String) (List (Tup String CType))) (List (Tup String CType))))
-(defn rename-fields (fields names acc)
-  (if (= (len fields) 0)
-    acc
-    (let (((field t) (at fields 0)))
-      (rename-fields (rest fields) names (++ acc (to-list (Tup field (rename-type t names))))))))
+(sig rename-fields (Fn ((List (Tup String CType)) (Map String String)) (List (Tup String CType))))
+(defn rename-fields (fields names)
+  (map (fn (field) (let (((name t) field)) (Tup name (rename-type t names)))) fields))
 
 (sig rename-type (Fn (CType (Map String String)) CType))
 (defn rename-type (t names)
   (match t
-    ((TCon name args) (TCon (global-name name names) (rename-types args names empty-list)))
+    ((TCon name args) (TCon (global-name name names) (rename-types args names)))
     ((TVar _) t)
-    ((TFn params ret) (TFn (rename-types params names empty-list) (rename-type ret names)))))
+    ((TFn params ret) (TFn (rename-types params names) (rename-type ret names)))))
 
-(sig rename-types (Fn ((List CType) (Map String String) (List CType)) (List CType)))
-(defn rename-types (types names acc)
-  (if (= (len types) 0)
-    acc
-    (rename-types (rest types) names (++ acc (to-list (rename-type (at types 0) names))))))
+(sig rename-types (Fn ((List CType) (Map String String)) (List CType)))
+(defn rename-types (types names)
+  (map (fn (t) (rename-type t names)) types))
 
-(sig def-names (Fn ((List Form) (Map String Bool)) (Map String Bool)))
-(defn def-names (forms acc)
-  (if (= (len forms) 0)
-    acc
-    (let ((items (list-items (at forms 0)))
-          (head (if (> (len items) 1) (sym-name (at items 0)) "")))
-      (def-names
-        (rest forms)
-        (if (or (= head "def") (= head "defn")) (map-set acc (sym-name (at items 1)) true) acc)))))
+(sig def-names (Fn ((List Form)) (Map String Bool)))
+(defn def-names (forms)
+  (fold
+    (fn (acc form)
+      (let ((items (list-items form))
+            (head (if (> (len items) 1) (sym-name (at items 0)) "")))
+        (if (or (= head "def") (= head "defn")) (map-set acc (sym-name (at items 1)) true) acc)))
+    empty-map
+    forms))
 
 (sig analyse-tops (Fn ((List Form) Scope Prog) Prog))
 (defn analyse-tops (forms scope prog)
@@ -1343,7 +1302,7 @@
 (defn top-deft (items scope prog)
   (let ((name (if (> (len items) 1) (deft-name (at items 1)) ""))
         (tvar-forms (if (> (len items) 1) (rest (list-items (at items 1))) empty-list))
-        (tvars (syms tvar-forms empty-list))
+        (tvars (map sym-name tvar-forms))
         (dup (repeated tvar-forms empty-list 0))
         (body (drop 2 items))
         (field-forms (if (= (len items) 3) (list-items (at items 2)) empty-list)))
@@ -1354,12 +1313,12 @@
           (++ (pos-text (form-pos (at tvar-forms dup)))
              (format "deft {name}: type variables must be different ({(at tvars dup)})"))))
       ((is-sum-body body)
-        (let ((variants (deft-variants name body empty-list))
+        (let ((variants (deft-variants name body))
               (checked (check-variants variants scope)))
           (add-top prog (TDeftSum name tvars variants) (get prog n))))
       ((= (len field-forms) 0) (fail (located scope "deft: expected (deft Name ((field Type)+))")))
       (else
-        (let ((fields (deft-fields (format "deft {name}") field-forms empty-list))
+        (let ((fields (deft-fields (format "deft {name}") field-forms))
               (checked (check-fields fields scope)))
           (add-top prog (TDeft name tvars fields) (get prog n)))))))
 
@@ -1378,47 +1337,39 @@
     ((check-fields (get (at variants 0) fields) scope) (check-variants (rest variants) scope))
     (else false)))
 
-(sig deft-variants (Fn (String (List Form) (List Variant)) (List Variant)))
-(defn deft-variants (sum body acc)
-  (if (= (len body) 0)
-    acc
-    (let ((v-items (list-items (at body 0)))
-          (name (sym-name (at v-items 0))))
-      (cond
-        ((not (is-upper name)) (fail (++ (pos-text (form-pos (at body 0))) (format "deft: variant names are Capitalised, not {name}"))))
-        ((= (len v-items) 1) (deft-variants sum (rest body) (++ acc (to-list (Variant name empty-list)))))
-        ((and (= (len v-items) 2) (> (len (list-items (at v-items 1))) 0))
-          (deft-variants
-            sum
-            (rest body)
-            (++ acc
-               (to-list
-                 (Variant name (deft-fields (format "deft {sum}, variant {name}") (list-items (at v-items 1)) empty-list))))))
-        (else (fail (++ (pos-text (form-pos (at body 0))) "deft: variant must be (Name) or (Name ((field Type)+))")))))))
+(sig deft-variants (Fn (String (List Form)) (List Variant)))
+(defn deft-variants (sum body)
+  (map
+    (fn (form)
+      (let ((v-items (list-items form))
+            (name (sym-name (at v-items 0))))
+        (cond
+          ((not (is-upper name)) (fail (++ (pos-text (form-pos form)) (format "deft: variant names are Capitalised, not {name}"))))
+          ((= (len v-items) 1) (Variant name empty-list))
+          ((and (= (len v-items) 2) (> (len (list-items (at v-items 1))) 0))
+            (Variant name (deft-fields (format "deft {sum}, variant {name}") (list-items (at v-items 1)))))
+          (else (fail (++ (pos-text (form-pos form)) "deft: variant must be (Name) or (Name ((field Type)+))"))))))
+    body))
 
 (sig is-upper (Fn (String) Bool))
 (defn is-upper (name)
   (and (> (str-len name) 0) (>= (substring name 0 1) "A") (<= (substring name 0 1) "Z")))
 
-(sig syms (Fn ((List Form) (List String)) (List String)))
-(defn syms (forms acc)
-  (if (= (len forms) 0) acc (syms (rest forms) (++ acc (to-list (sym-name (at forms 0)))))))
 
 ;; The fields of `owner` ("deft V", or "deft S, variant A", for its errors).
-(sig deft-fields (Fn (String (List Form) (List (Tup String CType))) (List (Tup String CType))))
-(defn deft-fields (owner forms acc)
-  (if (= (len forms) 0)
-    acc
-    (let ((items (list-items (at forms 0))))
-      (cond
-        ((or (!= (len items) 2) (= (sym-name (at items 0)) ""))
-          (fail (++ (pos-text (form-pos (at forms 0))) "deft: field must be (name Type)")))
-        ((has-field (sym-name (at items 0)) acc)
-          (fail (++ (pos-text (form-pos (at forms 0))) (format "{owner}: field names must be different ({(sym-name (at items 0))})"))))
-        (else (deft-fields
-          owner
-          (rest forms)
-          (++ acc (to-list (Tup (sym-name (at items 0)) (analyse-type (at items 1)))))))))))
+(sig deft-fields (Fn (String (List Form)) (List (Tup String CType))))
+(defn deft-fields (owner forms)
+  (fold
+    (fn (acc form)
+      (let ((items (list-items form)))
+        (cond
+          ((or (!= (len items) 2) (= (sym-name (at items 0)) ""))
+            (fail (++ (pos-text (form-pos form)) "deft: field must be (name Type)")))
+          ((has-field (sym-name (at items 0)) acc)
+            (fail (++ (pos-text (form-pos form)) (format "{owner}: field names must be different ({(sym-name (at items 0))})"))))
+          (else (++ acc (List (Tup (sym-name (at items 0)) (analyse-type (at items 1)))))))))
+    empty-list
+    forms))
 
 ;; Whether `fields` has one named `name`.
 (sig has-field (Fn (String (List (Tup String CType))) Bool))
