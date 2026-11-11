@@ -41,3 +41,4 @@ argument 1 of =: expected equatable, got a
   checking why (`(same inc inc)` prints `true`), and the owner chose to make `=` and `!=`
   values ([[B172]] dropped) and file this, for later (a step of its own, or
   `collections-2`).
+- 2026-11-10, Claude: comes along to `collections-2`, its step 7 ([[B182]]), as the owner chose (`collections_2.md`, Question 1).

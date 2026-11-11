@@ -20,3 +20,4 @@ step 7's), then `to-list` goes from `system.cdy` and `spelling.py`.
 
 - 2026-11-09, the owner: noticed it in step 4's review; for later. Claude: filed, where it
   goes decided at the checkpoint after step 6.
+- 2026-11-10, Claude: comes along to `collections-2`, its step 6 ([[B181]]), as the owner chose (`collections_2.md`, Question 1).
