@@ -82,7 +82,7 @@
 (defn imp-list (imports acc)
   (if (= (len imports) 0)
     acc
-    (imp-list (rest imports) (++ acc (to-list (at (at imports 0) 1))))))
+    (let (((_name imp) (at imports 0))) (imp-list (rest imports) (++ acc (to-list imp))))))
 
 ;; `acc` with the modules `imports` names read, unless they were already.
 (sig load-imports (Fn ((List (Tup String Imp)) (List String) Mods) Mods))
@@ -95,7 +95,7 @@
         (rest imports)
         stack
         (cond
-          ((in key stack)
+          ((contains key stack)
             (fail (format "{(pos-text (get imp pos))}import: cycle {(cycle-text stack key)}")))
           ((map-has (get acc seen) key) acc)
           (else (add-module path key (read-source path (slurp path)) (path-dir path) stack acc)))))))

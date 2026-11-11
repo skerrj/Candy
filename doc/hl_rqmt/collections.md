@@ -326,6 +326,28 @@ commit, and `bootstrap.py --tag` tags a step only once it passes.
    strings' and maps' own operations, `in` gone, `put` a macro over `text`; two boot
    steps. *Checkpoint* (as `semantics`' Question 1): merge here, and do step 7 as
    `collections-2`, or go on.
+
+   *Done (2026-11-10). As built:* `len`, `at` and `slice` take a `(List a)`; a string has
+   `str-len`, `char-at` (a `Char`), `substring` and `(str-contains part s)`, a map
+   `map-size`; `in` is gone (`contains` was there already). The translator's calls were
+   renamed by a one-off script (not kept) from their argument's type in the typed Core,
+   101 of them (`in` on a list to `contains`, the string ones to their names), and the
+   nested `(at (at fields 0) 0)`s, which `at`'s `Any` had hidden, became patterns. The
+   reader compares `char-at`'s `Char`s with `Char` literals (`\(`, `\;`); a newline has
+   no `Char` literal, so it has `char-text`, the char as a `String` (`text`). `put` is a
+   prelude macro, `(put a b)` to `(put-line (++ (text a) " " (text b)))`; `text` is
+   written by its argument's type as `show` is (`text-of` in `emit.cdy`, and as a value),
+   spelled `text_any` for a translator that doesn't; `print` and `display`, unused, are
+   gone. Macro code isn't expanded, so it has `put-line` and `text`, not `put`. With
+   `put`'s arguments now checked against `text`'s variable, an `if` checked against an
+   unsolved variable is inferred instead, so its branches still say they differ.
+   `check-at` (step 5) went: `at`'s type rejects a tuple. `char-at` and `substring` have
+   their own primitives, so a panic names them. One boot step, `boot/62`, not two:
+   `boot/61` reads the new library (no staging); the runtime keeps `in_`, which
+   `boot/61` calls, until a following commit, which doesn't change `bin`. The spec:
+   `library.builtins`, `library.bounds`, `library.strings`, `library.maps`,
+   `library.format`, `library.put` (new), `syntax.chars`, `types.tuples`,
+   `checking.narrowing`'s example, `checking.any`, `expr.calls`, `macros.macro-code`'s example.
 7. **The list operations** ([[B167]]; [[B123]], [[B69]]): `map-acc` and `reduce`, and the
    translator's loops onto them, file by file, measured (the build's time).
 8. **Docs** ([[B168]]): CLAUDE.md, the epic's third branch *done*, `multi_target.md` (the operators'

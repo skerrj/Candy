@@ -552,7 +552,7 @@ def test_builtin_arity_comes_from_system(t1: ModuleType) -> None:
         translate_with(t1, '(put (slurp "a" "b"))')
     with pytest.raises(CandyFail, match=re.escape("(not ...) takes 1 argument(s), got 2")):
         translate_with(t1, "(put (not true false))")
-    assert "print(1, 2, 3)" in translate_with(t1, "(put 1 2 3)")  # put is Any: any number
+    assert "print(" in translate_with(t1, "(put 1 2 3)")  # put is a macro: any number
 
 
 # --- the reader ---

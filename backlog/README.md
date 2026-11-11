@@ -36,7 +36,6 @@ By kind, then priority.
 | [B45](B45-macro-files-inclusion.md) | Macro files still use inclusion | leak | open | normal |
 | [B46](B46-templates-not-hygienic.md) | Macro templates aren't hygienic across modules | leak | open | normal |
 | [B47](B47-imports-unqualified.md) | Only `(import m)`, everything unqualified | leak | open | normal |
-| [B48](B48-operators-no-type.md) | Operators, `tup` and `put` have no Candy type | leak | open | normal |
 | [B49](B49-opaque-host-types.md) | Host objects have no Candy type | leak | open | normal |
 | [B51](B51-with-default-builtin.md) | `with-default` is a built-in, not prelude | leak | open | normal |
 | [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | open | normal |
@@ -87,7 +86,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B166](B166-collections-step-6-typed-collection-operations.md) | collections step 6: typed collection operations | task | open | normal |
 | [B167](B167-collections-step-7-list-operations.md) | collections step 7: the list operations | task | open | normal |
 | [B168](B168-collections-step-8-docs.md) | collections step 8: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
@@ -131,13 +129,12 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [expr.functions](../spec/40-expressions.md#expr.functions): [B8](B8-fn-argument-twice.md)
 - [expr.let](../spec/40-expressions.md#expr.let): [B17](B17-tup-destructuring.md)
 - [expr.logic](../spec/40-expressions.md#expr.logic): [B100](B100-and-or-macros.md)
-- [expr.operator-arity](../spec/40-expressions.md#expr.operator-arity): [B48](B48-operators-no-type.md)
 - [expr.operator-values](../spec/40-expressions.md#expr.operator-values): [B173](B173-generic-equality-on-functions.md)
 - [expr.rest](../spec/40-expressions.md#expr.rest): [B171](B171-list-not-a-value.md)
 - [expr.tail-calls](../spec/40-expressions.md#expr.tail-calls): [B37](B37-self-tail-calls-only.md), [B98](B98-trampolines.md)
 - [expr.unit](../spec/40-expressions.md#expr.unit): [B9](B9-nil-redefinable.md)
 - [library.bounds](../spec/60-library.md#library.bounds): [B159](B159-string-helpers-negative-index.md), [B160](B160-python-errors-not-panics.md)
-- [library.builtins](../spec/60-library.md#library.builtins): [B48](B48-operators-no-type.md), [B49](B49-opaque-host-types.md), [B54](B54-slurp-fallback.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B50](B50-translator-builtins-shared.md), [B97](B97-library-per-target.md), [B174](B174-to-list-duplicates-list.md)
+- [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B54](B54-slurp-fallback.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B50](B50-translator-builtins-shared.md), [B97](B97-library-per-target.md), [B174](B174-to-list-duplicates-list.md)
 - [library.errors](../spec/60-library.md#library.errors): [B160](B160-python-errors-not-panics.md)
 - [library.format](../spec/60-library.md#library.format): [B16](B16-format-hack.md), [B131](B131-errors-without-position.md)
 - [library.lists](../spec/60-library.md#library.lists): [B34](B34-no-collection.md), [B51](B51-with-default-builtin.md)
@@ -166,7 +163,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [types.records](../spec/20-types.md#types.records): [B7](B7-record-name-lowercase.md), [B29](B29-records-are-tuples.md), [B113](B113-field-leading-underscore.md), [B114](B114-field-tuple-method.md), [B176](B176-host-records.md)
 - [types.sig](../spec/20-types.md#types.sig): [B4](B4-def-name-not-a-name.md)
 - [types.table](../spec/20-types.md#types.table): [B7](B7-record-name-lowercase.md), [B18](B18-any-escape-hatch.md)
-- [types.tuples](../spec/20-types.md#types.tuples): [B17](B17-tup-destructuring.md), [B29](B29-records-are-tuples.md), [B48](B48-operators-no-type.md)
+- [types.tuples](../spec/20-types.md#types.tuples): [B17](B17-tup-destructuring.md), [B29](B29-records-are-tuples.md)
 
 ## Closed
 
@@ -196,6 +193,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B36](B36-values-print-as-python.md) | Values print as Python shows them | leak | done | high |
 | [B38](B38-operators-not-values.md) | Operators can't be values | leak | done | low |
 | [B39](B39-fail-for-errors.md) | `fail` stands in for errors | leak | done | normal |
+| [B48](B48-operators-no-type.md) | Operators, `tup` and `put` have no Candy type | leak | done | normal |
 | [B53](B53-unimported-type.md) | A type from a module the file doesn't import isn't caught | leak | done | normal |
 | [B59](B59-positions-symbols-lists.md) | Only symbols and lists carry positions | tech-debt | done | normal |
 | [B67](B67-builtin-types-unused.md) | The built-ins' types are read but not used | tech-debt | done | low |
@@ -265,5 +263,6 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B163](B163-collections-step-3-operators-as-values.md) | collections step 3: operators as values | task | done | normal |
 | [B164](B164-collections-step-4-plus-plus.md) | collections step 4: `++`, and `+` on numbers only | task | done | normal |
 | [B165](B165-collections-step-5-tuples.md) | collections step 5: tuples | task | done | normal |
+| [B166](B166-collections-step-6-typed-collection-operations.md) | collections step 6: typed collection operations | task | done | normal |
 | [B172](B172-equality-not-a-value.md) | `=` and `!=` aren't values | leak | dropped | low |
 | [B175](B175-spelling-by-position.md) | A spelling is read by position, and `and`/`or` by name | tech-debt | done | low |

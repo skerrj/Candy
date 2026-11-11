@@ -3,8 +3,9 @@
 Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
 
 - No ``bop_table`` copy or renamed imports; ``SEARCH_PATH`` is here, beside ``slurp``.
-- Names that clash with Python built-ins or keywords get a trailing ``_``: ``slice_``,
-  ``in_``. ``join_it`` is now ``join``.
+- Names that clash with Python built-ins or keywords get a trailing ``_``: ``slice_``.
+  ``join_it`` is now ``join``, and ``in_`` is ``str_contains`` (a list's is
+  ``list_contains``).
 - ``spit`` takes ``(path, text)`` and writes a string, like Clojure's ``spit``.
   ``file_put_lines`` takes ``(path, lines)``. (schmuz had them in opposite orders.)
 - ``slurp`` raises ``FileNotFoundError`` instead of calling ``exit()``, and looks for
@@ -285,6 +286,21 @@ def slice_[S: Sequence[Any]](coll: S, i: int, j: int) -> S:
     raise CandyFail(f"slice: index out of range: {i} to {j}, for length {len(coll)}")
 
 
+def char_at(s: str, i: int) -> str:
+    """The character at index ``i`` of ``s``, as ``at`` (a ``Char``, which Python spells
+    ``str``)."""
+    if 0 <= i < len(s):
+        return s[i]
+    raise CandyFail(f"char-at: index out of range: {i}, for length {len(s)}")
+
+
+def substring(s: str, i: int, j: int) -> str:
+    """Characters ``i`` up to (not including) ``j`` of ``s``, as ``slice_``."""
+    if 0 <= i <= j <= len(s):
+        return s[i:j]
+    raise CandyFail(f"substring: index out of range: {i} to {j}, for length {len(s)}")
+
+
 def join(coll: Sequence[str], delim: str) -> str:
     """The strings in ``coll`` joined with ``delim``."""
     return delim.join(coll)
@@ -337,8 +353,14 @@ def map_keys[K, V](m: Mapping[K, V]) -> tuple[K, ...]:
 
 
 def in_(item: object, coll: Sequence[object]) -> bool:
-    """Whether ``item`` is in ``coll`` (a string is a sequence too)."""
+    """Whether ``item`` is in ``coll``: ``in``, gone from the library, which the previous
+    ``bin`` still calls; it goes once ``bin`` no longer does (collections step 6)."""
     return item in coll
+
+
+def str_contains(part: str, s: str) -> bool:
+    """Whether ``part`` is in ``s``."""
+    return part in s
 
 
 # The library's list operations (doc/hl_rqmt/library.md, "Built-in or prelude"): a list is

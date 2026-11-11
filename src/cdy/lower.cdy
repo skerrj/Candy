@@ -201,7 +201,7 @@
 
 (sig value-call (Fn (Expr (List Expr) Pos CType Int) Low))
 (defn value-call (callee args pos ty n)
-  (if (in (prim-name callee) (List "and" "or"))
+  (if (contains (prim-name callee) (List "and" "or"))
     (value-boolop callee args pos ty n)
     (let (((stmts items n1) (value-seq (++ (to-list callee) args) n)))
       (Low stmts (Call (at items 0) (rest items) pos ty) n1))))

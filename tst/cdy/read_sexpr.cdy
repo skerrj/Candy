@@ -3,40 +3,44 @@
 ;;; style of smz's parse.scm. A string stays as written, quotes and escapes included (as in
 ;;; smz). Forms are untyped data for now, so they are `Any`.
 
+;; The character at `i` in `s`, as a String (a `Char` has no literal for a newline).
+(sig ch (Fn (String Int) String))
+(defn ch (s i) (text (char-at s i)))
+
 ;; Skip whitespace and `;` comments.
 (sig skip-space (Fn (String Int) Int))
 (defn skip-space (text pos)
   (cond
-    ((>= pos (len text)) pos)
+    ((>= pos (str-len text)) pos)
     ((isspace-at text pos) (skip-space text (+ pos 1)))
-    ((= (at text pos) ";") (skip-space text (skip-line text pos)))
+    ((= (ch text pos) ";") (skip-space text (skip-line text pos)))
     (else pos)))
 
 (sig skip-line (Fn (String Int) Int))
 (defn skip-line (text pos)
   (cond
-    ((>= pos (len text)) pos)
-    ((= (at text pos) "\n") pos)
+    ((>= pos (str-len text)) pos)
+    ((= (ch text pos) "\n") pos)
     (else (skip-line text (+ pos 1)))))
 
 (sig delim? (Fn (String) Bool))
-(defn delim? (ch) (or (isspace ch) (in ch "();")))
+(defn delim? (ch) (or (isspace ch) (str-contains ch "();")))
 
 ;; A symbol or number token: everything up to the next delimiter.
 (sig read-token (Fn (String Int String) (Tup String Int)))
 (defn read-token (text pos acc)
-  (if (or (>= pos (len text)) (delim? (at text pos)))
+  (if (or (>= pos (str-len text)) (delim? (ch text pos)))
     (Tup acc pos)
-    (read-token text (+ pos 1) (++ acc (at text pos)))))
+    (read-token text (+ pos 1) (++ acc (ch text pos)))))
 
 ;; A string literal, from just after its opening quote; `acc` starts as the quote.
 (sig read-str (Fn (String Int String) (Tup String Int)))
 (defn read-str (text pos acc)
   (cond
-    ((>= pos (len text)) (Tup acc pos))
-    ((= (at text pos) "\"") (Tup (++ acc "\"") (+ pos 1)))
-    ((= (at text pos) "\\") (read-str text (+ pos 2) (++ acc (slice text pos (+ pos 2)))))
-    (else (read-str text (+ pos 1) (++ acc (at text pos))))))
+    ((>= pos (str-len text)) (Tup acc pos))
+    ((= (ch text pos) "\"") (Tup (++ acc "\"") (+ pos 1)))
+    ((= (ch text pos) "\\") (read-str text (+ pos 2) (++ acc (substring text pos (+ pos 2)))))
+    (else (read-str text (+ pos 1) (++ acc (ch text pos))))))
 
 (sig atom (Fn (String) Any))
 (defn atom (tok) (if (is-digit tok) (to-int tok) tok))
@@ -45,8 +49,8 @@
 (defn read-list (text pos acc)
   (let ((pos (skip-space text pos)))
     (cond
-      ((>= pos (len text)) (Tup acc pos))
-      ((= (at text pos) ")") (Tup acc (+ pos 1)))
+      ((>= pos (str-len text)) (Tup acc pos))
+      ((= (ch text pos) ")") (Tup acc (+ pos 1)))
       (else
         (let (((form next) (read-form text pos)))
           (read-list text next (++ acc (to-list form))))))))
@@ -55,8 +59,8 @@
 (defn read-form (text pos)
   (let ((pos (skip-space text pos)))
     (cond
-      ((= (at text pos) "(") (read-list text (+ pos 1) empty-list))
-      ((= (at text pos) "\"") (read-str text (+ pos 1) "\""))
+      ((= (ch text pos) "(") (read-list text (+ pos 1) empty-list))
+      ((= (ch text pos) "\"") (read-str text (+ pos 1) "\""))
       (else
         (let (((tok next) (read-token text pos "")))
           (Tup (atom tok) next))))))
@@ -64,7 +68,7 @@
 (sig read-all (Fn (String Int (List Any)) (List Any)))
 (defn read-all (text pos acc)
   (let ((pos (skip-space text pos)))
-    (if (>= pos (len text))
+    (if (>= pos (str-len text))
       acc
       (let (((form next) (read-form text pos)))
         (read-all text next (++ acc (to-list form)))))))

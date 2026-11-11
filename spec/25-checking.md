@@ -291,7 +291,7 @@ so where the local is passed or returned it is still of the sum.
 ```candy run
 (deft S (A ((x Int) (id Int))) (B ((y String) (id Int))) (C))
 (sig f (Fn (S) Int))
-(defn f (s) (match s ((A _ _) (+ (get s x) (get s id))) ((B _ _) (len (get s y))) ((C) 0)))
+(defn f (s) (match s ((A _ _) (+ (get s x) (get s id))) ((B _ _) (str-len (get s y))) ((C) 0)))
 (sig bump (Fn (S) S))
 (defn bump (s) (match s ((A _ _) (assoc s x (+ (get s x) 1))) (else s)))
 (put (f (A 1 2)) (f (B "abc" 1)) (f C) (bump (A 1 2)) (bump C))
@@ -403,7 +403,9 @@ gives the value or a fallback. A `(Maybe (Maybe t))` is two layers, `(Some None)
 ## Any
 
 `Any` matches every type, both ways, and nothing passing through it is checked (*for
-now*: [[B18]]). The built-ins Candy can't type yet are `Any`: `put`, `at`, `len`.
+now*: [[B18]]). The built-ins Candy can't type yet are `Any`: `is-coll` and `is-str`
+(for forms read as `Any`, [[B79]]), the regular expressions' results, and four of the
+translator's host built-ins.
 
 `Any` binds no type variable it meets, so a later use can still solve it; one that met
 `Any` and nothing else is `Any` once its definition is checked, as gradual inference

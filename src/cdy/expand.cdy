@@ -70,7 +70,7 @@
 (sig prelude-import (Fn ((List String)) (List Form)))
 (defn prelude-import (loading)
   (let ((path (library-path "prelude_macros.cdy")))
-    (if (in (path-resolve path) loading)
+    (if (contains (path-resolve path) loading)
       empty-list
       (to-list (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))))
 
@@ -81,7 +81,7 @@
     acc
     (let ((form (at forms 0))
           (items (list-items form))
-          (picked (and (> (len items) 0) (in (sym-name (at items 0)) heads))))
+          (picked (and (> (len items) 0) (contains (sym-name (at items 0)) heads))))
       (pick-forms (rest forms) heads keep (if (= picked keep) (++ acc (to-list form)) acc)))))
 
 ;; Each defmacro in `defs` with the macro calls in its body expanded.
@@ -121,7 +121,7 @@
         (key (path-resolve path)))
     (cond
       ((map-has (get acc seen) key) acc)
-      ((in key loading)
+      ((contains key loading)
         (fail (format "{(pos-text (form-pos form))}import-macros: {path} imports itself")))
       (else
         (let ((done (expand-file (read-program path) true compile (++ loading (to-list key)))))
@@ -145,18 +145,18 @@
     acc
     (add-helpers
       (rest groups)
-      (if (has-helpers (at (at groups 0) 0) acc) acc (++ acc (to-list (at groups 0)))))))
+      (let (((key _forms) (at groups 0))) (if (has-helpers key acc) acc (++ acc (to-list (at groups 0))))))))
 
 (sig has-helpers (Fn (String (List (Tup String (List Form)))) Bool))
 (defn has-helpers (key groups)
-  (and (> (len groups) 0) (or (= (at (at groups 0) 0) key) (has-helpers key (rest groups)))))
+  (any (fn (g) (let (((k _forms) g)) (= k key))) groups))
 
 ;; The forms of all the helper groups.
 (sig helper-forms (Fn ((List (Tup String (List Form))) (List Form)) (List Form)))
 (defn helper-forms (groups acc)
   (if (= (len groups) 0)
     acc
-    (helper-forms (rest groups) (++ acc (at (at groups 0) 1)))))
+    (let (((_key forms) (at groups 0))) (helper-forms (rest groups) (++ acc forms)))))
 
 ;; --- compiling and loading macros ---
 
@@ -302,10 +302,10 @@
         (cond
           ((map-has macros head)
             (expand-form (expand-call (map-get macros head) (rest items) pos) macros))
-          ((in head (List "sig" "deft" "import" "import-macros" "quo" "quasi")) form)
+          ((contains head (List "sig" "deft" "import" "import-macros" "quo" "quasi")) form)
           ((= head "defn") (Lst (expand-after items 3 macros) pos))
           ((= head "fn") (Lst (expand-after items 2 macros) pos))
-          ((in head (List "let" "match")) (Lst (expand-clauses head items macros) pos))
+          ((contains head (List "let" "match")) (Lst (expand-clauses head items macros) pos))
           (else (Lst (expand-all items macros empty-list) pos)))))
     (else form)))
 

@@ -178,9 +178,13 @@
   (let ((ctx (at-node e outer)))
     (match e
       ((If test then other _ _)
-        (let ((rt (infer test ctx st))
-              (st1 (expect-is (tcon "Bool") (get rt t) "if: the test" ctx (get rt st))))
-          (typed e want (check-expr other want what ctx (check-expr then want what ctx st1)))))
+        ;; Against a variable not yet solved (a generic function's argument), the branches
+        ;; are inferred, so that two that differ say so ("if: the branches are ...").
+        (if (is-var (prune want (get st subst)))
+          (infer-expect e want what ctx st)
+          (let ((rt (infer test ctx st))
+                (st1 (expect-is (tcon "Bool") (get rt t) "if: the test" ctx (get rt st))))
+            (typed e want (check-expr other want what ctx (check-expr then want what ctx st1))))))
       ((Do body _ _)
         (typed e want
           (if (= (len body) 0)
@@ -387,9 +391,8 @@
         (infer-called callee args ctx st)))
     ((Prim name _ _)
       (cond
-        ((in name (List "=" "!=")) (infer-compare name callee args ctx st))
+        ((contains name (List "=" "!=")) (infer-compare name callee args ctx st))
         ((and (= name "at") (is-tup-item args)) (typed-callee callee args (infer-tup-item args ctx st)))
-        ((= name "at") (check-at args ctx (infer-called callee args ctx st)))
         (else (infer-called callee args ctx st))))
     (else (infer-called callee args ctx st))))
 
@@ -503,15 +506,6 @@
     ((Prim name _ _) name)
     ((Local name _ _ _) name)
     (else "the function")))
-
-;; `r`, an `at` call's result, with an error if its first argument is a tuple: a tuple is
-;; taken apart by a pattern only, since an item's type depends on its index.
-(sig check-at (Fn ((List Expr) Ctx Res) Res))
-(defn check-at (args ctx r)
-  (let ((tt (prune (recorded (at args 0) (get r st)) (get (get r st) subst))))
-    (if (= (tcon-name tt) "Tup")
-      (Res (get r t) (report (format "at doesn't take a tuple, a {(show tt (get (get r st) subst))}: take it apart with a pattern") ctx (get r st)))
-      r)))
 
 ;; A tup pattern's item, (at tmp i) on the pattern's _tup Local.
 (sig is-tup-item (Fn ((List Expr)) Bool))
@@ -630,10 +624,10 @@
 
 (sig find-field (Fn ((List (Tup String CType)) String (Map String CType)) (Tup Bool CType)))
 (defn find-field (fields field vars)
-  (cond
-    ((= (len fields) 0) (Tup false ANY))
-    ((= (at (at fields 0) 0) field) (Tup true (put-vars (at (at fields 0) 1) vars)))
-    (else (find-field (rest fields) field vars))))
+  (if (= (len fields) 0)
+    (Tup false ANY)
+    (let (((name t) (at fields 0)))
+      (if (= name field) (Tup true (put-vars t vars)) (find-field (rest fields) field vars)))))
 
 (sig zip-map (Fn ((List String) (List CType) (Map String CType)) (Map String CType)))
 (defn zip-map (names types acc)
@@ -821,7 +815,7 @@
 (defn typed-binds (binds env st)
   (if (= (len binds) 0)
     st
-    (let ((loc (at (at binds 0) 1)))
+    (let (((_field loc) (at binds 0)))
       (typed-binds (rest binds) env (typed loc (if (map-has env (local-key loc)) (map-get env (local-key loc)) ANY) st)))))
 
 ;; `r`, a call's result, with its callee recorded as the function from the arguments'
@@ -1254,7 +1248,7 @@
       (cond
         ((not (is-flexible name)) name)
         ((!= (constraint-of name) "") (constraint-of name))
-        (else (++ "t" (slice name 1 (len name))))))))
+        (else (++ "t" (substring name 1 (str-len name))))))))
 
 ;; A global name as the program wrote it: util__greet is greet.
 (sig shown-name (Fn (String) String))

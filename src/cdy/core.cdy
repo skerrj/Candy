@@ -230,8 +230,8 @@
     ((= head "match") (an-match args scope n))
     ((= head "quo") (an-quo args scope n))
     ((= head "quasi") (an-quasi args scope n))
-    ((in head (List "unq" "unq-sp")) (fail (located scope (format "{head}: only inside quasi"))))
-    ((in head (List "def" "defn" "deft" "sig" "import" "import-macros" "defmacro"))
+    ((contains head (List "unq" "unq-sp")) (fail (located scope (format "{head}: only inside quasi"))))
+    ((contains head (List "def" "defn" "deft" "sig" "import" "import-macros" "defmacro"))
       (fail (located scope (format "{head} is only allowed at top level"))))
     (else (fail (located scope (format "{head} is not supported by the Candy translator yet"))))))
 
@@ -392,8 +392,8 @@
 ;; literal text so far.
 (sig format-parts (Fn (String Pos Int String Scope Int (List FPart)) (Tup (List FPart) Int)))
 (defn format-parts (text where pos acc scope n parts)
-  (let ((c (if (< pos (len text)) (slice text pos (+ pos 1)) ""))
-        (next (if (< (+ pos 1) (len text)) (slice text (+ pos 1) (+ pos 2)) "")))
+  (let ((c (if (< pos (str-len text)) (substring text pos (+ pos 1)) ""))
+        (next (if (< (+ pos 1) (str-len text)) (substring text (+ pos 1) (+ pos 2)) "")))
     (cond
       ((= c "") (Tup (add-text parts acc) n))
       ((and (= c "{") (= next "{")) (format-parts text where (+ pos 2) (++ acc "{") scope n parts))
@@ -401,7 +401,7 @@
       ((= c "}") (fail (located scope "format: unmatched } (write }} for a brace)")))
       ((= c "{")
         (let ((end (hole-end text (+ pos 1) scope))
-              (forms ((get scope parse) (slice text (+ pos 1) end) (text-pos text (+ pos 1) where))))
+              (forms ((get scope parse) (substring text (+ pos 1) end) (text-pos text (+ pos 1) where))))
           (if (!= (len forms) 1)
             (fail (located scope "format: a {hole} must hold exactly one form"))
             (let (((e n1) (analyse-expr (at forms 0) scope n)))
@@ -415,20 +415,20 @@
 (defn text-pos (text pos where)
   (if (= (get where line) 0)
     where
-    (let ((before (slice text 0 pos))
+    (let ((before (substring text 0 pos))
           (lines (split before "\n"))
           (last (at lines (- (len lines) 1))))
       (if (= (len lines) 1)
         (Pos (get where file) (get where line) (+ (get where col) 1 pos))
-        (Pos (get where file) (+ (get where line) (- (len lines) 1)) (+ (len last) 1))))))
+        (Pos (get where file) (+ (get where line) (- (len lines) 1)) (+ (str-len last) 1))))))
 
 ;; Where the hole starting at `pos` ends (its closing brace).
 (sig hole-end (Fn (String Int Scope) Int))
 (defn hole-end (text pos scope)
   (cond
-    ((>= pos (len text)) (fail (located scope "format: unmatched { (write {{ for a brace)")))
-    ((= (slice text pos (+ pos 1)) "}") pos)
-    ((= (slice text pos (+ pos 1)) "{") (fail (located scope "format: a {hole} can't hold a brace")))
+    ((>= pos (str-len text)) (fail (located scope "format: unmatched { (write {{ for a brace)")))
+    ((= (substring text pos (+ pos 1)) "}") pos)
+    ((= (substring text pos (+ pos 1)) "{") (fail (located scope "format: a {hole} can't hold a brace")))
     (else (hole-end text (+ pos 1) scope))))
 
 (sig add-text (Fn ((List FPart) String) (List FPart)))
@@ -749,7 +749,7 @@
 
 (sig is-lower (Fn (String) Bool))
 (defn is-lower (name)
-  (and (> (len name) 0) (>= (slice name 0 1) "a") (<= (slice name 0 1) "z")))
+  (and (> (str-len name) 0) (>= (substring name 0 1) "a") (<= (substring name 0 1) "z")))
 
 (sig analyse-type (Fn (Form) CType))
 (defn analyse-type (form)
@@ -794,8 +794,8 @@
 
 (sig trim-digits (Fn (String) String))
 (defn trim-digits (s)
-  (if (and (> (len s) 0) (contains (slice s (- (len s) 1) (len s)) (List "0" "1" "2" "3" "4" "5" "6" "7" "8" "9")))
-    (trim-digits (slice s 0 (- (len s) 1)))
+  (if (and (> (str-len s) 0) (contains (substring s (- (str-len s) 1) (str-len s)) (List "0" "1" "2" "3" "4" "5" "6" "7" "8" "9")))
+    (trim-digits (substring s 0 (- (str-len s) 1)))
     s))
 
 (sig analyse-types (Fn ((List Form) (List CType)) (List CType)))
@@ -990,7 +990,7 @@
         ((= class "")
           (fail (++ where "special.cdy: expected (special name)")))
         ((map-has acc name) (fail (format "{where}special.cdy: {name} is declared more than once")))
-        ((not (in (spelling-kind spellings name) (kinds-of class)))
+        ((not (contains (spelling-kind spellings name) (kinds-of class)))
           (fail
             (if (= class "special")
               (format "{where}special.cdy: {name} is a special form, so spelling.py can't spell it")
@@ -1016,7 +1016,7 @@
         ((= head "deft") (read-sigs (rest forms) spellings (read-type form items where spellings acc)))
         ((= name "") (fail (++ where "system.cdy: expected (sig name Type) or (deft Name)")))
         ((map-has acc name) (fail (format "{where}system.cdy: {name} is already declared")))
-        ((not (in (spelling-kind spellings name) (++ TYPED_KINDS OPERATOR_KINDS)))
+        ((not (contains (spelling-kind spellings name) (++ TYPED_KINDS OPERATOR_KINDS)))
           (fail (format "{where}system.cdy: {name} has no Python mapping in spelling.py")))
         (else (read-sigs (rest forms) spellings (map-set acc name (Typed (analyse-type (at items 2))))))))))
 
@@ -1032,7 +1032,7 @@
       ((or (= name "") (is-lower name) (not (all-lower tvars)))
         (fail (++ where "system.cdy: expected (deft Name) or (deft (Name a ...))")))
       ((map-has acc name) (fail (format "{where}system.cdy: {name} is already declared")))
-      ((not (in (spelling-kind spellings name) TYPE_KINDS))
+      ((not (contains (spelling-kind spellings name) TYPE_KINDS))
         (fail (format "{where}system.cdy: {name} has no Python type in spelling.py")))
       (else (map-set acc name (BType (len tvars)))))))
 
@@ -1264,7 +1264,7 @@
         (head (if (> (len items) 0) (sym-name (at items 0)) ""))
         (here (at-pos scope (form-pos form))))
     (cond
-      ((and (in head (List "def" "defn")) (> (len items) 1) (map-has (get scope macros) (sym-name (at items 1))))
+      ((and (contains head (List "def" "defn")) (> (len items) 1) (map-has (get scope macros) (sym-name (at items 1))))
         (fail (located here (format "{(sym-name (at items 1))} is a macro, so it can't be defined"))))
       ((= head "sig") (top-sig items here prog))
       ((= head "def") (top-def items here prog))
@@ -1368,10 +1368,10 @@
 ;; Fail unless the fields' types check (check-type).
 (sig check-fields (Fn ((List (Tup String CType)) Scope) Bool))
 (defn check-fields (fields scope)
-  (cond
-    ((= (len fields) 0) true)
-    ((check-type (at (at fields 0) 1) scope) (check-fields (rest fields) scope))
-    (else false)))
+  (if (= (len fields) 0)
+    true
+    (let (((_name t) (at fields 0)))
+      (and (check-type t scope) (check-fields (rest fields) scope)))))
 
 (sig check-variants (Fn ((List Variant) Scope) Bool))
 (defn check-variants (variants scope)
@@ -1400,7 +1400,7 @@
 
 (sig is-upper (Fn (String) Bool))
 (defn is-upper (name)
-  (and (> (len name) 0) (>= (slice name 0 1) "A") (<= (slice name 0 1) "Z")))
+  (and (> (str-len name) 0) (>= (substring name 0 1) "A") (<= (substring name 0 1) "Z")))
 
 (sig syms (Fn ((List Form) (List String)) (List String)))
 (defn syms (forms acc)
@@ -1425,10 +1425,7 @@
 ;; Whether `fields` has one named `name`.
 (sig has-field (Fn (String (List (Tup String CType))) Bool))
 (defn has-field (name fields)
-  (cond
-    ((= (len fields) 0) false)
-    ((= (at (at fields 0) 0) name) true)
-    (else (has-field name (rest fields)))))
+  (any (fn (f) (let (((field _t) f)) (= field name))) fields))
 
 ;; The index of the first of `forms` (from `i`) whose name one before it has, or -1.
 (sig repeated (Fn ((List Form) (List String) Int) Int))

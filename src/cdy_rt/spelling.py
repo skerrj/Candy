@@ -125,9 +125,10 @@ BOOL: Spellings = {
 }
 
 IO: Spellings = {
-    "print": call("print"),
-    "display": call("print"),
-    "put": call("print"),
+    "put-line": call("print"),
+    # ``emit`` writes ``text`` and ``show`` by the argument's static type; as a value (or
+    # for a translator that doesn't), ``text`` goes by the Python value.
+    "text": primitive("text_any"),
     "show": primitive("show"),
     "put-err": primitive("put_err"),
     "file-put-lines": primitive("file_put_lines"),
@@ -169,6 +170,7 @@ COLLECTION: Spellings = {
     "map-set": primitive("map_set"),
     "map-keys": primitive("map_keys"),
     "map-from": primitive("map_from"),
+    "map-size": call("len"),
     # The library (doc/hl_rqmt/library.md): a list is the host's tuple, so its operations
     # are built-ins.
     "any": primitive("list_any"),
@@ -185,6 +187,10 @@ COLLECTION: Spellings = {
 }
 
 STRING: Spellings = {
+    "str-len": call("len"),
+    "char-at": Spelling(f"{PRIMITIVES_MODULE}.char_at", "index"),
+    "substring": primitive("substring"),
+    "str-contains": primitive("str_contains"),
     "is-empty-str": primitive("is_empty_str"),
     "to-int": primitive("to_int"),
     "to-float": primitive("to_float"),
@@ -203,7 +209,6 @@ STRING: Spellings = {
     "replace": primitive("replace"),
     "isspace-at": primitive("isspace_at"),
     "isspace": primitive("isspace"),
-    "in": primitive("in_"),
 }
 
 # For the translator: these spellings, which it reads as Candy data (each entry a pair, its

@@ -90,7 +90,7 @@ of its own, with the prelude and the prelude macros as every program has them.
   `expect-panic` text to stderr, and no Python traceback ([[library.errors]]):
 
   ```candy panic
-  (put (slice "abc" 2 4))
+  (put (substring "abc" 2 4))
   ```
   ```expect-panic
   index out of range

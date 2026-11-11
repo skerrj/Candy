@@ -49,7 +49,7 @@ by Candy or by mypy (*for now*: [[B42]]).
 (defmacro swap (call) (let ((items (list-items call))) (Lst (reverse items) NOWHERE)))
 
 (put (name-of hello))
-(put (swap ("abc" len)))
+(put (swap ("abc" str-len)))
 ```
 ```expect
 hello

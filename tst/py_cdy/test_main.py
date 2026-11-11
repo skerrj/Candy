@@ -16,7 +16,7 @@ def test_translate_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     Path("p.cdy").write_text("(put 1) ; hi\n", encoding="utf-8")
     out = translate_file("p.cdy")
     assert out == Path("output/p.py")
-    assert out.read_text(encoding="utf-8").endswith("print(1)\n")
+    assert out.read_text(encoding="utf-8").endswith("print(str(1))\n")
 
 
 def test_main_run(

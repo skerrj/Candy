@@ -171,22 +171,24 @@ the types ([[checking.records]]).
 ## Tuples
 
 `(Tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`
-([[types.constructors]]), and `len` is its size. A tuple is taken apart with a `Tup`
-pattern, in `match` or a `let` binding (`30-match.md`), and only so, *lasting*: `at` on
-a tuple is an error, since an item's type depends on its position.
+([[types.constructors]]). A tuple is taken apart with a `Tup` pattern, in `match` or a
+`let` binding (`30-match.md`), and only so, *lasting*: `at` takes a list, not a tuple,
+since a tuple item's type depends on its position, and a tuple's size is its type's, so
+`len` takes a list too.
 
 ```candy run
 (sig p (Tup Int String Int))
 (def p (Tup 1 "two" 3))
-(put (let (((_ name _) p)) name) (len p))
+(put (let (((_ name _) p)) name))
 ```
 ```expect
-two 3
+two
 ```
 
 ```candy errors
 (put (Tup)) => at least one item
-(put (at (Tup 1 "two") 0)) => at doesn't take a tuple, a (Tup Int String): take it apart with a pattern
+(put (at (Tup 1 "two") 0)) => argument 1 of at: expected (List
+(put (len (Tup 1 "two"))) => argument 1 of len: expected (List
 ```
 
 <a id="types.constructors"></a>

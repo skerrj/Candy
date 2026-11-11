@@ -17,7 +17,6 @@ from cdy_rt.primitives import (
     file_put_lines,
     fresh_name,
     hex_char,
-    in_,
     is_coll,
     is_decimal,
     is_neg_int,
@@ -46,6 +45,7 @@ from cdy_rt.primitives import (
     slice_,
     spit,
     stop_on_panic,
+    str_contains,
     text_any,
     to_float,
     to_list,
@@ -61,7 +61,7 @@ def test_collections() -> None:
     assert join(("a", "b"), ", ") == "a, b"
     assert is_coll((1,)) and is_coll([1]) and not is_coll("ab")
     assert to_list(5) == (5,)
-    assert in_(2, (1, 2)) and in_("b", "abc")
+    assert str_contains("b", "abc") and not str_contains("abd", "abc")
 
 
 @pytest.mark.parametrize(

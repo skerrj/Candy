@@ -21,11 +21,11 @@ A name is a local (a `let` binding, an argument, a pattern's), a top-level defin
 import's, the prelude's or a built-in. `(f arg ...)` calls `f` with the arguments,
 evaluated first, left to right. A special form (`if`, `let`, ...) isn't a value: it can't
 be passed, or bound to another meaning. A built-in's arity comes from its type
-(`src/cdy/system.cdy`); `put` is typed `Any`, so it takes any number of arguments and
-prints them with a space between.
+(`src/cdy/system.cdy`); `put` is a prelude macro ([[library.put]]), so it takes any
+number of arguments, and writes them with a space between.
 
 ```candy run
-(put (len "four") (+ 1 2))
+(put (str-len "four") (+ 1 2))
 ```
 ```expect
 4 3
