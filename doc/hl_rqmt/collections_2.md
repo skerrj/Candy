@@ -137,6 +137,22 @@ calls come in that step or the next. `to-list`'s removal is two steps (above).
    1's `bin`), likely a `fn` call per item costing more than the copies saved, these
    lists being short (a form's items, a deft's fields).
 3. **The loops in `check.cdy`** ([[B178]]; 20).
+
+   *Done (2026-11-11). As built:* 20 loops over a list, 14 of them one call now: 13
+   `fold`s (the maps from the tops, `top-types`, `top-shapes`, `top-sums`, and from a
+   sum's variants, `variant-types`, `variant-shapes`; the checker's state through a list,
+   `infer-do`, `infer-holes`, `join-all`, `solve-each`, `report-pending`, `assoc-values`,
+   `typed-binds`; a pattern's names into the env, `bind-fields`) and one `map-acc`,
+   `check-order` (the names defined so far its state, each top's errors, then `concat`).
+   `order-of` was a `fold` already and loses its `acc`. Six stay: `fresh-types` (a
+   count), `find-field` (an early exit), `zip-map`, `typed-all` and `unify-all` (two
+   lists, the last with an early exit), and `reach` (a work list that grows). `rigid-vars`,
+   `uses` and `uses-all` have an `acc` but walk a type or an expression, not a list. Found:
+   an empty literal as the start ([[B184]], a defect): `(Tup start empty-list)` and
+   `empty-map` fail mypy, so `solve-each`'s `left` and `check-order`'s `start` stay
+   parameters, their callers passing them empty. `src/cdy` is 2 lines longer (a `fold`'s
+   `fn`, start and list each on a line). The translator's build: 0.98 s, unchanged
+   (medians of seven, twice, against step 2's `bin`).
 4. **The loops in `emit.cdy`** ([[B179]]; 27).
 5. **The loops in `expand.cdy`, `include.cdy`, `cdyc.cdy`, `read.cdy`** ([[B180]]; 31).
 6. **`to-list` gone** ([[B181]]; [[B174]]): the rest to `(List x)`, then the

@@ -55,7 +55,7 @@
 (sig type-check (Fn ((List Top) (Map String Builtin)) (List Top)))
 (defn type-check (tops builtins)
   (let (((typed-tops errors) (check-program tops builtins))
-        (order-errors (if (= (len errors) 0) (check-order tops (order-of tops (Order empty-map empty-map)) empty-map empty-list) empty-list)))
+        (order-errors (if (= (len errors) 0) (check-order tops (order-of tops) empty-map) empty-list)))
     (cond
       ((> (len errors) 0) (fail (at errors 0)))
       ((> (len order-errors) 0) (fail (at order-errors 0)))
@@ -64,7 +64,7 @@
 ;; `tops` typed, and the type errors in them, in order.
 (sig check-program (Fn ((List Top) (Map String Builtin)) (Tup (List Top) (List String))))
 (defn check-program (tops builtins)
-  (let ((ctx (Ctx (top-types tops empty-map) (top-shapes tops empty-map) (top-sums tops empty-map) builtins NOWHERE empty-map empty-map)))
+  (let ((ctx (Ctx (top-types tops) (top-shapes tops) (top-sums tops) builtins NOWHERE empty-map empty-map)))
     (check-tops tops ctx (St empty-map 0 empty-list empty-map empty-list))))
 
 ;; Each definition named (typed Core), checked, then typed with what the check found.
@@ -115,25 +115,22 @@
     (else "")))
 
 ;; The type of each def and defn (its sig), record and variant (its constructor).
-(sig top-types (Fn ((List Top) (Map String CType)) (Map String CType)))
-(defn top-types (tops acc)
-  (if (= (len tops) 0)
-    acc
-    (top-types
-      (rest tops)
-      (match (at tops 0)
+(sig top-types (Fn ((List Top)) (Map String CType)))
+(defn top-types (tops)
+  (fold
+    (fn (acc top)
+      (match top
         ((TDef name _ t _) (map-set acc name t))
         ((TDefn name _ _ t _) (map-set acc name t))
         ((TDeft name tvars fields) (map-set acc name (TFn (fields-types fields) (TCon name (tvar-types tvars)))))
         ((TDeftSum name tvars variants) (variant-types variants (TCon name (tvar-types tvars)) acc))
-        (else acc)))))
+        (else acc)))
+    empty-map
+    tops))
 
 (sig variant-types (Fn ((List Variant) CType (Map String CType)) (Map String CType)))
-(defn variant-types (variants sum acc)
-  (if (= (len variants) 0)
-    acc
-    (let ((v (at variants 0)))
-      (variant-types (rest variants) sum (map-set acc (get v name) (TFn (fields-types (get v fields)) sum))))))
+(defn variant-types (variants sum start)
+  (fold (fn (acc v) (map-set acc (get v name) (TFn (fields-types (get v fields)) sum))) start variants))
 
 (sig fields-types (Fn ((List (Tup String CType))) (List CType)))
 (defn fields-types (fields) (map (fn (f) (let (((_name t) f)) t)) fields))
@@ -141,35 +138,32 @@
 (sig tvar-types (Fn ((List String)) (List CType)))
 (defn tvar-types (names) (map (fn (name) (TVar name)) names))
 
-(sig top-shapes (Fn ((List Top) (Map String Shape)) (Map String Shape)))
-(defn top-shapes (tops acc)
-  (if (= (len tops) 0)
-    acc
-    (top-shapes
-      (rest tops)
-      (match (at tops 0)
+(sig top-shapes (Fn ((List Top)) (Map String Shape)))
+(defn top-shapes (tops)
+  (fold
+    (fn (acc top)
+      (match top
         ((TDeft name tvars fields) (map-set acc name (Shape tvars fields "")))
         ((TDeftSum name tvars variants) (variant-shapes variants tvars name acc))
-        (else acc)))))
+        (else acc)))
+    empty-map
+    tops))
 
 (sig variant-shapes (Fn ((List Variant) (List String) String (Map String Shape)) (Map String Shape)))
-(defn variant-shapes (variants tvars sum acc)
-  (if (= (len variants) 0)
-    acc
-    (let ((v (at variants 0)))
-      (variant-shapes (rest variants) tvars sum (map-set acc (get v name) (Shape tvars (get v fields) sum))))))
+(defn variant-shapes (variants tvars sum start)
+  (fold (fn (acc v) (map-set acc (get v name) (Shape tvars (get v fields) sum))) start variants))
 
 ;; Each sum's type variables, its variants' names as its "fields" (with no types).
-(sig top-sums (Fn ((List Top) (Map String Shape)) (Map String Shape)))
-(defn top-sums (tops acc)
-  (if (= (len tops) 0)
-    acc
-    (top-sums
-      (rest tops)
-      (match (at tops 0)
+(sig top-sums (Fn ((List Top)) (Map String Shape)))
+(defn top-sums (tops)
+  (fold
+    (fn (acc top)
+      (match top
         ((TDeftSum name tvars variants)
           (map-set acc name (Shape tvars (map (fn (v) (Tup (get v name) ANY)) variants) "")))
-        (else acc)))))
+        (else acc)))
+    empty-map
+    tops))
 
 ;; --- expressions ---
 
@@ -350,19 +344,18 @@
     (Res (TCon "List" (to-list (get rv t))) st1)))
 
 (sig infer-do (Fn ((List Expr) Ctx Res) Res))
-(defn infer-do (body ctx last)
-  (if (= (len body) 0) last (infer-do (rest body) ctx (infer (at body 0) ctx (get last st)))))
+(defn infer-do (body ctx start)
+  (fold (fn (last e) (infer e ctx (get last st))) start body))
 
 (sig infer-holes (Fn ((List FPart) Ctx St) St))
-(defn infer-holes (parts ctx st)
-  (if (= (len parts) 0)
-    st
-    (infer-holes
-      (rest parts)
-      ctx
-      (match (at parts 0)
+(defn infer-holes (parts ctx start)
+  (fold
+    (fn (st p)
+      (match p
         ((FHole e) (get (infer e ctx st) st))
-        (else st)))))
+        (else st)))
+    start
+    parts))
 
 ;; A fn as a value: fresh types for its parameters.
 (sig infer-lambda (Fn ((List Expr) Expr Ctx St) Res))
@@ -585,10 +578,8 @@
     (else false)))
 
 (sig join-all (Fn ((List CType) String Ctx Res) Res))
-(defn join-all (types what ctx acc)
-  (if (<= (len types) 1)
-    acc
-    (join-all (rest types) what ctx (join-types (get acc t) (at types 1) what ctx (get acc st)))))
+(defn join-all (types what ctx start)
+  (fold (fn (r ty) (join-types (get r t) ty what ctx (get r st))) start (rest types)))
 
 ;; --- records, get and assoc ---
 
@@ -703,30 +694,33 @@
       ((< (len left) (len ps)) (solve-pending ctx (assoc st1 pending (++ (get st1 pending) left))))
       (else (report-pending left ctx st1)))))
 
+;; The state with each of `ps` solved, and those still on a variable after `left`.
 (sig solve-each (Fn ((List Pending) Ctx St (List Pending)) (Tup St (List Pending))))
-(defn solve-each (ps ctx st left)
-  (if (= (len ps) 0)
-    (Tup st left)
-    (let ((p (at ps 0))
-          (on (prune (get p on) (get st subst))))
-      (cond
-        ((map-has (get st subst) (++ "any" (tvar-name on)))
-          (solve-each (rest ps) ctx (assoc st subst (mark-any (get p t) (get st subst))) left))
-        ((is-var on) (solve-each (rest ps) ctx st (++ left (to-list p))))
-        (else
-          (let ((c (assoc ctx here (get p here)))
-                (r (field-type on (get p obj) (get p field) (get p what) c st))
-                (what (format "{(get p what)}: field {(get p field)} of {(show on (get (get r st) subst))}")))
-            (solve-each (rest ps) ctx (expect-is (get p t) (get r t) what c (get r st)) left)))))))
+(defn solve-each (ps ctx start left)
+  (fold
+    (fn (acc p)
+      (let (((st left) acc)
+            (on (prune (get p on) (get st subst))))
+        (cond
+          ((map-has (get st subst) (++ "any" (tvar-name on)))
+            (Tup (assoc st subst (mark-any (get p t) (get st subst))) left))
+          ((is-var on) (Tup st (++ left (to-list p))))
+          (else
+            (let ((c (assoc ctx here (get p here)))
+                  (r (field-type on (get p obj) (get p field) (get p what) c st))
+                  (what (format "{(get p what)}: field {(get p field)} of {(show on (get (get r st) subst))}")))
+              (Tup (expect-is (get p t) (get r t) what c (get r st)) left))))))
+    (Tup start left)
+    ps))
 
 (sig report-pending (Fn ((List Pending) Ctx St) St))
-(defn report-pending (ps ctx st)
-  (if (= (len ps) 0)
-    st
-    (let ((p (at ps 0)))
-      (report-pending (rest ps) ctx
-        (report (format "{(get p what)}: the type of {(callee-name (get p obj))} isn't known here ({(get p field)})")
-          (assoc ctx here (get p here)) st)))))
+(defn report-pending (ps ctx start)
+  (fold
+    (fn (st p)
+      (report (format "{(get p what)}: the type of {(callee-name (get p obj))} isn't known here ({(get p field)})")
+        (assoc ctx here (get p here)) st))
+    start
+    ps))
 
 (sig tcon-name (Fn (CType) String))
 (defn tcon-name (t)
@@ -741,13 +735,14 @@
     (Res (get r t) (assoc-values ot obj fields ctx (get r st)))))
 
 (sig assoc-values (Fn (CType Expr (List (Tup String Expr)) Ctx St) St))
-(defn assoc-values (ot obj fields ctx st)
-  (if (= (len fields) 0)
-    st
-    (let (((field val) (at fields 0))
-          (ft (field-type ot obj field "assoc" ctx st))
-          (st1 (check-expr val (get ft t) (format "assoc: field {field} of {(show ot (get st subst))}") ctx (get ft st))))
-      (assoc-values ot obj (rest fields) ctx st1))))
+(defn assoc-values (ot obj fields ctx start)
+  (fold
+    (fn (st f)
+      (let (((field val) f)
+            (ft (field-type ot obj field "assoc" ctx st)))
+        (check-expr val (get ft t) (format "assoc: field {field} of {(show ot (get st subst))}") ctx (get ft st))))
+    start
+    fields))
 
 ;; --- match ---
 
@@ -787,12 +782,14 @@
 
 ;; `env` with each (field, Local) of a pattern bound to the field's type.
 (sig bind-fields (Fn ((List (Tup String Expr)) (List (Tup String CType)) (Map String CType) (Map String CType)) (Map String CType)))
-(defn bind-fields (binds fields vars env)
-  (if (= (len binds) 0)
-    env
-    (let (((field loc) (at binds 0))
-          ((found ft) (find-field fields field vars)))
-      (bind-fields (rest binds) fields vars (map-set env (local-key loc) (if found ft ANY))))))
+(defn bind-fields (binds fields vars start)
+  (fold
+    (fn (env b)
+      (let (((field loc) b)
+            ((found ft) (find-field fields field vars)))
+        (map-set env (local-key loc) (if found ft ANY))))
+    start
+    binds))
 
 ;; --- typed Core ---
 
@@ -816,11 +813,13 @@
 
 ;; A pattern's (field, Local) pairs, each Local recorded with its type in `env`.
 (sig typed-binds (Fn ((List (Tup String Expr)) (Map String CType) St) St))
-(defn typed-binds (binds env st)
-  (if (= (len binds) 0)
-    st
-    (let (((_field loc) (at binds 0)))
-      (typed-binds (rest binds) env (typed loc (if (map-has env (local-key loc)) (map-get env (local-key loc)) ANY) st)))))
+(defn typed-binds (binds env start)
+  (fold
+    (fn (st b)
+      (let (((_field loc) b))
+        (typed loc (if (map-has env (local-key loc)) (map-get env (local-key loc)) ANY) st)))
+    start
+    binds))
 
 ;; `r`, a call's result, with its callee recorded as the function from the arguments'
 ;; recorded types to the result's.
@@ -1144,15 +1143,15 @@
 ;; constructor), and each function's body.
 (deft Order ((kinds (Map String String)) (bodies (Map String Expr))))
 
-(sig order-of (Fn ((List Top) Order) Order))
-(defn order-of (tops acc)
+(sig order-of (Fn ((List Top)) Order))
+(defn order-of (tops)
   (fold (fn (o top)
           (match top
             ((TDef name _ _ _) (assoc o kinds (map-set (get o kinds) name "def")))
             ((TDefn name _ body _ _)
               (Order (map-set (get o kinds) name "defn") (map-set (get o bodies) name body)))
             (else (fold (fn (o2 n) (assoc o2 kinds (map-set (get o2 kinds) n "deft"))) o (defined-by top)))))
-        acc tops))
+        (Order empty-map empty-map) tops))
 
 ;; The names a top defines: a def's or defn's, a record's, a sum's variants.
 (sig defined-by (Fn (Top) (List String)))
@@ -1166,20 +1165,23 @@
 
 ;; The order errors in `tops`, run in order: a def's initial value, or a top-level
 ;; expression, runs when the program starts, so each top-level name it uses must be
-;; defined before it (`defined`), and each name the bodies of the functions it uses do,
-;; through them. A function's body itself runs only when called.
-(sig check-order (Fn ((List Top) Order (Map String Bool) (List String)) (List String)))
-(defn check-order (tops order defined acc)
-  (if (= (len tops) 0)
-    acc
-    (let ((top (at tops 0))
-          (errors (match top
-                    ((TDef _ init _ _) (order-errors init order defined))
-                    ((TExpr e) (order-errors e order defined))
-                    (else empty-list))))
-      (check-order (rest tops) order
-        (fold (fn (d n) (map-set d n true)) defined (defined-by top))
-        (++ acc errors)))))
+;; defined before it (`start` holds those defined before `tops`), and each name the
+;; bodies of the functions it uses do, through them. A function's body itself runs only
+;; when called.
+(sig check-order (Fn ((List Top) Order (Map String Bool)) (List String)))
+(defn check-order (tops order start)
+  (let (((_defined errors)
+          (map-acc
+            (fn (defined top)
+              (Tup
+                (fold (fn (d n) (map-set d n true)) defined (defined-by top))
+                (match top
+                  ((TDef _ init _ _) (order-errors init order defined))
+                  ((TExpr e) (order-errors e order defined))
+                  (else empty-list))))
+            start
+            tops)))
+    (concat errors)))
 
 ;; The order errors of `e`, run now: for each top-level name it uses, the name itself and,
 ;; if it is a function, every name its body reaches.
