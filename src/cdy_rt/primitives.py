@@ -3,8 +3,9 @@
 Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
 
 - No ``bop_table`` copy or renamed imports; ``SEARCH_PATH`` is here, beside ``slurp``.
-- Names that clash with Python built-ins or keywords get a trailing ``_``: ``slice_``,
-  ``in_``. ``join_it`` is now ``join``.
+- Names that clash with Python built-ins or keywords get a trailing ``_``: ``slice_``.
+  ``join_it`` is now ``join``, and ``in_`` is ``str_contains`` (a list's is
+  ``list_contains``).
 - ``spit`` takes ``(path, text)`` and writes a string, like Clojure's ``spit``.
   ``file_put_lines`` takes ``(path, lines)``. (schmuz had them in opposite orders.)
 - ``slurp`` raises ``FileNotFoundError`` instead of calling ``exit()``, and looks for
@@ -27,6 +28,93 @@ from typing import Any, NoReturn, cast
 
 # Where ``slurp`` looks for a Candy file that isn't found at the given path.
 SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
+
+# --- the operators as values (spec/40-expressions.md, expr.operator-values) ---
+
+# An operator used as a value is the function of its two arguments (one for ``not``), each
+# typed as its Candy ``sig`` (system.cdy) with the constraint variable a constrained type
+# variable; a call is still Python's operator (spelling.py).
+
+
+def add[T: (int, float)](a: T, b: T) -> T:
+    """``+``: numbers."""
+    return a + b
+
+
+def append[T: (str, tuple[Any, ...])](a: T, b: T) -> T:
+    """``++``: strings or lists (``appendable``)."""
+    return a + b
+
+
+def sub[T: (int, float)](a: T, b: T) -> T:
+    """``-``."""
+    return a - b
+
+
+def mul[T: (int, float)](a: T, b: T) -> T:
+    """``*``."""
+    return a * b
+
+
+def div(a: float, b: float) -> float:
+    """``/``, on a ``Float`` or ``Double``."""
+    return a / b
+
+
+def quot(a: int, b: int) -> int:
+    """``quot``: rounding down."""
+    return a // b
+
+
+def mod(a: int, b: int) -> int:
+    """``mod``: with the divisor's sign."""
+    return a % b
+
+
+def eq[T](a: T, b: T) -> bool:
+    """``=``: by structure and class (each record's and variant's ``__eq__``)."""
+    return a == b
+
+
+def ne[T](a: T, b: T) -> bool:
+    """``!=``."""
+    return a != b
+
+
+def lt[T: (int, float, str)](a: T, b: T) -> bool:
+    """``<``."""
+    return a < b
+
+
+def gt[T: (int, float, str)](a: T, b: T) -> bool:
+    """``>``."""
+    return a > b
+
+
+def le[T: (int, float, str)](a: T, b: T) -> bool:
+    """``<=``."""
+    return a <= b
+
+
+def ge[T: (int, float, str)](a: T, b: T) -> bool:
+    """``>=``."""
+    return a >= b
+
+
+def and_(a: bool, b: bool) -> bool:
+    """``and``: both arguments are values already, so nothing is left to short-circuit."""
+    return a and b
+
+
+def or_(a: bool, b: bool) -> bool:
+    """``or``."""
+    return a or b
+
+
+def not_(a: bool) -> bool:
+    """``not``."""
+    return not a
+
 
 # --- showing values (spec/60-library.md, library.show) ---
 
@@ -198,6 +286,21 @@ def slice_[S: Sequence[Any]](coll: S, i: int, j: int) -> S:
     raise CandyFail(f"slice: index out of range: {i} to {j}, for length {len(coll)}")
 
 
+def char_at(s: str, i: int) -> str:
+    """The character at index ``i`` of ``s``, as ``at`` (a ``Char``, which Python spells
+    ``str``)."""
+    if 0 <= i < len(s):
+        return s[i]
+    raise CandyFail(f"char-at: index out of range: {i}, for length {len(s)}")
+
+
+def substring(s: str, i: int, j: int) -> str:
+    """Characters ``i`` up to (not including) ``j`` of ``s``, as ``slice_``."""
+    if 0 <= i <= j <= len(s):
+        return s[i:j]
+    raise CandyFail(f"substring: index out of range: {i} to {j}, for length {len(s)}")
+
+
 def join(coll: Sequence[str], delim: str) -> str:
     """The strings in ``coll`` joined with ``delim``."""
     return delim.join(coll)
@@ -249,9 +352,9 @@ def map_keys[K, V](m: Mapping[K, V]) -> tuple[K, ...]:
     return tuple(m)
 
 
-def in_(item: object, coll: Sequence[object]) -> bool:
-    """Whether ``item`` is in ``coll`` (a string is a sequence too)."""
-    return item in coll
+def str_contains(part: str, s: str) -> bool:
+    """Whether ``part`` is in ``s``."""
+    return part in s
 
 
 # The library's list operations (doc/hl_rqmt/library.md, "Built-in or prelude"): a list is

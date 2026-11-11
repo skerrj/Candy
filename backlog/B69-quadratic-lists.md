@@ -20,3 +20,5 @@ Long-term fix: in `doc/hl_rqmt/mutation_optimization.md`. From `doc/tech_debt.md
   (`St`'s `types`), not in the substitution, which every unification reads and extends.
   The fix is the same as for lists (`doc/hl_rqmt/mutation_optimization.md`: persistent
   maps, or mutation behind the language).
+- 2026-11-09, Claude: since `collections` step 4 the pattern is `(++ acc (to-list x))`:
+  `++` joins lists, `+` adds numbers only ([[expr.append]]).

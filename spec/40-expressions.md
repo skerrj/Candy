@@ -21,11 +21,11 @@ A name is a local (a `let` binding, an argument, a pattern's), a top-level defin
 import's, the prelude's or a built-in. `(f arg ...)` calls `f` with the arguments,
 evaluated first, left to right. A special form (`if`, `let`, ...) isn't a value: it can't
 be passed, or bound to another meaning. A built-in's arity comes from its type
-(`src/cdy/system.cdy`); `put` is typed `Any`, so it takes any number of arguments and
-prints them with a space between.
+(`src/cdy/system.cdy`); `put` is a prelude macro ([[library.put]]), so it takes any
+number of arguments, and writes them with a space between.
 
 ```candy run
-(put (len "four") (+ 1 2))
+(put (str-len "four") (+ 1 2))
 ```
 ```expect
 4 3
@@ -42,9 +42,11 @@ prints them with a space between.
 <a id="expr.arithmetic"></a>
 ## Operators
 
-The operators are declared in `src/cdy/special.cdy`. `+`, `-`, `*`, `/`, `quot` and
-`mod` take two or more arguments and fold left; `+` also joins strings, and lists. Their
-arguments have one type, and the number types don't mix ([[checking.operators]]). `/`
+The operators are typed built-ins, declared in `src/cdy/system.cdy`
+([[checking.operators]]). `+`, `-`, `*`, `/`, `quot` and `mod` take two or more numbers
+and fold left; `+` adds numbers only, and `++` joins strings and lists
+([[expr.append]]). Their arguments have one type, and the number types don't mix
+([[checking.operators]]). `/`
 divides a `Float` or `Double`, giving the same type, *lasting* (`(/ 7 2)` is an error).
 `quot` divides whole numbers rounding down, toward minus infinity, as Haskell's `div` and
 Python's `//` do (*lasting*: [[B24]]; a target whose division truncates spells it
@@ -54,22 +56,40 @@ number is a literal (`-5`), and `(- 0 x)` negates (*lasting*: [[B33]]). Overflow
 checked (*for now*: [[B22]]; [[syntax.numbers]] has the sizes).
 
 ```candy run
-(put (- 10 2 3) (* 2 3 4) (+ "a" "b" "c"))
+(put (- 10 2 3) (* 2 3 4) (+ 1 2 3))
 (put (/ 7.0 2.0) (/ 1.0f 4.0f) (quot 7 2) (quot -7 2))
 (put (mod 7 2) (mod -7 2) (mod 7 -2) (mod 7l 4l))
-(put (len (+ (to-list 1) (to-list 2))))
 ```
 ```expect
-5 24 abc
+5 24 6
 3.5 0.25f 3 -4
 1 1 -1 3l
-2
 ```
 
 ```candy errors
-(put (/ 7 2)) => /: expected a Float or Double, got Int
-(put (quot 7.0 2.0)) => quot: expected an Int, Long or Byte, got Double
-(put (mod 1.0f 2.0f)) => mod: expected an Int, Long or Byte, got Float
+(put (/ 7 2)) => argument 1 of /: expected float, got Int
+(put (quot 7.0 2.0)) => argument 1 of quot: expected integer, got Double
+(put (mod 1.0f 2.0f)) => argument 1 of mod: expected integer, got Float
+(put (+ "a" "b")) => argument 1 of +: expected number, got String
+```
+
+<a id="expr.append"></a>
+`++` (since `collections`) joins two strings or more, or two lists or more, of one type,
+folding left: an `appendable` ([[checking.constraints]]). `+` is only for numbers,
+*lasting*: joining isn't adding, and a target's `+` may not join (Rust's doesn't, on a
+`Vec`).
+
+```candy run
+(put (++ "a" "b" "c") (++ (List 1) (List 2 3)) (len (++ (to-list 1) (to-list 2))))
+```
+```expect
+abc (List 1 2 3) 2
+```
+
+```candy errors
+(put (++ 1 2)) => argument 1 of ++: expected appendable, got Int
+(put (++ "a" (List "b"))) => argument 2 of ++: expected String, got (List String)
+(put (++ (List 1) (List "b"))) => argument 2 of ++: expected (List Int), got (List String)
 ```
 
 <a id="expr.comparisons"></a>
@@ -167,14 +187,39 @@ in
 ```
 
 <a id="expr.operator-arity"></a>
-Each operator takes the number of arguments `special.cdy` declares: two or more, and one
-for `not`.
+Each operator takes the number of arguments its type says: two or more, a rest parameter
+([[expr.rest]]), and one for `not`.
 
 ```candy errors
-(put (+ 1)) => needs at least 2 arguments
-(put (- 5)) => needs at least 2 arguments
-(put (and true)) => (and ...) needs at least 2 arguments, got 1
+(put (+ 1)) => (+ ...) takes at least 2 argument(s), got 1
+(put (- 5)) => (- ...) takes at least 2 argument(s), got 1
+(put (and true)) => (and ...) takes at least 2 argument(s), got 1
 (put (not 1 2)) => (not ...) takes 1 argument(s), got 2
+```
+
+<a id="expr.operator-values"></a>
+**An operator as a value** (since `collections`) is its function of two arguments, the
+ones before its rest parameter ([[expr.rest]]), and `not` of one: `+` is an `(Fn (number
+number) number)` ([[checking.operators]]), so `(fold + 0 xs)` adds. `and` and `or` as
+values evaluate both arguments, as any function does; only a call written out
+short-circuits. `=` and `!=` as values are `(Fn (a a) Bool)`, which doesn't keep `a` off
+functions, as a generic function's `=` doesn't either (*for now*: [[B173]]).
+
+```candy run
+(put (fold + 0 (List 1 2 3)) (fold * 1.0 (List 2.0 3.0)) (fold ++ "" (List "a" "b")))
+(put (fold quot 100 (List 2 5)) (fold and true (List true false)) (map not (List true false)))
+(sig check (Fn ((Fn (Int Int) Bool) Int Int) Bool))
+(defn check (f a b) (f a b))
+(put (check < 1 2) (check >= 1 2) (check = 2 2) (check != 2 2) (let ((plus +)) (plus 1 2)))
+```
+```expect
+6 6.0 ab
+10 false (List false true)
+true false true false 3
+```
+
+```candy errors
+(put (map + (List 1))) => got (Fn (number number) number)
 ```
 
 <a id="expr.conditionals"></a>
@@ -218,14 +263,14 @@ binding shadows an outer name of the same name, *lasting*: an outer local, or a 
 one (a `def`, a `defn`, a built-in), which inside the `let` is the local and outside it
 is unchanged (a `def` is a constant, [[programs.top-level]]). So does a function's
 parameter, and a `match` clause's name. A binding `((a b ...) init)` takes a
-tuple apart, as a `tup` pattern does (`30-match.md`).
+tuple apart, as a `Tup` pattern does (`30-match.md`).
 
 ```candy run
 (sig x Int)
 (def x 100)
 (put (let ((x 1) (y (+ x 1))) (* x y)))
 (put x)
-(put (let (((q r) (tup 17 5))) (- q r)))
+(put (let (((q r) (Tup 17 5))) (- q r)))
 (sig f (Fn (Int) Int))
 (defn f (x) (* x 2))
 (put (f 3) (let ((map 7) (f 1)) (+ map f)) (f 3) x)
@@ -270,11 +315,45 @@ ML: `(defn run (_) ...)`, called as `(run nil)`. `defn` may become a macro over 
 7
 ```
 
+<a id="expr.rest"></a>
+**A rest parameter** (since `collections`): a `defn` whose `sig`'s last argument type is
+`(Rest t)` takes any number of `t`s there, zero or more, after the arguments before it,
+*lasting*. The parameter carries no marker: the `sig` says which it is. In the body it is
+a `(List t)` of the arguments from there on; each of those is checked against `t`, and
+too few arguments is an error. A list isn't spread over it: `(sum (List 1 2))` passes one
+argument (no `apply`, *for now*). `(Rest t)` is only for the last argument of a `sig`'s
+function type, and only a `defn` takes one: a `fn` has no `sig` to say so (*for now*:
+[[B169]]). Used as a value, a function with a rest parameter is the function of its
+arguments before the rest: `sum` below is an `(Fn (Int) Int)`.
+
+```candy run
+(sig sum (Fn (Int (Rest Int)) Int))
+(defn sum (first more) (fold (fn (a b) (+ a b)) first more))
+(sig names (Fn ((Rest String)) (List String)))
+(defn names (ns) ns)
+(sig twice (Fn ((Fn (Int) Int)) Int))
+(defn twice (f) (f (f 1)))
+(put (sum 1) (sum 1 2 3) (names) (names "a" "b") (twice sum))
+```
+```expect
+1 6 (List) (List "a" "b") 1
+```
+
+```candy errors
+(sig sum (Fn (Int (Rest Int)) Int)) (defn sum (n ns) n) (put (sum)) => (sum ...) takes at least 1 argument(s), got 0
+(sig sum (Fn (Int (Rest Int)) Int)) (defn sum (n ns) n) (put (sum 1 2 "x")) => argument 3 of sum: expected Int, got String
+(sig sum (Fn (Int (Rest Int)) Int)) (defn sum (n ns) n) (put (sum (List 1 2))) => argument 1 of sum: expected Int, got (List Int)
+(sig f (Fn ((Rest Int) Int) Int)) (defn f (ns n) n) => (Rest t) is only for the last argument of a sig's function type
+(sig f (Fn ((Fn ((Rest Int)) Int)) Int)) (defn f (g) 1) => (Rest t) is only for the last argument of a sig's function type
+(sig f (Fn ((Rest Int Int)) Int)) (defn f (ns) 1) => bad rest type: expected (Rest Type)
+(sig f (Fn ((Rest Int)) Int)) (def f (fn (n) 1)) => def f: only a defn can take a rest parameter
+```
+
 <a id="expr.tail-calls"></a>
 A `defn` that calls itself in tail position runs as a loop, so it can recur any number of
-times. Other recursion (not in tail position, mutual, or in a `defn` that makes a `fn`)
-uses the host's stack, about 1000 calls deep (*for now*:
-[[B37]]).
+times, unless it has a rest parameter. Other recursion (not in tail position, mutual, in
+a `defn` that makes a `fn`, or with a rest parameter) uses the host's stack, about 1000
+calls deep (*for now*: [[B37]]).
 
 ```candy run
 (sig count (Fn (Int Int) Int))

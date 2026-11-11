@@ -13,7 +13,7 @@ in `30-match.md`.
 (deft (Name tvar+) ((field Type)*))
 (get expr field)
 (assoc expr field value (field value)*)
-(tup expr+)
+(Tup expr+)
 ```
 
 <a id="types.table"></a>
@@ -32,6 +32,7 @@ in `30-match.md`.
 | `(Maybe a)` | `(Some v)`, with an `a`, or `None`: the prelude's sum ([[library.maybe]]) |
 | `(Result a e)` | `(Ok v)`, with an `a`, or `(Err err)`, with an `e`: the prelude's sum ([[library.errors]]) |
 | `(Fn (a b ...) r)` | a function from an `a`, a `b`, ... to an `r` |
+| `(Fn (a (Rest b)) r)` | in a `sig`, a function from an `a` and any number of `b`s ([[expr.rest]]) |
 | `Name`, `(Name a ...)` | a `deft` type, possibly generic |
 | `Any` | anything: an escape hatch, which turns checking off |
 
@@ -113,6 +114,8 @@ A top-level function can call one defined after it, but a value is only there on
 (sig x (Fn Int)) (def x 1) => bad function type: expected (Fn (Arg+) Ret)
 (sig f Int) (defn f (x) x) => its sig must be a function type with one type per argument
 (sig f (Fn (Int) Int)) (defn f (x y) x) => one type per argument
+(sig x (Rest Int)) (def x 1) => (Rest t) is only for the last argument of a sig's function type
+(deft R ((xs (Rest Int)))) => (Rest t) is only for the last argument of a sig's function type
 ```
 
 <a id="types.records"></a>
@@ -168,23 +171,24 @@ the types ([[checking.records]]).
 ## Tuples
 
 `(Tup expr+)` makes a fixed-size tuple of at least one item, typed `(Tup a b ...)`
-([[types.constructors]]); `tup` is the same (*for now*, the name the translator's own
-code uses). `at` reads an item by its position, from 0, and `len` is its size. A tuple
-is taken apart with a `Tup` (or `tup`) pattern, in `match` or a `let` binding
-(`30-match.md`).
+([[types.constructors]]). A tuple is taken apart with a `Tup` pattern, in `match` or a
+`let` binding (`30-match.md`), and only so, *lasting*: `at` takes a list, not a tuple,
+since a tuple item's type depends on its position, and a tuple's size is its type's, so
+`len` takes a list too.
 
 ```candy run
 (sig p (Tup Int String Int))
-(def p (tup 1 "two" 3))
-(put (at p 1) (len p))
+(def p (Tup 1 "two" 3))
+(put (let (((_ name _) p)) name))
 ```
 ```expect
-two 3
+two
 ```
 
 ```candy errors
-(put (tup)) => at least one item
 (put (Tup)) => at least one item
+(put (at (Tup 1 "two") 0)) => argument 1 of at: expected (List
+(put (len (Tup 1 "two"))) => argument 1 of len: expected (List
 ```
 
 <a id="types.constructors"></a>
@@ -192,8 +196,10 @@ two 3
 
 A type's name is its constructor, *lasting*: a record's or variant's, taking its fields
 in order ([[types.records]], [[match.sum-types]]), and the built-in types' too. `(List
-item*)` is a list, its items one type (`(List)` is empty), and `(Tup item+)` a tuple. A
-value is shown as its constructor applied to its parts ([[library.show]]). Literals for
+item*)` is a list, its items one type (`(List)` is empty), as if `List` had a rest
+parameter, `(Fn ((Rest a)) (List a))` ([[expr.rest]]), and `(Tup item+)` a tuple. A
+record's or variant's constructor is also a value; `List` and `Tup` aren't (*for now*:
+[[B171]]). A value is shown as its constructor applied to its parts ([[library.show]]). Literals for
 the collections, as sugar over these, are for later (`doc/hl_rqmt/python_complete.md`,
 `collections`).
 
@@ -212,4 +218,5 @@ the collections, as sugar over these, are for later (`doc/hl_rqmt/python_complet
 
 ```candy errors
 (put (List 1 "a")) => List: an item: expected Int, got String
+(put List) => unknown name List
 ```

@@ -18,3 +18,7 @@ unions of `NamedTuple`s").
 ## Notes
 
 - 2026-11-02, Claude: semantics step 3: equality is no longer the tuple's ([[B137]], [[expr.equality]]): a record or variant compares its class too. What stays: a record behaves as a tuple through `Any` (indexing, iterating, unpacking), and mypy accepts a `(Tup Int Int)` where a `(List Int)` is expected.
+- 2026-11-09, Claude: [[B165]] (`collections` step 5): Candy's checker no longer takes a
+  `(Tup Int Int)` as a `(List Int)` ([[checking.tup-lists]]), so mypy's doing so is
+  unreachable from a checked program. What stays: a record behaves as a tuple through
+  `Any`.

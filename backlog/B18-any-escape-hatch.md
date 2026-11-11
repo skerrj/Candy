@@ -22,3 +22,7 @@ and, for a field the value lacks, fails when run (`AttributeError`). Every use i
   met only `Any` to `Any`, and `show` on a value typed `Any` inspects the Python value at
   run time (inexact for `Char` against `String`, the integer and float sizes, `List`
   against `Tup`): part of this leak. What stays here is using `Any` less.
+- 2026-11-10, Claude: [[B166]] (`collections` step 6) took `Any` out of `len`, `at`,
+  `slice`, `in` and `put`: a `Char` read from a string is a `Char` (`char-at`). The
+  built-ins left `Any` are `is-coll` and `is-str` ([[B79]]), the regular expressions'
+  results ([[B49]]), and the translator's host built-ins ([[checking.any]]).

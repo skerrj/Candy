@@ -20,15 +20,15 @@
 
 (sig show-all (Fn ((List Form) (List String)) (List String)))
 (defn show-all (forms acc)
-  (if (= (len forms) 0) acc (show-all (rest-of forms) (+ acc (to-list (show (at forms 0)))))))
+  (if (= (len forms) 0) acc (show-all (rest-of forms) (++ acc (to-list (show (at forms 0)))))))
 
-(put (show (quo (if (< x 1) "small" (f x 2.5 3.0f 7l 2b \c true ())))))
-(put (= (form-pos (quo x)) NOWHERE))
+(put-line (show (quo (if (< x 1) "small" (f x 2.5 3.0f 7l 2b \c true ())))))
+(put-line (text (= (form-pos (quo x)) NOWHERE)))
 
 (sig test Form)
 (def test (quo (ready)))
 (sig args (List Form))
-(def args (tup (quo a) (quo (b c))))
-(put (show (quasi (when (unq test) (go (unq-sp args)) (unq-sp empty-list) done))))
-(put (show (quasi (unq (Sym "plain" NOWHERE)))))
-(put (show (quasi ((unq-sp args)))))
+(def args (Tup (quo a) (quo (b c))))
+(put-line (show (quasi (when (unq test) (go (unq-sp args)) (unq-sp empty-list) done))))
+(put-line (show (quasi (unq (Sym "plain" NOWHERE)))))
+(put-line (show (quasi ((unq-sp args)))))

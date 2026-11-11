@@ -27,3 +27,19 @@
               (if (= (len other) 0)
                 (quasi (if (unq (at items 0)) (unq (at items 1))))
                 (quasi (if (unq (at items 0)) (unq (at items 1)) (unq (at other 0))))))))))))
+
+;; (put x*): the values' texts (`text`: a String or a Char as itself, anything else as
+;; `show` writes it), a space between them, as one line (library.put).
+(defmacro put args
+  (if (= (len args) 0)
+    (quasi (put-line ""))
+    (if (= (len args) 1)
+      (quasi (put-line (text (unq (at args 0)))))
+      (quasi (put-line (++ (unq-sp (put-parts args 1 (to-list (quasi (text (unq (at args 0)))))))))))))
+
+;; The texts of `args` from `i` on, each after a " ", added to `acc`.
+(sig put-parts (Fn ((List Form) Int (List Form)) (List Form)))
+(defn put-parts (args i acc)
+  (if (= i (len args))
+    acc
+    (put-parts args (+ i 1) (++ acc (List (quasi " ") (quasi (text (unq (at args i)))))))))

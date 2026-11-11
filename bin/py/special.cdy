@@ -1,11 +1,11 @@
-;;; Special: the special forms and the operators, declared (doc/hl_rqmt/symbol_table.md).
+;;; Special: the special forms, declared (doc/hl_rqmt/symbol_table.md).
 ;;; What the language's own forms are is a fact about Candy, the same for every target, so
 ;;; it is stated here, in Candy; system.cdy declares the other built-ins, with their types.
 ;;; The translator reads both into its built-ins (read-builtins in core.cdy) and checks them
 ;;; against the target's spellings (src/cdy_rt/spelling.py).
 ;;;
 ;;; (special name): a special form, analysed by its own rule (spec/, the file for its feature).
-;;; (op name variadic): an operator taking two or more arguments; (op name unary): one.
+;;; The operators (+, <, and, not, ...) are typed built-ins, in system.cdy, since collections.
 ;;; This file is read as it is, so it can't use macros.
 
 ;; --- modules and macros ---
@@ -29,28 +29,6 @@
 (special let)
 (special fn)
 (special format)
-(special tup)
 (special get)
 (special assoc)
 (special match)
-
-;; --- arithmetic: folds left ---
-(op + variadic)
-(op - variadic)
-(op * variadic)
-(op / variadic)
-(op quot variadic)
-(op mod variadic)
-
-;; --- comparison: chains ---
-(op = variadic)
-(op != variadic)
-(op < variadic)
-(op > variadic)
-(op <= variadic)
-(op >= variadic)
-
-;; --- logic: short-circuits ---
-(op and variadic)
-(op or variadic)
-(op not unary)

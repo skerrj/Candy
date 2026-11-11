@@ -15,18 +15,19 @@ them. A value prints as Candy shows it ([[library.show]]).
 
 `system.cdy` declares each built-in with a `sig` that has no definition: the runtime
 provides it, with that type. Only there may a `sig` have no definition. A built-in's
-arity is its type's (`40-expressions.md`). A built-in typed `Any` takes any number of
-arguments, or works on lists, strings and maps alike, or returns a host object (*for
-now*: Candy can't write those types yet, [[B34]], [[B48]], [[B49]]).
+arity is its type's (`40-expressions.md`). Lists, strings and maps each have their own
+operations (`len` a list's, `str-len` a string's, `map-size` a map's), *for now*, until
+interfaces let one name work on each ([[B34]]). A built-in typed `Any` returns a host
+object, or reads a form as `Any` (*for now*: Candy can't write those types yet,
+[[B48]], [[B49]], [[B79]]).
 
 | Group | Built-ins |
 |---|---|
-| output | `put`, `print`, `display` (any number of arguments, with a space between), `put-err` |
+| output | `put` (a prelude macro: any number of arguments, with a space between; [[library.put]]), `put-line`, `text`, `put-err` |
 | files | `slurp`, `spit`, `file-put-lines`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
-| collections | `len`, `at`, `slice`, `in` (a list, a tuple or a string), `to-list`, `empty-list`, `is-coll` |
-| lists | `map`, `filter`, `fold`, `any`, `all`, `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of`, `contains`, `with-default`, `join` |
-| maps | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from` |
-| strings | `split`, `starts-with`, `ends-with`, `repeat`, `strip`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-empty-str`, `is-decimal`, `is-digit`, `is-alpha`, `is-str`, `is-neg-int`, `isspace`, `isspace-at` |
+| lists | `len`, `at`, `slice`, `to-list`, `empty-list`, `is-coll`, `map`, `filter`, `fold`, `any`, `all`, `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of`, `contains`, `with-default`, `join` |
+| maps | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size` |
+| strings | `str-len`, `char-at`, `substring`, `str-contains`, `split`, `starts-with`, `ends-with`, `repeat`, `strip`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-empty-str`, `is-decimal`, `is-digit`, `is-alpha`, `is-str`, `is-neg-int`, `isspace`, `isspace-at` |
 | regular expressions | `re-search`, `re-findall`, `re-compile` (Python's match and pattern objects, `Any`) |
 | math | `PI`, `sin`, `cos`, `tan` |
 | the program | `SYS_ARGS`, `fail`, `nil` |
@@ -88,8 +89,8 @@ true false
 
 ```candy run
 (sig pairs (List (Tup Int String)))
-(def pairs (zip (range 1 6) (tup "a" "b" "c")))
-(put (len pairs) (join (map (fn (p) (format "{(at p 0)}{(at p 1)}")) pairs) " "))
+(def pairs (zip (range 1 6) (List "a" "b" "c")))
+(put (len pairs) (join (map (fn (p) (let (((n s) p)) (format "{n}{s}"))) pairs) " "))
 ```
 ```expect
 3 1a 2b 3c
@@ -100,7 +101,7 @@ The prelude's `rest` is all of a list but its first item; the empty list's rest 
 as `drop`'s is:
 
 ```candy run
-(put (len (rest (tup 1 2 3))) (len (rest (tup "only"))) (rest (rest (List 1))))
+(put (len (rest (List 1 2 3))) (len (rest (List "only"))) (rest (rest (List 1))))
 ```
 ```expect
 2 0 (List)
@@ -109,9 +110,10 @@ as `drop`'s is:
 <a id="library.bounds"></a>
 ## at and slice
 
-`(at xs i)` is the item at index `i` of a list, a tuple or a string, counting from 0, and
-`i` must be `0 <= i < (len xs)`. `(slice xs i j)` is the items from index `i` up to, not
-including, `j`, and needs `0 <= i <= j <= (len xs)`; a string's slice is a string. Out of
+`(at xs i)` is the item at index `i` of a list, counting from 0, and `i` must be `0 <= i
+< (len xs)`; `(char-at s i)` is a string's `Char` at `i`, likewise. `(slice xs i j)` is
+the items from index `i` up to, not including, `j`, and needs `0 <= i <= j <= (len xs)`;
+`(substring s i j)` is a string's, a string. Out of
 range is a panic, *lasting* ([[library.errors]]): the program stops, with `index out of
 range` in its message (for an index written as a number, the rest of the message is the
 target's, *for now*: [[B160]]). A negative index doesn't
@@ -128,7 +130,7 @@ is negative.
 (def xs (List 10 20 30))
 (sig i Int)
 (def i 2)
-(put (at xs 0) (at xs i) (slice xs 1 3) (slice xs 3 3) (at "abc" i) (slice "candy" 1 3))
+(put (at xs 0) (at xs i) (slice xs 1 3) (slice xs 3 3) (char-at "abc" i) (substring "candy" 1 3))
 ```
 ```expect
 10 30 (List 20 30) (List) c an
@@ -138,7 +140,7 @@ is negative.
 (sig none (List Int))
 (def none empty-list)
 (put (take 5 (List 1 2)) (take -1 (List 1 2)) (drop 5 (List 1 2)) (drop -1 (List 1 2)))
-(put (rest none) (zip (List 1 2 3) (List "a")) (range 3 1) (len (repeat "ab" -1)))
+(put (rest none) (zip (List 1 2 3) (List "a")) (range 3 1) (str-len (repeat "ab" -1)))
 ```
 ```expect
 (List 1 2) (List) (List) (List 1 2)
@@ -162,21 +164,33 @@ index out of range
 ```
 
 ```candy panic
-(put (slice "abc" 2 4))
+(put (substring "abc" 2 4))
 ```
 ```expect-panic
-slice: index out of range: 2 to 4, for length 3
+substring: index out of range: 2 to 4, for length 3
 ```
 
 ```candy panic
-(put (slice "abc" 2 1))
+(put (slice (List 1 2 3) 2 1))
 ```
 ```expect-panic
 slice: index out of range: 2 to 1
 ```
 
+```candy panic
+(sig i Int)
+(def i 3)
+(put (char-at "abc" i))
+```
+```expect-panic
+char-at: index out of range: 3, for length 3
+```
+
 <a id="library.strings"></a>
 ## Strings
+
+A string's own operations are `str-len`, `char-at` (a `Char`, [[syntax.chars]]),
+`substring` and `(str-contains part s)`, *for now* until interfaces ([[B34]]).
 
 ```candy run
 (sig yes (Fn (Bool) String))
@@ -185,8 +199,9 @@ slice: index out of range: 2 to 1
 (put (yes (starts-with "candy" "can")) (yes (starts-with "candy" "dy")) (yes (starts-with "" "")))
 (put (yes (ends-with "candy" "dy")) (yes (ends-with "candy" "can")))
 (put (join (split "a,b,,c" ",") "|") (len (split "a,b,,c" ",")) (len (split "abc" ",")))
-(put (repeat "ab" 3) (len (repeat "ab" 0)))
-(put (to-int "42") (char-code "A") (slice "candy" 1 3))
+(put (repeat "ab" 3) (str-len (repeat "ab" 0)))
+(put (to-int "42") (char-code "A") (substring "candy" 1 3))
+(put (str-len "candy") (char-at "candy" 0) (= (char-at "candy" 0) \c) (str-contains "and" "candy"))
 ```
 ```expect
 yes no yes
@@ -194,6 +209,7 @@ yes no
 a|b||c 4 1
 ababab 0
 42 65 an
+5 c true true
 ```
 
 <a id="library.maps"></a>
@@ -206,16 +222,18 @@ the value at a key, which must be in the map, by a function of it.
 
 ```candy run
 (sig ages (Map String Int))
-(def ages (map-from (tup (tup "ann" 30) (tup "bo" 4) (tup "ann" 31))))
+(def ages (map-from (List (Tup "ann" 30) (Tup "bo" 4) (Tup "ann" 31))))
 
 (put (join (map-keys ages) " ") (map-get ages "ann"))
 (put (map-get (map-update ages "bo" (fn (n) (+ n 1))) "bo") (map-get ages "bo"))
 (put (map-get (map-set ages "cy" 7) "cy") (if (map-has ages "cy") "has cy" "no cy"))
+(put (map-size ages) (map-size (map-set ages "cy" 7)))
 ```
 ```expect
 ann bo 31
 5 4
 7 no cy
+2 3
 ```
 
 <a id="library.format"></a>
@@ -231,7 +249,7 @@ after its escapes, so a form in a hole writes a `"` as `\"`, can't use a char li
 (sig n Int)
 (def n 6)
 (put (format "{n} times 7 is {(* n 7)}, in {{braces}}"))
-(put (format "{(len \"four\")}"))
+(put (format "{(str-len \"four\")}"))
 ```
 ```expect
 6 times 7 is 42, in {braces}
@@ -296,6 +314,33 @@ a (List true) and text
 (deft F ((f (Fn (Int) Int)))) (deft S (A ((f F))) (B)) (put B) => show: a function can't be shown, and S holds one
 (sig f (Fn (a) Unit)) (defn f (x) (put x)) => show: can't show a value of type a, a type variable
 (put empty-list) => , a type variable
+```
+
+<a id="library.put"></a>
+## put
+
+`(put x ...)` writes its arguments' texts on one line, a space between them: a prelude
+macro (`src/cdy/prelude_macros.cdy`), `(put a b)` being `(put-line (++ (text a) " " (text
+b)))`, *lasting*. `(text x)` is `x` as `show` writes it, but a `String` or a `Char` as
+its text ([[library.show]]); `put-line` writes one `String` and a newline. Macro code has
+`put-line` and `text`, not `put` (it isn't expanded, *for now*: [[B52]]).
+
+```candy run
+(put)
+(put "a" \b 3 (List "c"))
+(put-line (text 1.5))
+(put (map text (List "d" "e")))
+```
+```expect
+
+a b 3 (List "c")
+1.5
+(List "d" "e")
+```
+
+```candy errors
+(put (if true 1 "a")) => if: the branches are Int and String
+(put-line 1) => argument 1 of put-line: expected String, got Int
 ```
 
 <a id="library.maybe"></a>

@@ -3,11 +3,10 @@
 ;;; says how Python spells it. The translator checks the two against each other, and a
 ;;; built-in's arity is its type's. Only here may a sig have no definition. Each bodiless
 ;;; deft declares a built-in type, whose type variables say how many arguments it takes
-;;; (doc/hl_rqmt/name_checks.md); `Fn` and `Tup` aren't here, since a type can't say "any
-;;; number" yet (backlog [[B99]]).
+;;; (doc/hl_rqmt/name_checks.md); `Fn` and `Tup` aren't here, since they take any number of
+;;; type arguments.
 ;;;
-;;; Not here: the special forms, and the operators (+, =, and, not, ...), which take two or
-;;; more arguments (or one); special.cdy declares those. `Any` marks a type Candy can't write yet: built-ins
+;;; Not here: the special forms, which special.cdy declares. `Any` marks a type Candy can't write yet: built-ins
 ;;; that take any number of arguments, or work on lists, strings and maps alike (Collection,
 ;;; later), or return Python objects with no Candy type. Each is a leak (backlog [[B48]],
 ;;; [[B34]], [[B49]]).
@@ -27,6 +26,27 @@
 (deft (List a))
 (deft (Map k v))
 
+;; --- the operators (spec/25-checking.md, checking.constraints) ---
+;; Typed as any function, with constraint variables and rest parameters; spelling.py
+;; spells them infix: arithmetic folds left, comparisons chain, and `and` and `or`
+;; short-circuit (lower.cdy). `+` adds numbers, `++` appends strings or lists.
+(sig + (Fn (number number (Rest number)) number))
+(sig ++ (Fn (appendable appendable (Rest appendable)) appendable))
+(sig - (Fn (number number (Rest number)) number))
+(sig * (Fn (number number (Rest number)) number))
+(sig / (Fn (float float (Rest float)) float))
+(sig quot (Fn (integer integer (Rest integer)) integer))
+(sig mod (Fn (integer integer (Rest integer)) integer))
+(sig = (Fn (a a (Rest a)) Bool))
+(sig != (Fn (a a (Rest a)) Bool))
+(sig < (Fn (comparable comparable (Rest comparable)) Bool))
+(sig > (Fn (comparable comparable (Rest comparable)) Bool))
+(sig <= (Fn (comparable comparable (Rest comparable)) Bool))
+(sig >= (Fn (comparable comparable (Rest comparable)) Bool))
+(sig and (Fn (Bool Bool (Rest Bool)) Bool))
+(sig or (Fn (Bool Bool (Rest Bool)) Bool))
+(sig not (Fn (Bool) Bool))
+
 ;; --- math ---
 (sig PI Double)
 (sig sin (Fn (Double) Double))
@@ -36,10 +56,10 @@
 ;; --- values ---
 (sig nil Unit)
 
-;; --- output (any number of arguments) ---
-(sig print Any)
-(sig display Any)
-(sig put Any)
+;; --- output (`put`, any number of values, is the prelude's macro over these) ---
+(sig put-line (Fn (String) Unit))
+;; A value as `put` writes it: as `show`, but a `String` or a `Char` as its text.
+(sig text (Fn (a) String))
 ;; A value as an expression that evaluates to it, by its type (spec/60-library.md,
 ;; library.show); emit writes the type for the runtime.
 (sig show (Fn (a) String))
@@ -61,11 +81,11 @@
 (sig re-findall (Fn (String String) (List Any)))
 (sig re-compile (Fn (String) Any))
 
-;; --- collections (`len`, `at`, `slice` and `in` take a list, a tuple or a string) ---
-(sig len (Fn (Any) Int))
+;; --- lists (a string's own operations are below; a tuple is taken apart by a pattern) ---
+(sig len (Fn ((List a)) Int))
 (sig empty-list (List a))
-(sig at (Fn (Any Int) Any))
-(sig slice (Fn (Any Int Int) Any))
+(sig at (Fn ((List a) Int) a))
+(sig slice (Fn ((List a) Int Int) (List a)))
 (sig join (Fn ((List String) String) String))
 (sig is-coll (Fn (Any) Bool))
 (sig to-list (Fn (a) (List a)))
@@ -73,7 +93,6 @@
 (sig map (Fn ((Fn (a) b) (List a)) (List b)))
 (sig filter (Fn ((Fn (a) Bool) (List a)) (List a)))
 (sig fold (Fn ((Fn (b a) b) b (List a)) b))
-(sig in (Fn (Any Any) Bool))
 ;; The library's list operations (doc/hl_rqmt/library.md): built-ins, since a list is the
 ;; host's. Like map and filter, they take the list last.
 (sig any (Fn ((Fn (a) Bool) (List a)) Bool))
@@ -97,8 +116,14 @@
 (sig map-set (Fn ((Map k v) k v) (Map k v)))
 (sig map-keys (Fn ((Map k v)) (List k)))
 (sig map-from (Fn ((List (Tup k v))) (Map k v)))
+(sig map-size (Fn ((Map k v)) Int))
 
 ;; --- strings ---
+(sig str-len (Fn (String) Int))
+(sig char-at (Fn (String Int) Char))
+(sig substring (Fn (String Int Int) String))
+;; Whether `part` is in `s`: (str-contains part s), as `contains` takes the list last.
+(sig str-contains (Fn (String String) Bool))
 (sig is-empty-str (Fn (String) Bool))
 (sig to-int (Fn (String) Int))
 (sig to-float (Fn (String) Double))
@@ -118,8 +143,9 @@
 (sig isspace-at (Fn (String Int) Bool))
 (sig isspace (Fn (String) Bool))
 
-;; --- the spellings, for the translator (each built-in's Python text and kind) ---
-(sig py-spellings (Map String (Tup String String)))
+;; --- the spellings, for the translator (each built-in's Python text and kind, and an
+;; operator's function as a value) ---
+(sig py-spellings (Map String (Tup String String String)))
 
 ;; --- macros, for the translator (the macros are Python functions on Forms) ---
 (sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))

@@ -1,6 +1,8 @@
 # Collections (HLD)
 
-**Status: accepted (2026-11-07); proposed 2026-11-07, for branch `collections`. Epic: `python_complete.md`
+**Status: done (2026-11-10), steps 1 to 6 and the docs (tag `collections`); step 7 goes
+to `collections-2` (Question 5's checkpoint). Accepted 2026-11-07, with the answers to its
+questions (tasks [[B161]] to [[B168]]); proposed 2026-11-07, for branch `collections`. Epic: `python_complete.md`
 (its third branch). After tag `semantics-2`.** The operators get types a program can
 write, and so can be values and be used by a generic function; a function can take any
 number of arguments of one type; lists, tuples and strings each get their own typed
@@ -139,7 +141,8 @@ A collection's operations are typed by what they take, *for now* until interface
   goes, *lasting*, and with it `(special tup)` in `special.cdy`.
 - **`Tup` and `List`:** `Tup` stays the analyser's own constructor, since its type is
   its number of items, which no `sig` can say; `List` becomes an ordinary built-in, `(sig
-  List (Fn ((Rest a)) (List a)))`, zero items or more.
+  List (Fn ((Rest a)) (List a)))`, zero items or more. (*As built,* step 1: `List`
+  stays the analyser's constructor, *for now*: [[B171]].)
 - **Maps:** `map-size` for `len`.
 
 `is-coll` and `is-str` are the translator's (forms read as `Any` before `Form`, [[B79]]);
@@ -174,7 +177,7 @@ one of them ([[B123]]); most of its quadratic copies go with them ([[B69]]).
 
 | Rule | File | Step |
 |---|---|---|
-| `types.table`, `types.sig`, `expr.functions`: rest parameters, `(Rest t)` | `20-types.md`, `40-expressions.md` | 1 |
+| `types.table`, `types.sig`, `expr.rest` (new; *as built*, for `expr.functions`): rest parameters, `(Rest t)` | `20-types.md`, `40-expressions.md` | 1 |
 | `checking.constraints` (new): the constraint variables; `checking.operators` rewritten as `sig`s; `checking.generics` | `25-checking.md` | 2 |
 | `expr.arithmetic`, `expr.comparisons`: the operators' `sig`s; as values | `40-expressions.md` | 2, 3 |
 | `expr.append` (new): `++`; `+` numbers only | `40-expressions.md` | 4 |
@@ -205,27 +208,194 @@ the typed collection operations (step 6: the new names into `bin`, then the tran
 onto them, then the old names out). A step that changes `system.cdy` or the prelude
 stages the library next to `bin` before building.
 
+*As built (step 4):* `++` and its uses were one boot step, not two (step 4's note): a
+built-in is the library's, so a staged library is enough. *As built (step 2):* the other
+way round too: a step's check runs the translator before
+it with the step's own library, so a library that translator can't read needs `old-library`
+staging (`script/bootstrap.py`: the parent step's library next to it), or two steps if
+`src/` needs the new library as well. Step 2's operator `sig`s were the first (`boot/58`).
+`test_newest_step_reads_the_library` (`tst/py_cdy/test_bootstrap.py`) finds it before the
+commit, and `bootstrap.py --tag` tags a step only once it passes.
+
 ## Steps
 
 1. **Rest parameters** ([[B161]]; [[B99]]): `(Rest t)` in a `Fn` type, last; the checker (the
    arguments from the rest on, each against `t`; as a value, the arguments before it)
    and emit (Python's `*rest: T`); `List` a built-in over it.
+
+   *Done (2026-11-08). As built:* `(Rest t)` is a type form (`analyse-type`), held as a
+   `TCon "Rest"`, so no other part of the translator needs a new kind of type; a `sig`'s
+   type may end its function type's arguments with one (`check-sig-type`), and anywhere
+   else it is an error (`check-type`: a field, a nested `Fn`, a value's type), as is a
+   `def` with a variadic type. The checker reads a call's callee with its rest
+   (`infer-callee`), spreading the item type over the arguments from there on
+   (`spread-rest`), with "takes at least N argument(s)" when too few; a name used as a
+   value loses it (`as-value`); in the body the parameter is a `(List t)`
+   (`body-types`). A built-in's call checks the same arity in `core.cdy`
+   (`check-call`), for those to come. Python writes `*name: T` (`emit-param`). A
+   variadic `defn` isn't made a loop (`lower-top`): its self call would rebind the rest
+   from a list. `List` stays the analyser's constructor, *for now* ([[B171]], the
+   owner's choice): an ordinary built-in needs one built-in name to be a type and a
+   value, which the built-ins map and `spelling.py` can't hold, and its value would be
+   only an `(Fn () (List a))` by the value rule. The spec: `expr.rest` (new),
+   `expr.tail-calls`, `types.table`, `types.sig`, `types.constructors`. One boot step,
+   `boot/57`.
 2. **Constraint variables and the operators' `sig`s** ([[B162]]; [[B124]], [[B135]], [[B48]]):
    `number`, `integer`, `float`, `comparable`, `appendable` in the checker; the
    operators move from `(op ...)` to `system.cdy` `sig`s, `infer-op` goes.
+
+   *Done (2026-11-09). As built:* the constraints are a table in `core.cdy`
+   (`CONSTRAINTS`, `constraint-of`, shared with `emit`); a sig's `number2` is `number`'s.
+   A fresh variable made from one is named `?N:number`, so `unify` stays a function of
+   the substitution: binding one (`bind-constrained`) checks the type is one the
+   constraint takes (a tuple as a list, for now), binds an unconstrained variable to it,
+   and meets another constrained one at the narrower (`within`), or at the one type they
+   share (`appendable` and `comparable` at `String`); a sig's own variable only if its
+   constraint is within. A message shows an unsolved one as its constraint (`expected
+   number, got String`). The operators are bodiless `sig`s in `system.cdy`, with rest
+   parameters (step 1); `special.cdy` has only the special forms, `Op` is gone from
+   `Builtin`, and `spelling.py`'s operator kinds are a typed built-in's (`OPERATOR_KINDS`).
+   `and` and `or` are typed built-ins too, not special forms as this HLD said: their
+   short-circuit was always `lower`'s, by name, so a `sig` costs nothing; as values they
+   are step 3's question. `+` takes `addable` (the numbers, `String`, a list), *for now*,
+   until `++` (step 4). `=` and `!=` are `(Fn (a a (Rest a)) Bool)`, with the function
+   check after the call (`infer-compare`). In Python, `integer` and `float` are `int` and
+   `float`, and the other constraint variables constrained type parameters
+   (`[number: (int, float)]`). [[B124]] and [[B135]] are done (an error is at its
+   argument), [[B48]] is the operators' part done. The spec: `checking.constraints`
+   (new), `checking.operators` rewritten, `checking.generics`, `expr.arithmetic`,
+   `expr.operator-arity`. The translator's build: 0.98 s to 1.00 s. One boot step,
+   `boot/58`, staged `old-library` (Bootstrap, above).
 3. **Operators as values** ([[B163]]; [[B38]]): the runtime's functions, emit's spelling.
+
+   *Done (2026-11-09). As built:* each operator's `spelling.py` entry has a third field,
+   `value`, the function it is as a value (`operator("+", "binop", "add")`: a primitive,
+   `cdy_rt.primitives.add`), so `py-spellings` is a map of triples; `emit-prim` writes it
+   for an operator used as a value, and a call is still Python's operator. The
+   primitives are typed as the `sig`s, a constraint variable a constrained type variable
+   (`def add[T: (int, float, str, tuple[Any, ...])]`). The checker needed nothing: since
+   step 2 an operator's value has its type, the function of its arguments before the
+   rest (step 1's rule). `and` and `or` are values too: their arguments are values
+   already, so there is nothing to short-circuit. `=` and `!=` are values too, an `(Fn (a
+   a) Bool)` that doesn't keep `a` off functions; not being values ([[B172]], dropped)
+   closed nothing, since a generic function's `=` compares functions already, a defect
+   found here ([[B173]]: an `equatable` constraint, later). The spec:
+   `expr.operator-values` (new). One
+   boot step, `boot/59`, no staging (the library change, `py-spellings`' type, is one
+   `bin` reads: `test_newest_step_reads_the_library`).
 4. **`++`**, and `+` on numbers only ([[B164]]): two boot steps, a script rewriting the
    translator's `+`s by type.
+
+   *Done (2026-11-09). As built:* one boot step, not two: a built-in is the library's
+   (`system.cdy`, `spelling.py`), not the translator's code, so `bin` (`boot/59`), with
+   the library staged next to it, translates a `src/` that uses `++` (and needs no
+   `old-library` staging: `test_newest_step_reads_the_library`). `++` is `(Fn (appendable
+   appendable (Rest appendable)) appendable)`, spelled Python's `+`, its value
+   `primitives.append`; `+` is a `number`'s, and `addable` is gone (the table, `emit`'s
+   type parameters, `primitives.add`). The rewrite was a one-off script (not kept), which
+   read each `+` call's type from the typed Core and wrote `(++` at its position: 233 of
+   the translator's 349 `+`s (none of unknown type; one in a `format` hole, one at a
+   line's end), 7 in `tst/cdy/`'s programs, and by hand the `quasi` lists' join
+   (`join-parts`, macro code, unchecked) and one in a macro file; the spec's by hand. The
+   editor grammar highlights `++` (and `quot`, `mod`). The spec: `expr.append` (new),
+   `expr.arithmetic`, `expr.operator-values`, `checking.operators`, `checking.constraints`,
+   `checking.generics`, `checking.locals`, `checking.definitions`, `checking.order`,
+   `checking.maybe`. One boot step, `boot/60`.
 5. **Tuples** ([[B165]]; [[B152]], [[B17]], [[B29]]'s part): `tup` to `Tup` or `List`,
    `checking.tup-lists` gone, `at` on a tuple an error, then `tup` gone.
+
+   *Done (2026-11-09). As built:* the translator's 203 `tup`s became `Tup`s, then, with
+   the checker strict (`accepts` is `unify`: `accepts-each`, `as-list`, `tup-list-type`
+   and `join-types`' and `bind-constrained`'s tuple branches gone), the 43 that were lists
+   became `List`s, found by one-off scripts (not kept) from the typed Core: 27 where a
+   `(List t)` is typed, 15 passed to `in` (an `Any`), one by hand; the tests' and the
+   spec's likewise. `at` on a tuple is an error (`check-at`: "at doesn't take a tuple, a
+   (Tup Int String): take it apart with a pattern"), the pattern's own read excepted
+   (`is-tup-item`); the translator had 70 such `at`s, not 13, since its `tup`s were now
+   `Tup`s too, mostly `infer-all`'s `(Tup (List CType) St)` and `unify`'s `(Tup Bool
+   ...)`: all patterns now (`args-st` for a call whose arguments' types aren't needed). A
+   `Tup` pattern on a typed value that isn't a tuple (a record, a function) is an error
+   too, "a Tup pattern takes a tuple, not a P" ([[B17]]'s part). `tup` is gone, with
+   `(special tup)` and the editor grammar's keyword. `checking.tup-lists` keeps its id
+   (other docs link it), its rule now the opposite: "Tuples aren't lists", *lasting*.
+   [[B175]] came along: `spelling-py`, `spelling-kind` and `spelling-value` in
+   `core.cdy` read a spelling, where `emit` read it by position; `lower`'s `and`/`or`
+   stay by name, since short-circuiting is the language's ([[expr.logic]]), not the
+   spelling's. The spec: `types.tuples`, `checking.tup-lists`, `checking.match`,
+   `match.tup`, `expr.let`, `library.zip`, `library.rest`, `library.maps`, and
+   `programs.prelude`'s example. One boot step, `boot/61`.
 6. **Typed collection operations** ([[B166]]; [[B34]] *for now*, [[B18]], [[B48]]): lists',
    strings' and maps' own operations, `in` gone, `put` a macro over `text`; two boot
    steps. *Checkpoint* (as `semantics`' Question 1): merge here, and do step 7 as
    `collections-2`, or go on.
+
+   *Done (2026-11-10). As built:* `len`, `at` and `slice` take a `(List a)`; a string has
+   `str-len`, `char-at` (a `Char`), `substring` and `(str-contains part s)`, a map
+   `map-size`; `in` is gone (`contains` was there already). The translator's calls were
+   renamed by a one-off script (not kept) from their argument's type in the typed Core,
+   101 of them (`in` on a list to `contains`, the string ones to their names), and the
+   nested `(at (at fields 0) 0)`s, which `at`'s `Any` had hidden, became patterns. The
+   reader compares `char-at`'s `Char`s with `Char` literals (`\(`, `\;`); a newline has
+   no `Char` literal, so it has `char-text`, the char as a `String` (`text`). `put` is a
+   prelude macro, `(put a b)` to `(put-line (++ (text a) " " (text b)))`; `text` is
+   written by its argument's type as `show` is (`text-of` in `emit.cdy`, and as a value),
+   spelled `text_any` for a translator that doesn't; `print` and `display`, unused, are
+   gone. Macro code isn't expanded, so it has `put-line` and `text`, not `put`. With
+   `put`'s arguments now checked against `text`'s variable, an `if` checked against an
+   unsolved variable is inferred instead, so its branches still say they differ.
+   `check-at` (step 5) went: `at`'s type rejects a tuple. `char-at` and `substring` have
+   their own primitives, so a panic names them. One boot step, `boot/62`, not two:
+   `boot/61` reads the new library (no staging); the runtime keeps `in_`, which
+   `boot/61` calls, until a following commit, which doesn't change `bin`. The spec:
+   `library.builtins`, `library.bounds`, `library.strings`, `library.maps`,
+   `library.format`, `library.put` (new), `syntax.chars`, `types.tuples`,
+   `checking.narrowing`'s example, `checking.any`, `expr.calls`, `macros.macro-code`'s example.
 7. **The list operations** ([[B167]]; [[B123]], [[B69]]): `map-acc` and `reduce`, and the
    translator's loops onto them, file by file, measured (the build's time).
+
+   *Moved (2026-11-10):* to branch `collections-2`, with its task ([[B167]]), as the
+   owner chose at Question 5's checkpoint, after step 6. [[B174]] (`to-list`) and
+   [[B173]] (a generic `=` on functions) go with it, to be placed in its HLD.
 8. **Docs** ([[B168]]): CLAUDE.md, the epic's third branch *done*, `multi_target.md` (the operators'
    types, constraint variables), the iMVP doc's operator rows; "Looking back".
+
+   *Done (2026-11-10). As built, for steps 1 to 6:* CLAUDE.md's history (the branch, and
+   `collections-2` next), the macros (`put`), the built-ins (an operator as a value) and
+   the library (each collection's own operations, `text`); `python_complete.md`'s third
+   branch, `multi_target.md`'s operators and the iMVP doc's "Operators" each get a
+   *since* note. The spec files were already `stable`; their new rules came with their
+   steps.
+
+## Looking back
+
+What steps 1 to 6 taught, and the costs a later branch will meet again:
+
+- **`Any` hides code, not just types.** Each `Any` taken out found more behind it than
+  "Where things stand" counted from the typed Core: 70 `at`s on tuples, not 13, once
+  `tup`s were `Tup`s (step 5), and nested `(at (at fields 0) 0)`s once `at` took a list
+  (step 6). A count made on a typed Core counts only what is already typed; the next
+  `Any` cut down ([[B18]], the macro runtime, [[B49]]) will meet the same.
+- **Renames from the typed Core work.** 203 `tup`s and 101 `len`/`at`/`slice`/`in` calls
+  were renamed by one-off scripts reading each node's type, not by hand. The cost: the
+  script runs the old translator, which needs the old runtime first on its path, since
+  the new one has lost what the old one calls. [[B167]]'s loops will be moved the same
+  way.
+- **The runtime outlives `bin`'s calls.** A runtime function the new `bin` stops calling
+  (`in_`) stays until the commit after its boot step, since the step before it still
+  calls it; and a library the parent translator can't read needs `old-library` staging
+  (step 2, `boot/58`), which this branch added to `bootstrap.py`, with `--tag` checking
+  each new step first. Twice a step planned as two boot steps was one (steps 4 and 6):
+  the library is read when the translator runs, so a new built-in costs a boot step only
+  when the old translator can't read its declaration.
+- **A generic built-in moves an error.** Checking `put`'s arguments against `text`'s type
+  variable turned an `if`'s "the branches are Int and String" into one about `text`'s
+  argument, until an `if` checked against an unsolved variable was inferred instead
+  (step 6). Every generic built-in a macro expands into can do this, as `semantics`
+  found for `cond`'s expansion ([[B155]], [[B156]]).
+- **New built-ins take names programs use.** `text`, added in step 6, was the reader's
+  parameter name, and a local shadows a built-in, so the call failed ("expected a
+  function"). Every built-in added before `namespaces` risks this; `namespaces` is where
+  it ends.
 
 ## Questions
 

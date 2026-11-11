@@ -91,7 +91,7 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(import nope)", "lib/b.cdy:1:1: import: can't find nope.cdy in lib"),
         ("\n  (import)", "lib/b.cdy:2:3: import: expected (import name)"),
         ("(put\n  (f 1))", "lib/b.cdy:2:4: unknown name f"),
-        ("(sig x Int)\n(def x (+ 1))", "lib/b.cdy:2:8: (+ ...) needs at least 2 arguments"),
+        ("(sig x Int)\n(def x (+ 1))", "lib/b.cdy:2:8: (+ ...) takes at least 2 argument(s)"),
         ("(def x 1)", "lib/b.cdy:1:1: x needs a (sig x Type)"),
         ("(sig x Int) (def x 1)\n(sig y Int) (def x 2)", "lib/b.cdy:2:18: defined more than once"),
         ("(sig f (Fn (Int) Int))\n(defn f (n) (if 1))", "lib/b.cdy:2:13: if: expected"),
@@ -99,11 +99,10 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
         ("(deft T (A) (b))", "lib/b.cdy:1:13: deft: variant names are Capitalised"),
         (
             '(sig x Int) (def x 1)\n(put (format "a {(+ x \\"b\\")}"))',
-            "lib/b.cdy:2:18: +: expected",
+            "lib/b.cdy:2:23: argument 2 of +: expected Int",
         ),
         ('(put (format "a\n  {(f 1)}"))', "lib/b.cdy:2:5: unknown name f"),
         ('(put\n  (format "{x"))', "lib/b.cdy:2:3: format: unmatched {"),
-        ("(put\n  (map + (tup 1)))", "lib/b.cdy:2:8: the operator + can't be used as a value"),
     ],
 )
 def test_errors_say_where(
@@ -392,7 +391,7 @@ def test_programs_cant_see_the_python_helpers(t1: ModuleType, name: str) -> None
 
 def test_list_functions_are_built_in(t1: ModuleType) -> None:
     # Fast: the runtime's, not Candy loops that copy the list for each item.
-    source = translate_with(t1, "(put (map (fn (n) n) (tup 1)) (filter (fn (n) true) (tup 1)))")
+    source = translate_with(t1, "(put (map (fn (n) n) (List 1)) (filter (fn (n) true) (List 1)))")
     assert "cdy_rt.primitives.list_map(" in source and "cdy_rt.primitives.list_filter(" in source
 
 
@@ -513,8 +512,8 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
             "system.cdy: expected (deft Name) or (deft (Name",
         ),
         (
-            "special.cdy",
-            ("(op not unary)\n", ""),
+            "system.cdy",
+            ("(sig not (Fn (Bool) Bool))\n", ""),
             "spelling.py: not is declared in neither special.cdy nor system.cdy",
         ),
         (
@@ -522,18 +521,8 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
             ("", "(special len)\n"),
             "special.cdy: len is a special form, so spelling.py can't spell it",
         ),
-        (
-            "special.cdy",
-            ("", "(op len variadic)\n"),
-            "special.cdy: len has no variadic entry in spelling.py",
-        ),
-        (
-            "special.cdy",
-            ("", "(op len unary)\n"),
-            "special.cdy: len has no unary entry in spelling.py",
-        ),
         ("special.cdy", ("", "(special if)\n"), "special.cdy: if is declared more than once"),
-        ("special.cdy", ("", "(op - binary)\n"), "special.cdy: expected (special name), (op name"),
+        ("special.cdy", ("", "(op + variadic)\n"), "special.cdy: expected (special name)"),
     ],
 )
 def test_library_errors(
@@ -563,7 +552,7 @@ def test_builtin_arity_comes_from_system(t1: ModuleType) -> None:
         translate_with(t1, '(put (slurp "a" "b"))')
     with pytest.raises(CandyFail, match=re.escape("(not ...) takes 1 argument(s), got 2")):
         translate_with(t1, "(put (not true false))")
-    assert "print(1, 2, 3)" in translate_with(t1, "(put 1 2 3)")  # put is Any: any number
+    assert "print(" in translate_with(t1, "(put 1 2 3)")  # put is a macro: any number
 
 
 # --- the reader ---

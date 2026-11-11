@@ -17,9 +17,9 @@ examples use features a later file specifies (`00-syntax.md` uses `defn`, `if` a
 |---|---|
 | `00-syntax.md` | forms, comments, literals, names: what the reader accepts and rejects |
 | `10-programs.md` | the top level, `main`, the prelude, `import` |
-| `20-types.md` | the types, `sig`, `def`, records (`deft`, `get`, `assoc`), `tup` |
+| `20-types.md` | the types, `sig`, `def`, records (`deft`, `get`, `assoc`), `Tup` |
 | `25-checking.md` | type checking: calls, definitions, generics, locals, `if`, the operators, records, `match`, `Maybe`, `Any` |
-| `30-match.md` | patterns and match: sum types (`deft` with variants), `match`, `tup` patterns |
+| `30-match.md` | patterns and match: sum types (`deft` with variants), `match`, `Tup` patterns |
 | `40-expressions.md` | names and calls, the operators, `do`, `if`, `cond`, `let`, `fn`, `defn`, `Unit` |
 | `50-macros.md` | `defmacro`, quoting, `gensym`, macro files (`import-macros`), `cond` as a macro |
 | `60-library.md` | the built-ins, the prelude, `format`, and errors (panics and `Result`) |
@@ -90,7 +90,7 @@ of its own, with the prelude and the prelude macros as every program has them.
   `expect-panic` text to stderr, and no Python traceback ([[library.errors]]):
 
   ```candy panic
-  (put (slice "abc" 2 4))
+  (put (substring "abc" 2 4))
   ```
   ```expect-panic
   index out of range
@@ -103,7 +103,7 @@ of its own, with the prelude and the prelude macros as every program has them.
 
   ```candy errors
   (put ()) => empty form
-  (put (+ 1)) => needs at least 2 arguments
+  (put (+ 1)) => takes at least 2 argument(s)
   ```
   ```candy errors
   (sig n Int)

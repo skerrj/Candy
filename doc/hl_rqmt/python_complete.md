@@ -344,7 +344,13 @@ brackets:
    `appendable` ([[B124]], Question 4), `Any` cut down to what is still needed,
    `Collection` (as Question 4 decides); the list operations' set, and the translator
    moved onto them ([[B123]]).
-   (T)
+   (T) *Done in part (tag `collections`, 2026-11-10; `collections.md`, steps 1 to 6):
+   rest parameters (`(Rest t)`), the constraint variables, the operators typed in
+   `system.cdy` and values, `++` and `+`, tuples not lists, each collection's own
+   operations (*for now* until interfaces, [[B34]]), `put` a prelude macro over `text`;
+   the list literal is none now ([[B170]]) and `format` stays a special form ([[B16]]);
+   the list operations and the translator's loops are `collections-2`, next (its step
+   7).*
 4. **`namespaces`:** qualified names, the import forms, types and values, macros'
    names, shadowing, private names, each target's mapping. Independent of 2 and 3, so
    it could swap with them. (L)

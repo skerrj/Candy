@@ -150,7 +150,7 @@ prelude or built-in name wins over it; a module the file imports that defines on
 clash, as between any two imports.
 
 ```candy run
-(put (len (rest (tup 1 2 3))))
+(put (len (rest (List 1 2 3))))
 ```
 ```expect
 2

@@ -24,7 +24,7 @@
 ;; Not a tail call: (+ 1 (len-of ...)) still recurses.
 (sig len-of (Fn (String Int) Int))
 (defn len-of (s i)
-  (if (>= i (len s)) 0 (+ 1 (len-of s (+ i 1)))))
+  (if (>= i (str-len s)) 0 (+ 1 (len-of s (+ i 1)))))
 
 (put (sum-to 100000 0))
 (put (fib 90 0 1))

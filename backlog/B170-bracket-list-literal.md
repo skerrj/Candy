@@ -15,3 +15,10 @@ not in `collections` (`doc/hl_rqmt/collections.md`, Question 3, *for now*).
 ## Notes
 
 - 2026-11-07, the owner: none now (Question 3).
+- 2026-11-08, the owner: brainstormed quoting as the list literal, `(quo (1 2 3))` or
+  `'(1 2 3)` a `(List Int)`, with no `List` constructor, as Lisp. Claude's notes, to
+  weigh with the brackets: `quo` is already the macro form, a `Form` (code as data),
+  which a statically typed list can't also be; a quote doesn't evaluate its items
+  (`'(1 x)` holds the name `x`), so a computed list still needs a constructor (or
+  `quasi` and `unq`), as Lisp keeps `list` beside `'`; and `semantics` made the type's
+  name its constructor, *lasting* ([[types.constructors]]), which this would reopen.

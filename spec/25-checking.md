@@ -48,7 +48,7 @@ line 3, column 3: def x: expected Int, got String
 ```candy errors
 (sig x Int) (def x "a") => def x: expected Int, got String
 (sig f (Fn (Int) String)) (defn f (n) n) => defn f: expected String, got Int
-(sig f (Fn (String) Int)) (defn f (s) (+ s 1)) => +: expected String, got Int
+(sig f (Fn (String) Int)) (defn f (s) (++ s 1)) => argument 2 of ++: expected String, got Int
 ```
 
 <a id="checking.generics"></a>
@@ -57,7 +57,8 @@ line 3, column 3: def x: expected Int, got String
 A `sig` with type variables (`(Fn (a a Bool) a)`) is generic: each use gives its type
 variables fresh types, so one function works on `Int`s in one call and `String`s in the
 next. Inside its own body a type variable is one fixed, unknown type, so the body can't
-treat it as an `Int`.
+treat it as an `Int`, nor add or compare it, unless it is a constraint variable
+([[checking.constraints]]).
 
 ```candy run
 (sig pick (Fn (a a Bool) a))
@@ -69,7 +70,7 @@ treat it as an `Int`.
 ```
 
 ```candy errors
-(sig f (Fn (a) a)) (defn f (x) (+ x 1)) => expected a, got Int
+(sig f (Fn (a) a)) (defn f (x) (+ x 1)) => argument 1 of +: expected number, got a
 (sig pick (Fn (a a Bool) a)) (defn pick (x y left) (if left x y)) (put (pick 1 "a" true)) => argument 2 of pick: expected Int, got String
 ```
 
@@ -82,7 +83,7 @@ checker infers it from how it is made and used. A local has one type, so a `fn` 
 
 ```candy run
 (put (let ((n 3) (m (* n n))) (+ m 1)))
-(put (join (map (fn (s) (+ s "!")) (to-list "hi")) ""))
+(put (join (map (fn (s) (++ s "!")) (to-list "hi")) ""))
 (put (let ((sq (fn (x) (* x x)))) (sq 3)))
 ```
 ```expect
@@ -92,7 +93,7 @@ hi!
 ```
 
 ```candy errors
-(put (let ((n 1)) (+ n "a"))) => +: expected Int, got String
+(put (let ((n 1)) (+ n "a"))) => argument 2 of +: expected Int, got String
 (put (let ((id (fn (x) x))) (do (id 1) (id "a")))) => argument 1 of id: expected Int, got String
 ```
 
@@ -127,20 +128,65 @@ loud
 (put (cond (false 1))) => if: with no else, the then is Int, not Unit
 ```
 
+<a id="checking.constraints"></a>
+## Constraint variables (since `collections`)
+
+A type variable named for a constraint takes only the types the constraint lists,
+*lasting* (until interfaces, [[B34]]), as Elm's do:
+
+| Variable | Takes |
+|---|---|
+| `number` | `Int`, `Long`, `Byte`, `Float`, `Double` |
+| `integer` | `Int`, `Long`, `Byte` |
+| `float` | `Float`, `Double` |
+| `comparable` | the numbers, `String`, `Char` |
+| `appendable` | `String`, `(List a)` |
+
+Any other lowercase name is an ordinary type variable, which takes any type. Like one,
+each use of a constraint variable is one type in a `sig`: `(Fn (number number) number)`
+takes two numbers of one type. A second, independent one is numbered: `number2`,
+`comparable2`. A program's own `sig` can use them, so a generic function can add or
+compare its arguments; inside its body, a `number` is one unknown number type, so it
+isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
+
+```candy run
+(sig total (Fn ((List number) number) number))
+(defn total (xs zero) (fold (fn (a b) (+ a b)) zero xs))
+(sig biggest (Fn (comparable comparable) comparable))
+(defn biggest (a b) (if (> a b) a b))
+(sig scale (Fn (number number2) number))
+(defn scale (x n) x)
+(put (total (List 1 2 3) 0) (total (List 1.5 2.5) 0.0) (biggest "ab" "b") (biggest 3 2) (scale 1 2.0))
+```
+```expect
+6 4.0 b 3 1
+```
+
+```candy errors
+(sig total (Fn ((List number) number) number)) (defn total (xs z) z) (put (total (List "a") "b")) => argument 1 of total: expected (List number), got (List String)
+(sig big (Fn (comparable comparable) comparable)) (defn big (a b) a) (put (big true false)) => argument 1 of big: expected comparable, got Bool
+(sig f (Fn (number) number)) (defn f (x) (+ x 1)) => argument 2 of +: expected number, got Int
+(sig f (Fn (a) a)) (defn f (x) (+ x x)) => argument 1 of +: expected number, got a
+(sig f (Fn (comparable) Int)) (defn f (x) (quot x 2)) => argument 1 of quot: expected integer, got comparable
+(sig f (Fn (number Int) Bool)) (defn f (x n) (< x n)) => argument 2 of <: expected number, got Int
+```
+
 <a id="checking.operators"></a>
 ## Operators
 
-The operators have fixed rules (Candy has no overloading). `+` takes arguments of one
-type, a number type, `String` or a list (`+` joins lists, as it joins strings); `-` and
-`*` one number type; `/` a `Float` or a `Double`; `quot` and `mod` an `Int`, `Long` or
-`Byte`. The comparisons take arguments of one type and give a `Bool`: `=` and `!=` any
-type but a function's ([[expr.equality]]), the orderings (`<`, `>`, `<=`, `>=`) a number
-type, `String` or `Char` (lists and records aren't ordered, *for now*: [[B124]]). `and`,
-`or` and `not` take `Bool`s. The number types don't mix: `(+ 1 1.0)` is an error.
+The operators are typed built-ins, as any function, with constraint variables and rest
+parameters ([[expr.rest]]), declared in `src/cdy/system.cdy`; Candy has no overloading.
+`+`, `-` and `*` take a `number`, `/` a `float`, `quot` and `mod` an `integer`, and `++`
+an `appendable`, a `String` or a list ([[expr.append]]). The comparisons take arguments
+of one type and give a `Bool`: `=` and `!=` any type but a function's ([[expr.equality]]),
+the orderings (`<`, `>`, `<=`, `>=`) a `comparable` (lists and records aren't ordered,
+*for now*, until interfaces: [[B34]]). `and` and `or` take two `Bool`s or more, and `not`
+one. Each argument is checked as a function's is, and its error is at it. The number
+types don't mix: `(+ 1 1.0)` is an error.
 
 ```candy run
-(put (+ 1 2) (+ "a" "b") (/ 7.0 2.0) (if (< 1 2 3) "yes" "no") (< "ab" "b") (< \a \b))
-(put (len (+ (to-list 1) (to-list 2) (to-list 3))))
+(put (+ 1 2) (++ "a" "b") (/ 7.0 2.0) (if (< 1 2 3) "yes" "no") (< "ab" "b") (< \a \b))
+(put (len (++ (to-list 1) (to-list 2) (to-list 3))))
 ```
 ```expect
 3 ab 3.5 yes true true
@@ -148,30 +194,44 @@ type, `String` or `Char` (lists and records aren't ordered, *for now*: [[B124]])
 ```
 
 ```candy errors
-(put (+ 1 "a")) => +: expected Int, got String
-(put (+ 1 1.0)) => +: expected Int, got Double
-(put (- "a" "b")) => -: expected a number, got String
-(put (< 1 "a")) => <: expected Int, got String
-(put (/ 7 2)) => /: expected a Float or Double, got Int
-(put (quot 1.0 2.0)) => quot: expected an Int, Long or Byte, got Double
-(put (< true false)) => <: expected a number, String or Char, got Bool
-(put (> (List 1) (List 2))) => >: expected a number, String or Char, got (List Int)
-(deft V ((x Int))) (put (<= (V 1) (V 2))) => <=: expected a number, String or Char, got V
-(put (>= nil nil)) => >=: expected a number, String or Char, got Unit
-(put (and 1 true)) => and: expected Bool, got Int
-(put (not "a")) => not: expected Bool, got String
+(put (+ 1 "a")) => argument 2 of +: expected Int, got String
+(put (+ 1 1.0)) => argument 2 of +: expected Int, got Double
+(put (- "a" "b")) => argument 1 of -: expected number, got String
+(put (< 1 "a")) => argument 2 of <: expected Int, got String
+(put (/ 7 2)) => argument 1 of /: expected float, got Int
+(put (quot 1.0 2.0)) => argument 1 of quot: expected integer, got Double
+(put (< true false)) => argument 1 of <: expected comparable, got Bool
+(put (> (List 1) (List 2))) => argument 1 of >: expected comparable, got (List Int)
+(deft V ((x Int))) (put (<= (V 1) (V 2))) => argument 1 of <=: expected comparable, got V
+(put (>= nil nil)) => argument 1 of >=: expected comparable, got Unit
+(put (and 1 true)) => argument 1 of and: expected Bool, got Int
+(put (not "a")) => argument 1 of not: expected Bool, got String
+(put (+ 1 2 (- 3 "x"))) => argument 2 of -: expected Int, got String
+```
+
+The error is at the argument, not the call ([[B135]]):
+
+```candy error
+(sig x Int)
+(def x 1)
+(put (+ x
+  "b"))
+```
+```expect-error
+line 4, column 3: argument 2 of +: expected Int, got String
 ```
 
 <a id="checking.tup-lists"></a>
-## Tuples as lists
+## Tuples aren't lists
 
-A `(Tup t ...)` whose items are all `t`s is accepted where a `(List t)` is expected, so
-`tup` writes a list too (*for now*: a tuple is a list in Python, [[B29]]); `(List
-item*)` writes one directly, its items one type ([[types.constructors]]).
+A `(Tup t ...)` isn't a `(List t)`, even with its items all one type, *lasting*: a
+tuple's size is its type's, a list's isn't. `(List item*)` writes a list, its items one
+type ([[types.constructors]]). (Until `collections`, such a tuple was accepted as a list,
+and `tup` wrote both.)
 
 ```candy run
 (sig names (List String))
-(def names (tup "ann" "bo"))
+(def names (List "ann" "bo"))
 (put (len names) (join names ","))
 ```
 ```expect
@@ -179,7 +239,8 @@ item*)` writes one directly, its items one type ([[types.constructors]]).
 ```
 
 ```candy errors
-(sig xs (List Int)) (def xs (tup 1 "a")) => def xs: expected (List Int), got (Tup Int String)
+(sig xs (List String)) (def xs (Tup "ann" "bo")) => def xs: expected (List String), got (Tup String String)
+(sig xs (List Int)) (def xs (Tup 1 "a")) => def xs: expected (List Int), got (Tup Int String)
 ```
 
 <a id="checking.records"></a>
@@ -230,7 +291,7 @@ so where the local is passed or returned it is still of the sum.
 ```candy run
 (deft S (A ((x Int) (id Int))) (B ((y String) (id Int))) (C))
 (sig f (Fn (S) Int))
-(defn f (s) (match s ((A _ _) (+ (get s x) (get s id))) ((B _ _) (len (get s y))) ((C) 0)))
+(defn f (s) (match s ((A _ _) (+ (get s x) (get s id))) ((B _ _) (str-len (get s y))) ((C) 0)))
 (sig bump (Fn (S) S))
 (defn bump (s) (match s ((A _ _) (assoc s x (+ (get s x) 1))) (else s)))
 (put (f (A 1 2)) (f (B "abc" 1)) (f C) (bump (A 1 2)) (bump C))
@@ -268,7 +329,7 @@ ann
 
 ```candy run
 (deft P ((name String)))
-(put (let ((name-of (fn (p) (get p name))) (rename (fn (p) (assoc p name "bo")))) (+ (name-of (P "ann")) (get (rename (P "x")) name))))
+(put (let ((name-of (fn (p) (get p name))) (rename (fn (p) (assoc p name "bo")))) (++ (name-of (P "ann")) (get (rename (P "x")) name))))
 ```
 ```expect
 annbo
@@ -285,8 +346,9 @@ annbo
 ## match
 
 A `match`'s subject is of the sum its clauses take apart; each clause's names have their
-fields' types; all the clauses (and the `else`) have one type, the `match`'s. A `tup`
-pattern takes a `(Tup ...)` with as many items as it has names.
+fields' types; all the clauses (and the `else`) have one type, the `match`'s. A `Tup`
+pattern takes a `(Tup ...)` with as many items as it has names, and only a tuple (or an
+`Any`).
 
 ```candy run
 (deft Shape (Circle ((r Int))) (Sq ((s Int))))
@@ -301,7 +363,8 @@ pattern takes a `(Tup ...)` with as many items as it has names.
 ```candy errors
 (deft S (A ((x Int))) (B)) (sig f (Fn (S) Int)) (defn f (s) (match s ((A x) x) ((B) "none"))) => match: the clauses are Int and String
 (deft S (A) (B)) (put (match 1 ((A) 1) ((B) 2))) => match: the subject is Int, not S
-(put (match (tup 1 2) ((tup a b c) a))) => a (Tup Int Int) has 2 items, not 3
+(put (match (Tup 1 2) ((Tup a b c) a))) => a (Tup Int Int) has 2 items, not 3
+(deft P ((a Int) (b Int))) (put (let (((x y) (P 1 2))) x)) => a Tup pattern takes a tuple, not a P
 ```
 
 <a id="checking.maybe"></a>
@@ -331,16 +394,18 @@ gives the value or a fallback. A `(Maybe (Maybe t))` is two layers, `(Some None)
 ```candy errors
 (sig m (Maybe Int)) (def m 5) => def m: expected (Maybe Int), got Int
 (sig m (Maybe Int)) (def m nil) => def m: expected (Maybe Int), got Unit
-(sig m (Maybe Int)) (def m (Some 1)) (put (+ m m)) => +: expected a number, String or a list, got (Maybe Int)
+(sig m (Maybe Int)) (def m (Some 1)) (put (+ m m)) => argument 1 of +: expected number, got (Maybe Int)
 (sig n Int) (def n nil) => def n: expected Int, got Unit
-(sig m (Maybe Int)) (def m (Some 1)) (put (+ m 1)) => +: expected (Maybe Int), got Int
+(sig m (Maybe Int)) (def m (Some 1)) (put (+ 1 m)) => argument 2 of +: expected Int, got (Maybe Int)
 ```
 
 <a id="checking.any"></a>
 ## Any
 
 `Any` matches every type, both ways, and nothing passing through it is checked (*for
-now*: [[B18]]). The built-ins Candy can't type yet are `Any`: `put`, `at`, `len`.
+now*: [[B18]]). The built-ins Candy can't type yet are `Any`: `is-coll` and `is-str`
+(for forms read as `Any`, [[B79]]), the regular expressions' results, and four of the
+translator's host built-ins.
 
 `Any` binds no type variable it meets, so a later use can still solve it; one that met
 `Any` and nothing else is `Any` once its definition is checked, as gradual inference

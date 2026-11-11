@@ -15,7 +15,7 @@
     (else "positive")))
 
 (sig shout (Fn (String) Unit))
-(defn shout (s) (do (put s) (put (+ s "!"))))
+(defn shout (s) (do (put s) (put (++ s "!"))))
 
 ;; A do in value position needs a temporary.
 (sig noisy (Fn (Int) Int))
@@ -27,5 +27,5 @@
 (put ten (fact 5) (sign -3) (sign 0) (sign 7))
 (shout "hey")
 (put (noisy 4) (noisy -1))
-(put (and true (not false)) (or false true) 2.5 1500l \c (at "abc" 1) (slice "hello" 1 3))
-(put (len "abc") PI)
+(put (and true (not false)) (or false true) 2.5 1500l \c (char-at "abc" 1) (substring "hello" 1 3))
+(put (str-len "abc") PI)

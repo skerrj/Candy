@@ -42,10 +42,13 @@ Kind = Literal["binop", "compare", "boolop", "unary", "call", "value", "index", 
 
 
 class Spelling(NamedTuple):
-    """What one Candy symbol translates to."""
+    """What one Candy symbol translates to: an operator's ``value`` is the Python function
+    it is as a value (``(fold + 0 xs)``; spec/40-expressions.md, expr.operator-values), or
+    ``""`` if it can't be one."""
 
     py: str
     kind: Kind
+    value: str = ""
 
 
 Spellings = Mapping[str, Spelling]
@@ -64,6 +67,12 @@ def primitive(name: str) -> Spelling:
 def value(py: str) -> Spelling:
     """An entry for a Python expression used as a value."""
     return Spelling(py, "value")
+
+
+def operator(py: str, kind: Kind, name: str = "") -> Spelling:
+    """An operator's entry: ``py`` infix (or prefix), and as a value the primitive
+    ``name`` in ``primitives.py`` (none if ``name`` is empty)."""
+    return Spelling(py, kind, f"{PRIMITIVES_MODULE}.{name}" if name else "")
 
 
 def type_(py: str) -> Spelling:
@@ -93,31 +102,33 @@ MATH: Spellings = {
     "sin": call("math.sin"),
     "cos": call("math.cos"),
     "tan": call("math.tan"),
-    "+": Spelling("+", "binop"),
-    "-": Spelling("-", "binop"),
-    "*": Spelling("*", "binop"),
-    "/": Spelling("/", "binop"),
-    "quot": Spelling("//", "binop"),  # integer division, rounding down
-    "mod": Spelling("%", "binop"),  # its remainder, with the divisor's sign
+    "+": operator("+", "binop", "add"),
+    "++": operator("+", "binop", "append"),  # strings or lists (tuples)
+    "-": operator("-", "binop", "sub"),
+    "*": operator("*", "binop", "mul"),
+    "/": operator("/", "binop", "div"),
+    "quot": operator("//", "binop", "quot"),  # integer division, rounding down
+    "mod": operator("%", "binop", "mod"),  # its remainder, with the divisor's sign
 }
 
 BOOL: Spellings = {
-    "=": Spelling("==", "compare"),
-    "!=": Spelling("!=", "compare"),
-    "<": Spelling("<", "compare"),
-    ">": Spelling(">", "compare"),
-    "<=": Spelling("<=", "compare"),
-    ">=": Spelling(">=", "compare"),
-    "and": Spelling("and", "boolop"),
-    "or": Spelling("or", "boolop"),
-    "not": Spelling("not", "unary"),
+    "=": operator("==", "compare", "eq"),
+    "!=": operator("!=", "compare", "ne"),
+    "<": operator("<", "compare", "lt"),
+    ">": operator(">", "compare", "gt"),
+    "<=": operator("<=", "compare", "le"),
+    ">=": operator(">=", "compare", "ge"),
+    "and": operator("and", "boolop", "and_"),
+    "or": operator("or", "boolop", "or_"),
+    "not": operator("not", "unary", "not_"),
     "nil": value("None"),
 }
 
 IO: Spellings = {
-    "print": call("print"),
-    "display": call("print"),
-    "put": call("print"),
+    "put-line": call("print"),
+    # ``emit`` writes ``text`` and ``show`` by the argument's static type; as a value (or
+    # for a translator that doesn't), ``text`` goes by the Python value.
+    "text": primitive("text_any"),
     "show": primitive("show"),
     "put-err": primitive("put_err"),
     "file-put-lines": primitive("file_put_lines"),
@@ -159,6 +170,7 @@ COLLECTION: Spellings = {
     "map-set": primitive("map_set"),
     "map-keys": primitive("map_keys"),
     "map-from": primitive("map_from"),
+    "map-size": call("len"),
     # The library (doc/hl_rqmt/library.md): a list is the host's tuple, so its operations
     # are built-ins.
     "any": primitive("list_any"),
@@ -175,6 +187,10 @@ COLLECTION: Spellings = {
 }
 
 STRING: Spellings = {
+    "str-len": call("len"),
+    "char-at": Spelling(f"{PRIMITIVES_MODULE}.char_at", "index"),
+    "substring": primitive("substring"),
+    "str-contains": primitive("str_contains"),
     "is-empty-str": primitive("is_empty_str"),
     "to-int": primitive("to_int"),
     "to-float": primitive("to_float"),
@@ -193,7 +209,6 @@ STRING: Spellings = {
     "replace": primitive("replace"),
     "isspace-at": primitive("isspace_at"),
     "isspace": primitive("isspace"),
-    "in": primitive("in_"),
 }
 
 # For the translator: these spellings, which it reads as Candy data (each entry a pair, its

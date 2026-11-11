@@ -4,14 +4,14 @@ status: stable, since: self-host-py
 
 Sum types, and the patterns that take values apart: a sum type lists its variants, and
 `match` takes a value of it apart. Tuples are taken apart with `match` too (since
-`self-host-cleanup`). Records (`deft` with one field list), `get`, `assoc` and `tup` are
+`self-host-cleanup`). Records (`deft` with one field list), `get`, `assoc` and `Tup` are
 in `20-types.md`.
 
 ```candy
 (deft Name (Variant ((field Type)*)?)+)
 (deft (Name tvar+) (Variant ((field Type)*)?)+)
 (match expr ((Variant name*) expr)+ (else expr)?)
-(match expr ((tup name+) expr))
+(match expr ((Tup name+) expr))
 ```
 
 <a id="match.sum-types"></a>
@@ -166,18 +166,18 @@ nested patterns, literals or guards (`doc/hl_rqmt/sum_types.md`).
 <a id="match.tup"></a>
 ## Taking a tuple apart
 
-A `tup` pattern binds a tuple's items by position (`_` skips one). A tuple has one shape,
+A `Tup` pattern binds a tuple's items by position (`_` skips one). A tuple has one shape,
 so its clause is the only one, with no `else`, and it names as many items as the tuple
 has ([[checking.match]]). It works wherever an expression goes, and in a `let` binding as
 `((a b) init)`.
 
 ```candy run
 (sig divmod (Fn (Int Int) (Tup Int Int)))
-(defn divmod (a b) (tup (quot a b) (- a (* b (quot a b)))))
+(defn divmod (a b) (Tup (quot a b) (- a (* b (quot a b)))))
 
-(put (match (divmod 17 5) ((tup q r) (format "q={q} r={r}"))))
-(put (+ 1 (match (divmod 17 5) ((tup q _) q))))
-(put (match (tup "a" 2 "c") ((tup _ _ last) last)))
+(put (match (divmod 17 5) ((Tup q r) (format "q={q} r={r}"))))
+(put (+ 1 (match (divmod 17 5) ((Tup q _) q))))
+(put (match (Tup "a" 2 "c") ((Tup _ _ last) last)))
 ```
 ```expect
 q=3 r=2
@@ -189,18 +189,18 @@ Nested, the inner names shadow the outer ones:
 
 ```candy run
 (sig swap-diff (Fn ((Tup Int Int)) Int))
-(defn swap-diff (p) (match p ((tup a b) (match (tup b a) ((tup a b) (- a b))))))
-(put (swap-diff (tup 10 3)))
+(defn swap-diff (p) (match p ((Tup a b) (match (Tup b a) ((Tup a b) (- a b))))))
+(put (swap-diff (Tup 10 3)))
 ```
 ```expect
 -7
 ```
 
 ```candy errors
-(put (match (tup 1 2) ((tup a b) a) (else 0))) => must be the only clause
-(put (match (tup 1 2) ((tup a b) a) ((tup c d) c))) => must be the only clause
-(deft Shape (Circle ((r Int))) (Dot)) (put (match (Circle 1) ((Circle r) r) ((tup a b) a))) => must be the only clause
-(put (match (tup 1 2) ((tup) 1))) => needs at least one name
-(put (match (tup 1 2) ((tup a a) a))) => must be different
-(put (match (tup 1 2) ((tup a (b)) a))) => match name must be a name
+(put (match (Tup 1 2) ((Tup a b) a) (else 0))) => must be the only clause
+(put (match (Tup 1 2) ((Tup a b) a) ((Tup c d) c))) => must be the only clause
+(deft Shape (Circle ((r Int))) (Dot)) (put (match (Circle 1) ((Circle r) r) ((Tup a b) a))) => must be the only clause
+(put (match (Tup 1 2) ((Tup) 1))) => needs at least one name
+(put (match (Tup 1 2) ((Tup a a) a))) => must be different
+(put (match (Tup 1 2) ((Tup a (b)) a))) => match name must be a name
 ```
