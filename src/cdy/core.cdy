@@ -121,12 +121,10 @@
     ((Lst items pos) (analyse-list items (at-pos scope pos) n))
     (else (Tup (Lit form ANY) n))))
 
-(sig analyse-all (Fn ((List Form) Scope Int (List Expr)) (Tup (List Expr) Int)))
-(defn analyse-all (forms scope n acc)
-  (if (= (len forms) 0)
-    (Tup acc n)
-    (let (((e n1) (analyse-expr (at forms 0) scope n)))
-      (analyse-all (rest forms) scope n1 (++ acc (to-list e))))))
+(sig analyse-all (Fn ((List Form) Scope Int) (Tup (List Expr) Int)))
+(defn analyse-all (forms scope n)
+  (let (((n1 es) (map-acc (fn (k form) (let (((e k1) (analyse-expr form scope k))) (Tup k1 e))) n forms)))
+    (Tup es n1)))
 
 (sig resolve (Fn (String Scope) Expr))
 (defn resolve (name scope)
@@ -177,7 +175,7 @@
         (analyse-special head (rest items) scope n)
         (let ((checked (check-variant-call head (- (len items) 1) scope))
               ((callee n1) (analyse-expr (at items 0) scope n))
-              ((args n2) (analyse-all (rest items) scope n1 empty-list))
+              ((args n2) (analyse-all (rest items) scope n1))
               (arity-ok (check-call callee (len args) scope)))
           (Tup (Call callee args (get scope here) ANY) n2))))))
 
@@ -237,7 +235,7 @@
 
 (sig an-if (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-if (args scope n)
-  (let (((parts n1) (analyse-all args scope n empty-list)))
+  (let (((parts n1) (analyse-all args scope n)))
     (cond
       ((= (len parts) 2) (Tup (If (at parts 0) (at parts 1) NIL (get scope here) ANY) n1))
       ((= (len parts) 3) (Tup (If (at parts 0) (at parts 1) (at parts 2) (get scope here) ANY) n1))
@@ -248,7 +246,7 @@
 
 (sig an-do (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-do (args scope n)
-  (let (((body n1) (analyse-all args scope n empty-list)))
+  (let (((body n1) (analyse-all args scope n)))
     (cond
       ((= (len body) 0) (Tup NIL n1))
       ((= (len body) 1) (Tup (at body 0) n1))
@@ -330,7 +328,7 @@
 (defn an-fn (args scope n)
   (if (!= (len args) 2)
     (fail (located scope "fn: expected (fn (args+) body), with exactly one body form"))
-    (let (((params inner n1) (bind-params (list-items (at args 0)) scope n empty-list))
+    (let (((params inner n1) (bind-params (list-items (at args 0)) scope n))
           ((body n2) (analyse-expr (at args 1) inner n1)))
       (if (= (len params) 0)
         (fail (located scope "fn arguments: at least one is needed"))
@@ -340,13 +338,13 @@
 (defn an-tup (args scope n)
   (if (= (len args) 0)
     (fail (located scope "Tup: needs at least one item"))
-    (let (((items n1) (analyse-all args scope n empty-list)))
+    (let (((items n1) (analyse-all args scope n)))
       (Tup (Tuple items (get scope here) ANY) n1))))
 
 ;; (List item*): a list, its items one type (the checker's); (List) is the empty list.
 (sig an-list (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-list (args scope n)
-  (let (((items n1) (analyse-all args scope n empty-list)))
+  (let (((items n1) (analyse-all args scope n)))
     (Tup (ListOf items (get scope here) ANY) n1)))
 
 (sig an-get (Fn ((List Form) Scope Int) (Tup Expr Int)))
@@ -1459,7 +1457,7 @@
     (let ((name (sym-name (at items 1)))
           (t (needs-sig name prog scope))
           (arg-forms (list-items (at items 2)))
-          ((params inner n1) (bind-params arg-forms scope (get prog n) empty-list))
+          ((params inner n1) (bind-params arg-forms scope (get prog n)))
           ((body n2) (analyse-expr (at items 3) inner n1)))
       (cond
         ((= (len params) 0) (fail (located scope (format "defn {name}: at least one argument is needed"))))
@@ -1497,19 +1495,21 @@
     (else empty-list)))
 
 ;; Fresh Locals for the parameter names, and the scope that includes them.
-(sig bind-params (Fn ((List Form) Scope Int (List Expr)) (Tup (List Expr) Scope Int)))
-(defn bind-params (forms scope n acc)
-  (if (= (len forms) 0)
-    (Tup acc scope n)
-    (let ((name (sym-name (at forms 0)))
-          (loc (Local name n (form-pos (at forms 0)) ANY)))
-      (if (= name "")
-        (fail (located scope "a parameter must be a name"))
-        (bind-params
-          (rest forms)
-          (bind-local scope name loc)
-          (+ n 1)
-          (++ acc (to-list loc)))))))
+(sig bind-params (Fn ((List Form) Scope Int) (Tup (List Expr) Scope Int)))
+(defn bind-params (forms scope n)
+  (let (((last locs)
+          (map-acc
+            (fn (s form)
+              (let (((sc k) s)
+                    (name (sym-name form))
+                    (loc (Local name k (form-pos form) ANY)))
+                (if (= name "")
+                  (fail (located sc "a parameter must be a name"))
+                  (Tup (Tup (bind-local sc name loc) (+ k 1)) loc))))
+            (Tup scope n)
+            forms))
+        ((sc k) last))
+    (Tup locs sc k)))
 
 ;; --- main ---
 

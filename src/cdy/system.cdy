@@ -93,6 +93,9 @@
 (sig map (Fn ((Fn (a) b) (List a)) (List b)))
 (sig filter (Fn ((Fn (a) Bool) (List a)) (List a)))
 (sig fold (Fn ((Fn (b a) b) b (List a)) b))
+;; A map threading a state: `f` takes the state and an item, and gives the next state and
+;; the item's result; the last state and the results.
+(sig map-acc (Fn ((Fn (s a) (Tup s b)) s (List a)) (Tup s (List b))))
 ;; The library's list operations (doc/hl_rqmt/library.md): built-ins, since a list is the
 ;; host's. Like map and filter, they take the list last.
 (sig any (Fn ((Fn (a) Bool) (List a)) Bool))

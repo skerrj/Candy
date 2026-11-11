@@ -120,7 +120,7 @@
     ((MatchE subject clauses default _ _)
       (let ((low (value subject n))
             (temp (Temp (get low n) ANY))
-            ((cases n2) (lower-cases clauses mode tmp (+ (get low n) 1) empty-list))
+            ((cases n2) (lower-cases clauses mode tmp (+ (get low n) 1)))
             ((default-stmts n3) (lower-default default mode tmp n2)))
         (Tup (++ (get low stmts) (to-list (SMatch temp (get low expr) cases default-stmts))) n3)))
     (else (fail "internal error: lower: not a match"))))
@@ -133,18 +133,16 @@
     (let (((stmts n1) (lower-body (at default 0) mode tmp n)))
       (Tup (to-list stmts) n1))))
 
-(sig lower-cases (Fn ((List Clause) String Expr Int (List Case)) (Tup (List Case) Int)))
-(defn lower-cases (clauses mode tmp n acc)
-  (if (= (len clauses) 0)
-    (Tup acc n)
-    (let ((clause (at clauses 0))
-          ((body n1) (lower-body (get clause body) mode tmp n)))
-      (lower-cases
-        (rest clauses)
-        mode
-        tmp
-        n1
-        (++ acc (to-list (Case (get clause variant) (get clause binds) body)))))))
+(sig lower-cases (Fn ((List Clause) String Expr Int) (Tup (List Case) Int)))
+(defn lower-cases (clauses mode tmp n)
+  (let (((n1 cases)
+          (map-acc
+            (fn (k clause)
+              (let (((body k1) (lower-body (get clause body) mode tmp k)))
+                (Tup k1 (Case (get clause variant) (get clause binds) body))))
+            n
+            clauses)))
+    (Tup cases n1)))
 
 (sig lower-body (Fn (Expr String Expr Int) (Tup (List Stmt) Int)))
 (defn lower-body (e mode tmp n)
@@ -217,7 +215,7 @@
 ;; (not t).
 (sig value-boolop (Fn (Expr (List Expr) Pos CType Int) Low))
 (defn value-boolop (op args pos ty n)
-  (let (((lows n1) (low-all args n empty-list))
+  (let (((lows n1) (low-all args n))
         (first (at lows 0))
         (later (rest lows)))
     (if (has-stmts later)
@@ -254,15 +252,13 @@
 ;; simple goes in a Temp if a later one needs statements.
 (sig value-seq (Fn ((List Expr) Int) (Tup (List Stmt) (List Expr) Int)))
 (defn value-seq (exprs n)
-  (let (((lows n1) (low-all exprs n empty-list)))
+  (let (((lows n1) (low-all exprs n)))
     (seq-build lows n1 empty-list empty-list)))
 
-(sig low-all (Fn ((List Expr) Int (List Low)) (Tup (List Low) Int)))
-(defn low-all (exprs n acc)
-  (if (= (len exprs) 0)
-    (Tup acc n)
-    (let ((low (value (at exprs 0) n)))
-      (low-all (rest exprs) (get low n) (++ acc (to-list low))))))
+(sig low-all (Fn ((List Expr) Int) (Tup (List Low) Int)))
+(defn low-all (exprs n)
+  (let (((n1 lows) (map-acc (fn (k e) (let ((low (value e k))) (Tup (get low n) low))) n exprs)))
+    (Tup lows n1)))
 
 (sig has-stmts (Fn ((List Low)) Bool))
 (defn has-stmts (lows)
@@ -339,7 +335,7 @@
 
 (sig value-do (Fn ((List Expr) Int) Low))
 (defn value-do (body n)
-  (let (((stmts n1) (effect-all (all-but-last body) n empty-list))
+  (let (((stmts n1) (effect-all (all-but-last body) n))
         (low (value (last-of body) n1)))
     (Low (++ stmts (get low stmts)) (get low expr) (get low n))))
 
@@ -362,7 +358,7 @@
             ((b n2) (tail other n1)))
         (Tup (++ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
     ((Do body _ _)
-      (let (((stmts n1) (effect-all (all-but-last body) n empty-list))
+      (let (((stmts n1) (effect-all (all-but-last body) n))
             ((last n2) (tail (last-of body) n1)))
         (Tup (++ stmts last) n2)))
     ((MatchE _ _ _ _ _) (lower-match e "tail" NIL n))
@@ -386,7 +382,7 @@
             ((a n1) (effect then (get t n)))
             ((b n2) (effect other n1)))
         (Tup (++ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
-    ((Do body _ _) (effect-all body n empty-list))
+    ((Do body _ _) (effect-all body n))
     ((MatchE _ _ _ _ _) (lower-match e "effect" NIL n))
     (else
       (if (is-simple e)
@@ -394,12 +390,10 @@
         (let ((low (value e n)))
           (Tup (++ (get low stmts) (to-list (SExpr (get low expr)))) (get low n)))))))
 
-(sig effect-all (Fn ((List Expr) Int (List Stmt)) (Tup (List Stmt) Int)))
-(defn effect-all (exprs n acc)
-  (if (= (len exprs) 0)
-    (Tup acc n)
-    (let (((stmts n1) (effect (at exprs 0) n)))
-      (effect-all (rest exprs) n1 (++ acc stmts)))))
+(sig effect-all (Fn ((List Expr) Int) (Tup (List Stmt) Int)))
+(defn effect-all (exprs n)
+  (let (((n1 parts) (map-acc (fn (k e) (let (((stmts k1) (effect e k))) (Tup k1 stmts))) n exprs)))
+    (Tup (concat parts) n1)))
 
 ;; --- top level ---
 

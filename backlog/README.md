@@ -86,7 +86,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B167](B167-collections-2-step-1.md) | collections-2 step 1: map-acc | task | open | normal |
 | [B177](B177-collections-2-step-2.md) | collections-2 step 2: the loops in core and lower | task | open | normal |
 | [B178](B178-collections-2-step-3.md) | collections-2 step 3: the loops in check | task | open | normal |
 | [B179](B179-collections-2-step-4.md) | collections-2 step 4: the loops in emit | task | open | normal |
@@ -270,6 +269,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B164](B164-collections-step-4-plus-plus.md) | collections step 4: `++`, and `+` on numbers only | task | done | normal |
 | [B165](B165-collections-step-5-tuples.md) | collections step 5: tuples | task | done | normal |
 | [B166](B166-collections-step-6-typed-collection-operations.md) | collections step 6: typed collection operations | task | done | normal |
+| [B167](B167-collections-2-step-1.md) | collections-2 step 1: map-acc | task | done | normal |
 | [B168](B168-collections-step-8-docs.md) | collections step 8: docs | task | done | normal |
 | [B172](B172-equality-not-a-value.md) | `=` and `!=` aren't values | leak | dropped | low |
 | [B175](B175-spelling-by-position.md) | A spelling is read by position, and `and`/`or` by name | tech-debt | done | low |

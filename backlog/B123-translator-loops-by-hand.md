@@ -17,3 +17,5 @@ loops thread a counter or a scope as well (`analyse-all`, `let-bindings`,
 `bind-params`, `destructure` return `(tup acc n)`), which needs a `fold` over a tuple or
 a `map-acc`. Revisit once `fn`s are typed. Built-in list operations would also take the
 translator off the quadratic copies ([[B69]]).
+- 2026-11-10, Claude: `collections-2` step 1 ([[B167]]): the 12 loops that thread a state are
+  `map-acc` calls; the rest are steps 2 to 5 (`collections_2.md`).

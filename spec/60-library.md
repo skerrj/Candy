@@ -25,7 +25,7 @@ object, or reads a form as `Any` (*for now*: Candy can't write those types yet,
 |---|---|
 | output | `put` (a prelude macro: any number of arguments, with a space between; [[library.put]]), `put-line`, `text`, `put-err` |
 | files | `slurp`, `spit`, `file-put-lines`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
-| lists | `len`, `at`, `slice`, `to-list`, `empty-list`, `is-coll`, `map`, `filter`, `fold`, `any`, `all`, `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of`, `contains`, `with-default`, `join` |
+| lists | `len`, `at`, `slice`, `to-list`, `empty-list`, `is-coll`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of`, `contains`, `with-default`, `join` |
 | maps | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size` |
 | strings | `str-len`, `char-at`, `substring`, `str-contains`, `split`, `starts-with`, `ends-with`, `repeat`, `strip`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-empty-str`, `is-decimal`, `is-digit`, `is-alpha`, `is-str`, `is-neg-int`, `isspace`, `isspace-at` |
 | regular expressions | `re-search`, `re-findall`, `re-compile` (Python's match and pattern objects, `Any`) |
@@ -82,6 +82,25 @@ true false true
 (List 1 2 3)
 2 -1
 true false
+```
+
+<a id="library.map-acc"></a>
+`map-acc` is a `map` that threads a state: its function takes the state and an item, and
+gives a tuple of the next state and the item's result; `map-acc` gives the last state and
+the results. The state comes first, as `fold`'s start value does, and is taken apart with
+a `Tup` pattern ([[match.tup]]):
+
+```candy run
+(sig number-words (Fn (Int String) (Tup Int String)))
+(defn number-words (n w) (Tup (+ n 1) (format "{n}:{w}")))
+
+(let (((n words) (map-acc number-words 1 (List "a" "b" "c"))))
+  (put n words))
+(put (map-acc number-words 7 empty-list))
+```
+```expect
+4 (List "1:a" "2:b" "3:c")
+(Tup 7 (List))
 ```
 
 <a id="library.zip"></a>

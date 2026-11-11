@@ -103,6 +103,20 @@ calls come in that step or the next. `to-list`'s removal is two steps (above).
 
 1. **`map-acc`** ([[B167]]): the built-in, its primitive and rule; the translator's 16
    threaded loops onto it where each is one.
+
+   *Done (2026-11-10). As built:* `map-acc` is a built-in (`system.cdy`), spelled
+   `list_map_acc`, a primitive that builds a Python list and returns a tuple; the rule
+   is `library.map-acc` (new), and `library.builtins` lists it. 12 of the 16 loops were
+   one `map-acc`: `check-tops`, `infer-all`, `infer-clauses`, `retype-all`,
+   `retype-pairs`, `retype-parts` and `retype-clauses` (`check.cdy`), `analyse-all`
+   and `bind-params` (`core.cdy`, the latter's state a `(Tup Scope Int)`), and
+   `lower-cases`, `low-all` and `effect-all` (`lower.cdy`, the last a `map-acc` then
+   `concat`). Each keeps its name and its result's order, `(Tup items state)`, and loses
+   its `acc` argument, which every caller passed as `empty-list` (30 calls). The other
+   four aren't over a list: `fresh-types` counts down, and `format-parts`, `read-list`
+   and `read-str` walk a text. In Python each `fn` is a nested `def`, typed with what
+   the checker inferred. The translator's build: 1.02 s to 0.93 s. One boot step,
+   `boot/63`, no staging (`boot/62` reads the new library).
 2. **The loops in `core.cdy` and `lower.cdy`** ([[B177]]; 45).
 3. **The loops in `check.cdy`** ([[B178]]; 20).
 4. **The loops in `emit.cdy`** ([[B179]]; 27).

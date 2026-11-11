@@ -163,6 +163,7 @@ COLLECTION: Spellings = {
     "map": primitive("list_map"),
     "filter": primitive("list_filter"),
     "fold": primitive("list_fold"),
+    "map-acc": primitive("list_map_acc"),
     # Maps: ``map-set`` returns a new map.
     "empty-map": value("{}"),
     "map-get": primitive("map_get"),

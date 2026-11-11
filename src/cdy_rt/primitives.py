@@ -327,6 +327,18 @@ def list_fold[A, B](f: Callable[[B, A], B], acc: B, xs: Sequence[A]) -> B:
     return functools.reduce(f, xs, acc)
 
 
+def list_map_acc[S, A, B](
+    f: Callable[[S, A], tuple[S, B]], state: S, xs: Sequence[A]
+) -> tuple[S, tuple[B, ...]]:
+    """``f`` of the state and each item of ``xs`` in turn, giving the next state and the
+    item's result: the last state, and the results (a built-in for speed, as ``list_map``)."""
+    results: list[B] = []
+    for x in xs:
+        state, y = f(state, x)
+        results.append(y)
+    return state, tuple(results)
+
+
 def to_list[T](val: T) -> tuple[T, ...]:
     """A one-item list holding ``val`` (a Candy ``List`` is a Python tuple)."""
     return (val,)
