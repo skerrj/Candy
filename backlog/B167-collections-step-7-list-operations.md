@@ -13,3 +13,6 @@ Step 7 of `doc/hl_rqmt/collections.md`. `map-acc` and `reduce`, and the translat
 ## Notes
 
 - 2026-11-07, Claude: filed on the HLD's acceptance (the owner, 2026-11-07).
+- 2026-11-10, Claude: moved to branch `collections-2`, as the owner chose at Question 5's
+  checkpoint; still `collections.md`'s step, to be renumbered in `collections-2`'s HLD,
+  with [[B174]] and [[B173]] to be placed there.

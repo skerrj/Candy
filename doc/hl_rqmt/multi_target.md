@@ -93,7 +93,10 @@ types too, as bodiless `deft`s, each target spelling them in its own spellings:
 - `table.py` is the Python mapping: each built-in's Python name and kind (its `arity`
   field went once the Python translator left `master`: `doc/hl_rqmt/bootstrap.md`, step 3);
 - the operators are still described by the table alone, since a `Fn` type can't say "two
-  or more arguments";
+  or more arguments" (*since `collections`*, `doc/hl_rqmt/collections.md`: they are
+  bodiless `sig`s in `system.cdy` too, `(Fn (number number (Rest number)) number)`, with
+  a rest parameter and a constraint variable, which a target spells as it likes: a
+  trait bound in Rust; each spelling also names a function for the operator as a value);
 - `src/cdy/prelude.cdy` is ordinary Candy, so it is the same for every target.
 
 *Taken further on branch `symbol-table`* (`doc/hl_rqmt/symbol_table.md`): the

@@ -782,6 +782,12 @@ f(_cdy_t1, x)
 - `not` becomes `ast.UnaryOp`.
 - Everything else becomes a call to the entry's Python name.
 
+*Since `collections`* (`doc/hl_rqmt/collections.md`): the operators are typed in
+`system.cdy` (`number`, `comparable`, `appendable`, a `(Rest t)` parameter), `+` takes
+numbers and `++` lists and strings, and an operator is a value too (`(fold + 0 xs)`),
+spelled by a function its spelling names; `print` and `display` are gone, and `put` is a
+prelude macro over `put-line` and `text`.
+
 **`def`.** `(def x init)` becomes the statements of `init`, then `x = <init expr>`. With a
 signature it becomes an annotated assignment, `x: int = ...`. The form's value is `None`.
 `init` is required: `(def x)` is an error.

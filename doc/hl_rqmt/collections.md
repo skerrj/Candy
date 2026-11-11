@@ -1,6 +1,8 @@
 # Collections (HLD)
 
-**Status: accepted (2026-11-07); proposed 2026-11-07, for branch `collections`. Epic: `python_complete.md`
+**Status: done (2026-11-10), steps 1 to 6 and the docs (tag `collections`); step 7 goes
+to `collections-2` (Question 5's checkpoint). Accepted 2026-11-07, with the answers to its
+questions (tasks [[B161]] to [[B168]]); proposed 2026-11-07, for branch `collections`. Epic: `python_complete.md`
 (its third branch). After tag `semantics-2`.** The operators get types a program can
 write, and so can be values and be used by a generic function; a function can take any
 number of arguments of one type; lists, tuples and strings each get their own typed
@@ -350,8 +352,50 @@ commit, and `bootstrap.py --tag` tags a step only once it passes.
    `checking.narrowing`'s example, `checking.any`, `expr.calls`, `macros.macro-code`'s example.
 7. **The list operations** ([[B167]]; [[B123]], [[B69]]): `map-acc` and `reduce`, and the
    translator's loops onto them, file by file, measured (the build's time).
+
+   *Moved (2026-11-10):* to branch `collections-2`, with its task ([[B167]]), as the
+   owner chose at Question 5's checkpoint, after step 6. [[B174]] (`to-list`) and
+   [[B173]] (a generic `=` on functions) go with it, to be placed in its HLD.
 8. **Docs** ([[B168]]): CLAUDE.md, the epic's third branch *done*, `multi_target.md` (the operators'
    types, constraint variables), the iMVP doc's operator rows; "Looking back".
+
+   *Done (2026-11-10). As built, for steps 1 to 6:* CLAUDE.md's history (the branch, and
+   `collections-2` next), the macros (`put`), the built-ins (an operator as a value) and
+   the library (each collection's own operations, `text`); `python_complete.md`'s third
+   branch, `multi_target.md`'s operators and the iMVP doc's "Operators" each get a
+   *since* note. The spec files were already `stable`; their new rules came with their
+   steps.
+
+## Looking back
+
+What steps 1 to 6 taught, and the costs a later branch will meet again:
+
+- **`Any` hides code, not just types.** Each `Any` taken out found more behind it than
+  "Where things stand" counted from the typed Core: 70 `at`s on tuples, not 13, once
+  `tup`s were `Tup`s (step 5), and nested `(at (at fields 0) 0)`s once `at` took a list
+  (step 6). A count made on a typed Core counts only what is already typed; the next
+  `Any` cut down ([[B18]], the macro runtime, [[B49]]) will meet the same.
+- **Renames from the typed Core work.** 203 `tup`s and 101 `len`/`at`/`slice`/`in` calls
+  were renamed by one-off scripts reading each node's type, not by hand. The cost: the
+  script runs the old translator, which needs the old runtime first on its path, since
+  the new one has lost what the old one calls. [[B167]]'s loops will be moved the same
+  way.
+- **The runtime outlives `bin`'s calls.** A runtime function the new `bin` stops calling
+  (`in_`) stays until the commit after its boot step, since the step before it still
+  calls it; and a library the parent translator can't read needs `old-library` staging
+  (step 2, `boot/58`), which this branch added to `bootstrap.py`, with `--tag` checking
+  each new step first. Twice a step planned as two boot steps was one (steps 4 and 6):
+  the library is read when the translator runs, so a new built-in costs a boot step only
+  when the old translator can't read its declaration.
+- **A generic built-in moves an error.** Checking `put`'s arguments against `text`'s type
+  variable turned an `if`'s "the branches are Int and String" into one about `text`'s
+  argument, until an `if` checked against an unsolved variable was inferred instead
+  (step 6). Every generic built-in a macro expands into can do this, as `semantics`
+  found for `cond`'s expansion ([[B155]], [[B156]]).
+- **New built-ins take names programs use.** `text`, added in step 6, was the reader's
+  parameter name, and a local shadows a built-in, so the call failed ("expected a
+  function"). Every built-in added before `namespaces` risks this; `namespaces` is where
+  it ends.
 
 ## Questions
 
