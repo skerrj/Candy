@@ -352,12 +352,6 @@ def map_keys[K, V](m: Mapping[K, V]) -> tuple[K, ...]:
     return tuple(m)
 
 
-def in_(item: object, coll: Sequence[object]) -> bool:
-    """Whether ``item`` is in ``coll``: ``in``, gone from the library, which the previous
-    ``bin`` still calls; it goes once ``bin`` no longer does (collections step 6)."""
-    return item in coll
-
-
 def str_contains(part: str, s: str) -> bool:
     """Whether ``part`` is in ``s``."""
     return part in s
