@@ -22,3 +22,4 @@ translator off the quadratic copies ([[B69]]).
 - 2026-11-11, Claude: step 2 ([[B177]]): 31 of `core.cdy`'s and `lower.cdy`'s 38 loops are one
   call; seven stay, each for a reason in the HLD's note.
 - 2026-11-11, Claude: step 3 ([[B178]]): 14 of `check.cdy`'s 20 loops are one call; six stay.
+- 2026-11-11, Claude: step 4 ([[B179]]): 25 of `emit.cdy`'s 29 loops are one call; four stay.

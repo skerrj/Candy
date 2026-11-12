@@ -106,12 +106,12 @@
 (sig python-of (Fn ((List Top)) String))
 (defn python-of (tops)
   (let ((stmts (lower-program tops 0))
-        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops empty-map) py-spellings empty-map (deft-field-types tops empty-map))))
+        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops) py-spellings empty-map (deft-field-types tops))))
         (env (bind-locals (bound-locals stmts empty-list) globals)))
     (++ HEADER
-       (emit-imports PY_IMPORTS "")
+       (emit-imports PY_IMPORTS)
        "\ncdy_rt.primitives.stop_on_panic()\n"
-       (emit-stmts stmts 0 env "")
+       (emit-stmts stmts 0 env)
        (if (has-main tops) (emit-main env) ""))))
 
 ;; Candy text in, Python source out, read by the Candy reader (read.cdy), which also

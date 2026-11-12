@@ -154,6 +154,21 @@ calls come in that step or the next. `to-list`'s removal is two steps (above).
    `fn`, start and list each on a line). The translator's build: 0.98 s, unchanged
    (medians of seven, twice, against step 2's `bin`).
 4. **The loops in `emit.cdy`** ([[B179]]; 27).
+
+   *Done (2026-11-11). As built:* 29 loops, 25 of them one call now: 9 `map`s (the
+   lists of Python texts, `emit-exprs`, `emit-types`, `emit-fields`, `emit-parts`,
+   `emit-any-params`, `variant-refs`; `field-types`, `bind-locs`, `variant-list-names`),
+   5 a `map` then `join` (the strings built line by line, `emit-stmts`, `emit-binds`,
+   `emit-record-fields`, `emit-variants`, `emit-imports`), one `filter` (`used-tvars`),
+   one `find` (`holder`, with `with-default`), and 9 `fold`s (`name-set`; the env,
+   `global-names`, `add-globals`, `bind-locals`; the locals a body binds, `bound-locals`,
+   `bound-in-cases`, `bound-in-lists`, and `type-vars`, each from a `start` its recursion
+   seeds; `check-py-fields`, the Python names so far, its result dropped for `true`).
+   `generic-variants` and `deft-field-types` were `fold`s already and lose their `acc`.
+   Four stay: `mangle-chars` and `escape-chars` (a text), `emit-params` (two lists), and
+   `emit-match` (each case's keyword differs from the first's, and the last may be an
+   assert). `src/cdy` is 74 lines shorter. The translator's build: 0.94 s to 0.93 s
+   (medians of seven, four times, against step 3's `bin`), unchanged within the noise.
 5. **The loops in `expand.cdy`, `include.cdy`, `cdyc.cdy`, `read.cdy`** ([[B180]]; 31).
 6. **`to-list` gone** ([[B181]]; [[B174]]): the rest to `(List x)`, then the
    declaration out (two boot steps).
