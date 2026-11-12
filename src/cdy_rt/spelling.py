@@ -157,12 +157,12 @@ COLLECTION: Spellings = {
     "slice": primitive("slice_"),
     "join": primitive("join"),
     "is-coll": primitive("is_coll"),
-    "to-list": primitive("to_list"),
     # Writable in Candy (the prelude), but built in for speed: Candy adds to a list by
     # copying it, so its own map would take quadratic time.
     "map": primitive("list_map"),
     "filter": primitive("list_filter"),
     "fold": primitive("list_fold"),
+    "map-acc": primitive("list_map_acc"),
     # Maps: ``map-set`` returns a new map.
     "empty-map": value("{}"),
     "map-get": primitive("map_get"),

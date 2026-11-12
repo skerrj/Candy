@@ -96,7 +96,8 @@ types too, as bodiless `deft`s, each target spelling them in its own spellings:
   or more arguments" (*since `collections`*, `doc/hl_rqmt/collections.md`: they are
   bodiless `sig`s in `system.cdy` too, `(Fn (number number (Rest number)) number)`, with
   a rest parameter and a constraint variable, which a target spells as it likes: a
-  trait bound in Rust; each spelling also names a function for the operator as a value);
+  trait bound in Rust; each spelling also names a function for the operator as a value;
+  *since `collections-2`*, `=` and `!=` take `equatable`, which is Rust's `PartialEq`);
 - `src/cdy/prelude.cdy` is ordinary Candy, so it is the same for every target.
 
 *Taken further on branch `symbol-table`* (`doc/hl_rqmt/symbol_table.md`): the

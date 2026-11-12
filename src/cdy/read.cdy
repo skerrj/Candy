@@ -11,7 +11,7 @@
 ;; The forms in `text`, from the file `file` ("" for none), with their positions.
 (sig read-source (Fn (String String) (List Form)))
 (defn read-source (file text)
-  (read-all (Source file (line-starts text 0 (to-list 0)) (Pos file 1 1)) text (skip text 0) empty-list))
+  (read-all (Source file (line-starts text 0 (List 0)) (Pos file 1 1)) text (skip text 0) empty-list))
 
 ;; The forms in a `format` hole's text, whose first character is at `where` (NOWHERE: no
 ;; positions, as read-forms).
@@ -19,7 +19,7 @@
 (defn read-hole (text where)
   (if (= (get where line) 0)
     (read-forms text)
-    (read-all (Source (get where file) (line-starts text 0 (to-list 0)) where) text (skip text 0) empty-list)))
+    (read-all (Source (get where file) (line-starts text 0 (List 0)) where) text (skip text 0) empty-list)))
 
 ;; What the reader knows about its text: the file it came from, where each line starts
 ;; (its offsets, in order), to give each form a Pos, and where the text starts in the file
@@ -31,7 +31,7 @@
 (defn line-starts (text pos acc)
   (cond
     ((>= pos (str-len text)) acc)
-    ((= (char-text text pos) "\n") (line-starts text (+ pos 1) (++ acc (to-list (+ pos 1)))))
+    ((= (char-text text pos) "\n") (line-starts text (+ pos 1) (++ acc (List (+ pos 1)))))
     (else (line-starts text (+ pos 1) acc))))
 
 ;; The position of offset `pos`.
@@ -59,7 +59,7 @@
   (if (>= pos (str-len text))
     acc
     (let (((form next) (read-form src text pos)))
-      (read-all src text (skip text next) (++ acc (to-list form))))))
+      (read-all src text (skip text next) (++ acc (List form))))))
 
 ;; --- whitespace and comments ---
 
@@ -110,7 +110,7 @@
     ((= (char-at text pos) \)) (Tup (Lst acc (pos-at src start)) (+ pos 1)))
     (else
       (let (((form next) (read-form src text pos)))
-        (read-list src text (skip text next) (++ acc (to-list form)) start)))))
+        (read-list src text (skip text next) (++ acc (List form)) start)))))
 
 ;; A char literal: `\` and one character that isn't whitespace, then a delimiter.
 (sig read-char (Fn (Source String Int) (Tup Form Int)))

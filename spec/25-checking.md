@@ -83,7 +83,7 @@ checker infers it from how it is made and used. A local has one type, so a `fn` 
 
 ```candy run
 (put (let ((n 3) (m (* n n))) (+ m 1)))
-(put (join (map (fn (s) (++ s "!")) (to-list "hi")) ""))
+(put (join (map (fn (s) (++ s "!")) (List "hi")) ""))
 (put (let ((sq (fn (x) (* x x)))) (sq 3)))
 ```
 ```expect
@@ -141,6 +141,7 @@ A type variable named for a constraint takes only the types the constraint lists
 | `float` | `Float`, `Double` |
 | `comparable` | the numbers, `String`, `Char` |
 | `appendable` | `String`, `(List a)` |
+| `equatable` (since `collections-2`) | every type but one that is or holds a function |
 
 Any other lowercase name is an ordinary type variable, which takes any type. Like one,
 each use of a constraint variable is one type in a `sig`: `(Fn (number number) number)`
@@ -148,6 +149,15 @@ takes two numbers of one type. A second, independent one is numbered: `number2`,
 `comparable2`. A program's own `sig` can use them, so a generic function can add or
 compare its arguments; inside its body, a `number` is one unknown number type, so it
 isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
+
+`equatable` is what `=` and `!=` take ([[expr.equality]]), and the built-ins that compare
+(`contains`, `elem-index`, the prelude's `index-of`): a function, a list of them, or a
+record or variant with one among its fields is no `equatable`. A generic function that
+compares its arguments says so in its `sig`; an ordinary type variable, which takes any
+type, can't be compared. Every other constraint's types are `equatable` but
+`appendable`'s, whose lists may hold functions. Each use's type is checked once the
+definition's types are known, so the error is at the use: `=: a function can't be
+compared`, or the generic function's name.
 
 ```candy run
 (sig total (Fn ((List number) number) number))
@@ -157,9 +167,13 @@ isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
 (sig scale (Fn (number number2) number))
 (defn scale (x n) x)
 (put (total (List 1 2 3) 0) (total (List 1.5 2.5) 0.0) (biggest "ab" "b") (biggest 3 2) (scale 1 2.0))
+(sig same (Fn (equatable equatable) Bool))
+(defn same (x y) (= x y))
+(put (same (List 1 2) (List 1 2)) (same "a" "b") (same (Some 1) (Some 1)))
 ```
 ```expect
 6 4.0 b 3 1
+true false true
 ```
 
 ```candy errors
@@ -169,6 +183,22 @@ isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
 (sig f (Fn (a) a)) (defn f (x) (+ x x)) => argument 1 of +: expected number, got a
 (sig f (Fn (comparable) Int)) (defn f (x) (quot x 2)) => argument 1 of quot: expected integer, got comparable
 (sig f (Fn (number Int) Bool)) (defn f (x n) (< x n)) => argument 2 of <: expected number, got Int
+(sig f (Fn (appendable) Bool)) (defn f (x) (= x x)) => argument 1 of =: expected equatable, got appendable
+(sig same (Fn (equatable equatable) Bool)) (defn same (x y) (= x y)) (sig inc (Fn (Int) Int)) (defn inc (n) (+ n 1)) (put (same inc inc)) => same: a function can't be compared, got (Fn (Int) Int)
+(sig has (Fn (equatable (List equatable)) Bool)) (defn has (x xs) (contains x xs)) (sig fs (List (Fn (Int) Int))) (def fs empty-list) (put (has fs (List fs))) => has: a function can't be compared, got (List (Fn (Int) Int))
+```
+
+A generic function's `=` on an ordinary type variable is an error ([[B173]], fixed):
+
+```candy error
+(sig same (Fn (a a) Bool))
+(defn same (x y) (= x y))
+(sig inc (Fn (Int) Int))
+(defn inc (n) (+ n 1))
+(put (same inc inc))
+```
+```expect-error
+argument 1 of =: expected equatable, got a
 ```
 
 <a id="checking.operators"></a>
@@ -186,7 +216,7 @@ types don't mix: `(+ 1 1.0)` is an error.
 
 ```candy run
 (put (+ 1 2) (++ "a" "b") (/ 7.0 2.0) (if (< 1 2 3) "yes" "no") (< "ab" "b") (< \a \b))
-(put (len (++ (to-list 1) (to-list 2) (to-list 3))))
+(put (len (++ (List 1) (List 2) (List 3))))
 ```
 ```expect
 3 ab 3.5 yes true true
@@ -321,7 +351,7 @@ with the field, of the type the constraint found; one that met only `Any` is `An
 
 ```candy run
 (deft P ((name String)))
-(put (join (map (fn (p) (get p name)) (to-list (P "ann"))) ","))
+(put (join (map (fn (p) (get p name)) (List (P "ann"))) ","))
 ```
 ```expect
 ann
@@ -416,7 +446,7 @@ Python writes `Any` (*for now*: [[B133]]). *Tested in* `test_unsolved_types` and
 Python annotations, not in what a program prints.
 
 ```candy run
-(put (+ (at (to-list 41) 0) 1))
+(put (+ (at (List 41) 0) 1))
 ```
 ```expect
 42

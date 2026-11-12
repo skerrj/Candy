@@ -53,7 +53,7 @@
       ((= (ch text pos) ")") (Tup acc (+ pos 1)))
       (else
         (let (((form next) (read-form text pos)))
-          (read-list text next (++ acc (to-list form))))))))
+          (read-list text next (++ acc (List form))))))))
 
 (sig read-form (Fn (String Int) (Tup Any Int)))
 (defn read-form (text pos)
@@ -71,7 +71,7 @@
     (if (>= pos (str-len text))
       acc
       (let (((form next) (read-form text pos)))
-        (read-all text next (++ acc (to-list form)))))))
+        (read-all text next (++ acc (List form)))))))
 
 (sig read-string (Fn (String) (List Any)))
 (defn read-string (text) (read-all text 0 empty-list))

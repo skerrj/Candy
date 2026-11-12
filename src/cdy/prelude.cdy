@@ -23,7 +23,7 @@
 (defn find (keep xs) (let ((i (find-index keep xs))) (if (< i 0) None (Some (at xs i)))))
 
 ;; The index of the first item of `xs` equal to `x`.
-(sig index-of (Fn (a (List a)) (Maybe Int)))
+(sig index-of (Fn (equatable (List equatable)) (Maybe Int)))
 (defn index-of (x xs) (let ((i (elem-index x xs))) (if (< i 0) None (Some i))))
 
 ;; `m`'s value, or `fallback` if it is None.

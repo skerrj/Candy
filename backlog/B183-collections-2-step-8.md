@@ -1,10 +1,10 @@
 # B183: collections-2 step 8: docs
 
 kind: task
-state: open
+state: done
 priority: normal
 found: collections-2, 2026-11-10
-fixed:
+fixed: collections-2, 2026-11-11
 where: `CLAUDE.md`, `doc/hl_rqmt/`, `spec/`
 refs: [[B167]], [[B177]], [[B178]], [[B179]], [[B180]], [[B181]], [[B182]]
 
@@ -13,3 +13,5 @@ Step 8 of `doc/hl_rqmt/collections_2.md`. CLAUDE.md, `python_complete.md` (its t
 ## Notes
 
 - 2026-11-10, Claude: filed on the HLD's acceptance (the owner, 2026-11-10).
+- 2026-11-11, Claude: built (the HLD's step 8 *Done* note, and "Looking back"). In review.
+- 2026-11-11, the owner: ticked in review.

@@ -357,7 +357,7 @@ commit, and `bootstrap.py --tag` tags a step only once it passes.
    owner chose at Question 5's checkpoint, after step 6. [[B174]] (`to-list`) and
    [[B173]] (a generic `=` on functions) go with it, to be placed in its HLD.
    *Accepted there (2026-11-10):* `collections_2.md`, steps 1 to 5, with [[B174]] its
-   step 6 and [[B173]] its step 7.
+   step 6 and [[B173]] its step 7. *Done there (2026-11-11, tag `collections-2`).*
 8. **Docs** ([[B168]]): CLAUDE.md, the epic's third branch *done*, `multi_target.md` (the operators'
    types, constraint variables), the iMVP doc's operator rows; "Looking back".
 

@@ -24,6 +24,7 @@ from cdy_rt.primitives import (
     list_filter,
     list_fold,
     list_map,
+    list_map_acc,
     load_macros,
     make_dirs,
     map_get,
@@ -48,7 +49,6 @@ from cdy_rt.primitives import (
     str_contains,
     text_any,
     to_float,
-    to_list,
 )
 
 
@@ -60,7 +60,6 @@ def test_collections() -> None:
     assert slice_("candy", 1, 3) == "an"
     assert join(("a", "b"), ", ") == "a, b"
     assert is_coll((1,)) and is_coll([1]) and not is_coll("ab")
-    assert to_list(5) == (5,)
     assert str_contains("b", "abc") and not str_contains("abd", "abc")
 
 
@@ -205,6 +204,8 @@ def test_list_functions() -> None:
     assert list_map(lambda n: n * 2, (1, 2, 3)) == (2, 4, 6)
     assert list_filter(lambda n: n % 2 == 1, (1, 2, 3)) == (1, 3)
     assert list_fold(lambda acc, s: acc + s, "", ("a", "b")) == "ab"
+    assert list_map_acc(lambda n, s: (n + 1, f"{n}{s}"), 0, ("a", "b")) == (2, ("0a", "1b"))
+    assert list_map_acc(lambda n, s: (n + 1, s), 5, ()) == (5, ())
     assert not list_map(str, ())
 
 

@@ -26,3 +26,9 @@ and a value, with a spelling for each, and the call kept a Python tuple literal.
 ## Notes
 
 - 2026-11-08, the owner: keep `List` the analyser's constructor in step 1 (option A).
+- 2026-11-11, Claude: with `to-list` gone ([[B174]], `collections-2` step 6), nothing makes
+  a one-item list as a value: `(map to-list xs)` is `(map (fn (x) (List x)) xs)`. The
+  owner asked why `List` can't just be a procedure, as Scheme's `list` is; Claude's
+  answer: it can, with this item's fix and a value rule that gives a rest function the
+  arity its expected type asks for (`(map List xs)` wants an `(Fn (a) b)`), since today's
+  rule makes it an `(Fn () (List a))`. Not filed as its own item yet.

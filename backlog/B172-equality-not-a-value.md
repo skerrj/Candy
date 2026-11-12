@@ -25,3 +25,5 @@ in `spelling.py` and `primitives.py`.
 - 2026-11-09, the owner: dropped (option A): `=` and `!=` are values after all. Not being
   one closed nothing: a generic function's `=` compares functions already ([[B173]]), so
   as values they are no worse.
+- 2026-11-11, Claude: `infer-compare` is gone (`collections-2` step 7, [[B173]]): `=` as a
+  value is an `(Fn (equatable equatable) Bool)`, which keeps it off functions.

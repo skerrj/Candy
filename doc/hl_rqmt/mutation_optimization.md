@@ -65,7 +65,11 @@ belong in Core → Core passes or in `lower`, so every target benefits.
   for 16000 items; built in, 0.67 ms). Options: a cons list or a persistent vector
   (Clojure's) as the runtime's list, or in-place appends where the old list can't be
   reached any more (as for `assoc`, above). Until then, `map`, `filter` and `fold` are
-  built-ins (`doc/hl_rqmt/system_prelude.md`, step 5).
+  built-ins (`doc/hl_rqmt/system_prelude.md`, step 5). *Since `collections-2`*
+  (`collections_2.md`): the translator's loops are `map`, `filter`, `fold` and `map-acc`
+  calls ([[B123]]), which build a Python list and copy once, so most of its copies are
+  gone; what still copies is a `fold` that builds a list, and a map built a key at a time
+  (`map-set`), [[B69]]'s rest.
 - **Inlining and constant folding**, for small functions and constant arithmetic.
 - **Fewer temporaries.** `lower` adds temporaries to keep evaluation order. An analysis of
   which expressions have no side effects would let it skip more of them.
