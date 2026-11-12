@@ -286,13 +286,13 @@ def read__read_forms(text: str) -> tuple[form__Form, ...]:
     return read__read_all(read__Source('', (), form__NOWHERE), text, read__skip(text, 0), ())
 
 def read__read_source(file: str, text: str) -> tuple[form__Form, ...]:
-    return read__read_all(read__Source(file, read__line_starts(text, 0, cdy_rt.primitives.to_list(0)), form__Pos(file, 1, 1)), text, read__skip(text, 0), ())
+    return read__read_all(read__Source(file, read__line_starts(text, 0, (0,)), form__Pos(file, 1, 1)), text, read__skip(text, 0), ())
 
 def read__read_hole(text: str, where: form__Pos) -> tuple[form__Form, ...]:
     if (where.line == 0):
         return read__read_forms(text)
     else:
-        return read__read_all(read__Source(where.file, read__line_starts(text, 0, cdy_rt.primitives.to_list(0)), where), text, read__skip(text, 0), ())
+        return read__read_all(read__Source(where.file, read__line_starts(text, 0, (0,)), where), text, read__skip(text, 0), ())
 
 class read__Source(_cdy_NamedTuple):
     file: str
@@ -311,7 +311,7 @@ def read__line_starts(text: str, pos: int, acc: tuple[int, ...]) -> tuple[int, .
         if (pos >= len(text)):
             return acc
         elif (read__char_text(text, pos) == '\n'):
-            pos, acc = ((pos + 1), (acc + cdy_rt.primitives.to_list((pos + 1))))
+            pos, acc = ((pos + 1), (acc + ((pos + 1),)))
             continue
         else:
             pos = (pos + 1)
@@ -346,7 +346,7 @@ def read__read_all(src: read__Source, text: str, pos: int, acc: tuple[form__Form
             _tup = read__read_form(src, text, pos)
             form = _tup[0]
             next_ = _tup[1]
-            pos, acc = (read__skip(text, next_), (acc + cdy_rt.primitives.to_list(form)))
+            pos, acc = (read__skip(text, next_), (acc + (form,)))
             continue
 
 def read__skip(text: str, pos: int) -> int:
@@ -407,7 +407,7 @@ def read__read_list(src: read__Source, text: str, pos: int, acc: tuple[form__For
             _tup = read__read_form(src, text, pos)
             form = _tup[0]
             next_ = _tup[1]
-            pos, acc = (read__skip(text, next_), (acc + cdy_rt.primitives.to_list(form)))
+            pos, acc = (read__skip(text, next_), (acc + (form,)))
             continue
 
 def read__read_char(src: read__Source, text: str, pos: int) -> tuple[form__Form, int]:
@@ -642,8 +642,8 @@ def include__text_modules(text: str) -> tuple[include__Module, ...]:
 
 def include__add_module(path: str, key: str, forms: tuple[form__Form, ...], dir_: str, stack: tuple[str, ...], acc: include__Mods) -> include__Mods:
     imports = (include__prelude_module(key) + include__module_imports(forms, dir_))
-    inner = include__load_imports(imports, (stack + cdy_rt.primitives.to_list(key)), acc._replace(seen=cdy_rt.primitives.map_set(acc.seen, key, True)))
-    return inner._replace(done=(inner.done + cdy_rt.primitives.to_list(include__Module(path, key, cdy_rt.primitives.path_stem(path), include__other_forms(forms, dir_), include__imp_list(imports)))))
+    inner = include__load_imports(imports, (stack + (key,)), acc._replace(seen=cdy_rt.primitives.map_set(acc.seen, key, True)))
+    return inner._replace(done=(inner.done + (include__Module(path, key, cdy_rt.primitives.path_stem(path), include__other_forms(forms, dir_), include__imp_list(imports)),)))
 
 def include__prelude_module(key: str) -> tuple[tuple[str, include__Imp], ...]:
     path = include__library_path('prelude.cdy')
@@ -651,7 +651,7 @@ def include__prelude_module(key: str) -> tuple[tuple[str, include__Imp], ...]:
     if (prelude == key):
         return ()
     else:
-        return cdy_rt.primitives.to_list((path, include__Imp(prelude, form__NOWHERE)))
+        return ((path, include__Imp(prelude, form__NOWHERE)),)
 
 def include__library_path(name: str) -> str:
     dir_ = cdy_rt.primitives.module_dir(form__sym_name)
@@ -739,7 +739,7 @@ def include__include_forms(forms: tuple[form__Form, ...], dir_: str, start: incl
     def _cdy_t9(acc: include__Incl, form: form__Form) -> include__Incl:
         name = include__import_name(form)
         if (name == ''):
-            return acc._replace(done=(acc.done + cdy_rt.primitives.to_list(include__macro_import(form, dir_))))
+            return acc._replace(done=(acc.done + (include__macro_import(form, dir_),)))
         else:
             return include__include_file(include__import_path('import', dir_, name, form__form_pos(form)), acc)
     return cdy_rt.primitives.list_fold(_cdy_t9, start, forms)
@@ -1418,7 +1418,7 @@ def core__nest(pairs: tuple[tuple[core__Expr, core__Expr], ...], body: core__Exp
         _tup = pairs[0]
         loc = _tup[0]
         init = _tup[1]
-        return core__Call(core__Lambda(cdy_rt.primitives.to_list(loc), core__nest(prelude__rest(pairs), body, pos), pos, core__ANY), cdy_rt.primitives.to_list(init), pos, core__ANY)
+        return core__Call(core__Lambda((loc,), core__nest(prelude__rest(pairs), body, pos), pos, core__ANY), (init,), pos, core__ANY)
 
 def core__an_fn(args: tuple[form__Form, ...], scope: core__Scope, n: int) -> tuple[core__Expr, int]:
     if (len(args) != 2):
@@ -1486,7 +1486,7 @@ def core__assoc_fields(forms: tuple[form__Form, ...], scope: core__Scope, n: int
             if (field == ''):
                 return cdy_rt.primitives.fail(core__located(scope, 'assoc field must be a name'))
             else:
-                forms, n, acc = (cdy_rt.primitives.list_drop(2, forms), n1, (acc + cdy_rt.primitives.to_list((field, val))))
+                forms, n, acc = (cdy_rt.primitives.list_drop(2, forms), n1, (acc + ((field, val),)))
                 continue
 
 def core__an_format(args: tuple[form__Form, ...], scope: core__Scope, n: int) -> tuple[core__Expr, int]:
@@ -1527,7 +1527,7 @@ def core__format_parts(text: str, where: form__Pos, pos: int, acc: str, scope: c
                 _tup = core__analyse_expr(forms[0], scope, n)
                 e = _tup[0]
                 n1 = _tup[1]
-                pos, acc, n, parts = ((end + 1), '', n1, (core__add_text(parts, acc) + cdy_rt.primitives.to_list(core__FHole(e))))
+                pos, acc, n, parts = ((end + 1), '', n1, (core__add_text(parts, acc) + (core__FHole(e),)))
                 continue
         else:
             pos, acc = ((pos + 1), (acc + c))
@@ -1561,7 +1561,7 @@ def core__add_text(parts: tuple[core__FPart, ...], text: str) -> tuple[core__FPa
     if (text == ''):
         return parts
     else:
-        return (parts + cdy_rt.primitives.to_list(core__FText(text)))
+        return (parts + (core__FText(text),))
 
 def core__an_match(args: tuple[form__Form, ...], scope: core__Scope, n: int) -> tuple[core__Expr, int]:
     if (len(args) < 2):
@@ -1617,7 +1617,7 @@ def core__an_match_tup(args: tuple[form__Form, ...], scope: core__Scope, n: int)
         _cdy__tup_260 = core__analyse_expr(items[1], inner, n2)
         body = _cdy__tup_260[0]
         n3 = _cdy__tup_260[1]
-        return (core__nest((cdy_rt.primitives.to_list((tmp, subject)) + pairs), body, scope.here), n3)
+        return (core__nest((((tmp, subject),) + pairs), body, scope.here), n3)
 
 def core__tup_binds(names: tuple[form__Form, ...], tmp: core__Expr, i: int, scope: core__Scope, n: int, acc: tuple[tuple[core__Expr, core__Expr], ...]) -> tuple[tuple[tuple[core__Expr, core__Expr], ...], core__Scope, int]:
     while True:
@@ -1635,7 +1635,7 @@ def core__tup_binds(names: tuple[form__Form, ...], tmp: core__Expr, i: int, scop
             elif core__bound_in_pairs(name, acc):
                 return cdy_rt.primitives.fail(core__located(scope, 'match: names in a pattern must be different'))
             else:
-                names, i, scope, n, acc = (prelude__rest(names), (i + 1), core__bind_local(scope, name, loc), (n + 1), (acc + cdy_rt.primitives.to_list((loc, item))))
+                names, i, scope, n, acc = (prelude__rest(names), (i + 1), core__bind_local(scope, name, loc), (n + 1), (acc + ((loc, item),)))
                 continue
 
 def core__bound_in_pairs(name: str, pairs: tuple[tuple[core__Expr, core__Expr], ...]) -> bool:
@@ -1744,7 +1744,7 @@ def core__add_clause(m: core__Expr, clause: core__Clause) -> core__Expr:
         clauses = _cdy_t26.clauses
         default = _cdy_t26.default
         pos = _cdy_t26.pos
-        return core__MatchE(subject, (clauses + cdy_rt.primitives.to_list(clause)), default, pos, core__ANY)
+        return core__MatchE(subject, (clauses + (clause,)), default, pos, core__ANY)
     else:
         return m
 
@@ -1754,7 +1754,7 @@ def core__set_default(m: core__Expr, e: core__Expr) -> core__Expr:
         subject = _cdy_t27.subject
         clauses = _cdy_t27.clauses
         pos = _cdy_t27.pos
-        return core__MatchE(subject, clauses, cdy_rt.primitives.to_list(e), pos, core__ANY)
+        return core__MatchE(subject, clauses, (e,), pos, core__ANY)
     else:
         return m
 
@@ -1773,7 +1773,7 @@ def core__pattern_binds(fields: tuple[str, ...], names: tuple[form__Form, ...], 
             elif core__bound_in(name, acc):
                 return cdy_rt.primitives.fail(core__located(scope, 'match: names in a pattern must be different'))
             else:
-                fields, names, scope, n, acc = (prelude__rest(fields), prelude__rest(names), core__bind_local(scope, name, loc), (n + 1), (acc + cdy_rt.primitives.to_list((fields[0], loc))))
+                fields, names, scope, n, acc = (prelude__rest(fields), prelude__rest(names), core__bind_local(scope, name, loc), (n + 1), (acc + ((fields[0], loc),)))
                 continue
 
 def core__bound_in(name: str, binds: tuple[tuple[str, core__Expr], ...]) -> bool:
@@ -1890,20 +1890,20 @@ def core__quasi_parts(items: tuple[form__Form, ...], scope: core__Scope, n: int,
                 _tup = core__unq_arg(item, core__at_pos(scope, form__form_pos(item)), n)
                 e = _tup[0]
                 n1 = _tup[1]
-                items, n, run, parts = (prelude__rest(items), n1, (), (core__close_run(run, parts) + cdy_rt.primitives.to_list(e)))
+                items, n, run, parts = (prelude__rest(items), n1, (), (core__close_run(run, parts) + (e,)))
                 continue
             else:
                 _cdy__tup_381 = core__quasi_form(item, scope, n)
                 _cdy_e_382 = _cdy__tup_381[0]
                 _cdy_n1_383 = _cdy__tup_381[1]
-                items, n, run = (prelude__rest(items), _cdy_n1_383, (run + cdy_rt.primitives.to_list(_cdy_e_382)))
+                items, n, run = (prelude__rest(items), _cdy_n1_383, (run + (_cdy_e_382,)))
                 continue
 
 def core__close_run(run: tuple[core__Expr, ...], parts: tuple[core__Expr, ...]) -> tuple[core__Expr, ...]:
     if (len(run) == 0):
         return parts
     else:
-        return (parts + cdy_rt.primitives.to_list(core__Tuple(run, form__NOWHERE, core__ANY)))
+        return (parts + (core__Tuple(run, form__NOWHERE, core__ANY),))
 
 def core__join_parts(parts: tuple[core__Expr, ...]) -> core__Expr:
     if (len(parts) == 0):
@@ -1935,7 +1935,7 @@ def core__analyse_type(form: form__Form) -> core__CType:
                 return cdy_rt.primitives.fail((form__pos_text(form__form_pos(form)) + 'bad function type: expected (Fn (Arg+) Ret)'))
         elif (form__sym_name(items[0]) == 'Rest'):
             if (len(items) == 2):
-                return core__TCon('Rest', cdy_rt.primitives.to_list(core__analyse_type(items[1])))
+                return core__TCon('Rest', (core__analyse_type(items[1]),))
             else:
                 return cdy_rt.primitives.fail((form__pos_text(form__form_pos(form)) + 'bad rest type: expected (Rest Type)'))
         else:
@@ -2200,11 +2200,11 @@ def core__read_sigs(forms: tuple[form__Form, ...], spellings: _cdy_Mapping[str, 
 def core__read_type(form: form__Form, items: tuple[form__Form, ...], where: str, spellings: _cdy_Mapping[str, tuple[str, str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
     header = (items[1] if (len(items) == 2) else form)
     _cdy_t45: object = header
-    if isinstance(_cdy_t45, form__Sym):
-        _cdy_t44 = cdy_rt.primitives.to_list(header)
-    elif isinstance(_cdy_t45, form__Lst):
+    if isinstance(_cdy_t45, form__Lst):
         xs = _cdy_t45.items
         _cdy_t44 = xs
+    elif isinstance(_cdy_t45, form__Sym):
+        _cdy_t44 = (header,)
     else:
         _cdy_t44 = ()
     parts = _cdy_t44
@@ -2421,7 +2421,7 @@ def core__analyse_tops(forms: tuple[form__Form, ...], scope: core__Scope, prog: 
             continue
 
 def core__add_top(prog: core__Prog, top: core__Top, n: int) -> core__Prog:
-    return prog._replace(out=(prog.out + cdy_rt.primitives.to_list(top)), n=n)
+    return prog._replace(out=(prog.out + (top,)), n=n)
 
 def core__mark_defined(prog: core__Prog, name: str) -> core__Prog:
     return prog._replace(defined=cdy_rt.primitives.map_set(prog.defined, name, True))
@@ -2610,7 +2610,7 @@ def core__repeated(forms: tuple[form__Form, ...], seen: tuple[str, ...], i: int)
         elif cdy_rt.primitives.list_contains(form__sym_name(cdy_rt.primitives.at(forms, i)), seen):
             return i
         else:
-            seen, i = ((seen + cdy_rt.primitives.to_list(form__sym_name(cdy_rt.primitives.at(forms, i)))), (i + 1))
+            seen, i = ((seen + (form__sym_name(cdy_rt.primitives.at(forms, i)),)), (i + 1))
             continue
 
 def core__needs_sig(name: str, prog: core__Prog, scope: core__Scope) -> core__CType:
@@ -2708,7 +2708,7 @@ def core__bind_params(forms: tuple[form__Form, ...], scope: core__Scope, n: int)
     sc = _cdy__tup_724[0]
     k = _cdy__tup_724[1]
     return (locs, sc, k)
-core__MAIN_TYPE: core__CType = core__TFn(cdy_rt.primitives.to_list(core__TCon('List', cdy_rt.primitives.to_list(core__TCon('String', ())))), core__TCon('Int', ()))
+core__MAIN_TYPE: core__CType = core__TFn((core__TCon('List', (core__TCon('String', ()),)),), core__TCon('Int', ()))
 
 def core__has_main(tops: tuple[core__Top, ...]) -> bool:
     while True:
@@ -2968,7 +2968,7 @@ def lower__assigns(targets: tuple[core__Expr, ...], vals: tuple[core__Expr, ...]
         if (len(targets) == 0):
             return acc
         else:
-            targets, vals, acc = (prelude__rest(targets), prelude__rest(vals), (acc + cdy_rt.primitives.to_list(lower__SAssign(targets[0], vals[0]))))
+            targets, vals, acc = (prelude__rest(targets), prelude__rest(vals), (acc + (lower__SAssign(targets[0], vals[0]),)))
             continue
 
 def lower__value(e: core__Expr, n: int) -> lower__Low:
@@ -3042,7 +3042,7 @@ def lower__value(e: core__Expr, n: int) -> lower__Low:
             fields = _cdy_t73.fields
             _cdy_pos_67 = _cdy_t73.pos
             _cdy_ty_68 = _cdy_t73.t
-            _cdy__tup_69 = lower__value_seq((cdy_rt.primitives.to_list(_cdy_obj_65) + lower__field_vals(fields)), n)
+            _cdy__tup_69 = lower__value_seq(((_cdy_obj_65,) + lower__field_vals(fields)), n)
             _cdy_stmts_70 = _cdy__tup_69[0]
             _cdy_vals_71 = _cdy__tup_69[1]
             _cdy_n1_72 = _cdy__tup_69[2]
@@ -3071,7 +3071,7 @@ def lower__lower_match(e: core__Expr, mode: str, tmp: core__Expr, n: int) -> tup
         _cdy__tup_90 = lower__lower_default(default, mode, tmp, n2)
         default_stmts = _cdy__tup_90[0]
         n3 = _cdy__tup_90[1]
-        return ((low.stmts + cdy_rt.primitives.to_list(lower__SMatch(temp, low.expr, cases, default_stmts))), n3)
+        return ((low.stmts + (lower__SMatch(temp, low.expr, cases, default_stmts),)), n3)
     else:
         return cdy_rt.primitives.fail('internal error: lower: not a match')
 
@@ -3082,7 +3082,7 @@ def lower__lower_default(default: tuple[core__Expr, ...], mode: str, tmp: core__
         _tup = lower__lower_body(default[0], mode, tmp, n)
         stmts = _tup[0]
         n1 = _tup[1]
-        return (cdy_rt.primitives.to_list(stmts), n1)
+        return ((stmts,), n1)
 
 def lower__lower_cases(clauses: tuple[core__Clause, ...], mode: str, tmp: core__Expr, n: int) -> tuple[tuple[lower__Case, ...], int]:
     def _cdy_t75(k: int, clause: core__Clause) -> tuple[int, lower__Case]:
@@ -3102,7 +3102,7 @@ def lower__lower_body(e: core__Expr, mode: str, tmp: core__Expr, n: int) -> tupl
         return lower__effect(e, n)
     else:
         low = lower__value(e, n)
-        return ((low.stmts + cdy_rt.primitives.to_list(lower__SAssign(tmp, low.expr))), low.n)
+        return ((low.stmts + (lower__SAssign(tmp, low.expr),)), low.n)
 
 def lower__value_fn(params: tuple[core__Expr, ...], body: core__Expr, pos: form__Pos, ty: core__CType, n: int) -> lower__Low:
     _tup = lower__tail(body, n)
@@ -3113,7 +3113,7 @@ def lower__value_fn(params: tuple[core__Expr, ...], body: core__Expr, pos: form_
         result = _cdy_t76.val
         return lower__Low((), core__Lambda(params, result, pos, ty), n1)
     else:
-        return lower__Low(cdy_rt.primitives.to_list(lower__SLocalFunc(core__Temp(n1, ty), params, stmts, ty)), core__Temp(n1, ty), (n1 + 1))
+        return lower__Low((lower__SLocalFunc(core__Temp(n1, ty), params, stmts, ty),), core__Temp(n1, ty), (n1 + 1))
 
 def lower__holes(parts: tuple[core__FPart, ...]) -> tuple[core__Expr, ...]:
     def _cdy_t78(acc: tuple[core__Expr, ...], part: core__FPart) -> tuple[core__Expr, ...]:
@@ -3133,12 +3133,12 @@ def lower__fill_holes(parts: tuple[core__FPart, ...], vals: tuple[core__Expr, ..
         else:
             _cdy_t79: object = parts[0]
             if isinstance(_cdy_t79, core__FHole):
-                parts, vals, acc = (prelude__rest(parts), prelude__rest(vals), (acc + cdy_rt.primitives.to_list(core__FHole(vals[0]))))
+                parts, vals, acc = (prelude__rest(parts), prelude__rest(vals), (acc + (core__FHole(vals[0]),)))
                 continue
             else:
                 assert isinstance(_cdy_t79, core__FText)
                 text = _cdy_t79.text
-                parts, acc = (prelude__rest(parts), (acc + cdy_rt.primitives.to_list(core__FText(text))))
+                parts, acc = (prelude__rest(parts), (acc + (core__FText(text),)))
                 continue
 
 def lower__field_vals(fields: tuple[tuple[str, core__Expr], ...]) -> tuple[core__Expr, ...]:
@@ -3157,14 +3157,14 @@ def lower__refill(fields: tuple[tuple[str, core__Expr], ...], vals: tuple[core__
             _tup = fields[0]
             f = _tup[0]
             _ = _tup[1]
-            fields, vals, acc = (prelude__rest(fields), prelude__rest(vals), (acc + cdy_rt.primitives.to_list((f, vals[0]))))
+            fields, vals, acc = (prelude__rest(fields), prelude__rest(vals), (acc + ((f, vals[0]),)))
             continue
 
 def lower__value_call(callee: core__Expr, args: tuple[core__Expr, ...], pos: form__Pos, ty: core__CType, n: int) -> lower__Low:
     if cdy_rt.primitives.list_contains(lower__prim_name(callee), ('and', 'or')):
         return lower__value_boolop(callee, args, pos, ty, n)
     else:
-        _tup = lower__value_seq((cdy_rt.primitives.to_list(callee) + args), n)
+        _tup = lower__value_seq(((callee,) + args), n)
         stmts = _tup[0]
         items = _tup[1]
         n1 = _tup[2]
@@ -3186,20 +3186,20 @@ def lower__value_boolop(op: core__Expr, args: tuple[core__Expr, ...], pos: form_
     later = prelude__rest(lows)
     if lower__has_stmts(later):
         tmp = core__Temp(n1, ty)
-        return lower__Low((first.stmts + cdy_rt.primitives.to_list(lower__SAssign(tmp, first.expr)) + cdy_rt.primitives.to_list(lower__guard(op, tmp, lower__guarded(op, later, tmp)))), tmp, (n1 + 1))
+        return lower__Low((first.stmts + (lower__SAssign(tmp, first.expr),) + (lower__guard(op, tmp, lower__guarded(op, later, tmp)),)), tmp, (n1 + 1))
     else:
         return lower__Low(first.stmts, core__Call(op, lower__low_exprs(lows), pos, ty), n1)
 
 def lower__guarded(op: core__Expr, lows: tuple[lower__Low, ...], tmp: core__Expr) -> tuple[lower__Stmt, ...]:
     low = lows[0]
-    assign = (low.stmts + cdy_rt.primitives.to_list(lower__SAssign(tmp, low.expr)))
+    assign = (low.stmts + (lower__SAssign(tmp, low.expr),))
     if (len(lows) == 1):
         return assign
     else:
-        return (assign + cdy_rt.primitives.to_list(lower__guard(op, tmp, lower__guarded(op, prelude__rest(lows), tmp))))
+        return (assign + (lower__guard(op, tmp, lower__guarded(op, prelude__rest(lows), tmp)),))
 
 def lower__guard(op: core__Expr, tmp: core__Expr, body: tuple[lower__Stmt, ...]) -> lower__Stmt:
-    return lower__SIf((tmp if (lower__prim_name(op) == 'and') else core__Call(core__Prim('not', form__NOWHERE, core__ANY), cdy_rt.primitives.to_list(tmp), form__NOWHERE, core__ANY)), body, ())
+    return lower__SIf((tmp if (lower__prim_name(op) == 'and') else core__Call(core__Prim('not', form__NOWHERE, core__ANY), (tmp,), form__NOWHERE, core__ANY)), body, ())
 
 def lower__low_exprs(lows: tuple[lower__Low, ...]) -> tuple[core__Expr, ...]:
     return cdy_rt.primitives.list_map((lambda low: low.expr), lows)
@@ -3237,10 +3237,10 @@ def lower__seq_build(lows: tuple[lower__Low, ...], n: int, stmts: tuple[lower__S
             low = lows[0]
             later = prelude__rest(lows)
             if (lower__has_stmts(later) and (not lower__is_simple(low.expr))):
-                lows, n, stmts, out = (later, (n + 1), (stmts + low.stmts + cdy_rt.primitives.to_list(lower__SAssign(core__Temp(n, low.expr.t), low.expr))), (out + cdy_rt.primitives.to_list(core__Temp(n, low.expr.t))))
+                lows, n, stmts, out = (later, (n + 1), (stmts + low.stmts + (lower__SAssign(core__Temp(n, low.expr.t), low.expr),)), (out + (core__Temp(n, low.expr.t),)))
                 continue
             else:
-                lows, stmts, out = (later, (stmts + low.stmts), (out + cdy_rt.primitives.to_list(low.expr)))
+                lows, stmts, out = (later, (stmts + low.stmts), (out + (low.expr,)))
                 continue
 
 def lower__value_if(test: core__Expr, then: core__Expr, other: core__Expr, pos: form__Pos, ty: core__CType, n: int) -> lower__Low:
@@ -3251,10 +3251,10 @@ def lower__value_if(test: core__Expr, then: core__Expr, other: core__Expr, pos: 
         return lower__Low(t.stmts, core__If(t.expr, a.expr, b.expr, pos, ty), b.n)
     elif lower__is_if_into(b.stmts, b.expr):
         tmp = b.expr
-        return lower__Low((t.stmts + cdy_rt.primitives.to_list(lower__SIf(t.expr, (a.stmts + cdy_rt.primitives.to_list(lower__SAssign(tmp, a.expr))), b.stmts))), tmp, b.n)
+        return lower__Low((t.stmts + (lower__SIf(t.expr, (a.stmts + (lower__SAssign(tmp, a.expr),)), b.stmts),)), tmp, b.n)
     else:
         _cdy_tmp_207 = core__Temp(b.n, ty)
-        return lower__Low((t.stmts + cdy_rt.primitives.to_list(lower__SIf(t.expr, (a.stmts + cdy_rt.primitives.to_list(lower__SAssign(_cdy_tmp_207, a.expr))), (b.stmts + cdy_rt.primitives.to_list(lower__SAssign(_cdy_tmp_207, b.expr)))))), _cdy_tmp_207, (b.n + 1))
+        return lower__Low((t.stmts + (lower__SIf(t.expr, (a.stmts + (lower__SAssign(_cdy_tmp_207, a.expr),)), (b.stmts + (lower__SAssign(_cdy_tmp_207, b.expr),))),)), _cdy_tmp_207, (b.n + 1))
 
 def lower__is_if_into(stmts: tuple[lower__Stmt, ...], e: core__Expr) -> bool:
     _cdy_t87 = (len(stmts) == 1)
@@ -3313,7 +3313,7 @@ def lower__tail_plain(e: core__Expr, n: int) -> tuple[tuple[lower__Stmt, ...], i
         _cdy__tup_236 = lower__tail(other, n1)
         b = _cdy__tup_236[0]
         n2 = _cdy__tup_236[1]
-        return ((t.stmts + cdy_rt.primitives.to_list(lower__SIf(t.expr, a, b))), n2)
+        return ((t.stmts + (lower__SIf(t.expr, a, b),)), n2)
     elif isinstance(_cdy_t88, core__Do):
         body = _cdy_t88.body
         _cdy__tup_240 = lower__effect_all(lower__all_but_last(body), n)
@@ -3327,7 +3327,7 @@ def lower__tail_plain(e: core__Expr, n: int) -> tuple[tuple[lower__Stmt, ...], i
         return lower__lower_match(e, 'tail', core__NIL, n)
     else:
         low = lower__value(e, n)
-        return ((low.stmts + cdy_rt.primitives.to_list(lower__SReturn(low.expr))), low.n)
+        return ((low.stmts + (lower__SReturn(low.expr),)), low.n)
 
 def lower__effect(e: core__Expr, n: int) -> tuple[tuple[lower__Stmt, ...], int]:
     if lower__is_applied(e):
@@ -3355,7 +3355,7 @@ def lower__effect_plain(e: core__Expr, n: int) -> tuple[tuple[lower__Stmt, ...],
         _cdy__tup_265 = lower__effect(other, n1)
         b = _cdy__tup_265[0]
         n2 = _cdy__tup_265[1]
-        return ((t.stmts + cdy_rt.primitives.to_list(lower__SIf(t.expr, a, b))), n2)
+        return ((t.stmts + (lower__SIf(t.expr, a, b),)), n2)
     elif isinstance(_cdy_t89, core__Do):
         body = _cdy_t89.body
         return lower__effect_all(body, n)
@@ -3366,7 +3366,7 @@ def lower__effect_plain(e: core__Expr, n: int) -> tuple[tuple[lower__Stmt, ...],
             return ((), n)
         else:
             low = lower__value(e, n)
-            return ((low.stmts + cdy_rt.primitives.to_list(lower__SExpr(low.expr))), low.n)
+            return ((low.stmts + (lower__SExpr(low.expr),)), low.n)
 
 def lower__effect_all(exprs: tuple[core__Expr, ...], n: int) -> tuple[tuple[lower__Stmt, ...], int]:
     def _cdy_t90(k: int, e: core__Expr) -> tuple[int, tuple[lower__Stmt, ...]]:
@@ -3398,18 +3398,18 @@ def lower__lower_top(top: core__Top, n: int) -> tuple[tuple[lower__Stmt, ...], i
         name = _cdy_t93.name
         tvars = _cdy_t93.tvars
         fields = _cdy_t93.fields
-        return (cdy_rt.primitives.to_list(lower__SRecord(name, tvars, fields)), n)
+        return ((lower__SRecord(name, tvars, fields),), n)
     elif isinstance(_cdy_t93, core__TDeftSum):
         _cdy_name_288 = _cdy_t93.name
         _cdy_tvars_289 = _cdy_t93.tvars
         variants = _cdy_t93.variants
-        return (cdy_rt.primitives.to_list(lower__SSum(_cdy_name_288, _cdy_tvars_289, variants)), n)
+        return ((lower__SSum(_cdy_name_288, _cdy_tvars_289, variants),), n)
     elif isinstance(_cdy_t93, core__TDef):
         _cdy_name_291 = _cdy_t93.name
         init = _cdy_t93.init
         t = _cdy_t93.t
         low = lower__value(init, n)
-        return ((low.stmts + cdy_rt.primitives.to_list(lower__SDefAssign(_cdy_name_291, low.expr, t))), low.n)
+        return ((low.stmts + (lower__SDefAssign(_cdy_name_291, low.expr, t),)), low.n)
     elif isinstance(_cdy_t93, core__TDefn):
         _cdy_name_295 = _cdy_t93.name
         params = _cdy_t93.params
@@ -3418,7 +3418,7 @@ def lower__lower_top(top: core__Top, n: int) -> tuple[tuple[lower__Stmt, ...], i
         _tup = (lower__effect(body, n) if lower__returns_unit(_cdy_t_298) else lower__tail(body, n))
         stmts = _tup[0]
         n1 = _tup[1]
-        return (cdy_rt.primitives.to_list(lower__SFunc(_cdy_name_295, params, (stmts if core__is_variadic(_cdy_t_298) else lower__loop_tail_calls(_cdy_name_295, params, stmts, lower__returns_unit(_cdy_t_298))), _cdy_t_298)), n1)
+        return ((lower__SFunc(_cdy_name_295, params, (stmts if core__is_variadic(_cdy_t_298) else lower__loop_tail_calls(_cdy_name_295, params, stmts, lower__returns_unit(_cdy_t_298))), _cdy_t_298),), n1)
     else:
         assert isinstance(_cdy_t93, core__TExpr)
         e = _cdy_t93.expr
@@ -3432,7 +3432,7 @@ def lower__loop_tail_calls(name: str, params: tuple[core__Expr, ...], body: tupl
         if (looped == body):
             return body
         else:
-            return cdy_rt.primitives.to_list(lower__SLoop(((looped + cdy_rt.primitives.to_list(lower__SReturn(core__NIL))) if unit else looped)))
+            return (lower__SLoop(((looped + (lower__SReturn(core__NIL),)) if unit else looped)),)
 
 def lower__retail_all(stmts: tuple[lower__Stmt, ...], name: str, params: tuple[core__Expr, ...]) -> tuple[lower__Stmt, ...]:
     if (len(stmts) == 0):
@@ -3447,26 +3447,26 @@ def lower__retail(s: lower__Stmt, name: str, params: tuple[core__Expr, ...]) -> 
         if lower__is_self_call(val, name, params):
             return lower__jump(params, lower__call_args(val))
         else:
-            return cdy_rt.primitives.to_list(s)
+            return (s,)
     elif isinstance(_cdy_t94, lower__SExpr):
         e = _cdy_t94.expr
         if lower__is_self_call(e, name, params):
             return lower__jump(params, lower__call_args(e))
         else:
-            return cdy_rt.primitives.to_list(s)
+            return (s,)
     elif isinstance(_cdy_t94, lower__SIf):
         test = _cdy_t94.test
         then = _cdy_t94.then
         other = _cdy_t94.other
-        return cdy_rt.primitives.to_list(lower__SIf(test, lower__retail_all(then, name, params), lower__retail_all(other, name, params)))
+        return (lower__SIf(test, lower__retail_all(then, name, params), lower__retail_all(other, name, params)),)
     elif isinstance(_cdy_t94, lower__SMatch):
         temp = _cdy_t94.temp
         subject = _cdy_t94.subject
         cases = _cdy_t94.cases
         default = _cdy_t94.default
-        return cdy_rt.primitives.to_list(lower__SMatch(temp, subject, lower__retail_cases(cases, name, params), lower__retail_lists(default, name, params)))
+        return (lower__SMatch(temp, subject, lower__retail_cases(cases, name, params), lower__retail_lists(default, name, params)),)
     else:
-        return cdy_rt.primitives.to_list(s)
+        return (s,)
 
 def lower__retail_cases(cases: tuple[lower__Case, ...], name: str, params: tuple[core__Expr, ...]) -> tuple[lower__Case, ...]:
     return cdy_rt.primitives.list_map((lambda c: c._replace(body=lower__retail_all(c.body, name, params))), cases)
@@ -3501,9 +3501,9 @@ def lower__jump(params: tuple[core__Expr, ...], args: tuple[core__Expr, ...]) ->
     targets = _tup[0]
     vals = _tup[1]
     if (len(targets) == 0):
-        return cdy_rt.primitives.to_list(lower__SContinue())
+        return (lower__SContinue(),)
     else:
-        return (cdy_rt.primitives.to_list(lower__SRebind(targets, vals)) + cdy_rt.primitives.to_list(lower__SContinue()))
+        return ((lower__SRebind(targets, vals),) + (lower__SContinue(),))
 
 def lower__same_local(param: core__Expr, e: core__Expr) -> bool:
     _cdy_t98: object = param
@@ -3528,7 +3528,7 @@ def lower__changed(params: tuple[core__Expr, ...], args: tuple[core__Expr, ...],
             params, args = (prelude__rest(params), prelude__rest(args))
             continue
         else:
-            params, args, targets, vals = (prelude__rest(params), prelude__rest(args), (targets + cdy_rt.primitives.to_list(params[0])), (vals + cdy_rt.primitives.to_list(args[0])))
+            params, args, targets, vals = (prelude__rest(params), prelude__rest(args), (targets + (params[0],)), (vals + (args[0],)))
             continue
 
 def lower__stmts_have_closure(stmts: tuple[lower__Stmt, ...]) -> bool:
@@ -3788,12 +3788,12 @@ def emit__top_names_of(top: core__Top) -> tuple[str, ...]:
     if isinstance(_cdy_t104, core__TDeftSum):
         name = _cdy_t104.name
         variants = _cdy_t104.variants
-        return (cdy_rt.primitives.to_list(name) + emit__variant_list_names(variants))
+        return ((name,) + emit__variant_list_names(variants))
     else:
         if (emit__top_name(top) == ''):
             return ()
         else:
-            return cdy_rt.primitives.to_list(emit__top_name(top))
+            return (emit__top_name(top),)
 
 def emit__variant_list_names(variants: tuple[core__Variant, ...]) -> tuple[str, ...]:
     return cdy_rt.primitives.list_map((lambda v: v.name), variants)
@@ -3853,7 +3853,7 @@ def emit__generic_fields(fields: tuple[tuple[str, core__CType], ...]) -> tuple[s
         _tup = f
         _name = _tup[0]
         t = _tup[1]
-        return (len(emit__type_vars(cdy_rt.primitives.to_list(t), ())) > 0)
+        return (len(emit__type_vars((t,), ())) > 0)
     return cdy_rt.primitives.list_map(_cdy_t108, cdy_rt.primitives.list_filter(_cdy_t109, fields))
 
 def emit__local_py(name: str, id_: int, env: emit__Env) -> str:
@@ -3885,7 +3885,7 @@ def emit__bound_locals(stmts: tuple[lower__Stmt, ...], start: tuple[core__Expr, 
             target = _cdy_t112.target
             _cdy_t113: object = target
             if isinstance(_cdy_t113, core__Local):
-                return (acc + cdy_rt.primitives.to_list(target))
+                return (acc + (target,))
             else:
                 return acc
         elif isinstance(_cdy_t112, lower__SIf):
@@ -4067,7 +4067,7 @@ def emit__show_type(t: core__CType, pos: form__Pos, env: emit__Env) -> str:
         elif (len(args) == 0):
             return emit__py_str(name)
         else:
-            return ('(' + emit__comma_join((cdy_rt.primitives.to_list(emit__py_str(name)) + cdy_rt.primitives.list_map((lambda a: emit__show_type(a, pos, env)), args))) + ')')
+            return ('(' + emit__comma_join(((emit__py_str(name),) + cdy_rt.primitives.list_map((lambda a: emit__show_type(a, pos, env)), args))) + ')')
     elif isinstance(_cdy_t124, core__TFn):
         return cdy_rt.primitives.fail((form__pos_text(pos) + "show: a function can't be shown"))
     else:
@@ -4098,7 +4098,7 @@ def emit__field_show_type(t: core__CType) -> str:
         if (len(args) == 0):
             return emit__py_str(name)
         else:
-            return ('(' + emit__comma_join((cdy_rt.primitives.to_list(emit__py_str(name)) + cdy_rt.primitives.list_map(emit__field_show_type, args))) + ')')
+            return ('(' + emit__comma_join(((emit__py_str(name),) + cdy_rt.primitives.list_map(emit__field_show_type, args))) + ')')
     elif isinstance(_cdy_t126, core__TFn):
         return emit__py_str('Fn')
     else:
@@ -4272,7 +4272,7 @@ def emit__type_vars(types: tuple[core__CType, ...], start: tuple[str, ...]) -> t
             if cdy_rt.primitives.list_contains(name, acc):
                 return acc
             else:
-                return (acc + cdy_rt.primitives.to_list(name))
+                return (acc + (name,))
         elif isinstance(_cdy_t139, core__TCon):
             args = _cdy_t139.args
             return emit__type_vars(args, acc)
@@ -4280,7 +4280,7 @@ def emit__type_vars(types: tuple[core__CType, ...], start: tuple[str, ...]) -> t
             assert isinstance(_cdy_t139, core__TFn)
             params = _cdy_t139.params
             ret = _cdy_t139.ret
-            return emit__type_vars((params + cdy_rt.primitives.to_list(ret)), acc)
+            return emit__type_vars((params + (ret,)), acc)
     return cdy_rt.primitives.list_fold(_cdy_t140, start, types)
 
 def emit__emit_stmt(s: lower__Stmt, level: int, env: emit__Env) -> str:
@@ -4511,7 +4511,7 @@ def emit__emit_params(params: tuple[core__Expr, ...], types: tuple[core__CType, 
         if (len(params) == 0):
             return acc
         else:
-            params, types, acc = (prelude__rest(params), prelude__rest(types), (acc + cdy_rt.primitives.to_list(emit__emit_param(params[0], types[0], env))))
+            params, types, acc = (prelude__rest(params), prelude__rest(types), (acc + (emit__emit_param(params[0], types[0], env),)))
             continue
 
 def emit__emit_param(param: core__Expr, t: core__CType, env: emit__Env) -> str:
@@ -4526,7 +4526,7 @@ def emit__emit_func(name: str, params: tuple[core__Expr, ...], body: tuple[lower
         types = _cdy_t157.params
         ret = _cdy_t157.ret
         inner = emit__bind_locals((params + emit__bound_locals(body, ())), env._replace(locals_={}))
-        tvars = emit__type_vars((types + cdy_rt.primitives.to_list(ret)), ())
+        tvars = emit__type_vars((types + (ret,)), ())
         tparams = emit__type_params(tvars)
         args = emit__comma_join(emit__emit_params(params, types, inner, ()))
         return ('\n' + emit__line(level, ('def ' + cdy_rt.primitives.map_get(env.globals_, name) + tparams + '(' + args + ') -> ' + emit__emit_type(ret, env) + ':')) + emit__emit_block(body, (level + 1), inner))
@@ -4585,7 +4585,7 @@ def expand__prelude_import(loading: tuple[str, ...]) -> tuple[form__Form, ...]:
     if cdy_rt.primitives.list_contains(cdy_rt.primitives.path_resolve(path), loading):
         return ()
     else:
-        return cdy_rt.primitives.to_list(form__Lst((form__Sym('import-macros', form__NOWHERE), form__Txt(path, form__NOWHERE)), form__NOWHERE))
+        return (form__Lst((form__Sym('import-macros', form__NOWHERE), form__Txt(path, form__NOWHERE)), form__NOWHERE),)
 
 def expand__pick_forms(forms: tuple[form__Form, ...], heads: tuple[str, ...], keep: bool) -> tuple[form__Form, ...]:
     def _cdy_t158(form: form__Form) -> bool:
@@ -4616,8 +4616,8 @@ def expand__import_file(form: form__Form, compile_: _cdy_Callable[[tuple[form__F
     elif cdy_rt.primitives.list_contains(key, loading):
         return cdy_rt.primitives.fail((form__pos_text(form__form_pos(form)) + 'import-macros: ' + path + ' imports itself'))
     else:
-        done = expand__expand_file(include__read_program(path), True, compile_, (loading + cdy_rt.primitives.to_list(key)))
-        return expand__Imports((acc.macros + done.own), expand__add_helpers((done.helpers + cdy_rt.primitives.to_list((key, done.forms))), acc.helpers), cdy_rt.primitives.map_set(acc.seen, key, True))
+        done = expand__expand_file(include__read_program(path), True, compile_, (loading + (key,)))
+        return expand__Imports((acc.macros + done.own), expand__add_helpers((done.helpers + ((key, done.forms),)), acc.helpers), cdy_rt.primitives.map_set(acc.seen, key, True))
 
 def expand__macro_path(form: form__Form) -> str:
     _cdy_t160: object = form__list_items(form)[1]
@@ -4635,7 +4635,7 @@ def expand__add_helpers(groups: tuple[tuple[str, tuple[form__Form, ...]], ...], 
         if expand__has_helpers(key, acc):
             return acc
         else:
-            return (acc + cdy_rt.primitives.to_list(g))
+            return (acc + (g,))
     return cdy_rt.primitives.list_fold(_cdy_t161, start, groups)
 
 def expand__has_helpers(key: str, groups: tuple[tuple[str, tuple[form__Form, ...]], ...]) -> bool:
@@ -4680,9 +4680,9 @@ def expand__macro_program(defs: tuple[form__Form, ...], builtins: _cdy_Mapping[s
         pos = form__form_pos(d)
         fname = form__Sym(expand__macro_fn(form__sym_name(items[1])), pos)
         args = form__Sym('args__', pos)
-        type_ = form__Lst((form__Sym('Fn', pos), form__Lst(cdy_rt.primitives.to_list(form__Lst((form__Sym('List', pos), form__Sym('Form', pos)), pos)), pos), form__Sym('Form', pos)), pos)
+        type_ = form__Lst((form__Sym('Fn', pos), form__Lst((form__Lst((form__Sym('List', pos), form__Sym('Form', pos)), pos),), pos), form__Sym('Form', pos)), pos)
         body = form__Lst((form__Sym('let', pos), form__Lst(expand__param_binds(items[2], args, pos), pos), items[3]), pos)
-        return (form__Lst((form__Sym('sig', pos), fname, type_), pos), form__Lst((form__Sym('defn', pos), fname, form__Lst(cdy_rt.primitives.to_list(args), pos), body), pos))
+        return (form__Lst((form__Sym('sig', pos), fname, type_), pos), form__Lst((form__Sym('defn', pos), fname, form__Lst((args,), pos), body), pos))
     return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t164, defs))
 
 def expand__defmacro_items(form: form__Form, builtins: _cdy_Mapping[str, core__Builtin]) -> tuple[form__Form, ...]:
@@ -4714,7 +4714,7 @@ def expand__param_binds(params: form__Form, args: form__Form, pos: form__Pos) ->
     if (form__sym_name(params) == ''):
         return expand__arg_binds(form__list_items(params), args, pos)
     else:
-        return cdy_rt.primitives.to_list(form__Lst((params, args), pos))
+        return (form__Lst((params, args), pos),)
 
 def expand__arg_binds(params: tuple[form__Form, ...], args: form__Form, pos: form__Pos) -> tuple[form__Form, ...]:
     def _cdy_t166(ip: tuple[int, form__Form]) -> form__Form:
@@ -5348,7 +5348,7 @@ def check__infer_all(es: tuple[core__Expr, ...], ctx: check__Ctx, st: check__St)
 def check__infer_list_of(items: tuple[core__Expr, ...], ctx: check__Ctx, st: check__St) -> check__Res:
     rv = check__fresh(st)
     st1 = cdy_rt.primitives.list_fold((lambda s, e: check__infer_expect(e, rv.t, 'List: an item', ctx, s)), rv.st, items)
-    return check__Res(core__TCon('List', cdy_rt.primitives.to_list(rv.t)), st1)
+    return check__Res(core__TCon('List', (rv.t,)), st1)
 
 def check__infer_do(body: tuple[core__Expr, ...], ctx: check__Ctx, start: check__Res) -> check__Res:
     return cdy_rt.primitives.list_fold((lambda last, e: check__infer(e, ctx, last.st)), start, body)
@@ -5376,7 +5376,7 @@ def check__fresh_types(count: int, st: check__St, acc: tuple[core__CType, ...]) 
         if (count == 0):
             return (acc, st)
         else:
-            count, st, acc = ((count - 1), st._replace(n=(st.n + 1)), (acc + cdy_rt.primitives.to_list(core__TVar(('?' + str(st.n))))))
+            count, st, acc = ((count - 1), st._replace(n=(st.n + 1)), (acc + (core__TVar(('?' + str(st.n))),)))
             continue
 
 def check__fresh(st: check__St) -> check__Res:
@@ -5728,7 +5728,7 @@ def check__field_type(ot0: core__CType, obj: core__Expr, field: str, what: str, 
         if check__is_flexible(v):
             r = check__fresh(st)
             p = check__Pending(obj, field, what, ot, r.t, ctx.here)
-            return check__Res(r.t, r.st._replace(pending=(r.st.pending + cdy_rt.primitives.to_list(p))))
+            return check__Res(r.t, r.st._replace(pending=(r.st.pending + (p,))))
         else:
             return check__Res(core__ANY, check__report((what + ': ' + v + ' has no fields'), ctx, st))
     else:
@@ -5787,7 +5787,7 @@ def check__solve_each(ps: tuple[check__Pending, ...], ctx: check__Ctx, start: ch
         if cdy_rt.primitives.map_has(st.subst, ('any' + check__tvar_name(on))):
             return (st._replace(subst=check__mark_any(p.t, st.subst)), _cdy_left_463)
         elif check__is_var(on):
-            return (st, (_cdy_left_463 + cdy_rt.primitives.to_list(p)))
+            return (st, (_cdy_left_463 + (p,)))
         else:
             c = ctx._replace(here=p.here)
             r = check__field_type(on, p.obj, p.field, p.what, c, st)
@@ -5838,7 +5838,7 @@ def check__infer_match(subject: core__Expr, clauses: tuple[core__Clause, ...], d
         return check__join_all(ctypes, 'match: the clauses', ctx, check__Res(ctypes[0], st2))
     else:
         rd = check__infer(default[0], ctx, st2)
-        return check__join_all((ctypes + cdy_rt.primitives.to_list(rd.t)), 'match: the clauses', ctx, check__Res(ctypes[0], rd.st))
+        return check__join_all((ctypes + (rd.t,)), 'match: the clauses', ctx, check__Res(ctypes[0], rd.st))
 
 def check__infer_clauses(subject: core__Expr, clauses: tuple[core__Clause, ...], vars_: _cdy_Mapping[str, core__CType], ctx: check__Ctx, st: check__St) -> tuple[tuple[core__CType, ...], check__St]:
     def _cdy_t228(s: check__St, c: core__Clause) -> tuple[check__St, core__CType]:
@@ -6420,7 +6420,7 @@ def check__rigid_vars(t: core__CType, acc: tuple[str, ...]) -> tuple[str, ...]:
         if (check__is_flexible(name) or cdy_rt.primitives.list_contains(name, acc)):
             return acc
         else:
-            return (acc + cdy_rt.primitives.to_list(name))
+            return (acc + (name,))
     elif isinstance(_cdy_t254, core__TCon):
         args = _cdy_t254.args
         return cdy_rt.primitives.list_fold((lambda a, x: check__rigid_vars(x, a)), acc, args)
@@ -6583,7 +6583,7 @@ def check__uses_all(es: tuple[core__Expr, ...], acc: tuple[tuple[str, form__Pos]
     return cdy_rt.primitives.list_fold((lambda a, x: check__uses(x, a)), acc, es)
 
 def check__report(msg: str, ctx: check__Ctx, st: check__St) -> check__St:
-    return st._replace(errors=(st.errors + cdy_rt.primitives.to_list((form__pos_text(ctx.here) + msg))))
+    return st._replace(errors=(st.errors + ((form__pos_text(ctx.here) + msg),)))
 
 def check__show(t: core__CType, subst: _cdy_Mapping[str, core__CType]) -> str:
     _cdy_t270: object = check__resolve_type(t, subst)

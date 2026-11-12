@@ -72,7 +72,7 @@
   (let ((path (library-path "prelude_macros.cdy")))
     (if (contains (path-resolve path) loading)
       empty-list
-      (to-list (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))))
+      (List (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))))
 
 ;; The forms whose heads are in `heads` (or, if `keep` is false, the others).
 (sig pick-forms (Fn ((List Form) (List String) Bool) (List Form)))
@@ -117,10 +117,10 @@
       ((contains key loading)
         (fail (format "{(pos-text (form-pos form))}import-macros: {path} imports itself")))
       (else
-        (let ((done (expand-file (read-program path) true compile (++ loading (to-list key)))))
+        (let ((done (expand-file (read-program path) true compile (++ loading (List key)))))
           (Imports
             (++ (get acc macros) (get done own))
-            (add-helpers (++ (get done helpers) (to-list (Tup key (get done forms)))) (get acc helpers))
+            (add-helpers (++ (get done helpers) (List (Tup key (get done forms)))) (get acc helpers))
             (map-set (get acc seen) key true)))))))
 
 ;; The path in (import-macros "path"), which include.cdy put there.
@@ -135,7 +135,7 @@
   (Fn ((List (Tup String (List Form))) (List (Tup String (List Form)))) (List (Tup String (List Form)))))
 (defn add-helpers (groups start)
   (fold
-    (fn (acc g) (let (((key _forms) g)) (if (has-helpers key acc) acc (++ acc (to-list g)))))
+    (fn (acc g) (let (((key _forms) g)) (if (has-helpers key acc) acc (++ acc (List g)))))
     start
     groups))
 
@@ -192,11 +192,11 @@
               (pos (form-pos d))
               (fname (Sym (macro-fn (sym-name (at items 1))) pos))
               (args (Sym "args__" pos))
-              (type (Lst (List (Sym "Fn" pos) (Lst (to-list (Lst (List (Sym "List" pos) (Sym "Form" pos)) pos)) pos) (Sym "Form" pos)) pos))
+              (type (Lst (List (Sym "Fn" pos) (Lst (List (Lst (List (Sym "List" pos) (Sym "Form" pos)) pos)) pos) (Sym "Form" pos)) pos))
               (body (Lst (List (Sym "let" pos) (Lst (param-binds (at items 2) args pos) pos) (at items 3)) pos)))
           (List
             (Lst (List (Sym "sig" pos) fname type) pos)
-            (Lst (List (Sym "defn" pos) fname (Lst (to-list args) pos) body) pos))))
+            (Lst (List (Sym "defn" pos) fname (Lst (List args) pos) body) pos))))
       defs)))
 
 ;; The items of (defmacro name params body), checked; a special form (in `builtins`)
@@ -231,7 +231,7 @@
 (defn param-binds (params args pos)
   (if (= (sym-name params) "")
     (arg-binds (list-items params) args pos)
-    (to-list (Lst (List params args) pos))))
+    (List (Lst (List params args) pos))))
 
 (sig arg-binds (Fn ((List Form) Form Pos) (List Form)))
 (defn arg-binds (params args pos)

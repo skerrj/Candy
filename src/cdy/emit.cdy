@@ -196,8 +196,8 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (sig top-names-of (Fn (Top) (List String)))
 (defn top-names-of (top)
   (match top
-    ((TDeftSum name _ variants) (++ (to-list name) (variant-list-names variants)))
-    (else (if (= (top-name top) "") empty-list (to-list (top-name top))))))
+    ((TDeftSum name _ variants) (++ (List name) (variant-list-names variants)))
+    (else (if (= (top-name top) "") empty-list (List (top-name top))))))
 
 (sig variant-list-names (Fn ((List Variant)) (List String)))
 (defn variant-list-names (variants) (map (fn (v) (get v name)) variants))
@@ -243,7 +243,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 
 (sig generic-fields (Fn ((List (Tup String CType))) (List String)))
 (defn generic-fields (fields)
-  (map (fn (f) (let (((name _t) f)) name)) (filter (fn (f) (let (((_name t) f)) (> (len (type-vars (to-list t) empty-list)) 0))) fields)))
+  (map (fn (f) (let (((name _t) f)) name)) (filter (fn (f) (let (((_name t) f)) (> (len (type-vars (List t) empty-list)) 0))) fields)))
 
 ;; A local's Python name, chosen when its scope was entered (bind-locals).
 (sig local-py (Fn (String Int Env) String))
@@ -280,7 +280,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
       (match stmt
         ((SAssign target _)
           (match target
-            ((Local _ _ _ _) (++ acc (to-list target)))
+            ((Local _ _ _ _) (++ acc (List target)))
             (else acc)))
         ((SIf _ then other) (bound-locals other (bound-locals then acc)))
         ((SMatch _ _ cases default) (bound-in-cases cases (bound-in-lists default acc)))
@@ -398,7 +398,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
         ((holds-fn name env (List name))
           (fail (++ (pos-text pos) (format "show: a function can't be shown, and {name} holds one"))))
         ((= (len args) 0) (py-str name))
-        (else (format "({(comma-join (++ (to-list (py-str name)) (map (fn (a) (show-type a pos env)) args)))})"))))
+        (else (format "({(comma-join (++ (List (py-str name)) (map (fn (a) (show-type a pos env)) args)))})"))))
     ((TFn _ _) (fail (++ (pos-text pos) "show: a function can't be shown")))
     ((TVar name)
       (let ((shown (if (starts-with name "?") (++ "t" (substring name 1 (str-len name))) name)))
@@ -429,7 +429,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     ((TCon name args)
       (if (= (len args) 0)
         (py-str name)
-        (format "({(comma-join (++ (to-list (py-str name)) (map field-show-type args)))})")))
+        (format "({(comma-join (++ (List (py-str name)) (map field-show-type args)))})")))
     ((TFn _ _) (py-str "Fn"))
     ((TVar name) (py-str (++ "'" name)))))
 
@@ -545,9 +545,9 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
   (fold
     (fn (acc t)
       (match t
-        ((TVar name) (if (contains name acc) acc (++ acc (to-list name))))
+        ((TVar name) (if (contains name acc) acc (++ acc (List name))))
         ((TCon _ args) (type-vars args acc))
-        ((TFn params ret) (type-vars (++ params (to-list ret)) acc))))
+        ((TFn params ret) (type-vars (++ params (List ret)) acc))))
     start
     types))
 
@@ -794,7 +794,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
       (rest params)
       (rest types)
       env
-      (++ acc (to-list (emit-param (at params 0) (at types 0) env))))))
+      (++ acc (List (emit-param (at params 0) (at types 0) env))))))
 
 ;; `name: T`, or a rest parameter's `*name: T`, T its items' type (types.rest).
 (sig emit-param (Fn (Expr CType Env) String))
@@ -811,7 +811,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
   (match t
     ((TFn types ret)
       (let ((inner (bind-locals (++ params (bound-locals body empty-list)) (assoc env locals empty-map)))
-            (tvars (type-vars (++ types (to-list ret)) empty-list))
+            (tvars (type-vars (++ types (List ret)) empty-list))
             (tparams (type-params tvars))
             (args (comma-join (emit-params params types inner empty-list))))
         (++ "\n"

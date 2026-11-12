@@ -1,7 +1,7 @@
 # B181: collections-2 step 6: to-list gone
 
 kind: task
-state: open
+state: in-progress
 priority: normal
 found: collections-2, 2026-11-10
 fixed:
@@ -13,3 +13,6 @@ Step 6 of `doc/hl_rqmt/collections_2.md`. The `to-list`s left become `(List x)` 
 ## Notes
 
 - 2026-11-10, Claude: filed on the HLD's acceptance (the owner, 2026-11-10).
+- 2026-11-11, Claude: the first boot step built (the HLD's step 6 note): the 108
+  `to-list` calls left are `(List x)`; found [[B185]], worked around. The declaration's
+  removal is the second boot step, after this one is committed.

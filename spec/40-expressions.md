@@ -80,7 +80,7 @@ folding left: an `appendable` ([[checking.constraints]]). `+` is only for number
 `Vec`).
 
 ```candy run
-(put (++ "a" "b" "c") (++ (List 1) (List 2 3)) (len (++ (to-list 1) (to-list 2))))
+(put (++ "a" "b" "c") (++ (List 1) (List 2 3)) (len (++ (List 1) (List 2))))
 ```
 ```expect
 abc (List 1 2 3) 2

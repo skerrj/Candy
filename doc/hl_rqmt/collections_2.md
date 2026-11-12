@@ -189,6 +189,16 @@ calls come in that step or the next. `to-list`'s removal is two steps (above).
    build: 0.95 s to 0.94 s (medians of seven, twice, against step 4's `bin`).
 6. **`to-list` gone** ([[B181]]; [[B174]]): the rest to `(List x)`, then the
    declaration out (two boot steps).
+
+   *First boot step done (2026-11-11). As built:* the 108 `(to-list x)` calls left are
+   `(List x)`, by script: 98 in the translator (`lower.cdy` 43, `core.cdy` 19, `emit.cdy`
+   10, `check.cdy` and `expand.cdy` 7 each, `read.cdy` 5, `include.cdy` 4, and
+   `prelude_macros.cdy` 2, a library file, staged in `bin`), 8 in the spec's examples
+   (`25-checking.md`, `40-expressions.md`) and 2 in the test programs; `bin` no longer
+   calls `to_list`. Found: `(List x)` is a fixed-length tuple to mypy, so a `match` whose
+   first clause gives one fails `mypy --strict` once a later clause gives another length
+   ([[B185]], a defect, which `to-list`'s `tuple[T, ...]` hid); `read-type` (`core.cdy`)
+   has its whole-list clause first. The translator's build: 0.94 s, unchanged.
 7. **`equatable`** ([[B182]]; [[B173]]).
 8. **Docs** ([[B183]]): CLAUDE.md, the epic's third branch *done*, `library.md` (its Question 6's
    *for now* closed), `mutation_optimization.md` ([[B69]]'s state); "Looking back".

@@ -341,7 +341,7 @@
 (defn infer-list-of (items ctx st)
   (let ((rv (fresh st))
         (st1 (fold (fn (s e) (infer-expect e (get rv t) "List: an item" ctx s)) (get rv st) items)))
-    (Res (TCon "List" (to-list (get rv t))) st1)))
+    (Res (TCon "List" (List (get rv t))) st1)))
 
 (sig infer-do (Fn ((List Expr) Ctx Res) Res))
 (defn infer-do (body ctx start)
@@ -369,7 +369,7 @@
 (defn fresh-types (count st acc)
   (if (= count 0)
     (Tup acc st)
-    (fresh-types (- count 1) (assoc st n (+ (get st n) 1)) (++ acc (to-list (TVar (format "?{(get st n)}")))))))
+    (fresh-types (- count 1) (assoc st n (+ (get st n) 1)) (++ acc (List (TVar (format "?{(get st n)}")))))))
 
 (sig fresh (Fn (St) Res))
 (defn fresh (st) (Res (TVar (format "?{(get st n)}")) (assoc st n (+ (get st n) 1))))
@@ -651,7 +651,7 @@
       (if (is-flexible v)
         (let ((r (fresh st))
               (p (Pending obj field what ot (get r t) (get ctx here))))
-          (Res (get r t) (assoc (get r st) pending (++ (get (get r st) pending) (to-list p)))))
+          (Res (get r t) (assoc (get r st) pending (++ (get (get r st) pending) (List p)))))
         (Res ANY (report (format "{what}: {v} has no fields") ctx st))))
     (else
       (let (((found ft) (field-of ot field ctx)))
@@ -704,7 +704,7 @@
         (cond
           ((map-has (get st subst) (++ "any" (tvar-name on)))
             (Tup (assoc st subst (mark-any (get p t) (get st subst))) left))
-          ((is-var on) (Tup st (++ left (to-list p))))
+          ((is-var on) (Tup st (++ left (List p))))
           (else
             (let ((c (assoc ctx here (get p here)))
                   (r (field-type on (get p obj) (get p field) (get p what) c st))
@@ -760,7 +760,7 @@
     (if (= (len default) 0)
       (join-all ctypes "match: the clauses" ctx (Res (at ctypes 0) st2))
       (let ((rd (infer (at default 0) ctx st2)))
-        (join-all (++ ctypes (to-list (get rd t))) "match: the clauses" ctx (Res (at ctypes 0) (get rd st)))))))
+        (join-all (++ ctypes (List (get rd t))) "match: the clauses" ctx (Res (at ctypes 0) (get rd st)))))))
 
 ;; Each clause's type: its names bound to their fields' types, and a local subject
 ;; narrowed to the clause's variant (checking.narrowing).
@@ -1133,7 +1133,7 @@
 (sig rigid-vars (Fn (CType (List String)) (List String)))
 (defn rigid-vars (t acc)
   (match t
-    ((TVar name) (if (or (is-flexible name) (contains name acc)) acc (++ acc (to-list name))))
+    ((TVar name) (if (or (is-flexible name) (contains name acc)) acc (++ acc (List name))))
     ((TCon _ args) (fold (fn (a x) (rigid-vars x a)) acc args))
     ((TFn params ret) (rigid-vars ret (fold (fn (a x) (rigid-vars x a)) acc params)))))
 
@@ -1239,7 +1239,7 @@
 
 (sig report (Fn (String Ctx St) St))
 (defn report (msg ctx st)
-  (assoc st errors (++ (get st errors) (to-list (++ (pos-text (get ctx here)) msg)))))
+  (assoc st errors (++ (get st errors) (List (++ (pos-text (get ctx here)) msg)))))
 
 ;; A type as a program writes it: (List Int), (Fn (a) a); a module's type without its
 ;; prefix; a variable the checker made as t1, t2.

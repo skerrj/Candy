@@ -20,10 +20,10 @@
         (fail "clause must be (test expr)")
         (if (= (sym-name (at items 0)) "else")
           (if (= i (- (len clauses) 1))
-            (cond-from clauses (- i 1) (to-list (at items 1)))
+            (cond-from clauses (- i 1) (List (at items 1)))
             (fail "(else expr) must be the last clause"))
           (cond-from clauses (- i 1)
-            (to-list
+            (List
               (if (= (len other) 0)
                 (quasi (if (unq (at items 0)) (unq (at items 1))))
                 (quasi (if (unq (at items 0)) (unq (at items 1)) (unq (at other 0))))))))))))

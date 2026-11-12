@@ -324,7 +324,7 @@
   (if (= (len pairs) 0)
     body
     (let (((loc init) (at pairs 0)))
-      (Call (Lambda (to-list loc) (nest (rest pairs) body pos) pos ANY) (to-list init) pos ANY))))
+      (Call (Lambda (List loc) (nest (rest pairs) body pos) pos ANY) (List init) pos ANY))))
 
 (sig an-fn (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn an-fn (args scope n)
@@ -375,7 +375,7 @@
           ((val n1) (analyse-expr (at forms 1) scope n)))
       (if (= field "")
         (fail (located scope "assoc field must be a name"))
-        (assoc-fields (drop 2 forms) scope n1 (++ acc (to-list (Tup field val)))))))))
+        (assoc-fields (drop 2 forms) scope n1 (++ acc (List (Tup field val)))))))))
 
 ;; (format "text {form} ..."): {{ and }} are literal braces.
 (sig an-format (Fn ((List Form) Scope Int) (Tup Expr Int)))
@@ -405,7 +405,7 @@
           (if (!= (len forms) 1)
             (fail (located scope "format: a {hole} must hold exactly one form"))
             (let (((e n1) (analyse-expr (at forms 0) scope n)))
-              (format-parts text where (+ end 1) "" scope n1 (++ (add-text parts acc) (to-list (FHole e))))))))
+              (format-parts text where (+ end 1) "" scope n1 (++ (add-text parts acc) (List (FHole e))))))))
       (else (format-parts text where (+ pos 1) (++ acc c) scope n parts)))))
 
 ;; Where offset `pos` of a string's text is in the file, the string written at `where`
@@ -433,7 +433,7 @@
 
 (sig add-text (Fn ((List FPart) String) (List FPart)))
 (defn add-text (parts text)
-  (if (= text "") parts (++ parts (to-list (FText text)))))
+  (if (= text "") parts (++ parts (List (FText text)))))
 
 ;; (match subject ((Variant name*) expr)+ (else expr)?)
 (sig an-match (Fn ((List Form) Scope Int) (Tup Expr Int)))
@@ -482,7 +482,7 @@
               (tmp (Local "_tup" n1 (get scope here) ANY))
               ((pairs inner n2) (tup-binds names tmp 0 scope (+ n1 1) empty-list))
               ((body n3) (analyse-expr (at items 1) inner n2)))
-          (Tup (nest (++ (to-list (Tup tmp subject)) pairs) body (get scope here)) n3))))))
+          (Tup (nest (++ (List (Tup tmp subject)) pairs) body (get scope here)) n3))))))
 
 ;; The (Local, (at tmp i)) pairs of a Tup pattern's names, and the scope with them.
 (sig tup-binds
@@ -504,7 +504,7 @@
             (+ i 1)
             (bind-local scope name loc)
             (+ n 1)
-            (++ acc (to-list (Tup loc item)))))))))
+            (++ acc (List (Tup loc item)))))))))
 
 (sig bound-in-pairs (Fn (String (List (Tup Expr Expr))) Bool))
 (defn bound-in-pairs (name pairs)
@@ -588,13 +588,13 @@
 (sig add-clause (Fn (Expr Clause) Expr))
 (defn add-clause (m clause)
   (match m
-    ((MatchE subject clauses default pos _) (MatchE subject (++ clauses (to-list clause)) default pos ANY))
+    ((MatchE subject clauses default pos _) (MatchE subject (++ clauses (List clause)) default pos ANY))
     (else m)))
 
 (sig set-default (Fn (Expr Expr) Expr))
 (defn set-default (m e)
   (match m
-    ((MatchE subject clauses _ pos _) (MatchE subject clauses (to-list e) pos ANY))
+    ((MatchE subject clauses _ pos _) (MatchE subject clauses (List e) pos ANY))
     (else m)))
 
 ;; The (field, Local) pairs a pattern's names bind, and the scope with them.
@@ -615,7 +615,7 @@
             (rest names)
             (bind-local scope name loc)
             (+ n 1)
-            (++ acc (to-list (Tup (at fields 0) loc)))))))))
+            (++ acc (List (Tup (at fields 0) loc)))))))))
 
 (sig bound-in (Fn (String (List (Tup String Expr))) Bool))
 (defn bound-in (name binds)
@@ -717,12 +717,12 @@
     (let ((item (at items 0)))
       (if (= (head-name item) "unq-sp")
         (let (((e n1) (unq-arg item (at-pos scope (form-pos item)) n)))
-          (quasi-parts (rest items) scope n1 empty-list (++ (close-run run parts) (to-list e))))
+          (quasi-parts (rest items) scope n1 empty-list (++ (close-run run parts) (List e))))
         (let (((e n1) (quasi-form item scope n)))
-          (quasi-parts (rest items) scope n1 (++ run (to-list e)) parts))))))
+          (quasi-parts (rest items) scope n1 (++ run (List e)) parts))))))
 
 (sig close-run (Fn ((List Expr) (List Expr)) (List Expr)))
-(defn close-run (run parts) (if (= (len run) 0) parts (++ parts (to-list (Tuple run NOWHERE ANY)))))
+(defn close-run (run parts) (if (= (len run) 0) parts (++ parts (List (Tuple run NOWHERE ANY)))))
 
 (sig join-parts (Fn ((List Expr)) Expr))
 (defn join-parts (parts)
@@ -750,7 +750,7 @@
             (fail (++ (pos-text (form-pos form)) "bad function type: expected (Fn (Arg+) Ret)"))))
         ((= (sym-name (at items 0)) "Rest")
           (if (= (len items) 2)
-            (TCon "Rest" (to-list (analyse-type (at items 1))))
+            (TCon "Rest" (List (analyse-type (at items 1))))
             (fail (++ (pos-text (form-pos form)) "bad rest type: expected (Rest Type)"))))
         (else (TCon (sym-name (at items 0)) (map analyse-type (rest items))))))
     (else (fail (++ (pos-text (form-pos form)) "bad type")))))
@@ -1002,7 +1002,10 @@
 (sig read-type (Fn (Form (List Form) String (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
 (defn read-type (form items where spellings acc)
   (let ((header (if (= (len items) 2) (at items 1) form))
-        (parts (match header ((Sym _ _) (to-list header)) ((Lst xs _) xs) (else empty-list)))
+        (parts
+          ;; The list clause first: Python types the match's temporary by its first
+          ;; assignment ([[B185]]).
+          (match header ((Lst xs _) xs) ((Sym _ _) (List header)) (else empty-list)))
         (name (if (> (len parts) 0) (sym-name (at parts 0)) ""))
         (tvars (if (> (len parts) 0) (rest parts) empty-list)))
     (cond
@@ -1210,7 +1213,7 @@
     (analyse-tops (rest forms) scope (analyse-top (at forms 0) scope prog))))
 
 (sig add-top (Fn (Prog Top Int) Prog))
-(defn add-top (prog top n) (assoc prog out (++ (get prog out) (to-list top)) n n))
+(defn add-top (prog top n) (assoc prog out (++ (get prog out) (List top)) n n))
 
 (sig mark-defined (Fn (Prog String) Prog))
 (defn mark-defined (prog name) (assoc prog defined (map-set (get prog defined) name true)))
@@ -1382,7 +1385,7 @@
   (cond
     ((= i (len forms)) -1)
     ((contains (sym-name (at forms i)) seen) i)
-    (else (repeated forms (++ seen (to-list (sym-name (at forms i)))) (+ i 1)))))
+    (else (repeated forms (++ seen (List (sym-name (at forms i)))) (+ i 1)))))
 
 (sig needs-sig (Fn (String Prog Scope) CType))
 (defn needs-sig (name prog scope)
@@ -1467,7 +1470,7 @@
 ;; A program may define `main`: it takes the command-line arguments and returns the exit
 ;; status, and it runs when the program is run (not when its module is imported).
 (sig MAIN_TYPE CType)
-(def MAIN_TYPE (TFn (to-list (TCon "List" (to-list (TCon "String" empty-list)))) (TCon "Int" empty-list)))
+(def MAIN_TYPE (TFn (List (TCon "List" (List (TCon "String" empty-list)))) (TCon "Int" empty-list)))
 
 ;; Whether the program defines `main`; it must be a defn typed (Fn ((List String)) Int).
 (sig has-main (Fn ((List Top)) Bool))

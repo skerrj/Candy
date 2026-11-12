@@ -76,7 +76,7 @@
     (assigns
       (rest targets)
       (rest vals)
-      (++ acc (to-list (SAssign (at targets 0) (at vals 0)))))))
+      (++ acc (List (SAssign (at targets 0) (at vals 0)))))))
 
 ;; --- value mode ---
 
@@ -105,7 +105,7 @@
         (let ((low (value obj n)))
           (Low (get low stmts) (Field (get low expr) field pos ty) (get low n))))
       ((Assoc obj fields pos ty)
-        (let (((stmts vals n1) (value-seq (++ (to-list obj) (field-vals fields)) n)))
+        (let (((stmts vals n1) (value-seq (++ (List obj) (field-vals fields)) n)))
           (Low stmts (Assoc (at vals 0) (refill fields (rest vals) empty-list) pos ty) n1)))
       ((MatchE _ _ _ _ ty)
         (let ((tmp (Temp n ty))
@@ -122,7 +122,7 @@
             (temp (Temp (get low n) ANY))
             ((cases n2) (lower-cases clauses mode tmp (+ (get low n) 1)))
             ((default-stmts n3) (lower-default default mode tmp n2)))
-        (Tup (++ (get low stmts) (to-list (SMatch temp (get low expr) cases default-stmts))) n3)))
+        (Tup (++ (get low stmts) (List (SMatch temp (get low expr) cases default-stmts))) n3)))
     (else (fail "internal error: lower: not a match"))))
 
 ;; The else clause's statements: none, or one list.
@@ -131,7 +131,7 @@
   (if (= (len default) 0)
     (Tup empty-list n)
     (let (((stmts n1) (lower-body (at default 0) mode tmp n)))
-      (Tup (to-list stmts) n1))))
+      (Tup (List stmts) n1))))
 
 (sig lower-cases (Fn ((List Clause) String Expr Int) (Tup (List Case) Int)))
 (defn lower-cases (clauses mode tmp n)
@@ -151,7 +151,7 @@
     ((= mode "effect") (effect e n))
     (else
       (let ((low (value e n)))
-        (Tup (++ (get low stmts) (to-list (SAssign tmp (get low expr)))) (get low n))))))
+        (Tup (++ (get low stmts) (List (SAssign tmp (get low expr)))) (get low n))))))
 
 ;; fn: a lambda if its body is one expression, otherwise a nested function (SLocalFunc: a
 ;; nested Python def; Candy has no nested def or defn).
@@ -161,7 +161,7 @@
     (match (if (= (len stmts) 1) (at stmts 0) (SExpr NIL))
       ((SReturn result) (Low empty-list (Lambda params result pos ty) n1))
       (else
-        (Low (to-list (SLocalFunc (Temp n1 ty) params stmts ty)) (Temp n1 ty) (+ n1 1))))))
+        (Low (List (SLocalFunc (Temp n1 ty) params stmts ty)) (Temp n1 ty) (+ n1 1))))))
 
 (sig holes (Fn ((List FPart)) (List Expr)))
 (defn holes (parts)
@@ -174,8 +174,8 @@
     acc
     (match (at parts 0)
       ((FHole _)
-        (fill-holes (rest parts) (rest vals) (++ acc (to-list (FHole (at vals 0))))))
-      ((FText text) (fill-holes (rest parts) vals (++ acc (to-list (FText text))))))))
+        (fill-holes (rest parts) (rest vals) (++ acc (List (FHole (at vals 0))))))
+      ((FText text) (fill-holes (rest parts) vals (++ acc (List (FText text))))))))
 
 (sig field-vals (Fn ((List (Tup String Expr))) (List Expr)))
 (defn field-vals (fields)
@@ -186,13 +186,13 @@
   (if (= (len fields) 0)
     acc
     (let (((f _) (at fields 0)))
-      (refill (rest fields) (rest vals) (++ acc (to-list (Tup f (at vals 0))))))))
+      (refill (rest fields) (rest vals) (++ acc (List (Tup f (at vals 0))))))))
 
 (sig value-call (Fn (Expr (List Expr) Pos CType Int) Low))
 (defn value-call (callee args pos ty n)
   (if (contains (prim-name callee) (List "and" "or"))
     (value-boolop callee args pos ty n)
-    (let (((stmts items n1) (value-seq (++ (to-list callee) args) n)))
+    (let (((stmts items n1) (value-seq (++ (List callee) args) n)))
       (Low stmts (Call (at items 0) (rest items) pos ty) n1))))
 
 (sig prim-name (Fn (Expr) String))
@@ -213,8 +213,8 @@
       (let ((tmp (Temp n1 ty)))
         (Low
           (++ (get first stmts)
-             (to-list (SAssign tmp (get first expr)))
-             (to-list (guard op tmp (guarded op later tmp))))
+             (List (SAssign tmp (get first expr)))
+             (List (guard op tmp (guarded op later tmp))))
           tmp
           (+ n1 1)))
       (Low (get first stmts) (Call op (low-exprs lows) pos ty) n1))))
@@ -224,14 +224,14 @@
 (sig guarded (Fn (Expr (List Low) Expr) (List Stmt)))
 (defn guarded (op lows tmp)
   (let ((low (at lows 0))
-        (assign (++ (get low stmts) (to-list (SAssign tmp (get low expr))))))
+        (assign (++ (get low stmts) (List (SAssign tmp (get low expr))))))
     (if (= (len lows) 1)
       assign
-      (++ assign (to-list (guard op tmp (guarded op (rest lows) tmp)))))))
+      (++ assign (List (guard op tmp (guarded op (rest lows) tmp)))))))
 
 (sig guard (Fn (Expr Expr (List Stmt)) Stmt))
 (defn guard (op tmp body)
-  (SIf (if (= (prim-name op) "and") tmp (Call (Prim "not" NOWHERE ANY) (to-list tmp) NOWHERE ANY)) body empty-list))
+  (SIf (if (= (prim-name op) "and") tmp (Call (Prim "not" NOWHERE ANY) (List tmp) NOWHERE ANY)) body empty-list))
 
 (sig low-exprs (Fn ((List Low)) (List Expr)))
 (defn low-exprs (lows)
@@ -266,9 +266,9 @@
         (seq-build
           later
           (+ n 1)
-          (++ stmts (get low stmts) (to-list (SAssign (Temp n (get (get low expr) t)) (get low expr))))
-          (++ out (to-list (Temp n (get (get low expr) t)))))
-        (seq-build later n (++ stmts (get low stmts)) (++ out (to-list (get low expr))))))))
+          (++ stmts (get low stmts) (List (SAssign (Temp n (get (get low expr) t)) (get low expr))))
+          (++ out (List (Temp n (get (get low expr) t)))))
+        (seq-build later n (++ stmts (get low stmts)) (++ out (List (get low expr))))))))
 
 (sig value-if (Fn (Expr Expr Expr Pos CType Int) Low))
 (defn value-if (test then other pos ty n)
@@ -284,10 +284,10 @@
         (let ((tmp (get b expr)))
           (Low
             (++ (get t stmts)
-               (to-list
+               (List
                  (SIf
                    (get t expr)
-                   (++ (get a stmts) (to-list (SAssign tmp (get a expr))))
+                   (++ (get a stmts) (List (SAssign tmp (get a expr))))
                    (get b stmts))))
             tmp
             (get b n))))
@@ -295,11 +295,11 @@
         (let ((tmp (Temp (get b n) ty)))
           (Low
             (++ (get t stmts)
-               (to-list
+               (List
                  (SIf
                    (get t expr)
-                   (++ (get a stmts) (to-list (SAssign tmp (get a expr))))
-                   (++ (get b stmts) (to-list (SAssign tmp (get b expr)))))))
+                   (++ (get a stmts) (List (SAssign tmp (get a expr))))
+                   (++ (get b stmts) (List (SAssign tmp (get b expr)))))))
             tmp
             (+ (get b n) 1)))))))
 
@@ -345,7 +345,7 @@
       (let ((t (value test n))
             ((a n1) (tail then (get t n)))
             ((b n2) (tail other n1)))
-        (Tup (++ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
+        (Tup (++ (get t stmts) (List (SIf (get t expr) a b))) n2)))
     ((Do body _ _)
       (let (((stmts n1) (effect-all (all-but-last body) n))
             ((last n2) (tail (last-of body) n1)))
@@ -353,7 +353,7 @@
     ((MatchE _ _ _ _ _) (lower-match e "tail" NIL n))
     (else
       (let ((low (value e n)))
-        (Tup (++ (get low stmts) (to-list (SReturn (get low expr)))) (get low n))))))
+        (Tup (++ (get low stmts) (List (SReturn (get low expr)))) (get low n))))))
 
 (sig effect (Fn (Expr Int) (Tup (List Stmt) Int)))
 (defn effect (e n)
@@ -370,14 +370,14 @@
       (let ((t (value test n))
             ((a n1) (effect then (get t n)))
             ((b n2) (effect other n1)))
-        (Tup (++ (get t stmts) (to-list (SIf (get t expr) a b))) n2)))
+        (Tup (++ (get t stmts) (List (SIf (get t expr) a b))) n2)))
     ((Do body _ _) (effect-all body n))
     ((MatchE _ _ _ _ _) (lower-match e "effect" NIL n))
     (else
       (if (is-simple e)
         (Tup empty-list n)
         (let ((low (value e n)))
-          (Tup (++ (get low stmts) (to-list (SExpr (get low expr)))) (get low n)))))))
+          (Tup (++ (get low stmts) (List (SExpr (get low expr)))) (get low n)))))))
 
 (sig effect-all (Fn ((List Expr) Int) (Tup (List Stmt) Int)))
 (defn effect-all (exprs n)
@@ -399,15 +399,15 @@
 (sig lower-top (Fn (Top Int) (Tup (List Stmt) Int)))
 (defn lower-top (top n)
   (match top
-    ((TDeft name tvars fields) (Tup (to-list (SRecord name tvars fields)) n))
-    ((TDeftSum name tvars variants) (Tup (to-list (SSum name tvars variants)) n))
+    ((TDeft name tvars fields) (Tup (List (SRecord name tvars fields)) n))
+    ((TDeftSum name tvars variants) (Tup (List (SSum name tvars variants)) n))
     ((TDef name init t _)
       (let ((low (value init n)))
-        (Tup (++ (get low stmts) (to-list (SDefAssign name (get low expr) t))) (get low n))))
+        (Tup (++ (get low stmts) (List (SDefAssign name (get low expr) t))) (get low n))))
     ((TDefn name params body t _)
       (let (((stmts n1) (if (returns-unit t) (effect body n) (tail body n))))
         (Tup
-          (to-list
+          (List
             ;; A variadic defn's self call would rebind its rest parameter from a list.
             (SFunc name params (if (is-variadic t) stmts (loop-tail-calls name params stmts (returns-unit t))) t))
           n1)))
@@ -425,7 +425,7 @@
     (let ((looped (retail-all body name params)))
       (if (= looped body)
         body
-        (to-list (SLoop (if unit (++ looped (to-list (SReturn NIL))) looped)))))))
+        (List (SLoop (if unit (++ looped (List (SReturn NIL))) looped)))))))
 
 (sig retail-all (Fn ((List Stmt) String (List Expr)) (List Stmt)))
 (defn retail-all (stmts name params)
@@ -437,14 +437,14 @@
 (sig retail (Fn (Stmt String (List Expr)) (List Stmt)))
 (defn retail (s name params)
   (match s
-    ((SReturn val) (if (is-self-call val name params) (jump params (call-args val)) (to-list s)))
-    ((SExpr e) (if (is-self-call e name params) (jump params (call-args e)) (to-list s)))
+    ((SReturn val) (if (is-self-call val name params) (jump params (call-args val)) (List s)))
+    ((SExpr e) (if (is-self-call e name params) (jump params (call-args e)) (List s)))
     ((SIf test then other)
-      (to-list (SIf test (retail-all then name params) (retail-all other name params))))
+      (List (SIf test (retail-all then name params) (retail-all other name params))))
     ((SMatch temp subject cases default)
-      (to-list
+      (List
         (SMatch temp subject (retail-cases cases name params) (retail-lists default name params))))
-    (else (to-list s))))
+    (else (List s))))
 
 (sig retail-cases (Fn ((List Case) String (List Expr)) (List Case)))
 (defn retail-cases (cases name params)
@@ -475,8 +475,8 @@
 (defn jump (params args)
   (let (((targets vals) (changed params args empty-list empty-list)))
     (if (= (len targets) 0)
-      (to-list SContinue)
-      (++ (to-list (SRebind targets vals)) (to-list SContinue)))))
+      (List SContinue)
+      (++ (List (SRebind targets vals)) (List SContinue)))))
 
 ;; Whether `e` is the local `param` (a Local), wherever each is.
 (sig same-local (Fn (Expr Expr) Bool))
@@ -498,8 +498,8 @@
       (changed
         (rest params)
         (rest args)
-        (++ targets (to-list (at params 0)))
-        (++ vals (to-list (at args 0)))))))
+        (++ targets (List (at params 0)))
+        (++ vals (List (at args 0)))))))
 
 ;; Whether statements make a function (a nested Python def, or a lambda in any expression).
 (sig stmts-have-closure (Fn ((List Stmt)) Bool))

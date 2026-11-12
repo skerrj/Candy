@@ -41,17 +41,17 @@
 (defn add-module (path key forms dir stack acc)
   (let ((imports (++ (prelude-module key) (module-imports forms dir)))
         (inner
-          (load-imports imports (++ stack (to-list key)) (assoc acc seen (map-set (get acc seen) key true)))))
+          (load-imports imports (++ stack (List key)) (assoc acc seen (map-set (get acc seen) key true)))))
     (assoc inner done
       (++ (get inner done)
-         (to-list (Module path key (path-stem path) (other-forms forms dir) (imp-list imports)))))))
+         (List (Module path key (path-stem path) (other-forms forms dir) (imp-list imports)))))))
 
 ;; The prelude, as an import of the module `key`, unless it is the prelude.
 (sig prelude-module (Fn (String) (List (Tup String Imp))))
 (defn prelude-module (key)
   (let ((path (library-path "prelude.cdy"))
         (prelude (path-resolve path)))
-    (if (= prelude key) empty-list (to-list (Tup path (Imp prelude NOWHERE))))))
+    (if (= prelude key) empty-list (List (Tup path (Imp prelude NOWHERE))))))
 
 ;; The path of the library file `name` (form.cdy, special.cdy, system.cdy, the prelude and its macros), which
 ;; is kept next to the translator (in bin/py/; py_cdy/self_host.py copies the library there).
@@ -158,7 +158,7 @@
     (fn (acc form)
       (let ((name (import-name form)))
         (if (= name "")
-          (assoc acc done (++ (get acc done) (to-list (macro-import form dir))))
+          (assoc acc done (++ (get acc done) (List (macro-import form dir))))
           (include-file (import-path "import" dir name (form-pos form)) acc))))
     start
     forms))

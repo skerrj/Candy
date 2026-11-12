@@ -83,7 +83,7 @@ checker infers it from how it is made and used. A local has one type, so a `fn` 
 
 ```candy run
 (put (let ((n 3) (m (* n n))) (+ m 1)))
-(put (join (map (fn (s) (++ s "!")) (to-list "hi")) ""))
+(put (join (map (fn (s) (++ s "!")) (List "hi")) ""))
 (put (let ((sq (fn (x) (* x x)))) (sq 3)))
 ```
 ```expect
@@ -186,7 +186,7 @@ types don't mix: `(+ 1 1.0)` is an error.
 
 ```candy run
 (put (+ 1 2) (++ "a" "b") (/ 7.0 2.0) (if (< 1 2 3) "yes" "no") (< "ab" "b") (< \a \b))
-(put (len (++ (to-list 1) (to-list 2) (to-list 3))))
+(put (len (++ (List 1) (List 2) (List 3))))
 ```
 ```expect
 3 ab 3.5 yes true true
@@ -321,7 +321,7 @@ with the field, of the type the constraint found; one that met only `Any` is `An
 
 ```candy run
 (deft P ((name String)))
-(put (join (map (fn (p) (get p name)) (to-list (P "ann"))) ","))
+(put (join (map (fn (p) (get p name)) (List (P "ann"))) ","))
 ```
 ```expect
 ann
@@ -416,7 +416,7 @@ Python writes `Any` (*for now*: [[B133]]). *Tested in* `test_unsolved_types` and
 Python annotations, not in what a program prints.
 
 ```candy run
-(put (+ (at (to-list 41) 0) 1))
+(put (+ (at (List 41) 0) 1))
 ```
 ```expect
 42
