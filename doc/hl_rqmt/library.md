@@ -291,6 +291,10 @@ imports find library modules, their names (`std/list`?), and what the prelude ke
    nested Python `def` with `Any` annotations, so `map`/`fold` would cost the fixpoint's
    `mypy --strict` checking, and many loops also thread a counter or scope. Revisit when
    `fn`s get typed annotations.
+   *Closed (2026-11-11, `collections-2`):* a `fn` is typed with what the checker inferred
+   ([[B19]]), and the loops are calls now, `map-acc` for those that thread a state
+   ([[B123]]); those that walk two lists or a text, count, or exit early stay, *lasting*
+   (`collections_2.md`).
 7. **Tree shaking:** only what a program uses (proposed), or the whole prelude?
    *Proposed:* later; with the revised rule the prelude stays small, so the whole
    prelude in every output is cheap *for now* (`doc/tech_debt.md`).

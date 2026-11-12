@@ -22,3 +22,8 @@ Long-term fix: in `doc/hl_rqmt/mutation_optimization.md`. From `doc/tech_debt.md
   maps, or mutation behind the language).
 - 2026-11-09, Claude: since `collections` step 4 the pattern is `(++ acc (to-list x))`:
   `++` joins lists, `+` adds numbers only ([[expr.append]]).
+- 2026-11-11, Claude: `collections-2` moved the translator's loops onto `map`, `filter`,
+  `fold` and `map-acc` ([[B123]]), which build a Python list and copy once, so most of its
+  copies are gone. What stays: a `fold` that builds a list (`type-vars`, `bound-locals`),
+  and a map built a key at a time (`map-set`). The build's time barely moved (the lists
+  are short), so this is about long inputs, not today's build.

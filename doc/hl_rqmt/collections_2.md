@@ -1,6 +1,6 @@
 # Collections, part 2 (HLD)
 
-**Status: accepted (2026-11-10), with the answers to its questions (tasks [[B167]],
+**Status: done (2026-11-11), steps 1 to 8 (tag `collections-2`). Accepted 2026-11-10, with the answers to its questions (tasks [[B167]],
 [[B177]] to [[B183]]); proposed 2026-11-10, for branch `collections-2`. Epic: `python_complete.md`
 (its third branch, continued). After tag `collections`.** Step 7 of `collections.md`,
 moved here at its checkpoint (its Question 5): `map-acc`, and the translator's loops
@@ -234,6 +234,48 @@ calls come in that step or the next. `to-list`'s removal is two steps (above).
    waits for interfaces ([[B34]]'s notes), the owner's choice. One boot step, `boot/70`.
 8. **Docs** ([[B183]]): CLAUDE.md, the epic's third branch *done*, `library.md` (its Question 6's
    *for now* closed), `mutation_optimization.md` ([[B69]]'s state); "Looking back".
+
+   *Done (2026-11-11). As built:* CLAUDE.md's history (the branch), the library
+   (`map-acc`) and the checker (the constraint variables, `equatable`'s check, a `deft`'s
+   type variable not one); `python_complete.md`'s third branch *done*, and its triage's
+   [[B123]] and [[B69]] rows; `library.md`'s Question 6 closed; `mutation_optimization.md`,
+   `multi_target.md` (`equatable` is Rust's `PartialEq`) and the iMVP doc's "Operators"
+   each get a *since* note; `collections.md`'s step 7 *done there*. [[B69]] stays open,
+   with a note. The spec's rules came with their steps.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **A script and the fixpoint carry a rewrite.** 111 loops became calls, and 108
+  `to-list`s `(List x)`, mostly by hand-checked scripts (dropping an `acc` from a
+  function and its callers, by matching parens); the tests (T1 against T2 on every
+  program, the fixpoint, `mypy --strict`) found every slip at once, and no loop changed
+  what it does.
+- **The list operations didn't make the build faster.** Step 1, whose loops threaded the
+  checker's state over long lists, took it from 1.02 s to 0.93 s; steps 2 to 7 moved it
+  by a few hundredths either way. The translator's lists are short (a form's items, a
+  `deft`'s fields), so a `fn` call per item costs about what the copies did. Measuring
+  each step, as the HLD asked, kept the claim honest.
+- **mypy types a Python literal by its shape.** `()` is `tuple[()]`, `{}` is
+  `dict[Never, Never]`, and `(x,)` is a tuple of one; where nothing in Python says the
+  type the checker found, a program that type-checks fails `mypy --strict` ([[B184]],
+  [[B185]]). `to-list`'s `tuple[T, ...]` had hidden one. Each was worked around in the
+  translator; the fix, `emit` annotating with the checker's types, is one for both.
+- **A check that needs `Ctx` can't be in `unify`.** Whether a type holds a function needs
+  the records' and sums' fields, which unification, a function of the substitution, has
+  not; `equatable` is checked once the definition's types are known, as the field
+  constraints are. That is the second such deferral, a shape interfaces will have too.
+- **Constraints by name have limits.** One variable has one constraint (an `equatable`
+  meeting an `appendable` keeps only the latter), and any type variable named for one
+  got it, a `deft`'s too ([[B186]]). A syntax for them (a `where`) waits for interfaces
+  ([[B34]]).
+- **A survey by file must give every file a step.** It counted 124 loops; 132 were found
+  (`prelude_macros.cdy`'s one, in no step, came along in step 5).
+- **One name, two things.** `List` is a type and the analyser's constructor, not a value,
+  so with `to-list` gone a one-item list as a value is a `fn` ([[B171]]); making it a
+  procedure needs one name to be a type and a value, and a rest function as a value to
+  take the arity its context asks for.
 
 ## Questions
 

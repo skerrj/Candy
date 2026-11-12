@@ -85,7 +85,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B183](B183-collections-2-step-8.md) | collections-2 step 8: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -273,4 +272,5 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B180](B180-collections-2-step-5.md) | collections-2 step 5: the other loops | task | done | normal |
 | [B181](B181-collections-2-step-6.md) | collections-2 step 6: to-list gone | task | done | normal |
 | [B182](B182-collections-2-step-7.md) | collections-2 step 7: equatable | task | done | normal |
+| [B183](B183-collections-2-step-8.md) | collections-2 step 8: docs | task | done | normal |
 | [B186](B186-deft-constraint-variable.md) | A `deft`'s type variable named for a constraint gets it, unspecified | defect | done | normal |

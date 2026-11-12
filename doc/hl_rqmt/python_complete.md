@@ -350,7 +350,9 @@ brackets:
    operations (*for now* until interfaces, [[B34]]), `put` a prelude macro over `text`;
    the list literal is none now ([[B170]]) and `format` stays a special form ([[B16]]);
    the list operations and the translator's loops are `collections-2`, next (its step
-   7).*
+   7).* *Done (tag `collections-2`, 2026-11-11; `collections_2.md`): `map-acc`, the
+   translator's loops onto the list operations ([[B123]]), `to-list` gone for `(List x)`
+   ([[B174]]), and `equatable`, so a generic `=` keeps off functions ([[B173]]).*
 4. **`namespaces`:** qualified names, the import forms, types and values, macros'
    names, shadowing, private names, each target's mapping. Independent of 2 and 3, so
    it could swap with them. (L)
@@ -560,13 +562,13 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B16]] `format` is an f-string hack | T | `collections` |
 | [[B17]] taking a `tup` apart | T | `collections` |
 | [[B48]] operators, `tup`, `put` untyped | T | `collections` |
-| [[B123]] the translator's loops by hand | X | `collections` |
+| [[B123]] the translator's loops by hand | X | `collections` (done in `collections-2`) |
 | [[B99]] variadic types | I → taken up | `collections` |
 | [[B18]] `Any` turns checking off | T | `collections` (cut down; *lasting* for what stays) |
 | [[B34]] no `Collection` | T | `collections` (Question 4) |
 | [[B124]] the operators polymorphic, programs not | T | `collections` (Question 4) |
 | [[B135]] an operator's error at the call *(typed-core)* | D | `collections` (with [[B124]]) |
-| [[B69]] building a list is quadratic | X | `collections` (with B123) |
+| [[B69]] building a list is quadratic | X | `collections` (with B123; the loops' copies gone in `collections-2`, the rest open) |
 | [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
 | [[B40]] types and values share a namespace | S | `namespaces` |
 | [[B47]] only `(import m)` | L | `namespaces` |
