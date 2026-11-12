@@ -1,7 +1,7 @@
 # B181: collections-2 step 6: to-list gone
 
 kind: task
-state: review
+state: done
 priority: normal
 found: collections-2, 2026-11-10
 fixed: collections-2, 2026-11-11
@@ -18,3 +18,4 @@ Step 6 of `doc/hl_rqmt/collections_2.md`. The `to-list`s left become `(List x)` 
   removal is the second boot step, after this one is committed.
 - 2026-11-11, Claude: the second boot step built: `to-list` gone from `system.cdy`,
   `spelling.py` and `primitives.py`; the spec says `(List x)` is the one way. In review.
+- 2026-11-11, the owner: ticked in review.

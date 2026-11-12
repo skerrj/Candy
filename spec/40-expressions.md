@@ -115,7 +115,8 @@ yes no yes yes
 fields, two maps with equal pairs; two variants only if they are the same variant, with
 equal fields. `Float`s and `Double`s compare as IEEE 754 does (`0.0` is `-0.0`).
 Functions can't be compared, nor values holding one (a list of functions, or a record or
-variant with one among its fields): an error when translated. Ordering (`<` and the
+variant with one among its fields): an error when translated, a generic function's
+comparison too, its arguments `equatable` ([[checking.constraints]]). Ordering (`<` and the
 rest) is only for numbers, `String`s (by their characters' code points, as a `Char`) and
 `Char`s ([[checking.operators]]).
 
@@ -202,8 +203,8 @@ Each operator takes the number of arguments its type says: two or more, a rest p
 ones before its rest parameter ([[expr.rest]]), and `not` of one: `+` is an `(Fn (number
 number) number)` ([[checking.operators]]), so `(fold + 0 xs)` adds. `and` and `or` as
 values evaluate both arguments, as any function does; only a call written out
-short-circuits. `=` and `!=` as values are `(Fn (a a) Bool)`, which doesn't keep `a` off
-functions, as a generic function's `=` doesn't either (*for now*: [[B173]]).
+short-circuits. `=` and `!=` as values are `(Fn (equatable equatable) Bool)`, so a
+function can't be compared through one either ([[checking.constraints]]).
 
 ```candy run
 (put (fold + 0 (List 1 2 3)) (fold * 1.0 (List 2.0 3.0)) (fold ++ "" (List "a" "b")))
@@ -220,6 +221,7 @@ true false true false 3
 
 ```candy errors
 (put (map + (List 1))) => got (Fn (number number) number)
+(sig f (Fn (Int) Int)) (defn f (n) n) (put (let ((eq =)) (eq f f))) => =: a function can't be compared, got (Fn (Int) Int)
 ```
 
 <a id="expr.conditionals"></a>

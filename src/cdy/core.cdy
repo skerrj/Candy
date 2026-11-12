@@ -767,7 +767,10 @@
       (Tup "integer" (List "Int" "Long" "Byte"))
       (Tup "float" (List "Float" "Double"))
       (Tup "comparable" (List "Int" "Long" "Byte" "Float" "Double" "String" "Char"))
-      (Tup "appendable" (List "String" "List")))))
+      (Tup "appendable" (List "String" "List"))
+      ;; Every type but one that is or holds a function: no list says it (check.cdy's
+      ;; bind-equatable and check-compared).
+      (Tup "equatable" empty-list))))
 
 ;; The constraint a type variable's name carries, or "": a sig's `number2` is `number`'s,
 ;; and a fresh variable the checker made from one is named `?N:number` (check.cdy's
@@ -1307,6 +1310,8 @@
         (tvar-forms (if (> (len items) 1) (rest (list-items (at items 1))) empty-list))
         (tvars (map sym-name tvar-forms))
         (dup (repeated tvar-forms empty-list 0))
+        ;; A constraint is a function's, not a type's (types.records, B186).
+        (constrained (find-index (fn (v) (!= (constraint-of v) "")) tvars))
         (body (drop 2 items))
         (field-forms (if (= (len items) 3) (list-items (at items 2)) empty-list)))
     (cond
@@ -1315,6 +1320,10 @@
         (fail
           (++ (pos-text (form-pos (at tvar-forms dup)))
              (format "deft {name}: type variables must be different ({(at tvars dup)})"))))
+      ((>= constrained 0)
+        (fail
+          (++ (pos-text (form-pos (at tvar-forms constrained)))
+             (format "deft {name}: a type variable can't be a constraint ({(at tvars constrained)})"))))
       ((is-sum-body body)
         (let ((variants (deft-variants name body))
               (checked (check-variants variants scope)))

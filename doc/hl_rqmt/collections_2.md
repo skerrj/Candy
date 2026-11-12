@@ -208,6 +208,30 @@ calls come in that step or the next. `to-list`'s removal is two steps (above).
    isn't one ([[B171]]), so it is `(map (fn (x) (List x)) xs)` now. Two boot steps,
    `boot/68` and `boot/69`, no staging.
 7. **`equatable`** ([[B182]]; [[B173]]).
+
+   *Done (2026-11-11). As built:* `equatable` is a constraint variable (`CONSTRAINTS` in
+   `core.cdy`, with no list of types), and `=`, `!=`, `contains`, `elem-index` and the
+   prelude's `index-of` take it (`system.cdy`, `prelude.cdy`). A fresh `?N:equatable`
+   takes any type when bound (`bind-equatable`): a sig's variable only if its own
+   constraint is within `equatable`, which every constraint's is but `appendable`'s (its
+   lists may hold functions), and another constraint's variable keeps its constraint.
+   Each use of a name whose type has one is noted in the state with where it is
+   (`Compared`, `noted`), and checked once the definition's types are known
+   (`check-compared`, after `solve-pending`), by `has-fn`, which looks into records and
+   sums (it needs `Ctx`, which `unify` hasn't): a function, a list of them, or a record
+   or variant holding one is `NAME: a function can't be compared, got T`, at the use.
+   Unlike the proposal, `infer-compare` is gone, not kept for a concrete type: the one
+   check covers both, with its message, and `=` as a value too. The translator needed no
+   `sig` changed (none of its generic functions compares). Map keys, hashed by Python,
+   aren't `equatable` (a function as a key is hashed by its identity), as before. The
+   spec: `checking.constraints` (the row, its text, an example and four rows, and
+   [[B173]]'s repro), `expr.equality`, `expr.operator-values` (its *for now* closed). The
+   translator's build: 0.94 s to 0.95 s (medians of seven, twice, against step 6's
+   `bin`). Found and fixed with it: a `deft`'s type variable named for a constraint took
+   it, unspecified, and failed mypy ([[B186]], a defect); now an error, *lasting* (until
+   interfaces), the owner's choice: `deft Box: a type variable can't be a constraint
+   (number)`, in `types.records`. A Candy syntax for constraints (a `where` in the `sig`)
+   waits for interfaces ([[B34]]'s notes), the owner's choice. One boot step, `boot/70`.
 8. **Docs** ([[B183]]): CLAUDE.md, the epic's third branch *done*, `library.md` (its Question 6's
    *for now* closed), `mutation_optimization.md` ([[B69]]'s state); "Looking back".
 

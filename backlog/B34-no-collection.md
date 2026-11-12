@@ -19,3 +19,10 @@ and `doc/archive/leaks_system_prelude.md` ("Built-ins typed `Any`").
   `str-len`, `char-at`, `substring`, `str-contains` a string's; `map-size` a map's; `in`
   is gone ([[library.builtins]]). What stays: one name for them all, which needs
   interfaces.
+- 2026-11-11, the owner: a Candy syntax for constraints, a `where` in the `sig` (`(sig same
+  (Fn (a a) Bool) (where (equatable a)))`), waits for interfaces; the names stay till then.
+  Claude: two things it should answer, found in `collections-2` step 7: a variable has one
+  constraint (an `equatable` that meets an `appendable` keeps only the `appendable`, and
+  the end-of-definition check makes up the rest), and any type variable named for a
+  constraint gets it, a `deft`'s too (`(deft (Box number) ...)`, unspecified, which fails
+  mypy).

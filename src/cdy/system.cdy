@@ -37,8 +37,8 @@
 (sig / (Fn (float float (Rest float)) float))
 (sig quot (Fn (integer integer (Rest integer)) integer))
 (sig mod (Fn (integer integer (Rest integer)) integer))
-(sig = (Fn (a a (Rest a)) Bool))
-(sig != (Fn (a a (Rest a)) Bool))
+(sig = (Fn (equatable equatable (Rest equatable)) Bool))
+(sig != (Fn (equatable equatable (Rest equatable)) Bool))
 (sig < (Fn (comparable comparable (Rest comparable)) Bool))
 (sig > (Fn (comparable comparable (Rest comparable)) Bool))
 (sig <= (Fn (comparable comparable (Rest comparable)) Bool))
@@ -108,8 +108,8 @@
 (sig concat (Fn ((List (List a))) (List a)))
 (sig zip (Fn ((List a) (List b)) (List (Tup a b))))
 ;; The index of the first item equal to `x`, or -1: the prelude's `index-of` is built on it.
-(sig elem-index (Fn (a (List a)) Int))
-(sig contains (Fn (a (List a)) Bool))
+(sig elem-index (Fn (equatable (List equatable)) Int))
+(sig contains (Fn (equatable (List equatable)) Bool))
 
 ;; --- maps ---
 (sig empty-map (Map k v))

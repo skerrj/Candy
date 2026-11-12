@@ -1,10 +1,10 @@
 # B173: A generic function's `=` compares functions
 
 kind: defect
-state: open
+state: done
 priority: normal
 found: collections step 3, 2026-11-09
-fixed:
+fixed: collections-2, 2026-11-11
 where: `src/cdy/check.cdy` (`infer-compare`), `src/cdy/system.cdy`
 refs: [[expr.equality]], [[expr.operator-values]], [[checking.constraints]], [[B172]]
 
@@ -20,21 +20,6 @@ is or holds a function ([[checking.constraints]]), with `has-fn`'s check when on
 generic function that compares says so in its `sig` (`(Fn (equatable equatable) Bool)`),
 the prelude's among them. Elm has none (comparing functions fails when run).
 
-## Repro
-
-The translator should fail:
-
-```candy error
-(sig same (Fn (a a) Bool))
-(defn same (x y) (= x y))
-(sig inc (Fn (Int) Int))
-(defn inc (n) (+ n 1))
-(put (same inc inc))
-```
-```expect-error
-argument 1 of =: expected equatable, got a
-```
-
 ## Notes
 
 - 2026-11-09, the owner: asked why `primitives.py` has no `=`; Claude found the hole
@@ -42,3 +27,27 @@ argument 1 of =: expected equatable, got a
   values ([[B172]] dropped) and file this, for later (a step of its own, or
   `collections-2`).
 - 2026-11-10, Claude: comes along to `collections-2`, its step 7 ([[B182]]), as the owner chose (`collections_2.md`, Question 1).
+- 2026-11-11, Claude: fixed by `collections-2` step 7 ([[B182]]): `equatable`, a constraint
+  variable for every type but one that is or holds a function ([[checking.constraints]]);
+  `=`, `!=`, `contains`, `elem-index` and the prelude's `index-of` take it. A fresh
+  `?N:equatable` takes any type when bound, and each use is checked once the definition's
+  types are known (`check-compared`, with `has-fn`), so `infer-compare` is gone. In review.
+  The repro moved to [[checking.constraints]]; it was:
+
+  ````text
+  ## Repro
+
+  The translator should fail:
+
+  ```candy error
+  (sig same (Fn (a a) Bool))
+  (defn same (x y) (= x y))
+  (sig inc (Fn (Int) Int))
+  (defn inc (n) (+ n 1))
+  (put (same inc inc))
+  ```
+  ```expect-error
+  argument 1 of =: expected equatable, got a
+  ```
+  ````
+- 2026-11-11, the owner: ticked in review.

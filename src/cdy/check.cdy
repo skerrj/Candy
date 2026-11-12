@@ -34,13 +34,24 @@
 
 ;; The checker's state, threaded through: the substitution (each ?N's type), the next N,
 ;; the messages so far, the type of each node checked, by its name (?eK, typed Core), and
-;; the definition's field constraints still to solve.
-(deft St ((subst (Map String CType)) (n Int) (errors (List String)) (types (Map String CType)) (pending (List Pending))))
+;; the definition's field constraints still to solve, and its uses of `equatable`.
+(deft St
+  ((subst (Map String CType))
+   (n Int)
+   (errors (List String))
+   (types (Map String CType))
+   (pending (List Pending))
+   (compared (List Compared))))
 
 ;; A field constraint (checking.order): a get or assoc (`what`) of `field` on `obj`, whose
 ;; type, `on`, was a variable when it was read; the field's type is to be `t`. Solved once
 ;; the definition is checked (solve-pending), at `here`.
 (deft Pending ((obj Expr) (field String) (what String) (on CType) (t CType) (here Pos)))
+
+;; A use of a name whose type has `equatable` (checking.constraints): `var`, the fresh
+;; `?N:equatable` it was given, is checked once the definition is (check-compared), at
+;; `here`: any type is bound to it, but one that is or holds a function is an error.
+(deft Compared ((var String) (what String) (here Pos)))
 
 ;; An expression's type, and the state after it.
 (deft Res ((t CType) (st St)))
@@ -65,7 +76,7 @@
 (sig check-program (Fn ((List Top) (Map String Builtin)) (Tup (List Top) (List String))))
 (defn check-program (tops builtins)
   (let ((ctx (Ctx (top-types tops) (top-shapes tops) (top-sums tops) builtins NOWHERE empty-map empty-map)))
-    (check-tops tops ctx (St empty-map 0 empty-list empty-map empty-list))))
+    (check-tops tops ctx (St empty-map 0 empty-list empty-map empty-list empty-list))))
 
 ;; Each definition named (typed Core), checked, then typed with what the check found.
 (sig check-tops (Fn ((List Top) Ctx St) (Tup (List Top) (List String))))
@@ -74,7 +85,8 @@
           (map-acc
             (fn (s top)
               (let ((named (retype-top top (fn (t k) (TVar (format "?e{k}")))))
-                    (s1 (solve-pending ctx (check-top named ctx (assoc (assoc s subst empty-map) types empty-map)))))
+                    (fresh-st (assoc s subst empty-map types empty-map compared empty-list))
+                    (s1 (check-compared ctx (solve-pending ctx (check-top named ctx fresh-st)))))
                 (Tup s1 (retype-top named (fn (t k) (node-type t s1))))))
             st
             tops)))
@@ -296,9 +308,32 @@
 (defn name-type (e ctx st)
   (match e
     ((Global name _ _)
-      (if (map-has (get ctx globals) name) (instantiate (map-get (get ctx globals) name) st) (Res ANY st)))
-    ((Prim name _ _) (prim-type name ctx st))
+      (if (map-has (get ctx globals) name) (noted name (instantiate (map-get (get ctx globals) name) st) ctx) (Res ANY st)))
+    ((Prim name _ _) (noted name (prim-type name ctx st) ctx))
     (else (Res ANY st))))
+
+;; `r`, a name's instantiated type, with each `?N:equatable` in it noted, for check-compared.
+(sig noted (Fn (String Res Ctx) Res))
+(defn noted (name r ctx)
+  (let ((vars (equatable-vars (get r t))))
+    (if (= (len vars) 0)
+      r
+      (Res
+        (get r t)
+        (assoc (get r st) compared
+          (++ (get (get r st) compared) (map (fn (v) (Compared v (shown-name name) (get ctx here))) vars)))))))
+
+;; The `?N:equatable` variables in `t`, each once.
+(sig equatable-vars (Fn (CType) (List String)))
+(defn equatable-vars (t)
+  (fold (fn (acc v) (if (contains v acc) acc (++ acc (List v)))) empty-list (all-equatable t)))
+
+(sig all-equatable (Fn (CType) (List String)))
+(defn all-equatable (t)
+  (match t
+    ((TVar name) (if (and (is-flexible name) (= (constraint-of name) "equatable")) (List name) empty-list))
+    ((TCon _ args) (concat (map all-equatable args)))
+    ((TFn params ret) (++ (concat (map all-equatable params)) (all-equatable ret)))))
 
 ;; A variadic function as a value is the function of its arguments before the rest
 ;; (types.rest).
@@ -385,7 +420,6 @@
         (infer-called callee args ctx st)))
     ((Prim name _ _)
       (cond
-        ((contains name (List "=" "!=")) (infer-compare name callee args ctx st))
         ((and (= name "at") (is-tup-item args)) (typed-callee callee args (infer-tup-item args ctx st)))
         (else (infer-called callee args ctx st))))
     (else (infer-called callee args ctx st))))
@@ -543,16 +577,19 @@
 
 ;; --- equality (spec/40-expressions.md, expr.equality) ---
 
-;; `=` and `!=`, typed `(Fn (a a (Rest a)) Bool)`, take any type but a function's: checked
-;; as a call, then the type of their arguments looked into.
-(sig infer-compare (Fn (String Expr (List Expr) Ctx St) Res))
-(defn infer-compare (name callee args ctx st)
-  (let ((r (infer-called callee args ctx st))
-        (subst (get (get r st) subst))
-        (t1 (if (= (len args) 0) ANY (resolve-type (recorded (at args 0) (get r st)) subst))))
-    (if (has-fn t1 subst ctx empty-list)
-      (Res (get r t) (report (format "{name}: a function can't be compared, got {(show t1 subst)}") ctx (get r st)))
-      r)))
+;; `=` and `!=` take an `equatable`, any type but one that is or holds a function, and so
+;; does a function whose sig says so (`contains`, the prelude's `index-of`): each use's
+;; `?N:equatable` is checked once the definition is, its type known by then.
+(sig check-compared (Fn (Ctx St) St))
+(defn check-compared (ctx start)
+  (fold
+    (fn (st c)
+      (let ((t (resolve-type (TVar (get c var)) (get st subst))))
+        (if (has-fn t (get st subst) ctx empty-list)
+          (report (format "{(get c what)}: a function can't be compared, got {(show t (get st subst))}") (assoc ctx here (get c here)) st)
+          st)))
+    start
+    (get start compared)))
 
 ;; Whether `t` is, or holds, a function type: a list of them, say, or a record or variant
 ;; with one among its fields, or a sum with such a variant. `seen` holds the records and
@@ -1031,6 +1068,10 @@
 ;; `c` (both bound to it); a sig's variable only if its own constraint is within `c`.
 (sig bind-constrained (Fn (String String CType (Map String CType)) (Tup Bool (Map String CType))))
 (defn bind-constrained (v c t subst)
+  (if (= c "equatable") (bind-equatable v t subst) (bind-listed v c t subst)))
+
+(sig bind-listed (Fn (String String CType (Map String CType)) (Tup Bool (Map String CType))))
+(defn bind-listed (v c t subst)
   (let ((takes (map-get CONSTRAINTS c)))
     (match t
       ((TCon name _)
@@ -1043,6 +1084,7 @@
             ((not (is-flexible other))
               (if (and (!= oc "") (within oc c)) (Tup true (map-set subst v t)) (Tup false subst)))
             ((= oc "") (Tup true (map-set subst other (TVar v))))
+            ((= oc "equatable") (Tup true (map-set subst other (TVar v))))
             ((within c oc) (Tup true (map-set subst other (TVar v))))
             ((within oc c) (Tup true (map-set subst v t)))
             (else
@@ -1052,10 +1094,29 @@
                   (Tup false subst)))))))
       (else (Tup false subst)))))
 
-;; Whether every type the constraint `a` takes, `b` takes too.
+;; An `equatable` variable bound to `t`: any type (one holding a function is found by
+;; check-compared, when the definition's types are known); a sig's variable only if its own
+;; constraint is within `equatable`; another constraint's variable keeps that constraint.
+(sig bind-equatable (Fn (String CType (Map String CType)) (Tup Bool (Map String CType))))
+(defn bind-equatable (v t subst)
+  (match t
+    ((TVar other)
+      (let ((oc (constraint-of other)))
+        (cond
+          ((not (is-flexible other))
+            (if (and (!= oc "") (within oc "equatable")) (Tup true (map-set subst v t)) (Tup false subst)))
+          ((= oc "") (Tup true (map-set subst other (TVar v))))
+          (else (Tup true (map-set subst v t))))))
+    (else (Tup true (map-set subst v t)))))
+
+;; Whether every type the constraint `a` takes, `b` takes too: every constraint's are
+;; `equatable`, but `appendable`'s, whose lists may hold functions.
 (sig within (Fn (String String) Bool))
 (defn within (a b)
-  (all (fn (x) (contains x (map-get CONSTRAINTS b))) (map-get CONSTRAINTS a)))
+  (cond
+    ((= b "equatable") (!= a "appendable"))
+    ((= a "equatable") false)
+    (else (all (fn (x) (contains x (map-get CONSTRAINTS b))) (map-get CONSTRAINTS a)))))
 
 (sig is-any (Fn (CType) Bool))
 (defn is-any (t)
