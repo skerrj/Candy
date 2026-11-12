@@ -34,62 +34,52 @@
 ;; type-checked (check.cdy).
 (sig program-tops (Fn ((List Module) (Fn (String Pos) (List Form)) (Map String Builtin)) (List Top)))
 (defn program-tops (modules parse builtins)
-  (let ((ready (expand-modules modules (- (len modules) 1) empty-list))
-        (by-key (exports-by-key ready empty-map))
-        (elsewhere (elsewhere-names (exports-of ready empty-list))))
-    (analyse-modules ready by-key elsewhere builtins parse empty-list)))
+  (let ((ready (expand-modules modules (- (len modules) 1)))
+        (by-key (exports-by-key ready))
+        (elsewhere (elsewhere-names (exports-of ready))))
+    (analyse-modules ready by-key elsewhere builtins parse)))
 
 ;; Each of `modules` with its macros expanded; `top` is the top module's index.
-(sig expand-modules (Fn ((List Module) Int (List Ready)) (List Ready)))
-(defn expand-modules (modules top acc)
-  (if (= (len acc) (len modules))
-    acc
-    (let ((m (at modules (len acc)))
-          ((forms macros) (expand-program (get m forms) compile-macros))
-          (prefix (if (= (len acc) top) "" (++ (get m stem) "__"))))
-      (expand-modules modules top (++ acc (to-list (Ready m forms macros (module-exports forms (get m stem) prefix))))))))
+(sig expand-modules (Fn ((List Module) Int) (List Ready)))
+(defn expand-modules (modules top)
+  (map
+    (fn (im)
+      (let (((i m) im)
+            ((forms macros) (expand-program (get m forms) compile-macros))
+            (prefix (if (= i top) "" (++ (get m stem) "__"))))
+        (Ready m forms macros (module-exports forms (get m stem) prefix))))
+    (zip (range 0 (len modules)) modules)))
 
-(sig exports-by-key (Fn ((List Ready) (Map String Exports)) (Map String Exports)))
-(defn exports-by-key (ready acc)
-  (if (= (len ready) 0)
-    acc
-    (let ((r (at ready 0)))
-      (exports-by-key (rest ready) (map-set acc (get (get r module) key) (get r exports))))))
+(sig exports-by-key (Fn ((List Ready)) (Map String Exports)))
+(defn exports-by-key (ready)
+  (fold (fn (m r) (map-set m (get (get r module) key) (get r exports))) empty-map ready))
 
-(sig exports-of (Fn ((List Ready) (List Exports)) (List Exports)))
-(defn exports-of (ready acc)
-  (if (= (len ready) 0)
-    acc
-    (exports-of (rest ready) (++ acc (to-list (get (at ready 0) exports))))))
+(sig exports-of (Fn ((List Ready)) (List Exports)))
+(defn exports-of (ready) (map (fn (r) (get r exports)) ready))
 
 ;; The definitions of all the modules, in order.
 (sig analyse-modules
-  (Fn ((List Ready) (Map String Exports) (Map String String) (Map String Builtin) (Fn (String Pos) (List Form)) (List Top))
+  (Fn ((List Ready) (Map String Exports) (Map String String) (Map String Builtin) (Fn (String Pos) (List Form)))
       (List Top)))
-(defn analyse-modules (ready by-key elsewhere builtins parse acc)
-  (if (= (len ready) 0)
-    acc
-    (let ((r (at ready 0))
-          (macros (get r macros))
-          (tops
-            (analyse-module
-              (get r forms)
-              (get r exports)
-              (imported (get (get r module) imports) by-key empty-list)
-              elsewhere
-              builtins
-              (fn (text where) (expand-all (parse text where) macros empty-list))
-              macros
-              false)))
-      (analyse-modules (rest ready) by-key elsewhere builtins parse (++ acc tops)))))
+(defn analyse-modules (ready by-key elsewhere builtins parse)
+  (concat
+    (map
+      (fn (r)
+        (let ((macros (get r macros)))
+          (analyse-module
+            (get r forms)
+            (get r exports)
+            (imported (get (get r module) imports) by-key)
+            elsewhere
+            builtins
+            (fn (text where) (expand-all (parse text where) macros))
+            macros
+            false)))
+      ready)))
 
 ;; The exports of each import, with where it is.
-(sig imported (Fn ((List Imp) (Map String Exports) (List (Tup Exports Pos))) (List (Tup Exports Pos))))
-(defn imported (imps by-key acc)
-  (if (= (len imps) 0)
-    acc
-    (let ((imp (at imps 0)))
-      (imported (rest imps) by-key (++ acc (to-list (Tup (map-get by-key (get imp key)) (get imp pos))))))))
+(sig imported (Fn ((List Imp) (Map String Exports)) (List (Tup Exports Pos))))
+(defn imported (imps by-key) (map (fn (imp) (Tup (map-get by-key (get imp key)) (get imp pos))) imps))
 
 ;; A macro program (expand.cdy) as Python. It is macro code, so it can quote.
 (sig compile-macros (Fn ((List Form)) String))

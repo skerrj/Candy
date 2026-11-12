@@ -39,12 +39,12 @@
 ;; the keys of the modules importing it, to catch a cycle.
 (sig add-module (Fn (String String (List Form) String (List String) Mods) Mods))
 (defn add-module (path key forms dir stack acc)
-  (let ((imports (++ (prelude-module key) (module-imports forms dir empty-list)))
+  (let ((imports (++ (prelude-module key) (module-imports forms dir)))
         (inner
           (load-imports imports (++ stack (to-list key)) (assoc acc seen (map-set (get acc seen) key true)))))
     (assoc inner done
       (++ (get inner done)
-         (to-list (Module path key (path-stem path) (other-forms forms dir empty-list) (imp-list imports empty-list)))))))
+         (to-list (Module path key (path-stem path) (other-forms forms dir) (imp-list imports)))))))
 
 ;; The prelude, as an import of the module `key`, unless it is the prelude.
 (sig prelude-module (Fn (String) (List (Tup String Imp))))
@@ -64,62 +64,42 @@
       (fail (format "the translator needs {name} next to it, in {dir}")))))
 
 ;; The imports among `forms`: each imported file's path, with its Imp.
-(sig module-imports (Fn ((List Form) String (List (Tup String Imp))) (List (Tup String Imp))))
-(defn module-imports (forms dir acc)
-  (if (= (len forms) 0)
-    acc
-    (let ((form (at forms 0))
-          (name (import-name form)))
-      (module-imports
-        (rest forms)
-        dir
-        (if (= name "")
-          acc
-          (let ((path (import-path "import" dir name (form-pos form))))
-            (++ acc (to-list (Tup path (Imp (path-resolve path) (form-pos form)))))))))))
+(sig module-imports (Fn ((List Form) String) (List (Tup String Imp))))
+(defn module-imports (forms dir)
+  (map
+    (fn (form)
+      (let ((path (import-path "import" dir (import-name form) (form-pos form))))
+        (Tup path (Imp (path-resolve path) (form-pos form)))))
+    (filter (fn (form) (!= (import-name form) "")) forms)))
 
-(sig imp-list (Fn ((List (Tup String Imp)) (List Imp)) (List Imp)))
-(defn imp-list (imports acc)
-  (if (= (len imports) 0)
-    acc
-    (let (((_name imp) (at imports 0))) (imp-list (rest imports) (++ acc (to-list imp))))))
+(sig imp-list (Fn ((List (Tup String Imp))) (List Imp)))
+(defn imp-list (imports) (map (fn (i) (let (((_name imp) i)) imp)) imports))
 
-;; `acc` with the modules `imports` names read, unless they were already.
+;; `start` with the modules `imports` names read, unless they were already.
 (sig load-imports (Fn ((List (Tup String Imp)) (List String) Mods) Mods))
-(defn load-imports (imports stack acc)
-  (if (= (len imports) 0)
-    acc
-    (let (((path imp) (at imports 0))
-          (key (get imp key)))
-      (load-imports
-        (rest imports)
-        stack
+(defn load-imports (imports stack start)
+  (fold
+    (fn (acc i)
+      (let (((path imp) i)
+            (key (get imp key)))
         (cond
           ((contains key stack)
             (fail (format "{(pos-text (get imp pos))}import: cycle {(cycle-text stack key)}")))
           ((map-has (get acc seen) key) acc)
-          (else (add-module path key (read-source path (slurp path)) (path-dir path) stack acc)))))))
+          (else (add-module path key (read-source path (slurp path)) (path-dir path) stack acc)))))
+    start
+    imports))
 
 ;; The cycle that importing `key` again closes, by stem: a -> b -> a.
 (sig cycle-text (Fn ((List String) String) String))
 (defn cycle-text (stack key)
-  (if (= (at stack 0) key)
-    (++ (join (stems-of stack empty-list) " -> ") " -> " (path-stem key))
-    (cycle-text (rest stack) key)))
-
-(sig stems-of (Fn ((List String) (List String)) (List String)))
-(defn stems-of (keys acc)
-  (if (= (len keys) 0) acc (stems-of (rest keys) (++ acc (to-list (path-stem (at keys 0)))))))
+  (let ((cycle (drop (find-index (fn (k) (= k key)) stack) stack)))
+    (++ (join (map path-stem cycle) " -> ") " -> " (path-stem key))))
 
 ;; `forms` without their imports; (import-macros name) as (import-macros "path").
-(sig other-forms (Fn ((List Form) String (List Form)) (List Form)))
-(defn other-forms (forms dir acc)
-  (if (= (len forms) 0)
-    acc
-    (other-forms
-      (rest forms)
-      dir
-      (if (= (import-name (at forms 0)) "") (++ acc (to-list (macro-import (at forms 0) dir))) acc))))
+(sig other-forms (Fn ((List Form) String) (List Form)))
+(defn other-forms (forms dir)
+  (map (fn (form) (macro-import form dir)) (filter (fn (form) (= (import-name form) "")) forms)))
 
 ;; The modules read, after checking that no two imported modules share a stem, which their
 ;; names' prefix comes from (the top module's names have none).
@@ -130,14 +110,17 @@
     modules))
 
 (sig unique-stems (Fn ((List Module) (Map String String)) Bool))
-(defn unique-stems (modules seen)
-  (if (= (len modules) 0)
-    true
-    (let ((m (at modules 0))
-          (stem (get m stem)))
-      (if (map-has seen stem)
-        (fail (format "import: two modules are named {stem}: {(map-get seen stem)} and {(get m path)}"))
-        (unique-stems (rest modules) (map-set seen stem (get m path)))))))
+(defn unique-stems (modules start)
+  (let ((_seen
+          (fold
+            (fn (seen m)
+              (let ((stem (get m stem)))
+                (if (map-has seen stem)
+                  (fail (format "import: two modules are named {stem}: {(map-get seen stem)} and {(get m path)}"))
+                  (map-set seen stem (get m path)))))
+            start
+            modules)))
+    true))
 
 ;; --- inclusion (macro files) ---
 
@@ -170,17 +153,15 @@
 
 ;; `forms`, whose imports are found in directory `dir`.
 (sig include-forms (Fn ((List Form) String Incl) Incl))
-(defn include-forms (forms dir acc)
-  (if (= (len forms) 0)
-    acc
-    (let ((form (at forms 0))
-          (name (import-name form)))
-      (include-forms
-        (rest forms)
-        dir
+(defn include-forms (forms dir start)
+  (fold
+    (fn (acc form)
+      (let ((name (import-name form)))
         (if (= name "")
           (assoc acc done (++ (get acc done) (to-list (macro-import form dir))))
-          (include-file (import-path "import" dir name (form-pos form)) acc))))))
+          (include-file (import-path "import" dir name (form-pos form)) acc))))
+    start
+    forms))
 
 ;; (import-macros name) as (import-macros "path"), with `name.cdy` found in directory
 ;; `dir`; any other form as it is.

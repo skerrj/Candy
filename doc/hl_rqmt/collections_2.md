@@ -170,6 +170,23 @@ calls come in that step or the next. `to-list`'s removal is two steps (above).
    assert). `src/cdy` is 74 lines shorter. The translator's build: 0.94 s to 0.93 s
    (medians of seven, four times, against step 3's `bin`), unchanged within the noise.
 5. **The loops in `expand.cdy`, `include.cdy`, `cdyc.cdy`, `read.cdy`** ([[B180]]; 31).
+
+   *Done (2026-11-11). As built:* 32 loops in the four files, and the survey's one in
+   `prelude_macros.cdy` (`put-parts`, in no step), 29 of them one call now: 11 `map`s
+   (`expand-all`, `expand-defs`, `each-clause`, `stamp-all`, `macro-list`, `imp-list`,
+   `exports-of`, `imported`; `arg-binds` and `expand-modules` over `(zip (range ...) xs)`
+   for the index; `stems-of`, inlined as `(map path-stem ...)`, its `defn` gone), 4 a
+   `map` then `concat` (`helper-forms`, `macro-program`, `analyse-modules`, `put-parts`),
+   one `filter` (`pick-forms`) and two a `filter` then `map` (`module-imports`,
+   `other-forms`: an import, or not), one `all` (`all-names`), one `find-index`
+   (`cycle-text`, the stack from the key on), and 9 `fold`s (`macro-map`, `import-all`,
+   `add-helpers`, `load-imports` and `include-forms` from a `start` a caller seeds;
+   `mangled-names`, `exports-by-key`; `unique-names` and `unique-stems`, the names so far,
+   their result dropped for `true`). Four stay, `read.cdy`'s: `line-starts`, `read-all`,
+   `read-list` and `read-str` walk a text. `import-file`, `add-module` and `include-file`
+   have an `acc` but aren't loops. `prelude_macros.cdy` is a library file, staged in `bin`
+   (`boot/66` reads it: no staging). `src/cdy` is 51 lines shorter. The translator's
+   build: 0.95 s to 0.94 s (medians of seven, twice, against step 4's `bin`).
 6. **`to-list` gone** ([[B181]]; [[B174]]): the rest to `(List x)`, then the
    declaration out (two boot steps).
 7. **`equatable`** ([[B182]]; [[B173]]).

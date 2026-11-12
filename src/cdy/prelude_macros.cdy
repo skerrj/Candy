@@ -35,11 +35,10 @@
     (quasi (put-line ""))
     (if (= (len args) 1)
       (quasi (put-line (text (unq (at args 0)))))
-      (quasi (put-line (++ (unq-sp (put-parts args 1 (to-list (quasi (text (unq (at args 0)))))))))))))
+      (quasi (put-line (++ (unq-sp (put-parts args))))))))
 
-;; The texts of `args` from `i` on, each after a " ", added to `acc`.
-(sig put-parts (Fn ((List Form) Int (List Form)) (List Form)))
-(defn put-parts (args i acc)
-  (if (= i (len args))
-    acc
-    (put-parts args (+ i 1) (++ acc (List (quasi " ") (quasi (text (unq (at args i)))))))))
+;; The texts of `args`, a " " between each two.
+(sig put-parts (Fn ((List Form)) (List Form)))
+(defn put-parts (args)
+  (++ (List (quasi (text (unq (at args 0)))))
+     (concat (map (fn (a) (List (quasi " ") (quasi (text (unq a))))) (drop 1 args)))))

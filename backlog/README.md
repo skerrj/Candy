@@ -71,7 +71,6 @@ By kind, then priority.
 | [B69](B69-quadratic-lists.md) | Building a list is quadratic | tech-debt | open | normal |
 | [B72](B72-parsec-unpublished.md) | parsec.py v4 isn't published | tech-debt | open | normal |
 | [B75](B75-program-mypy-one-at-a-time.md) | The test programs' `mypy --strict` runs one at a time | tech-debt | open | normal |
-| [B123](B123-translator-loops-by-hand.md) | The translator writes its list loops by hand | tech-debt | open | normal |
 | [B55](B55-match-isinstance.md) | `match` is an `isinstance` chain, not Python's `match` | tech-debt | open | low |
 | [B57](B57-plain-output.md) | The translator's Python is plainer than it could be | tech-debt | open | low |
 | [B58](B58-reader-appends.md) | The reader builds strings and lists one item at a time | tech-debt | open | low |
@@ -87,7 +86,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B180](B180-collections-2-step-5.md) | collections-2 step 5: the other loops | task | open | normal |
 | [B181](B181-collections-2-step-6.md) | collections-2 step 6: to-list gone | task | open | normal |
 | [B182](B182-collections-2-step-7.md) | collections-2 step 7: equatable | task | open | normal |
 | [B183](B183-collections-2-step-8.md) | collections-2 step 8: docs | task | open | normal |
@@ -236,6 +234,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B120](B120-get-before-type-known.md) | `get` or `assoc` on a value whose type isn't known yet is an error | leak | done | low |
 | [B121](B121-no-narrowing-in-match-clause.md) | Inside a `match` clause, the subject isn't narrowed to its variant | leak | done | low |
 | [B122](B122-leaf-error-position.md) | A type error in a leaf is reported at its parent | leak | done | low |
+| [B123](B123-translator-loops-by-hand.md) | The translator writes its list loops by hand | tech-debt | done | normal |
 | [B124](B124-polymorphic-operators.md) | The operators are polymorphic, but a program can't write a polymorphic function | leak | done | normal |
 | [B126](B126-typed-core-step-1.md) | typed-core step 1: positions on literal forms and Core's leaves | task | done | normal |
 | [B127](B127-typed-core-step-2.md) | typed-core step 2: types in Core | task | done | normal |
@@ -275,3 +274,4 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B177](B177-collections-2-step-2.md) | collections-2 step 2: the loops in core and lower | task | done | normal |
 | [B178](B178-collections-2-step-3.md) | collections-2 step 3: the loops in check | task | done | normal |
 | [B179](B179-collections-2-step-4.md) | collections-2 step 4: the loops in emit | task | done | normal |
+| [B180](B180-collections-2-step-5.md) | collections-2 step 5: the other loops | task | done | normal |
