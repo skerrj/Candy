@@ -25,7 +25,7 @@ object, or reads a form as `Any` (*for now*: Candy can't write those types yet,
 |---|---|
 | output | `put` (a prelude macro: any number of arguments, with a space between; [[library.put]]), `put-line`, `text`, `put-err` |
 | files | `slurp`, `spit`, `file-put-lines`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
-| lists | `len`, `at`, `slice`, `to-list`, `empty-list`, `is-coll`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of`, `contains`, `with-default`, `join` |
+| lists | `len`, `at`, `slice`, `empty-list`, `is-coll`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of`, `contains`, `with-default`, `join` |
 | maps | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size` |
 | strings | `str-len`, `char-at`, `substring`, `str-contains`, `split`, `starts-with`, `ends-with`, `repeat`, `strip`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-empty-str`, `is-decimal`, `is-digit`, `is-alpha`, `is-str`, `is-neg-int`, `isspace`, `isspace-at` |
 | regular expressions | `re-search`, `re-findall`, `re-compile` (Python's match and pattern objects, `Any`) |

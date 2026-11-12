@@ -88,7 +88,6 @@
 (sig slice (Fn ((List a) Int Int) (List a)))
 (sig join (Fn ((List String) String) String))
 (sig is-coll (Fn (Any) Bool))
-(sig to-list (Fn (a) (List a)))
 ;; Writable in Candy, but built in for speed: Candy adds to a list by copying it.
 (sig map (Fn ((Fn (a) b) (List a)) (List b)))
 (sig filter (Fn ((Fn (a) Bool) (List a)) (List a)))

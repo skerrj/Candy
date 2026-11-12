@@ -199,6 +199,14 @@ calls come in that step or the next. `to-list`'s removal is two steps (above).
    first clause gives one fails `mypy --strict` once a later clause gives another length
    ([[B185]], a defect, which `to-list`'s `tuple[T, ...]` hid); `read-type` (`core.cdy`)
    has its whole-list clause first. The translator's build: 0.94 s, unchanged.
+
+   *Done (2026-11-11). As built:* the second boot step takes `to-list` out: its `sig`
+   from `system.cdy`, its spelling from `spelling.py`, and `to_list` from `primitives.py`
+   (and its test); `boot/68`'s `bin` calls none of them. `types.constructors` says
+   `(List x)` is the one way to make a list of one item, and `library.builtins` no longer
+   lists `to-list`. What goes with it: `(map to-list xs)`, `to-list` as a value; `List`
+   isn't one ([[B171]]), so it is `(map (fn (x) (List x)) xs)` now. Two boot steps,
+   `boot/68` and `boot/69`, no staging.
 7. **`equatable`** ([[B182]]; [[B173]]).
 8. **Docs** ([[B183]]): CLAUDE.md, the epic's third branch *done*, `library.md` (its Question 6's
    *for now* closed), `mutation_optimization.md` ([[B69]]'s state); "Looking back".

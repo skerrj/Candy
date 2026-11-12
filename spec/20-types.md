@@ -196,7 +196,8 @@ two
 
 A type's name is its constructor, *lasting*: a record's or variant's, taking its fields
 in order ([[types.records]], [[match.sum-types]]), and the built-in types' too. `(List
-item*)` is a list, its items one type (`(List)` is empty), as if `List` had a rest
+item*)` is a list, its items one type (`(List)` is empty, and `(List x)` the one way to
+make a list of one item: `to-list` is gone, [[B174]]), as if `List` had a rest
 parameter, `(Fn ((Rest a)) (List a))` ([[expr.rest]]), and `(Tup item+)` a tuple. A
 record's or variant's constructor is also a value; `List` and `Tup` aren't (*for now*:
 [[B171]]). A value is shown as its constructor applied to its parts ([[library.show]]). Literals for

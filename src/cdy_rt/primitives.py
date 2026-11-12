@@ -339,11 +339,6 @@ def list_map_acc[S, A, B](
     return state, tuple(results)
 
 
-def to_list[T](val: T) -> tuple[T, ...]:
-    """A one-item list holding ``val`` (a Candy ``List`` is a Python tuple)."""
-    return (val,)
-
-
 def map_get[K, V](m: Mapping[K, V], key: K) -> V:
     """The value for ``key``, which must be in ``m``."""
     return m[key]

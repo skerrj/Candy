@@ -81,13 +81,12 @@ By kind, then priority.
 | [B74](B74-py-str-not-repr.md) | `py-str` is close to `repr`, not equal | tech-debt | open | low |
 | [B76](B76-py-reserved-314.md) | `PY_RESERVED` is Python 3.14's | tech-debt | open | low |
 | [B79](B79-read-sexpr-any.md) | `tst/cdy/read_sexpr.cdy` types forms as `Any` | tech-debt | open | low |
-| [B174](B174-to-list-duplicates-list.md) | `to-list` duplicates `(List x)` | tech-debt | open | low |
 
 ### task
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B181](B181-collections-2-step-6.md) | collections-2 step 6: to-list gone | task | in-progress | normal |
+| [B181](B181-collections-2-step-6.md) | collections-2 step 6: to-list gone | task | review | normal |
 | [B182](B182-collections-2-step-7.md) | collections-2 step 7: equatable | task | open | normal |
 | [B183](B183-collections-2-step-8.md) | collections-2 step 8: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
@@ -136,7 +135,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [expr.tail-calls](../spec/40-expressions.md#expr.tail-calls): [B37](B37-self-tail-calls-only.md), [B98](B98-trampolines.md)
 - [expr.unit](../spec/40-expressions.md#expr.unit): [B9](B9-nil-redefinable.md)
 - [library.bounds](../spec/60-library.md#library.bounds): [B159](B159-string-helpers-negative-index.md), [B160](B160-python-errors-not-panics.md)
-- [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B54](B54-slurp-fallback.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B50](B50-translator-builtins-shared.md), [B97](B97-library-per-target.md), [B174](B174-to-list-duplicates-list.md)
+- [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B54](B54-slurp-fallback.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B50](B50-translator-builtins-shared.md), [B97](B97-library-per-target.md)
 - [library.errors](../spec/60-library.md#library.errors): [B160](B160-python-errors-not-panics.md)
 - [library.format](../spec/60-library.md#library.format): [B16](B16-format-hack.md), [B131](B131-errors-without-position.md)
 - [library.lists](../spec/60-library.md#library.lists): [B34](B34-no-collection.md), [B51](B51-with-default-builtin.md), [B184](B184-empty-start-fails-mypy.md)
@@ -161,7 +160,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [syntax.literals](../spec/00-syntax.md#syntax.literals): [B9](B9-nil-redefinable.md)
 - [syntax.numbers](../spec/00-syntax.md#syntax.numbers): [B22](B22-numbers-unbounded.md), [B158](B158-float-infinity-nan.md)
 - [syntax.strings](../spec/00-syntax.md#syntax.strings): [B74](B74-py-str-not-repr.md)
-- [types.constructors](../spec/20-types.md#types.constructors): [B185](B185-list-literal-temp-fails-mypy.md), [B171](B171-list-not-a-value.md), [B174](B174-to-list-duplicates-list.md)
+- [types.constructors](../spec/20-types.md#types.constructors): [B185](B185-list-literal-temp-fails-mypy.md), [B171](B171-list-not-a-value.md)
 - [types.exist](../spec/20-types.md#types.exist): [B176](B176-host-records.md)
 - [types.records](../spec/20-types.md#types.records): [B7](B7-record-name-lowercase.md), [B29](B29-records-are-tuples.md), [B113](B113-field-leading-underscore.md), [B114](B114-field-tuple-method.md), [B176](B176-host-records.md)
 - [types.sig](../spec/20-types.md#types.sig): [B4](B4-def-name-not-a-name.md)
@@ -271,6 +270,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B167](B167-collections-2-step-1.md) | collections-2 step 1: map-acc | task | done | normal |
 | [B168](B168-collections-step-8-docs.md) | collections step 8: docs | task | done | normal |
 | [B172](B172-equality-not-a-value.md) | `=` and `!=` aren't values | leak | dropped | low |
+| [B174](B174-to-list-duplicates-list.md) | `to-list` duplicates `(List x)` | tech-debt | done | low |
 | [B175](B175-spelling-by-position.md) | A spelling is read by position, and `and`/`or` by name | tech-debt | done | low |
 | [B177](B177-collections-2-step-2.md) | collections-2 step 2: the loops in core and lower | task | done | normal |
 | [B178](B178-collections-2-step-3.md) | collections-2 step 3: the loops in check | task | done | normal |

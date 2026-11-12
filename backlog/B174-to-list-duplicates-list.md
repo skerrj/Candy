@@ -1,10 +1,10 @@
 # B174: `to-list` duplicates `(List x)`
 
 kind: tech-debt
-state: open
+state: done
 priority: low
 found: collections step 4, 2026-11-09
-fixed:
+fixed: collections-2, 2026-11-11
 where: `src/cdy/system.cdy`, `src/cdy/*.cdy`
 refs: [[types.constructors]], [[library.builtins]], [[B69]], [[B167]], [[B165]]
 
@@ -21,3 +21,8 @@ step 7's), then `to-list` goes from `system.cdy` and `spelling.py`.
 - 2026-11-09, the owner: noticed it in step 4's review; for later. Claude: filed, where it
   goes decided at the checkpoint after step 6.
 - 2026-11-10, Claude: comes along to `collections-2`, its step 6 ([[B181]]), as the owner chose (`collections_2.md`, Question 1).
+- 2026-11-11, Claude: fixed in `collections-2` step 6 ([[B181]]): the 108 calls left became
+  `(List x)` by script, then `to-list` went from `system.cdy`, `spelling.py` and
+  `primitives.py`. What is lost, as the owner asked to record: `(map to-list xs)`, a
+  one-item list as a value; `List` isn't a value ([[B171]]), so it is
+  `(map (fn (x) (List x)) xs)`.

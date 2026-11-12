@@ -49,7 +49,6 @@ from cdy_rt.primitives import (
     str_contains,
     text_any,
     to_float,
-    to_list,
 )
 
 
@@ -61,7 +60,6 @@ def test_collections() -> None:
     assert slice_("candy", 1, 3) == "an"
     assert join(("a", "b"), ", ") == "a, b"
     assert is_coll((1,)) and is_coll([1]) and not is_coll("ab")
-    assert to_list(5) == (5,)
     assert str_contains("b", "abc") and not str_contains("abd", "abc")
 
 
