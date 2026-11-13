@@ -1,10 +1,10 @@
 # B188: namespaces step 1: one table of names
 
 kind: task
-state: open
+state: review
 priority: normal
 found: namespaces, 2026-11-12
-fixed:
+fixed: namespaces, 2026-11-12
 where: `src/cdy/core.cdy`
 refs: [[B40]]
 
@@ -13,3 +13,6 @@ Step 1 of `doc/hl_rqmt/namespaces.md`. The seven maps of what a file sees (`top`
 ## Notes
 
 - 2026-11-12, Claude: filed on the HLD's acceptance (the owner, 2026-11-12).
+- 2026-11-12, Claude: built (the HLD's step 1 *Done* note): one `Entry` table in `core.cdy`,
+  the output unchanged but for one error made right (a sum's name used as a value). In
+  review.

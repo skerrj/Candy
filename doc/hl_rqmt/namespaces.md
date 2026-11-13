@@ -227,6 +227,21 @@ syntax, so it is one step.
 
 1. **One table of names** ([[B40]]'s shape): the seven maps one `Entry` map, `core.cdy`
    only; the output unchanged; mypy and the build measured.
+   *Done (2026-11-12). As built:* `Entry` has five kinds: `Value`, `Record` (a type and
+   its constructor), `Sum`, `VariantOf` (`Variant` is Core's) and `Elsewhere`; no `Clash`
+   yet, which is step 2's. `Scope` keeps one `names` table, and `Exports` is its stem and
+   its table (`module-names`, with `add-deft` and `add-entry`); `VInfo`, `Seen`,
+   `find-variants`, `add-variants`, `type-arities`, `prefixed` and `blank-scope` are gone.
+   `top-names` stays, for `expand.cdy`'s macro names. The lookups are small functions
+   (`is-top-value`, `is-sum`, `type-arity`, `variant-sum`, `variant-fields`,
+   `sum-variants`, `elsewhere-module`, `global-name`). A module's own names replace an
+   import's whole entry, where before each map was merged on its own. One error changed:
+   a sum's name used as a value said "S is not defined here; m defines it, but this file
+   doesn't import m", even in the file that defines it; it is now "S is a type, not a
+   value" (`types.exist`, a new row). Checked against `boot/70`'s `bin`: the same Python
+   for the 11 test programs, the translator, and 378 of the spec's and the backlog's 379
+   examples (the other is that error). The build 0.88 s to 0.90 s; mypy on the
+   translator 1.64 s to 1.62 s.
 2. **Qualified names** ([[B47]]): `m/name` for a module `(import m)` imports, for values,
    types and variants (and patterns); the `/` rule in names; ambiguity where used in place
    of the clash at import.

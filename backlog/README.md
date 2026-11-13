@@ -85,7 +85,7 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B188](B188-namespaces-step-1.md) | namespaces step 1: one table of names | task | open | normal |
+| [B188](B188-namespaces-step-1.md) | namespaces step 1: one table of names | task | review | normal |
 | [B189](B189-namespaces-step-2.md) | namespaces step 2: qualified names | task | open | normal |
 | [B190](B190-namespaces-step-3.md) | namespaces step 3: the name list, and `import`'s shape declared | task | open | normal |
 | [B191](B191-namespaces-step-4.md) | namespaces step 4: private names | task | open | normal |
