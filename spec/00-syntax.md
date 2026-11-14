@@ -87,7 +87,9 @@ A literal must end at a delimiter: whitespace, a parenthesis, `;`, or the end of
 <a id="syntax.numbers"></a>
 A number has digits on both sides of its `.`, its exponent has digits, and its suffix
 comes last; anything else that starts with a digit is an error. A word that starts with
-`.` or `-` and isn't a number is a name (`.5`, `-x`):
+`-` and isn't a number is a name (`-x`); one that starts with `.` isn't a number either,
+but a qualified name with no module ([[programs.qualified]]), and one like a number with
+no digit before its `.` says so:
 
 ```candy errors
 (put 12x) => unexpected 1
@@ -96,7 +98,9 @@ comes last; anything else that starts with a digit is an error. A word that star
 (put 1e5) => unexpected 1
 (put 1.0e) => unexpected 1
 (put 1.0e+5) => unexpected 1
-(put .5) => unknown name .5
+(put .5) => .5: a number needs a digit before its . (0.5)
+(put -.5) => -.5: a number needs a digit before its . (-0.5)
+(put .x) => .x: a qualified name is m.name
 ```
 
 The number types have sizes, *lasting*, as Java's and Kotlin's: a `Byte` is 8 bits,
@@ -177,7 +181,10 @@ lines
 
 A name is any word that isn't a literal and doesn't start with a digit, `'`, `#`, `"` or
 `\`. It runs up to a delimiter, or a `'`, `"` or `\`. So names can hold punctuation that
-other languages reserve: `set-x!`, `empty?`, `->`, `a.b`, `a#b`.
+other languages reserve: `set-x!`, `empty?`, `->`, `a#b`. A name can't hold a `.`:
+`m.name` is a qualified name, a name a module defines ([[programs.qualified]]), so a name
+a program defines has none. Nor can it hold a `/`, reserved, *for now* (`/` on its own is
+the division operator).
 
 ```candy run
 (sig empty? (Fn (Int) Int))
@@ -188,6 +195,16 @@ other languages reserve: `set-x!`, `empty?`, `->`, `a.b`, `a#b`.
 ```
 ```expect
 1 <5>
+```
+
+```candy errors
+(sig a.b Int) (def a.b 1) => a.b: a name can't hold a .
+(put (let ((a.b 1)) a.b)) => a.b: a name can't hold a .
+(deft V ((a.b Int))) => deft V: a.b: a name can't hold a .
+(deft S (A) (x.B)) => x.B: a name can't hold a .
+(sig a/b Int) (def a/b 1) => a/b: a name can't hold a /, which is reserved
+(put (let ((a/b 1)) a/b)) => a/b: a name can't hold a /
+(deft V ((a/b Int))) => deft V: a/b: a name can't hold a /
 ```
 
 <a id="syntax.python-names"></a>

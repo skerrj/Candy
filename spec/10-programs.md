@@ -146,8 +146,9 @@ on the built-ins (declared in `src/cdy/system.cdy`): `rest`, `map-update`, `Mayb
 with `find`, `index-of` and `with-default` ([[library.maybe]]), and `Result`
 ([[library.errors]]).
 Macro code doesn't get it ([[B52]]). A file's own definition of a
-prelude or built-in name wins over it; a module the file imports that defines one is a
-clash, as between any two imports.
+prelude or built-in name wins over it; a module the file imports that defines one clashes
+with it, as any two imports do ([[programs.import]]). Its names are also `prelude.name`
+([[programs.qualified]]).
 
 ```candy run
 (put (len (rest (List 1 2 3))))
@@ -172,12 +173,12 @@ clash, as between any two imports.
 
 `(import name)` imports the module `name.cdy`, found in the importing file's directory;
 `name` may be a relative path (`lib/util`). Every name the module defines at top level
-(`def`, `defn`, and `deft` with its variants) becomes visible, unqualified; the names it
-imports don't (*for now*: `doc/hl_rqmt/modules.md`, with `import-as` and `import-from`
-later).
+(`def`, `defn`, and `deft` with its variants) becomes visible, unqualified, and as
+`m.name` too ([[programs.qualified]]); the names it imports don't.
 
-- Two imports that define the same name are an error; the file's own definition of a name
-  wins over an import's.
+- Two imports that define the same name are an error only where the name is used
+  unqualified ("x is defined by a and b: write a.x or b.x"); the file's own definition of a
+  name wins over both.
 - Importing a module twice is fine; an import cycle is an error, and so are two modules
   with the same file name (`util` and `lib/util`).
 - In a macro file, `import` pastes the file in (inclusion), as its helpers.
@@ -191,3 +192,35 @@ later).
 
 The errors that need more than one file (clashes, cycles, two modules of one name, a name
 used from a module that isn't imported) are `test_self_host.py`'s `test_module_errors`.
+
+<a id="programs.qualified"></a>
+## Qualified names (since `namespaces`)
+
+`m.name` is the name `name` that the module imported as `m` defines, *lasting*. `m` is the
+module's file stem (`lib/util` is `util`), and the prelude's is `prelude`. It reaches
+anything a module defines: a value or a function, a type (`(sig p shapes.Pt)`), a
+constructor (`(shapes.Circle 1.0)`), and a variant in a pattern. It is never shadowed (a
+local can't hold a `.`, [[syntax.names]], and a file's own `rest` leaves `prelude.rest`
+the prelude's). It reaches the module's own names, not those it imports, nor the
+built-ins, which have no qualifier until `library` ([[B108]]). A `/` is no qualifier:
+`lib/util` is an import's path, and a name can't hold one ([[syntax.names]]). The example
+with two modules is `tst/cdy/cdyc/qualified.cdy`.
+
+```candy run
+(sig m (prelude.Maybe Int))
+(def m (prelude.Some 4))
+(put (match m ((prelude.Some v) v) ((None) 0)) (prelude.rest (List 1 2 3)) (/ 6.0 2.0))
+```
+```expect
+4 (List 2 3) 3.0
+```
+
+```candy errors
+(put prelude.nope) => prelude.nope: prelude doesn't define nope
+(sig x prelude.Nope) (def x 1) => prelude.Nope: prelude doesn't define Nope
+(put nope.x) => nope.x: this file doesn't import a module nope
+(put a.b.c) => a.b.c: a qualified name is m.name, one . between a module (its file name, without its path) and a name
+(put .x) => .x: a qualified name is m.name
+(put prelude.Maybe) => prelude.Maybe is a type, not a value
+(sig x (Maybe Int)) (def x None) (put (match x ((prelude.Some v) v) ((Some w) w) ((None) 0))) => match: more than one clause for Some
+```

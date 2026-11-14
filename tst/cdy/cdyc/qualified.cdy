@@ -1,0 +1,21 @@
+;; Qualified names (spec/10-programs.md, programs.qualified): lib/shapes and lib/tags both
+;; define `label`, which is an error only where it is used unqualified, so each is reached
+;; as m.label; and `origin`, which this file defines too, so its own wins. A qualified name
+;; reaches a function, a type, a constructor and a pattern too, and the prelude, which every
+;; file imports, as prelude.name.
+(import lib/shapes)
+(import lib/tags)
+
+(sig describe (Fn (shapes.Shape) String))
+(defn describe (sh)
+  (match sh
+    ((shapes.Circle r) (format "circle {r}"))
+    ((Square s) (format "square {s}"))))
+
+(sig origin String)
+(def origin "own")
+
+(put shapes.label tags.label (tags.tag nil) origin)
+(put (describe (shapes.Circle 1.0)) (describe (Square 2.0)))
+(put (shapes.area (Square 3.0)) (get (shapes.origin nil) y))
+(put (prelude.with-default 0 (prelude.Some 5)) (prelude.with-default 0 prelude.None))

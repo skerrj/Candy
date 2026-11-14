@@ -278,6 +278,7 @@ target extensions are modules found by name. What its HLD settles (Question 10):
 
 - **Qualified names:** `string/split`, as Clojure's. `/` is the division operator, so
   the reader takes a lone `/` as the operator and `m/name` as a qualified name.
+  *Changed (2026-11-13, the owner, `namespaces.md` Question 3): `.`,* `string.split`.
 - **The import forms:** `(import m)` as now, an alias (`(import m :as s)`), chosen names
   (`(import m (split join))`), and what stays unqualified everywhere: the prelude, the
   operators, the special forms ([[B47]], [[B108]]).

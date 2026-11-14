@@ -1,7 +1,7 @@
 # B188: namespaces step 1: one table of names
 
 kind: task
-state: review
+state: done
 priority: normal
 found: namespaces, 2026-11-12
 fixed: namespaces, 2026-11-12
@@ -16,3 +16,4 @@ Step 1 of `doc/hl_rqmt/namespaces.md`. The seven maps of what a file sees (`top`
 - 2026-11-12, Claude: built (the HLD's step 1 *Done* note): one `Entry` table in `core.cdy`,
   the output unchanged but for one error made right (a sum's name used as a value). In
   review.
+- 2026-11-12, the owner: ticked in review.

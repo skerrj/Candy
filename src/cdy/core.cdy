@@ -73,8 +73,10 @@
    ;; macro code, where quo and quasi are allowed.
    (macros (Map String Macro))
    (quoting Bool)
-   ;; What each top-level name the module can write is (see Entry).
+   ;; What each top-level name the module can write is (see Entry), and the qualifiers of the
+   ;; modules it imports (the `m` of m.name).
    (names (Map String Entry))
+   (qualifiers (Map String Bool))
    ;; The built-ins, from special.cdy and system.cdy (see read-builtins).
    (builtins (Map String Builtin))))
 
@@ -90,32 +92,105 @@
 ;; local names, so it would still expand a call of it.
 (sig bind-local (Fn (Scope String Expr) Scope))
 (defn bind-local (scope name loc)
-  (if (map-has (get scope macros) name)
-    (fail (located scope (format "{name} is a macro, so it can't be bound")))
-    (assoc scope env (map-set (get scope env) name loc))))
+  (cond
+    ((map-has (get scope macros) name)
+      (fail (located scope (format "{name} is a macro, so it can't be bound"))))
+    ((!= (name-error name) "") (fail (located scope (name-error name))))
+    (else (assoc scope env (map-set (get scope env) name loc)))))
+
+;; --- qualified names (spec/10-programs.md, programs.qualified) ---
+
+;; Whether `name` holds a `.`: a qualified name, m.name.
+(sig has-dot (Fn (String) Bool))
+(defn has-dot (name) (str-contains "." name))
+
+;; The error for defining `name`, or "": a name can't hold a `.`, which qualifies a name,
+;; nor a `/`, reserved (spec/00-syntax.md, syntax.names), except the operator `/` itself.
+(sig name-error (Fn (String) String))
+(defn name-error (name)
+  (cond
+    ((has-dot name) (format "{name}: a name can't hold a ., which qualifies a name with its module (m.name)"))
+    ((and (!= name "/") (str-contains "/" name)) (format "{name}: a name can't hold a /, which is reserved"))
+    (else "")))
+
+;; `name` without its qualifier: `greet` for `util.greet`.
+(sig bare-name (Fn (String) String))
+(defn bare-name (name)
+  (let ((parts (split name ".")))
+    (if (and (has-dot name) (= (len parts) 2)) (at parts 1) name)))
+
+;; Why the qualified name `name` names nothing here, or "" if it isn't one: a qualified name
+;; is m.name, one `.` between an imported module's qualifier and a name it defines.
+(sig qualified-error (Fn (String Scope) String))
+(defn qualified-error (name scope)
+  (let ((parts (split name ".")))
+    (cond
+      ((not (has-dot name)) "")
+      ((!= (number-hint name) "")
+        (format "{name}: a number needs a digit before its . ({(number-hint name)})"))
+      ((or (!= (len parts) 2) (= (at parts 0) "") (= (at parts 1) ""))
+        (format "{name}: a qualified name is m.name, one . between a module (its file name, without its path) and a name"))
+      ((not (map-has (get scope qualifiers) (at parts 0)))
+        (format "{name}: this file doesn't import a module {(at parts 0)}"))
+      (else (format "{name}: {(at parts 0)} doesn't define {(at parts 1)}")))))
+
+;; For a word like a number with no digit before its `.` (`.5`, `-.5`), the number it
+;; means (`0.5`, `-0.5`), else "".
+(sig number-hint (Fn (String) String))
+(defn number-hint (name)
+  (let ((sign (if (starts-with name "-") "-" ""))
+        (body (substring name (str-len sign) (str-len name))))
+    (if (and (starts-with body ".") (> (str-len body) 1) (str-contains (substring body 1 2) "0123456789"))
+      (++ sign (++ "0" body))
+      "")))
+
+;; The error for using `name`, which two imports define, or "".
+(sig clash-error (Fn (String Scope) String))
+(defn clash-error (name scope)
+  (if (map-has (get scope names) name)
+    (match (map-get (get scope names) name)
+      ((Clash modules)
+        (let ((qualified (map (fn (m) (++ m (++ "." name))) modules)))
+          (format "{name} is defined by {(join modules \" and \")}: write {(join qualified \" or \")}")))
+      (else ""))
+    ""))
 
 ;; What a top-level name is, in the one table of the names a module can write, by the name
 ;; as written (doc/hl_rqmt/namespaces.md, "One table of names"): types, values and variants
 ;; share one namespace, a record's name being its type and its constructor. `module` is
 ;; the stem of the module that defines it, and `global` its global name (prefixed outside
 ;; the top module; see Exports); an `arity` is a type's number of type variables. A name
-;; `Elsewhere` is defined by another module, which this one doesn't import, for the error.
+;; `Elsewhere` is defined by another module, which this one doesn't import, for the error;
+;; one that `Clash`es is defined by two (or more) of the modules it imports, an error where
+;; it is used unqualified. A variant has its sum's variants (`all`), for `match`.
 (deft Entry
   (Value ((module String) (global String)))
   (Record ((module String) (global String) (arity Int)))
   (Sum ((module String) (global String) (arity Int) (variants (List String))))
-  (VariantOf ((module String) (global String) (sum String) (fields (List String))))
-  (Elsewhere ((module String))))
+  (VariantOf ((module String) (global String) (sum String) (fields (List String)) (all (List String))))
+  (Elsewhere ((module String)))
+  (Clash ((modules (List String)))))
 
-;; The global name of `e`; "" for a name defined elsewhere.
+;; The global name of `e`; "" for a name defined elsewhere, or by two imports.
 (sig entry-global (Fn (Entry) String))
 (defn entry-global (e)
   (match e
     ((Value _ g) g)
     ((Record _ g _) g)
     ((Sum _ g _ _) g)
-    ((VariantOf _ g _ _) g)
-    ((Elsewhere _) "")))
+    ((VariantOf _ g _ _ _) g)
+    (else "")))
+
+;; The module that defines `e`; "" for a name defined by two imports.
+(sig entry-module (Fn (Entry) String))
+(defn entry-module (e)
+  (match e
+    ((Value m _) m)
+    ((Record m _ _) m)
+    ((Sum m _ _ _) m)
+    ((VariantOf m _ _ _ _) m)
+    ((Elsewhere m) m)
+    ((Clash _) "")))
 
 ;; Whether the top-level name `name` is a value: a def or defn, a record's constructor, or a
 ;; variant.
@@ -125,7 +200,7 @@
        (match (map-get (get scope names) name)
          ((Value _ _) true)
          ((Record _ _ _) true)
-         ((VariantOf _ _ _ _) true)
+         ((VariantOf _ _ _ _ _) true)
          (else false))))
 
 ;; Whether `name` is a sum's own name, a type only.
@@ -155,26 +230,26 @@
 (defn is-variant (name scope)
   (and (map-has (get scope names) name)
        (not (map-has (get scope env) name))
-       (match (map-get (get scope names) name) ((VariantOf _ _ _ _) true) (else false))))
+       (match (map-get (get scope names) name) ((VariantOf _ _ _ _ _) true) (else false))))
 
 (sig variant-fields (Fn (String Scope) (List String)))
 (defn variant-fields (name scope)
   (if (map-has (get scope names) name)
-    (match (map-get (get scope names) name) ((VariantOf _ _ _ fields) fields) (else empty-list))
+    (match (map-get (get scope names) name) ((VariantOf _ _ _ fields _) fields) (else empty-list))
     empty-list))
 
 ;; The sum the variant `name` is of, or "" if it isn't a variant.
 (sig variant-sum (Fn (String Scope) String))
 (defn variant-sum (name scope)
   (if (map-has (get scope names) name)
-    (match (map-get (get scope names) name) ((VariantOf _ _ sum _) sum) (else ""))
+    (match (map-get (get scope names) name) ((VariantOf _ _ sum _ _) sum) (else ""))
     ""))
 
-;; The variants of the sum `sum`.
-(sig sum-variants (Fn (String Scope) (List String)))
-(defn sum-variants (sum scope)
-  (if (map-has (get scope names) sum)
-    (match (map-get (get scope names) sum) ((Sum _ _ _ variants) variants) (else empty-list))
+;; The variants of the sum that the variant `name` is of.
+(sig sibling-variants (Fn (String Scope) (List String)))
+(defn sibling-variants (name scope)
+  (if (map-has (get scope names) name)
+    (match (map-get (get scope names) name) ((VariantOf _ _ _ _ all) all) (else empty-list))
     empty-list))
 
 ;; --- expressions ---
@@ -195,6 +270,7 @@
 (defn resolve (name scope)
   (cond
     ((map-has (get scope env) name) (at-use (map-get (get scope env) name) (get scope here)))
+    ((!= (clash-error name scope) "") (fail (located scope (clash-error name scope))))
     ((and (is-variant name scope) (= (len (variant-fields name scope)) 0))
       (Call (Global (global-name name (get scope names)) (get scope here) ANY) empty-list (get scope here) ANY))
     ((is-top-value name scope) (Global (global-name name (get scope names)) (get scope here) ANY))
@@ -206,6 +282,7 @@
     ((!= (elsewhere-module name scope) "")
       (let ((stem (elsewhere-module name scope)))
         (fail (located scope (format "{name} is not defined here; {stem} defines it, but this file doesn't import {stem}")))))
+    ((has-dot name) (fail (located scope (qualified-error name scope))))
     (else (fail (located scope (format "unknown name {name}"))))))
 
 ;; The local `e` (a Local) where it is used, at `pos`.
@@ -591,7 +668,7 @@
 (defn check-exhaustive (m sum scope)
   (match m
     ((MatchE _ clauses default _ _)
-      (let ((missing (missing-variants (sum-variants sum scope) clauses)))
+      (let ((missing (missing-variants (sibling-variants (get (at clauses 0) variant) scope) clauses)))
         (if (and (= (len default) 0) (> (len missing) 0))
           (fail (located scope (format "match on {sum}: no clause for {(join missing \", \")} (or add else)")))
           m)))
@@ -605,7 +682,7 @@
 (defn has-clause (name clauses)
   (cond
     ((= (len clauses) 0) false)
-    ((= (get (at clauses 0) variant) name) true)
+    ((= (bare-name (get (at clauses 0) variant)) (bare-name name)) true)
     (else (has-clause name (rest clauses)))))
 
 ;; The clauses, added to `m` (a MatchE) one by one; `sum` is the sum seen so far.
@@ -639,6 +716,7 @@
   (cond
     ((= variant "") (fail (located scope "match: pattern must be (Variant name*) or else")))
     ((= variant "Tup") (fail (located scope "match: a (Tup name+) pattern must be the only clause, with no else")))
+    ((!= (clash-error variant scope) "") (fail (located scope (clash-error variant scope))))
     ((not (is-variant variant scope)) (fail (located scope (format "match: {variant} is not a variant of a sum type"))))
     ((has-clause variant (match-clause-list m)) (fail (located scope (format "match: more than one clause for {variant}"))))
     ((and (!= sum "") (!= sum (variant-sum variant scope)))
@@ -808,7 +886,8 @@
 (sig analyse-type (Fn (Form) CType))
 (defn analyse-type (form)
   (match form
-    ((Sym name _) (if (is-lower name) (TVar name) (TCon name empty-list)))
+    ;; A qualified name is a type's (shapes.Shape), not a type variable.
+    ((Sym name _) (if (and (is-lower name) (not (has-dot name))) (TVar name) (TCon name empty-list)))
     ((Lst items _)
       (cond
         ((= (len items) 0) (fail (++ (pos-text (form-pos form)) "bad type ()")))
@@ -1115,7 +1194,7 @@
           (let ((v-items (list-items v))
                 (vname (sym-name (at v-items 0)))
                 (fields (if (= (len v-items) 2) (field-names (list-items (at v-items 1))) empty-list)))
-            (add-entry vname pos (VariantOf stem (++ prefix vname) name fields) acc1)))
+            (add-entry vname pos (VariantOf stem (++ prefix vname) name fields (variant-names body)) acc1)))
         (add-entry name pos (Sum stem (++ prefix name) arity (variant-names body)) acc)
         body)
       (add-entry name pos (Record stem (++ prefix name) arity) acc))))
@@ -1123,9 +1202,10 @@
 ;; `acc` with `name` as `e`; `pos` is where it is defined, for the error.
 (sig add-entry (Fn (String Pos Entry (Map String Entry)) (Map String Entry)))
 (defn add-entry (name pos e acc)
-  (if (map-has acc name)
-    (fail (++ (pos-text pos) (format "defined more than once: {name}")))
-    (map-set acc name e)))
+  (cond
+    ((!= (name-error name) "") (fail (++ (pos-text pos) (name-error name))))
+    ((map-has acc name) (fail (++ (pos-text pos) (format "defined more than once: {name}"))))
+    (else (map-set acc name e))))
 
 
 ;; `forms`, one program on its own (a macro program), with no imports and no prefix;
@@ -1142,9 +1222,16 @@
       (List Top)))
 (defn analyse-module (forms own imports elsewhere builtins parse macros quoting)
   (let ((names (with-own (with-imports imports (elsewhere-entries elsewhere)) own))
-        (scope (Scope empty-map parse NOWHERE macros quoting names builtins))
+        (qualifiers (qualifiers-of imports empty-map))
+        (scope (Scope empty-map parse NOWHERE macros quoting names qualifiers builtins))
         (prog (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms) empty-map))))
     (rename-tops (get prog out) names)))
+
+;; `start` with the qualifiers of `imports`, their stems. (A parameter, not a literal
+;; empty-map: mypy types a fold's start by its shape, [[B184]].)
+(sig qualifiers-of (Fn ((List (Tup Exports Pos)) (Map String Bool)) (Map String Bool)))
+(defn qualifiers-of (imports start)
+  (fold (fn (acc imp) (let (((ex _) imp)) (map-set acc (get ex stem) true))) start imports))
 
 ;; `elsewhere`'s names, each defined by another module (`Elsewhere`): the table a module's
 ;; imports and its own names are added to.
@@ -1152,7 +1239,9 @@
 (defn elsewhere-entries (elsewhere)
   (fold (fn (acc name) (map-set acc name (Elsewhere (map-get elsewhere name)))) empty-map (map-keys elsewhere)))
 
-;; `names` with `imports` added. Two imports that define the same name are an error.
+;; `names` with `imports` added: each name a module defines, unqualified and as m.name
+;; (`m` its stem). Two imports that define the same name `Clash`, an error only where the
+;; name is used unqualified.
 (sig with-imports (Fn ((List (Tup Exports Pos)) (Map String Entry)) (Map String Entry)))
 (defn with-imports (imports names)
   (fold (fn (acc imp) (let (((ex pos) imp)) (import-names ex pos acc))) names imports))
@@ -1162,19 +1251,23 @@
   (fold
     (fn (acc name)
       (let ((stem (get ex stem))
-            (other (imported-from name acc)))
-        (if (and (!= other "") (!= other stem))
-          (fail (format "{(pos-text pos)}import: {other} and {stem} both define {name}"))
-          (map-set acc name (map-get (get ex names) name)))))
+            (e (map-get (get ex names) name)))
+        (map-set (import-entry name e stem acc) (++ stem (++ "." name)) e)))
     start
     (map-keys (get ex names))))
 
-;; The module an import already brought `name` from, or "".
-(sig imported-from (Fn (String (Map String Entry)) String))
-(defn imported-from (name names)
-  (if (map-has names name)
-    (match (map-get names name) ((Elsewhere _) "") (else (get (map-get names name) module)))
-    ""))
+;; `acc` with `name` imported from the module `stem` as `e`: a clash if another import
+;; defines it.
+(sig import-entry (Fn (String Entry String (Map String Entry)) (Map String Entry)))
+(defn import-entry (name e stem acc)
+  (if (map-has acc name)
+    (let ((old (map-get acc name)))
+      (match old
+        ((Elsewhere _) (map-set acc name e))
+        ((Clash modules) (map-set acc name (if (contains stem modules) old (Clash (++ modules (List stem))))))
+        (else
+          (map-set acc name (if (= (entry-module old) stem) e (Clash (List (entry-module old) stem)))))))
+    (map-set acc name e)))
 
 ;; `names` with the module's own, which win over imported ones.
 (sig with-own (Fn ((Map String Entry) Exports) (Map String Entry)))
@@ -1310,6 +1403,7 @@
             (arity
               (cond
                 ((= name "Tup") (len args))
+                ((!= (clash-error name scope) "") (fail (located scope (clash-error name scope))))
                 ((= name "Rest")
                   (fail (located scope "(Rest t) is only for the last argument of a sig's function type")))
                 ((>= (type-arity name scope) 0) (type-arity name scope))
@@ -1322,6 +1416,7 @@
                 ((!= (elsewhere-module name scope) "")
                   (let ((stem (elsewhere-module name scope)))
                     (fail (located scope (format "{name} is not defined here; {stem} defines it, but this file doesn't import {stem}")))))
+                ((has-dot name) (fail (located scope (qualified-error name scope))))
                 (else (fail (located scope (format "unknown type {name}")))))))
         (if (!= arity (len args))
           (fail (located scope (format "{name} takes {arity} type argument(s), got {(len args)}")))
@@ -1409,6 +1504,8 @@
         (cond
           ((or (!= (len items) 2) (= (sym-name (at items 0)) ""))
             (fail (++ (pos-text (form-pos form)) "deft: field must be (name Type)")))
+          ((!= (name-error (sym-name (at items 0))) "")
+            (fail (++ (pos-text (form-pos form)) (format "{owner}: {(name-error (sym-name (at items 0)))}"))))
           ((has-field (sym-name (at items 0)) acc)
             (fail (++ (pos-text (form-pos form)) (format "{owner}: field names must be different ({(sym-name (at items 0))})"))))
           (else (++ acc (List (Tup (sym-name (at items 0)) (analyse-type (at items 1)))))))))

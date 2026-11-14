@@ -137,11 +137,28 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
     [
         (
             {
-                "main.cdy": "(import a)\n(import b)",
+                "main.cdy": "(import a)\n(import b)\n(put x)",
                 "a.cdy": "(sig x Int) (def x 1)",
                 "b.cdy": "(sig x Int) (def x 2)",
             },
-            "main.cdy:2:1: import: a and b both define x",
+            "main.cdy:3:6: x is defined by a and b: write a.x or b.x",
+        ),
+        (
+            {
+                "main.cdy": "(import a)\n(import b)\n(sig y a.T) (def y (a.T 1))\n"
+                "(sig z T) (def z 1)",
+                "a.cdy": "(deft T ((n Int)))",
+                "b.cdy": "(deft T ((n Int)))",
+            },
+            "main.cdy:4:1: T is defined by a and b: write a.T or b.T",
+        ),
+        (
+            {
+                "main.cdy": "(import a)\n(put (b.f 1))",
+                "a.cdy": "(import b)",
+                "b.cdy": "(sig f (Fn (Int) Int)) (defn f (n) n)",
+            },
+            "main.cdy:2:7: b.f: this file doesn't import a module b",
         ),
         (
             {"main.cdy": "(import a)", "a.cdy": "(import b)", "b.cdy": "(import a)"},
@@ -161,8 +178,8 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
             "main.cdy:2:7: f is not defined here; b defines it, but this file doesn't import b",
         ),
         (
-            {"main.cdy": "(import a)", "a.cdy": "(sig rest Int) (def rest 1)"},
-            "main.cdy:1:1: import: prelude and a both define rest",
+            {"main.cdy": "(import a)\n(put rest)", "a.cdy": "(sig rest Int) (def rest 1)"},
+            "main.cdy:2:6: rest is defined by prelude and a: write prelude.rest or a.rest",
         ),
         (
             # A module's prefix against a mangled name (backlog B12).

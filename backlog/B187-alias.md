@@ -11,7 +11,7 @@ refs: [[programs.import]], [[B40]], [[B171]]
 One special form, `(alias new old)`, giving anything a name stands for a second name:
 
 ```text
-(alias u lib/util)                 ; a module's qualifier: u/greet
+(alias u lib/util)                 ; a module's qualifier: u.greet
 (alias Point (Tup Double Double))  ; a type synonym
 (alias (Pair a) (Tup a a))         ; a generic one
 (alias sum-all total)              ; a function or value
@@ -36,3 +36,9 @@ it for display; macros, not aliasable while they are global.
   names, a special form of its own, later; `import` gets none. Claude: filed. Where it
   goes: after `namespaces`, before `library` (whose modules make long stems), or with
   interfaces (where type synonyms matter most).
+- 2026-11-13, Claude: the qualifier's separator is `.` (`namespaces`, Question 3,
+  changed), so the first example's comment was:
+
+  ```text
+  (alias u lib/util)                 ; a module's qualifier: u/greet
+  ```
