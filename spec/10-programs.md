@@ -176,22 +176,35 @@ with it, as any two imports do ([[programs.import]]). Its names are also `prelud
 (`def`, `defn`, and `deft` with its variants) becomes visible, unqualified, and as
 `m.name` too ([[programs.qualified]]); the names it imports don't.
 
+`(import name (a b))` (since `namespaces`) makes only the names it lists unqualified; the
+module's other names are reached as `m.name` ("b: the import of m doesn't list it: write
+m.b"), and `(import name ())` makes none unqualified. Each listed name must be one the
+module defines ("import: m doesn't define c"), listed once. The two forms are `import`'s
+shape, declared in `special.cdy` as `(special import (ModName (Opt (List Name))))`, a
+module path and, optionally, a list of names; a form that doesn't fit it is an error
+written from it, `expected (import ModName [(Name*)])`. The example with a name list is
+`tst/cdy/cdyc/import_list.cdy`.
+
 - Two imports that define the same name are an error only where the name is used
   unqualified ("x is defined by a and b: write a.x or b.x"); the file's own definition of a
   name wins over both.
 - Importing a module twice is fine; an import cycle is an error, and so are two modules
   with the same file name (`util` and `lib/util`).
-- In a macro file, `import` pastes the file in (inclusion), as its helpers.
+- In a macro file, `import` pastes the file in (inclusion), as its helpers, so it lists no
+  names.
 
 ```candy errors
-(import) => expected (import name)
-(import "x") => expected (import name)
-(import a b) => expected (import name)
+(import) => import: expected (import ModName [(Name*)])
+(import "x") => expected (import ModName [(Name*)])
+(import a b) => expected (import ModName [(Name*)])
+(import a (b) c) => expected (import ModName [(Name*)])
+(import a (1)) => expected (import ModName [(Name*)])
 (import nope) => can't find nope.cdy in .
+(import nope (a)) => can't find nope.cdy in .
 ```
 
 The errors that need more than one file (clashes, cycles, two modules of one name, a name
-used from a module that isn't imported) are `test_self_host.py`'s `test_module_errors`.
+used from a module that isn't imported, a name list's) are `test_self_host.py`'s `test_module_errors`.
 
 <a id="programs.qualified"></a>
 ## Qualified names (since `namespaces`)

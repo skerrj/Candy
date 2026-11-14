@@ -271,6 +271,25 @@ syntax, so it is one step.
 3. **The name list, and `import`'s shape declared** ([[B47]]): `(import m (a b))`; the
    import's record (`modules.md`'s `Import`, without an alias); `(special import ...)`
    with its shape, the syntax categories `import` needs, the check and its error.
+   *Done (2026-11-13). As built:* `special.cdy` declares
+   `(special import (ModName (Opt (List Name))))`; `syntax.cdy` (new) reads a shape into
+   `Syntax` (`SynName`, `SynModName`, `SynList`, `SynOpt`, the last only last), checks a
+   form's arguments against it (`fits-shape`) and writes the error from it (`shape-text`:
+   "import: expected (import ModName [(Name*)])"); `read-decls` (`core.cdy`) checks every
+   declared shape. `include.cdy` reads import's shape from `special.cdy` once per module
+   and checks each import with it (`import-parts`); its `Imp` carries the listed names
+   (`only`, a `Maybe`), and a macro file's import (inclusion) can list none. Analysis gets
+   an `Import` (`core.cdy`; `modules.md`'s, with `only` for its `Names`): every name goes
+   in as m.name, the listed ones (or all) unqualified, and the rest as `Unlisted`, an
+   entry whose use says "b: the import of m doesn't list it: write m.b" (`use-error`,
+   which was `clash-error`); a listed name `m` doesn't define, or one listed twice, is an
+   error at the name. An `Unlisted` name gives way to any other import's. The rule:
+   `programs.import`; `tst/cdy/cdyc/import_list.cdy` (new) is the example, and
+   `test_module_errors` has the name list's errors. `test_editor_grammar` reads a special
+   form declared with a shape. Checked against `boot/72`'s `bin`: the same Python for the
+   translator and every example but the new program, which it can't read. The build 1.00 s
+   to 1.03 s. `boot/72` can't read the new `special.cdy`, so this step is staged
+   `old-library`.
 4. **Private names**: `(private ...)`, its errors; the translator's first private names in
    a later step, if any.
 5. **The rules written down** ([[B40]], [[B11]], [[B50]]'s part): one namespace, what

@@ -1,10 +1,10 @@
 # B190: namespaces step 3: the name list, and `import`'s shape declared
 
 kind: task
-state: open
+state: review
 priority: normal
 found: namespaces, 2026-11-12
-fixed:
+fixed: namespaces, 2026-11-13
 where: `src/cdy/core.cdy`, `src/cdy/special.cdy`, `spec/10-programs.md`
 refs: [[B47]]
 
@@ -13,3 +13,6 @@ Step 3 of `doc/hl_rqmt/namespaces.md`. `(import m (a b))`; the import's record; 
 ## Notes
 
 - 2026-11-12, Claude: filed on the HLD's acceptance (the owner, 2026-11-12).
+- 2026-11-13, Claude: built (the HLD's step 3 *Done* note): `(import m (a b))`, an
+  unlisted name reached as m.name, and `import`'s shape declared in `special.cdy` and
+  checked by `syntax.cdy` (new). Staged `old-library`. In review.

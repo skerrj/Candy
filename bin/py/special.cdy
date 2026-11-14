@@ -5,11 +5,13 @@
 ;;; against the target's spellings (src/cdy_rt/spelling.py).
 ;;;
 ;;; (special name): a special form, analysed by its own rule (spec/, the file for its feature).
+;;; (special name shape): one whose arguments are checked against `shape`, a list of syntax
+;;; categories (Name, ModName, (List c), (Opt c); syntax.cdy), its error written from it.
 ;;; The operators (+, <, and, not, ...) are typed built-ins, in system.cdy, since collections.
 ;;; This file is read as it is, so it can't use macros.
 
 ;; --- modules and macros ---
-(special import)
+(special import (ModName (Opt (List Name))))
 (special import-macros)
 (special defmacro)
 (special quo)

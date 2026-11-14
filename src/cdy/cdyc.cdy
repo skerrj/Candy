@@ -77,9 +77,10 @@
             false)))
       ready)))
 
-;; The exports of each import, with where it is.
-(sig imported (Fn ((List Imp) (Map String Exports)) (List (Tup Exports Pos))))
-(defn imported (imps by-key) (map (fn (imp) (Tup (map-get by-key (get imp key)) (get imp pos))) imps))
+;; Each import, with its module's exports.
+(sig imported (Fn ((List Imp) (Map String Exports)) (List Import)))
+(defn imported (imps by-key)
+  (map (fn (imp) (Import (map-get by-key (get imp key)) (get imp pos) (get imp only))) imps))
 
 ;; A macro program (expand.cdy) as Python. It is macro code, so it can quote.
 (sig compile-macros (Fn ((List Form)) String))

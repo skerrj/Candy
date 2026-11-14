@@ -1,0 +1,93 @@
+;;; Syntax: a special form's shape, declared in special.cdy (doc/hl_rqmt/namespaces.md,
+;;; "import's shape, declared"). `(special import (ModName (Opt (List Name))))` says what
+;;; each of import's arguments is, as written: its syntax categories, capitalised as types
+;;; are but describing forms, not values. A form is checked against its shape, and the
+;;; error is written from it: `expected (import ModName [(Name*)])`. A special form
+;;; declared with no shape keeps its own rule (core.cdy).
+
+(import form)
+
+;; A syntax category: `Name` (a symbol), `ModName` (a module path, `lib/util`, a symbol),
+;; `(List c)` (a parenthesised list of c's) and `(Opt c)` (c, or nothing; only at the end).
+(deft Syntax
+  (SynName)
+  (SynModName)
+  (SynList ((item Syntax)))
+  (SynOpt ((item Syntax))))
+
+;; The shape `form`, from special.cdy (`(ModName (Opt (List Name)))`), each argument's
+;; category; `where` starts its error.
+(sig read-shape (Fn (Form String) (List Syntax)))
+(defn read-shape (form where)
+  (match form
+    ((Lst items _)
+      (let ((shape (map (fn (item) (read-syntax item where)) items))
+            (last (- (len shape) 1)))
+        (if (any (fn (i) (and (is-opt (at shape i)) (< i last))) (range 0 (len shape)))
+          (fail (++ where "special.cdy: (Opt c) may only be last"))
+          shape)))
+    (else (fail (++ where "special.cdy: a shape is a list of syntax categories, (ModName (Opt (List Name)))")))))
+
+(sig is-opt (Fn (Syntax) Bool))
+(defn is-opt (c) (match c ((SynOpt _) true) (else false)))
+
+;; The syntax category `form` (Name, ModName, (List c), (Opt c)).
+(sig read-syntax (Fn (Form String) Syntax))
+(defn read-syntax (form where)
+  (let ((items (list-items form))
+        (head (if (> (len items) 0) (sym-name (at items 0)) "")))
+    (cond
+      ((= (sym-name form) "Name") SynName)
+      ((= (sym-name form) "ModName") SynModName)
+      ((and (= head "List") (= (len items) 2)) (SynList (read-syntax (at items 1) where)))
+      ((and (= head "Opt") (= (len items) 2)) (SynOpt (read-syntax (at items 1) where)))
+      (else (fail (++ where "special.cdy: a syntax category is Name, ModName, (List c) or (Opt c)"))))))
+
+;; Whether `args`, a special form's arguments, fit `shape`.
+(sig fits-shape (Fn ((List Syntax) (List Form)) Bool))
+(defn fits-shape (shape args)
+  (if (= (len shape) 0)
+    (= (len args) 0)
+    (match (at shape 0)
+      ((SynOpt item) (or (= (len args) 0) (fits-shape (++ (List item) (rest shape)) args)))
+      (else
+        (and (> (len args) 0) (fits-syntax (at shape 0) (at args 0)) (fits-shape (rest shape) (rest args)))))))
+
+;; Whether `form` is of the category `c`.
+(sig fits-syntax (Fn (Syntax Form) Bool))
+(defn fits-syntax (c form)
+  (match c
+    ((SynName) (!= (sym-name form) ""))
+    ((SynModName) (!= (sym-name form) ""))
+    ((SynList item)
+      (match form
+        ((Lst items _) (all (fn (f) (fits-syntax item f)) items))
+        (else false)))
+    ((SynOpt item) (fits-syntax item form))))
+
+;; The special form `name` with `shape`, as its error writes it: (import ModName [(Name*)]).
+(sig shape-text (Fn (String (List Syntax)) String))
+(defn shape-text (name shape)
+  (format "({(join (++ (List name) (map syntax-text shape)) \" \")})"))
+
+(sig syntax-text (Fn (Syntax) String))
+(defn syntax-text (c)
+  (match c
+    ((SynName) "Name")
+    ((SynModName) "ModName")
+    ((SynList item) (format "({(syntax-text item)}*)"))
+    ((SynOpt item) (format "[{(syntax-text item)}]"))))
+
+;; The shape special.cdy (its forms, `decls`) declares for the special form `name`, or an
+;; empty list if it declares none.
+(sig declared-shape (Fn ((List Form) String) (List Syntax)))
+(defn declared-shape (decls name)
+  (let ((found (filter
+                 (fn (form)
+                   (let ((items (list-items form)))
+                     (and (= (len items) 3) (= (sym-name (at items 0)) "special") (= (sym-name (at items 1)) name))))
+                 decls)))
+    (if (= (len found) 0)
+      empty-list
+      (let ((form (at found 0)))
+        (read-shape (at (list-items form) 2) (pos-text (form-pos form)))))))

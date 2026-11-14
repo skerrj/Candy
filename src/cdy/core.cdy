@@ -4,6 +4,7 @@
 ;;; match, sig, def, defn and deft (records and sums).
 
 (import form)
+(import syntax)
 
 ;; --- types (from sig) ---
 
@@ -144,14 +145,16 @@
       (++ sign (++ "0" body))
       "")))
 
-;; The error for using `name`, which two imports define, or "".
-(sig clash-error (Fn (String Scope) String))
-(defn clash-error (name scope)
+;; The error for using `name` unqualified, which two imports define, or an import doesn't
+;; list, or "".
+(sig use-error (Fn (String Scope) String))
+(defn use-error (name scope)
   (if (map-has (get scope names) name)
     (match (map-get (get scope names) name)
       ((Clash modules)
         (let ((qualified (map (fn (m) (++ m (++ "." name))) modules)))
           (format "{name} is defined by {(join modules \" and \")}: write {(join qualified \" or \")}")))
+      ((Unlisted m) (format "{name}: the import of {m} doesn't list it: write {m}.{name}"))
       (else ""))
     ""))
 
@@ -162,13 +165,16 @@
 ;; the top module; see Exports); an `arity` is a type's number of type variables. A name
 ;; `Elsewhere` is defined by another module, which this one doesn't import, for the error;
 ;; one that `Clash`es is defined by two (or more) of the modules it imports, an error where
-;; it is used unqualified. A variant has its sum's variants (`all`), for `match`.
+;; it is used unqualified; one `Unlisted` is defined by a module whose import lists other
+;; names (`(import m (a b))`), so it is reached only as m.name. A variant has its sum's
+;; variants (`all`), for `match`.
 (deft Entry
   (Value ((module String) (global String)))
   (Record ((module String) (global String) (arity Int)))
   (Sum ((module String) (global String) (arity Int) (variants (List String))))
   (VariantOf ((module String) (global String) (sum String) (fields (List String)) (all (List String))))
   (Elsewhere ((module String)))
+  (Unlisted ((module String)))
   (Clash ((modules (List String)))))
 
 ;; The global name of `e`; "" for a name defined elsewhere, or by two imports.
@@ -190,6 +196,7 @@
     ((Sum m _ _ _) m)
     ((VariantOf m _ _ _ _) m)
     ((Elsewhere m) m)
+    ((Unlisted m) m)
     ((Clash _) "")))
 
 ;; Whether the top-level name `name` is a value: a def or defn, a record's constructor, or a
@@ -270,7 +277,7 @@
 (defn resolve (name scope)
   (cond
     ((map-has (get scope env) name) (at-use (map-get (get scope env) name) (get scope here)))
-    ((!= (clash-error name scope) "") (fail (located scope (clash-error name scope))))
+    ((!= (use-error name scope) "") (fail (located scope (use-error name scope))))
     ((and (is-variant name scope) (= (len (variant-fields name scope)) 0))
       (Call (Global (global-name name (get scope names)) (get scope here) ANY) empty-list (get scope here) ANY))
     ((is-top-value name scope) (Global (global-name name (get scope names)) (get scope here) ANY))
@@ -716,7 +723,7 @@
   (cond
     ((= variant "") (fail (located scope "match: pattern must be (Variant name*) or else")))
     ((= variant "Tup") (fail (located scope "match: a (Tup name+) pattern must be the only clause, with no else")))
-    ((!= (clash-error variant scope) "") (fail (located scope (clash-error variant scope))))
+    ((!= (use-error variant scope) "") (fail (located scope (use-error variant scope))))
     ((not (is-variant variant scope)) (fail (located scope (format "match: {variant} is not a variant of a sum type"))))
     ((has-clause variant (match-clause-list m)) (fail (located scope (format "match: more than one clause for {variant}"))))
     ((and (!= sum "") (!= sum (variant-sum variant scope)))
@@ -1078,11 +1085,13 @@
               (cond
                 ((= name "") (Tup "" Special))
                 ((and (= head "special") (= (len items) 2)) (Tup "special" Special))
+                ((and (= head "special") (= (len items) 3) (shape-read (at items 2) where))
+                  (Tup "special" Special))
                 (else (Tup "" Special))))
             ((class kind) decl))
         (cond
           ((= class "")
-            (fail (++ where "special.cdy: expected (special name)")))
+            (fail (++ where "special.cdy: expected (special name) or (special name shape)")))
           ((map-has acc name) (fail (format "{where}special.cdy: {name} is declared more than once")))
           ((not (contains (spelling-kind spellings name) (kinds-of class)))
             (fail
@@ -1092,6 +1101,10 @@
           (else (map-set acc name kind)))))
     empty-map
     forms))
+
+;; Whether `form` is a shape (syntax.cdy); an error if it isn't.
+(sig shape-read (Fn (Form String) Bool))
+(defn shape-read (form where) (>= (len (read-shape form where)) 0))
 
 (sig kinds-of (Fn (String) (List String)))
 (defn kinds-of (class)
@@ -1215,10 +1228,14 @@
 (defn analyse-program (forms builtins parse macros quoting)
   (analyse-module forms (module-exports forms "" "") empty-list empty-map builtins parse macros quoting))
 
-;; The module `forms`, which exports `own`. It imports `imports` (each module's exports,
-;; and where the import is); `elsewhere` has the names the program's other modules define.
+;; An import, as analysis sees it: the imported module's exports, where the import is, and
+;; the names it lists, if it lists any (include.cdy's Imp).
+(deft Import ((exports Exports) (pos Pos) (only (Maybe (List Form)))))
+
+;; The module `forms`, which exports `own`. It imports `imports`; `elsewhere` has the names
+;; the program's other modules define.
 (sig analyse-module
-  (Fn ((List Form) Exports (List (Tup Exports Pos)) (Map String String) (Map String Builtin) (Fn (String Pos) (List Form)) (Map String Macro) Bool)
+  (Fn ((List Form) Exports (List Import) (Map String String) (Map String Builtin) (Fn (String Pos) (List Form)) (Map String Macro) Bool)
       (List Top)))
 (defn analyse-module (forms own imports elsewhere builtins parse macros quoting)
   (let ((names (with-own (with-imports imports (elsewhere-entries elsewhere)) own))
@@ -1229,9 +1246,9 @@
 
 ;; `start` with the qualifiers of `imports`, their stems. (A parameter, not a literal
 ;; empty-map: mypy types a fold's start by its shape, [[B184]].)
-(sig qualifiers-of (Fn ((List (Tup Exports Pos)) (Map String Bool)) (Map String Bool)))
+(sig qualifiers-of (Fn ((List Import) (Map String Bool)) (Map String Bool)))
 (defn qualifiers-of (imports start)
-  (fold (fn (acc imp) (let (((ex _) imp)) (map-set acc (get ex stem) true))) start imports))
+  (fold (fn (acc imp) (map-set acc (get (get imp exports) stem) true)) start imports))
 
 ;; `elsewhere`'s names, each defined by another module (`Elsewhere`): the table a module's
 ;; imports and its own names are added to.
@@ -1239,22 +1256,59 @@
 (defn elsewhere-entries (elsewhere)
   (fold (fn (acc name) (map-set acc name (Elsewhere (map-get elsewhere name)))) empty-map (map-keys elsewhere)))
 
-;; `names` with `imports` added: each name a module defines, unqualified and as m.name
-;; (`m` its stem). Two imports that define the same name `Clash`, an error only where the
-;; name is used unqualified.
-(sig with-imports (Fn ((List (Tup Exports Pos)) (Map String Entry)) (Map String Entry)))
-(defn with-imports (imports names)
-  (fold (fn (acc imp) (let (((ex pos) imp)) (import-names ex pos acc))) names imports))
+;; `names` with `imports` added: each name a module defines as m.name (`m` its stem), and
+;; unqualified unless the import lists other names. Two imports that define the same name
+;; `Clash`, an error only where the name is used unqualified.
+(sig with-imports (Fn ((List Import) (Map String Entry)) (Map String Entry)))
+(defn with-imports (imports names) (fold (fn (acc imp) (import-names imp acc)) names imports))
 
-(sig import-names (Fn (Exports Pos (Map String Entry)) (Map String Entry)))
-(defn import-names (ex pos start)
-  (fold
-    (fn (acc name)
-      (let ((stem (get ex stem))
-            (e (map-get (get ex names) name)))
-        (map-set (import-entry name e stem acc) (++ stem (++ "." name)) e)))
-    start
-    (map-keys (get ex names))))
+(sig import-names (Fn (Import (Map String Entry)) (Map String Entry)))
+(defn import-names (imp start)
+  (let ((ex (get imp exports))
+        (stem (get ex stem))
+        (listed (listed-names imp))
+        (qualified
+          (fold
+            (fn (acc name) (map-set acc (++ stem (++ "." name)) (map-get (get ex names) name)))
+            start
+            (map-keys (get ex names)))))
+    (fold
+      (fn (acc name)
+        (if (contains name listed)
+          (import-entry name (map-get (get ex names) name) stem acc)
+          (unlisted-entry name stem acc)))
+      qualified
+      (map-keys (get ex names)))))
+
+;; The names `imp` makes unqualified: those it lists, each one its module defines, once; or,
+;; listing none, all of them.
+(sig listed-names (Fn (Import) (List String)))
+(defn listed-names (imp)
+  (let ((ex (get imp exports)))
+    (match (get imp only)
+      ((Some forms)
+        (fold
+          (fn (acc form)
+            (let ((name (sym-name form))
+                  (where (pos-text (form-pos form))))
+              (cond
+                ((not (map-has (get ex names) name))
+                  (fail (format "{where}import: {(get ex stem)} doesn't define {name}")))
+                ((contains name acc) (fail (format "{where}import: {name} is listed twice")))
+                (else (++ acc (List name))))))
+          empty-list
+          forms))
+      ((None) (map-keys (get ex names))))))
+
+;; `acc` with `name`, which the module `stem` defines but its import doesn't list: reached
+;; only as stem.name, unless another import or the file defines it.
+(sig unlisted-entry (Fn (String String (Map String Entry)) (Map String Entry)))
+(defn unlisted-entry (name stem acc)
+  (if (map-has acc name)
+    (match (map-get acc name)
+      ((Elsewhere _) (map-set acc name (Unlisted stem)))
+      (else acc))
+    (map-set acc name (Unlisted stem))))
 
 ;; `acc` with `name` imported from the module `stem` as `e`: a clash if another import
 ;; defines it.
@@ -1264,6 +1318,7 @@
     (let ((old (map-get acc name)))
       (match old
         ((Elsewhere _) (map-set acc name e))
+        ((Unlisted _) (map-set acc name e))
         ((Clash modules) (map-set acc name (if (contains stem modules) old (Clash (++ modules (List stem))))))
         (else
           (map-set acc name (if (= (entry-module old) stem) e (Clash (List (entry-module old) stem)))))))
@@ -1403,7 +1458,7 @@
             (arity
               (cond
                 ((= name "Tup") (len args))
-                ((!= (clash-error name scope) "") (fail (located scope (clash-error name scope))))
+                ((!= (use-error name scope) "") (fail (located scope (use-error name scope))))
                 ((= name "Rest")
                   (fail (located scope "(Rest t) is only for the last argument of a sig's function type")))
                 ((>= (type-arity name scope) 0) (type-arity name scope))

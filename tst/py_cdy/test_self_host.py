@@ -89,7 +89,7 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
     [
         ('(def x "open\n', "lib/b.cdy:1:8: parse error: string is never closed"),
         ("(import nope)", "lib/b.cdy:1:1: import: can't find nope.cdy in lib"),
-        ("\n  (import)", "lib/b.cdy:2:3: import: expected (import name)"),
+        ("\n  (import)", "lib/b.cdy:2:3: import: expected (import ModName [(Name*)])"),
         ("(put\n  (f 1))", "lib/b.cdy:2:4: unknown name f"),
         ("(sig x Int)\n(def x (+ 1))", "lib/b.cdy:2:8: (+ ...) takes at least 2 argument(s)"),
         ("(def x 1)", "lib/b.cdy:1:1: x needs a (sig x Type)"),
@@ -176,6 +176,26 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
                 "b.cdy": "(sig f (Fn (Int) Int)) (defn f (n) n)",
             },
             "main.cdy:2:7: f is not defined here; b defines it, but this file doesn't import b",
+        ),
+        (
+            {
+                "main.cdy": "(import a (x))\n(put y)",
+                "a.cdy": "(sig x Int) (def x 1) (sig y Int) (def y 2)",
+            },
+            "main.cdy:2:6: y: the import of a doesn't list it: write a.y",
+        ),
+        (
+            {"main.cdy": "(import a (x z))", "a.cdy": "(sig x Int) (def x 1)"},
+            "main.cdy:1:14: import: a doesn't define z",
+        ),
+        (
+            {"main.cdy": "(import a (x x))", "a.cdy": "(sig x Int) (def x 1)"},
+            "main.cdy:1:14: import: x is listed twice",
+        ),
+        (
+            {"main.cdy": "(import-macros m)", "m.cdy": "(import h (f))", "h.cdy": ""},
+            "m.cdy:1:1: import: a macro file's import includes the whole file, "
+            "so it lists no names",
         ),
         (
             {"main.cdy": "(import a)\n(put rest)", "a.cdy": "(sig rest Int) (def rest 1)"},
