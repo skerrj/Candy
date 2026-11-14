@@ -237,3 +237,35 @@ with two modules is `tst/cdy/cdyc/qualified.cdy`.
 (put prelude.Maybe) => prelude.Maybe is a type, not a value
 (sig x (Maybe Int)) (def x None) (put (match x ((prelude.Some v) v) ((Some w) w) ((None) 0))) => match: more than one clause for Some
 ```
+
+<a id="programs.private"></a>
+## Private names (since `namespaces`)
+
+`(private a b)`, at top level, keeps the names it lists in their module: a module that
+imports it can't use them, unqualified ("a is private to m") or qualified ("m.a: a is
+private to m"), nor list them (`(import m (a))`: "import: a is private to m"). Everything
+else a module defines stays visible, *lasting*. A private name may be any name the file
+defines but a variant: a private type's variants are private with it, and a variant
+alone is an error. A private name of one import gives way to another import's name, with
+no clash. In its own module a private name is an ordinary name, and a public function can
+take or give a value of a private type, which the importer can hold but not name or take
+apart. The example with two modules is `tst/cdy/cdyc/private.cdy`.
+
+```candy run
+(private twice Box)
+(deft Box ((n Int)))
+(sig twice (Fn (Int) Int))
+(defn twice (n) (* 2 n))
+(put (twice 3) (get (Box 4) n))
+```
+```expect
+6 4
+```
+
+```candy errors
+(private x) => private: x isn't defined in this file
+(sig x Int) (def x 1) (private x x) => private: x is listed twice
+(deft S (A) (B)) (private A) => private: A is a variant, private only with its type: (private S)
+(private "x") => private: expected (private name ...)
+(sig f (Fn (Int) Int)) (defn f (n) (do (private n) n)) => private is only allowed at top level
+```

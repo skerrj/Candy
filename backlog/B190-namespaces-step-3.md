@@ -16,3 +16,6 @@ Step 3 of `doc/hl_rqmt/namespaces.md`. `(import m (a b))`; the import's record; 
 - 2026-11-13, Claude: built (the HLD's step 3 *Done* note): `(import m (a b))`, an
   unlisted name reached as m.name, and `import`'s shape declared in `special.cdy` and
   checked by `syntax.cdy` (new). Staged `old-library`. In review.
+- 2026-11-13, Claude: its commit (`b98b523`) left one ruff finding in
+  `test_self_host.py` (ISC004, a wrapped message not in parentheses: `ruff check` wasn't
+  rerun after the wrap); fixed in step 4's commit.

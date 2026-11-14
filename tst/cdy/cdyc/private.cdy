@@ -1,0 +1,9 @@
+;; Private names (spec/10-programs.md, programs.private): lib/counter keeps its type
+;; `Counter`, its helper `step` and its `label` private, so this file uses only its public
+;; functions; it can hold a Counter without naming its type. lib/tags's `label`, public,
+;; is `label` here, with no clash against counter's private one.
+(import lib/counter)
+(import lib/tags)
+
+(put (count (tick (tick (start nil)))) (counter.describe (tick (start nil))))
+(put label (= (tick (start nil)) (tick (start nil))))

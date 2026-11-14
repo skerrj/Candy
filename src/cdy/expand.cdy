@@ -287,7 +287,7 @@
         (cond
           ((map-has macros head)
             (expand-form (expand-call (map-get macros head) (rest items) pos) macros))
-          ((contains head (List "sig" "deft" "import" "import-macros" "quo" "quasi")) form)
+          ((contains head (List "sig" "deft" "private" "import" "import-macros" "quo" "quasi")) form)
           ((= head "defn") (Lst (expand-after items 3 macros) pos))
           ((= head "fn") (Lst (expand-after items 2 macros) pos))
           ((contains head (List "let" "match")) (Lst (expand-clauses head items macros) pos))

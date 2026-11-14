@@ -145,8 +145,8 @@
       (++ sign (++ "0" body))
       "")))
 
-;; The error for using `name` unqualified, which two imports define, or an import doesn't
-;; list, or "".
+;; The error for using `name`, which two imports define (unqualified), an import doesn't
+;; list (unqualified), or its module keeps private; or "".
 (sig use-error (Fn (String Scope) String))
 (defn use-error (name scope)
   (if (map-has (get scope names) name)
@@ -155,6 +155,10 @@
         (let ((qualified (map (fn (m) (++ m (++ "." name))) modules)))
           (format "{name} is defined by {(join modules \" and \")}: write {(join qualified \" or \")}")))
       ((Unlisted m) (format "{name}: the import of {m} doesn't list it: write {m}.{name}"))
+      ((Private m)
+        (if (has-dot name)
+          (format "{name}: {(bare-name name)} is private to {m}")
+          (format "{name} is private to {m}")))
       (else ""))
     ""))
 
@@ -166,8 +170,8 @@
 ;; `Elsewhere` is defined by another module, which this one doesn't import, for the error;
 ;; one that `Clash`es is defined by two (or more) of the modules it imports, an error where
 ;; it is used unqualified; one `Unlisted` is defined by a module whose import lists other
-;; names (`(import m (a b))`), so it is reached only as m.name. A variant has its sum's
-;; variants (`all`), for `match`.
+;; names (`(import m (a b))`), so it is reached only as m.name; one `Private` is kept in its
+;; module by `(private ...)`. A variant has its sum's variants (`all`), for `match`.
 (deft Entry
   (Value ((module String) (global String)))
   (Record ((module String) (global String) (arity Int)))
@@ -175,6 +179,7 @@
   (VariantOf ((module String) (global String) (sum String) (fields (List String)) (all (List String))))
   (Elsewhere ((module String)))
   (Unlisted ((module String)))
+  (Private ((module String)))
   (Clash ((modules (List String)))))
 
 ;; The global name of `e`; "" for a name defined elsewhere, or by two imports.
@@ -197,6 +202,7 @@
     ((VariantOf m _ _ _ _) m)
     ((Elsewhere m) m)
     ((Unlisted m) m)
+    ((Private m) m)
     ((Clash _) "")))
 
 ;; Whether the top-level name `name` is a value: a def or defn, a record's constructor, or a
@@ -381,7 +387,7 @@
     ((= head "quo") (an-quo args scope n))
     ((= head "quasi") (an-quasi args scope n))
     ((contains head (List "unq" "unq-sp")) (fail (located scope (format "{head}: only inside quasi"))))
-    ((contains head (List "def" "defn" "deft" "sig" "import" "import-macros" "defmacro"))
+    ((contains head (List "def" "defn" "deft" "sig" "private" "import" "import-macros" "defmacro"))
       (fail (located scope (format "{head} is only allowed at top level"))))
     (else (fail (located scope (format "{head} is not supported by the Candy translator yet"))))))
 
@@ -1170,12 +1176,44 @@
 
 ;; What a module defines at top level, which the modules importing it see: each name's
 ;; Entry. Outside the top module, a global name has the module's stem as a prefix
-;; (util__greet), so two modules can define the same name; no Candy name contains __.
-(deft Exports ((stem String) (names (Map String Entry))))
+;; (util__greet), so two modules can define the same name; no Candy name contains __. The
+;; names in `privates` (`(private ...)`) are the module's own: no other module sees them.
+(deft Exports ((stem String) (names (Map String Entry)) (privates (Map String Bool))))
 
 ;; What `forms` define, as the module `stem`, whose global names start with `prefix`.
 (sig module-exports (Fn ((List Form) String String) Exports))
-(defn module-exports (forms stem prefix) (Exports stem (module-names forms stem prefix)))
+(defn module-exports (forms stem prefix)
+  (let ((names (module-names forms stem prefix)))
+    (Exports stem names (private-names forms names empty-map))))
+
+;; `start` with the names `forms`' `(private a b)`s keep in the module, which `names` are
+;; what it defines; a private type's variants are private too. Each must be a name it
+;; defines, other than a variant, and listed once.
+(sig private-names (Fn ((List Form) (Map String Entry) (Map String Bool)) (Map String Bool)))
+(defn private-names (forms names start)
+  (fold
+    (fn (acc form)
+      (let ((items (list-items form)))
+        (if (and (> (len items) 0) (= (sym-name (at items 0)) "private"))
+          (fold (fn (acc1 item) (add-private item names acc1)) acc (rest items))
+          acc)))
+    start
+    forms))
+
+(sig add-private (Fn (Form (Map String Entry) (Map String Bool)) (Map String Bool)))
+(defn add-private (item names acc)
+  (let ((name (sym-name item))
+        (where (pos-text (form-pos item))))
+    (cond
+      ((= name "") (fail (++ where "private: expected (private name ...)")))
+      ((not (map-has names name)) (fail (format "{where}private: {name} isn't defined in this file")))
+      ((map-has acc name) (fail (format "{where}private: {name} is listed twice")))
+      (else
+        (match (map-get names name)
+          ((VariantOf _ _ sum _ _)
+            (fail (format "{where}private: {name} is a variant, private only with its type: (private {sum})")))
+          ((Sum _ _ _ variants) (fold (fn (a v) (map-set a v true)) (map-set acc name true) variants))
+          (else (map-set acc name true)))))))
 
 ;; The table of the names `forms` define (see module-exports). A name defined twice is an
 ;; error, at the second.
@@ -1258,7 +1296,8 @@
 
 ;; `names` with `imports` added: each name a module defines as m.name (`m` its stem), and
 ;; unqualified unless the import lists other names. Two imports that define the same name
-;; `Clash`, an error only where the name is used unqualified.
+;; `Clash`, an error only where the name is used unqualified. A private name is in the
+;; table only for its error, giving way to any other import's.
 (sig with-imports (Fn ((List Import) (Map String Entry)) (Map String Entry)))
 (defn with-imports (imports names) (fold (fn (acc imp) (import-names imp acc)) names imports))
 
@@ -1269,19 +1308,22 @@
         (listed (listed-names imp))
         (qualified
           (fold
-            (fn (acc name) (map-set acc (++ stem (++ "." name)) (map-get (get ex names) name)))
+            (fn (acc name)
+              (map-set acc (++ stem (++ "." name))
+                (if (map-has (get ex privates) name) (Private stem) (map-get (get ex names) name))))
             start
             (map-keys (get ex names)))))
     (fold
       (fn (acc name)
-        (if (contains name listed)
-          (import-entry name (map-get (get ex names) name) stem acc)
-          (unlisted-entry name stem acc)))
+        (cond
+          ((map-has (get ex privates) name) (hidden-entry name (Private stem) acc))
+          ((contains name listed) (import-entry name (map-get (get ex names) name) stem acc))
+          (else (hidden-entry name (Unlisted stem) acc))))
       qualified
       (map-keys (get ex names)))))
 
-;; The names `imp` makes unqualified: those it lists, each one its module defines, once; or,
-;; listing none, all of them.
+;; The names `imp` makes unqualified: those it lists, each one its module defines and
+;; doesn't keep private, once; or, listing none, all but the private ones.
 (sig listed-names (Fn (Import) (List String)))
 (defn listed-names (imp)
   (let ((ex (get imp exports)))
@@ -1294,21 +1336,23 @@
               (cond
                 ((not (map-has (get ex names) name))
                   (fail (format "{where}import: {(get ex stem)} doesn't define {name}")))
+                ((map-has (get ex privates) name)
+                  (fail (format "{where}import: {name} is private to {(get ex stem)}")))
                 ((contains name acc) (fail (format "{where}import: {name} is listed twice")))
                 (else (++ acc (List name))))))
           empty-list
           forms))
-      ((None) (map-keys (get ex names))))))
+      ((None) (filter (fn (name) (not (map-has (get ex privates) name))) (map-keys (get ex names)))))))
 
-;; `acc` with `name`, which the module `stem` defines but its import doesn't list: reached
-;; only as stem.name, unless another import or the file defines it.
-(sig unlisted-entry (Fn (String String (Map String Entry)) (Map String Entry)))
-(defn unlisted-entry (name stem acc)
+;; `acc` with `name` as `e`, an import's name that isn't visible unqualified (`Unlisted` or
+;; `Private`), for its error: unless another import or the file defines it.
+(sig hidden-entry (Fn (String Entry (Map String Entry)) (Map String Entry)))
+(defn hidden-entry (name e acc)
   (if (map-has acc name)
     (match (map-get acc name)
-      ((Elsewhere _) (map-set acc name (Unlisted stem)))
+      ((Elsewhere _) (map-set acc name e))
       (else acc))
-    (map-set acc name (Unlisted stem))))
+    (map-set acc name e)))
 
 ;; `acc` with `name` imported from the module `stem` as `e`: a clash if another import
 ;; defines it.
@@ -1319,6 +1363,7 @@
       (match old
         ((Elsewhere _) (map-set acc name e))
         ((Unlisted _) (map-set acc name e))
+        ((Private _) (map-set acc name e))
         ((Clash modules) (map-set acc name (if (contains stem modules) old (Clash (++ modules (List stem))))))
         (else
           (map-set acc name (if (= (entry-module old) stem) e (Clash (List (entry-module old) stem)))))))
@@ -1333,11 +1378,13 @@
 (defn put-all (m keys start)
   (fold (fn (acc key) (map-set acc key (map-get m key))) start keys))
 
-;; The names other modules define, each with its module's stem.
+;; The names other modules define, each with its module's stem; not their private ones.
 (sig elsewhere-names (Fn ((List Exports)) (Map String String)))
 (defn elsewhere-names (exports)
   (fold
-    (fn (acc ex) (put-all (stems-for (map-keys (get ex names)) (get ex stem)) (map-keys (get ex names)) acc))
+    (fn (acc ex)
+      (let ((public (filter (fn (name) (not (map-has (get ex privates) name))) (map-keys (get ex names)))))
+        (put-all (stems-for public (get ex stem)) public acc)))
     empty-map
     exports))
 
@@ -1413,6 +1460,7 @@
       ((= head "def") (top-def items here prog))
       ((= head "defn") (top-defn items here prog))
       ((= head "deft") (top-deft items here prog))
+      ((= head "private") prog)
       (else
         (let (((e n) (analyse-expr form here (get prog n))))
           (add-top prog (TExpr e) n))))))

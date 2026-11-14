@@ -292,6 +292,22 @@ syntax, so it is one step.
    `old-library`.
 4. **Private names**: `(private ...)`, its errors; the translator's first private names in
    a later step, if any.
+   *Done (2026-11-13). As built:* `(special private)`, with a rule of its own (no shape,
+   so no staging: `boot/73` reads it). `module-exports` reads a module's `(private ...)`s
+   into `Exports`' `privates` (`private-names`): each a name the file defines, listed
+   once, not a variant ("private only with its type: (private S)"), a private sum's
+   variants private with it. An importer's table has a `Private` entry for each, as
+   `name` and as `m.name`; `use-error` says "x is private to m" and "m.x: x is private to
+   m", and a name list "import: x is private to m". Like `Unlisted`, a `Private` entry gives
+   way to another import's name (`hidden-entry`, which was `unlisted-entry`), and a private
+   name is left out of the program's other modules' names (`elsewhere-names`), so one
+   that isn't imported is unknown. Analysis skips the form; elsewhere it is "only allowed
+   at top level", and expansion leaves it alone. The rule: `programs.private` (new);
+   `tst/cdy/cdyc/private.cdy` (new, with `lib/counter.cdy`, an abstract type) is the
+   example, and `test_module_errors` has the cross-module errors. The VS Code grammar
+   knows `private`. The translator has no private names yet. Checked against `boot/73`'s
+   `bin`: the same Python for the translator and every example but the two new ones,
+   which it can't read. The build about 1.0 s, as before.
 5. **The rules written down** ([[B40]], [[B11]], [[B50]]'s part): one namespace, what
    every file sees, shadowing; a variant or value named like a macro an error.
 6. **The module in Core** ([[B65]]): `Global` with its module and name, definitions too

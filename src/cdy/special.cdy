@@ -24,6 +24,7 @@
 (special defn)
 (special sig)
 (special deft)
+(special private)
 
 ;; --- expressions ---
 (special do)

@@ -194,8 +194,37 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
         ),
         (
             {"main.cdy": "(import-macros m)", "m.cdy": "(import h (f))", "h.cdy": ""},
-            "m.cdy:1:1: import: a macro file's import includes the whole file, "
-            "so it lists no names",
+            (
+                "m.cdy:1:1: import: a macro file's import includes the whole file, "
+                "so it lists no names"
+            ),
+        ),
+        (
+            {"main.cdy": "(import a)\n(put x)", "a.cdy": "(private x) (sig x Int) (def x 1)"},
+            "main.cdy:2:6: x is private to a",
+        ),
+        (
+            {"main.cdy": "(import a)\n(put a.x)", "a.cdy": "(private x) (sig x Int) (def x 1)"},
+            "main.cdy:2:6: a.x: x is private to a",
+        ),
+        (
+            {"main.cdy": "(import a (x))", "a.cdy": "(private x) (sig x Int) (def x 1)"},
+            "main.cdy:1:12: import: x is private to a",
+        ),
+        (
+            {
+                "main.cdy": "(import a)\n(sig s a.S) (def s (a.A))",
+                "a.cdy": "(private S) (deft S (A) (B))",
+            },
+            "main.cdy:2:1: a.S: S is private to a",
+        ),
+        (
+            {
+                "main.cdy": "(import a)\n(put (f 1))",
+                "a.cdy": "(import b)",
+                "b.cdy": "(private f) (sig f (Fn (Int) Int)) (defn f (n) n)",
+            },
+            "main.cdy:2:7: unknown name f",
         ),
         (
             {"main.cdy": "(import a)\n(put rest)", "a.cdy": "(sig rest Int) (def rest 1)"},

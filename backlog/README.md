@@ -86,7 +86,7 @@ By kind, then priority.
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B190](B190-namespaces-step-3.md) | namespaces step 3: the name list, and `import`'s shape declared | task | review | normal |
-| [B191](B191-namespaces-step-4.md) | namespaces step 4: private names | task | open | normal |
+| [B191](B191-namespaces-step-4.md) | namespaces step 4: private names | task | review | normal |
 | [B192](B192-namespaces-step-5.md) | namespaces step 5: the rules written down | task | open | normal |
 | [B193](B193-namespaces-step-6.md) | namespaces step 6: the module in Core | task | open | normal |
 | [B194](B194-namespaces-step-7.md) | namespaces step 7: docs | task | open | normal |
