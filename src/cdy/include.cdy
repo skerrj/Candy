@@ -1,6 +1,6 @@
 ;;; Include: reading a program's files. A program is modules (doc/hl_rqmt/modules.md):
 ;;; `(import name)` at top level imports `name.cdy`, found in the importing file's
-;;; directory, and read-modules returns each module after those it imports. A cycle is an
+;;; directory (`(import name (a b))` too, its names listed; its shape is special.cdy's), and read-modules returns each module after those it imports. A cycle is an
 ;;; error. Every file but the prelude itself also imports the prelude (prelude.cdy, next to
 ;;; the translator). `(import-macros name)` stays, with `name.cdy`'s path in place of the name, for
 ;;; expand.cdy to load.
@@ -11,6 +11,7 @@
 
 (import form)
 (import read)
+(import syntax)
 
 ;; --- modules ---
 
@@ -19,8 +20,9 @@
 ;; imports.
 (deft Module ((path String) (key String) (stem String) (forms (List Form)) (imports (List Imp))))
 
-;; An import: the imported module's key, and where the import is.
-(deft Imp ((key String) (pos Pos)))
+;; An import: the imported module's key, where the import is, and the names it lists, if
+;; it lists any (`(import m (a b))`), to make only those unqualified.
+(deft Imp ((key String) (pos Pos) (only (Maybe (List Form)))))
 
 ;; The modules read so far, each after those it imports, and the keys read or being read.
 (deft Mods ((done (List Module)) (seen (Map String Bool))))
@@ -51,7 +53,7 @@
 (defn prelude-module (key)
   (let ((path (library-path "prelude.cdy"))
         (prelude (path-resolve path)))
-    (if (= prelude key) empty-list (List (Tup path (Imp prelude NOWHERE))))))
+    (if (= prelude key) empty-list (List (Tup path (Imp prelude NOWHERE None))))))
 
 ;; The path of the library file `name` (form.cdy, special.cdy, system.cdy, the prelude and its macros), which
 ;; is kept next to the translator (in bin/py/; py_cdy/self_host.py copies the library there).
@@ -66,11 +68,13 @@
 ;; The imports among `forms`: each imported file's path, with its Imp.
 (sig module-imports (Fn ((List Form) String) (List (Tup String Imp))))
 (defn module-imports (forms dir)
-  (map
-    (fn (form)
-      (let ((path (import-path "import" dir (import-name form) (form-pos form))))
-        (Tup path (Imp (path-resolve path) (form-pos form)))))
-    (filter (fn (form) (!= (import-name form) "")) forms)))
+  (let ((shape (import-shape nil)))
+    (map
+      (fn (form)
+        (let (((name only) (import-parts shape form))
+              (path (import-path "import" dir name (form-pos form))))
+          (Tup path (Imp (path-resolve path) (form-pos form) only))))
+      (filter is-import forms))))
 
 (sig imp-list (Fn ((List (Tup String Imp))) (List Imp)))
 (defn imp-list (imports) (map (fn (i) (let (((_name imp) i)) imp)) imports))
@@ -99,7 +103,7 @@
 ;; `forms` without their imports; (import-macros name) as (import-macros "path").
 (sig other-forms (Fn ((List Form) String) (List Form)))
 (defn other-forms (forms dir)
-  (map (fn (form) (macro-import form dir)) (filter (fn (form) (= (import-name form) "")) forms)))
+  (map (fn (form) (macro-import form dir)) (filter (fn (form) (not (is-import form))) forms)))
 
 ;; The modules read, after checking that no two imported modules share a stem, which their
 ;; names' prefix comes from (the top module's names have none).
@@ -156,10 +160,9 @@
 (defn include-forms (forms dir start)
   (fold
     (fn (acc form)
-      (let ((name (import-name form)))
-        (if (= name "")
-          (assoc acc done (++ (get acc done) (List (macro-import form dir))))
-          (include-file (import-path "import" dir name (form-pos form)) acc))))
+      (if (is-import form)
+        (include-file (import-path "import" dir (included-name form) (form-pos form)) acc)
+        (assoc acc done (++ (get acc done) (List (macro-import form dir))))))
     start
     forms))
 
@@ -175,14 +178,36 @@
         (Lst (List (at items 0) (Txt (import-path "import-macros" dir (sym-name (at items 1)) pos) pos)) pos))
       (else (fail (++ (pos-text pos) "import-macros: expected (import-macros name)"))))))
 
-;; The name in `(import name)`, or "" if `form` isn't an import.
-(sig import-name (Fn (Form) String))
-(defn import-name (form)
+;; Whether `form` is an import, `(import ...)`.
+(sig is-import (Fn (Form) Bool))
+(defn is-import (form)
   (let ((items (list-items form)))
+    (and (> (len items) 0) (= (sym-name (at items 0)) "import"))))
+
+;; import's shape, as special.cdy declares it (syntax.cdy).
+(sig import-shape (Fn (Unit) (List Syntax)))
+(defn import-shape (_)
+  (let ((path (library-path "special.cdy")))
+    (declared-shape (read-source path (slurp path)) "import")))
+
+;; The import `form`'s module and the names it lists, if any, checked against `shape`.
+(sig import-parts (Fn ((List Syntax) Form) (Tup String (Maybe (List Form)))))
+(defn import-parts (shape form)
+  (let ((args (rest (list-items form))))
     (cond
-      ((or (= (len items) 0) (!= (sym-name (at items 0)) "import")) "")
-      ((and (= (len items) 2) (!= (sym-name (at items 1)) "")) (sym-name (at items 1)))
-      (else (fail (++ (pos-text (form-pos form)) "import: expected (import name)"))))))
+      ((not (fits-shape shape args))
+        (fail (format "{(pos-text (form-pos form))}import: expected {(shape-text \"import\" shape)}")))
+      ((= (len args) 1) (Tup (sym-name (at args 0)) None))
+      (else (Tup (sym-name (at args 0)) (Some (list-items (at args 1))))))))
+
+;; The module a macro file's `form` includes: it lists no names, since inclusion brings
+;; everything.
+(sig included-name (Fn (Form) String))
+(defn included-name (form)
+  (let (((name only) (import-parts (import-shape nil) form)))
+    (match only
+      ((None) name)
+      (else (fail (++ (pos-text (form-pos form)) "import: a macro file's import includes the whole file, so it lists no names"))))))
 
 ;; The path of `name.cdy` in directory `dir`, imported at `pos` by `what` (import or
 ;; import-macros).

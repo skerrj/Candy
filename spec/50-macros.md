@@ -57,8 +57,9 @@ hello
 ```
 
 <a id="macros.binding"></a>
-A macro's name can't be bound or defined, and a macro is defined once; a special form
-can't be a macro.
+A macro's name can't be bound or defined (a value, a function, a type or a variant), and
+a macro is defined once; a special form can't be a macro. A macro is its file's own
+([[programs.sees]]).
 
 ```candy errors
 (defmacro m) => defmacro: expected (defmacro name (params) body) or (defmacro name args body)
@@ -71,6 +72,9 @@ can't be a macro.
 (defmacro m (a) a) (put ((fn (m) 1) 2)) => m is a macro, so it can't be bound
 (defmacro m (a) a) (deft S (Mm ((x Int)))) (put (match (Mm 1) ((Mm m) m))) => m is a macro, so it can't be bound
 (defmacro m (a) a) (sig m Int) (def m 1) => m is a macro, so it can't be defined
+(defmacro M (a) a) (deft S (M ((x Int)))) => M is a macro, so it can't be defined
+(defmacro T (a) a) (deft T ((x Int))) => T is a macro, so it can't be defined
+(defmacro m (a) a) (deft (m a) ((x a))) => m is a macro, so it can't be defined
 ```
 
 <a id="macros.errors-at-call"></a>

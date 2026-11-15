@@ -52,6 +52,22 @@ PROGRAMS = [
     *sorted(CDYC_ONLY.glob("*.cdy")),
 ]
 IDS = [p.stem for p in PROGRAMS]
+TOP = "cdyc"  # the translator's top module, whose names have no prefix in Python
+
+
+def candy(translator: ModuleType, name: str) -> Any:
+    """The translator's own top-level ``name``, as Candy writes it: ``form.Pos``, module
+    ``form``'s ``Pos``, or ``translate-text``, the top module's. Its Python name is the
+    translator's to give (``py-global-name`` in ``emit.cdy``, itself reached by its Python
+    name), so moving a definition to another module changes a test only where the module's
+    name is (B65)."""
+    module, _, own = name.rpartition(".")
+    return getattr(translator, translator.emit__py_global_name(module or TOP, own, TOP))
+
+
+def in_module(translator: ModuleType, value: object, module: str) -> bool:
+    """Whether ``value`` is a record or variant defined by the translator's ``module``."""
+    return type(value).__name__.startswith(translator.emit__py_global_name(module, "", TOP))
 
 
 def run(source: str, tmp_path: Path, name: str) -> subprocess.CompletedProcess[str]:
@@ -89,7 +105,7 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
     [
         ('(def x "open\n', "lib/b.cdy:1:8: parse error: string is never closed"),
         ("(import nope)", "lib/b.cdy:1:1: import: can't find nope.cdy in lib"),
-        ("\n  (import)", "lib/b.cdy:2:3: import: expected (import name)"),
+        ("\n  (import)", "lib/b.cdy:2:3: import: expected (import ModName [(Name*)])"),
         ("(put\n  (f 1))", "lib/b.cdy:2:4: unknown name f"),
         ("(sig x Int)\n(def x (+ 1))", "lib/b.cdy:2:8: (+ ...) takes at least 2 argument(s)"),
         ("(def x 1)", "lib/b.cdy:1:1: x needs a (sig x Type)"),
@@ -137,11 +153,28 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
     [
         (
             {
-                "main.cdy": "(import a)\n(import b)",
+                "main.cdy": "(import a)\n(import b)\n(put x)",
                 "a.cdy": "(sig x Int) (def x 1)",
                 "b.cdy": "(sig x Int) (def x 2)",
             },
-            "main.cdy:2:1: import: a and b both define x",
+            "main.cdy:3:6: x is defined by a and b: write a.x or b.x",
+        ),
+        (
+            {
+                "main.cdy": "(import a)\n(import b)\n(sig y a.T) (def y (a.T 1))\n"
+                "(sig z T) (def z 1)",
+                "a.cdy": "(deft T ((n Int)))",
+                "b.cdy": "(deft T ((n Int)))",
+            },
+            "main.cdy:4:1: T is defined by a and b: write a.T or b.T",
+        ),
+        (
+            {
+                "main.cdy": "(import a)\n(put (b.f 1))",
+                "a.cdy": "(import b)",
+                "b.cdy": "(sig f (Fn (Int) Int)) (defn f (n) n)",
+            },
+            "main.cdy:2:7: b.f: this file doesn't import a module b",
         ),
         (
             {"main.cdy": "(import a)", "a.cdy": "(import b)", "b.cdy": "(import a)"},
@@ -161,8 +194,57 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
             "main.cdy:2:7: f is not defined here; b defines it, but this file doesn't import b",
         ),
         (
-            {"main.cdy": "(import a)", "a.cdy": "(sig rest Int) (def rest 1)"},
-            "main.cdy:1:1: import: prelude and a both define rest",
+            {
+                "main.cdy": "(import a (x))\n(put y)",
+                "a.cdy": "(sig x Int) (def x 1) (sig y Int) (def y 2)",
+            },
+            "main.cdy:2:6: y: the import of a doesn't list it: write a.y",
+        ),
+        (
+            {"main.cdy": "(import a (x z))", "a.cdy": "(sig x Int) (def x 1)"},
+            "main.cdy:1:14: import: a doesn't define z",
+        ),
+        (
+            {"main.cdy": "(import a (x x))", "a.cdy": "(sig x Int) (def x 1)"},
+            "main.cdy:1:14: import: x is listed twice",
+        ),
+        (
+            {"main.cdy": "(import-macros m)", "m.cdy": "(import h (f))", "h.cdy": ""},
+            (
+                "m.cdy:1:1: import: a macro file's import includes the whole file, "
+                "so it lists no names"
+            ),
+        ),
+        (
+            {"main.cdy": "(import a)\n(put x)", "a.cdy": "(private x) (sig x Int) (def x 1)"},
+            "main.cdy:2:6: x is private to a",
+        ),
+        (
+            {"main.cdy": "(import a)\n(put a.x)", "a.cdy": "(private x) (sig x Int) (def x 1)"},
+            "main.cdy:2:6: a.x: x is private to a",
+        ),
+        (
+            {"main.cdy": "(import a (x))", "a.cdy": "(private x) (sig x Int) (def x 1)"},
+            "main.cdy:1:12: import: x is private to a",
+        ),
+        (
+            {
+                "main.cdy": "(import a)\n(sig s a.S) (def s (a.A))",
+                "a.cdy": "(private S) (deft S (A) (B))",
+            },
+            "main.cdy:2:1: a.S: S is private to a",
+        ),
+        (
+            {
+                "main.cdy": "(import a)\n(put (f 1))",
+                "a.cdy": "(import b)",
+                "b.cdy": "(private f) (sig f (Fn (Int) Int)) (defn f (n) n)",
+            },
+            "main.cdy:2:7: unknown name f",
+        ),
+        (
+            {"main.cdy": "(import a)\n(put rest)", "a.cdy": "(sig rest Int) (def rest 1)"},
+            "main.cdy:2:6: rest is defined by prelude and a: write prelude.rest or a.rest",
         ),
         (
             # A module's prefix against a mangled name (backlog B12).
@@ -211,13 +293,15 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
 def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
     """``forms`` as Python, translated as macro code (where quoting is allowed), as
     ``expand.cdy`` translates a macro program."""
-    return cast(str, t1.translate_expanded(forms, t1.read__read_hole, {}, True))
+    return cast(str, candy(t1, "translate-expanded")(forms, candy(t1, "read.read-hole"), {}, True))
 
 
 def test_quoting_in_macro_code(t1: ModuleType, tmp_path: Path) -> None:
     program = CDYC_ONLY / "macro_code" / "quoting.cdy"
     done = run(
-        translate_macro_code(t1, t1.include__read_program(str(program))), tmp_path, "quoting"
+        translate_macro_code(t1, candy(t1, "include.read-program")(str(program))),
+        tmp_path,
+        "quoting",
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout == program.with_suffix(".out").read_text(encoding="utf-8")
@@ -355,18 +439,18 @@ def test_bin_driver_expands_macros(tmp_path: Path) -> None:
     ),
 )
 def test_py_mangle(t1: ModuleType, name: str, py: str) -> None:
-    assert t1.emit__py_mangle(name) == py
+    assert candy(t1, "emit.py-mangle")(name) == py
 
 
 def test_py_reserved_is_this_python(t1: ModuleType) -> None:
     live = {*keyword.kwlist, *dir(builtins)}
-    assert set(t1.emit__PY_RESERVED) == live | {"math", "re", "cdy_rt"}, (
+    assert set(candy(t1, "emit.PY_RESERVED")) == live | {"math", "re", "cdy_rt"}, (
         "emit.cdy's PY_RESERVED is Python 3.14's; update it for this Python"
     )
 
 
 def test_py_imports_cover_the_spellings(t1: ModuleType) -> None:
-    modules = set(t1.emit__PY_IMPORTS)
+    modules = set(candy(t1, "emit.PY_IMPORTS"))
     for entry in SPELLINGS.values():
         if entry.kind == "type":  # a type's text is a template (tuple[{}, ...])
             continue
@@ -380,7 +464,7 @@ def test_py_imports_cover_the_spellings(t1: ModuleType) -> None:
     ("", "a", "a'b", 'a"b', "a'\"b", "back\\slash", "\n\r\t", "\x00\x1f\x7f\x9f\xa0", "\u00e9"),
 )
 def test_py_str_is_repr(t1: ModuleType, text: str) -> None:
-    assert t1.emit__py_str(text) == repr(text)
+    assert candy(t1, "emit.py-str")(text) == repr(text)
 
 
 @pytest.mark.parametrize("name", ("py-mangle", "py-repr", "get-indent", "PY_IMPORTS"))
@@ -395,32 +479,33 @@ def test_list_functions_are_built_in(t1: ModuleType) -> None:
     assert "cdy_rt.primitives.list_map(" in source and "cdy_rt.primitives.list_filter(" in source
 
 
-def core_nodes(value: object, found: list[Any]) -> list[Any]:
+def core_nodes(t1: ModuleType, value: object, found: list[Any]) -> list[Any]:
     """Every Core node in ``value`` (a node has a type, ``t``)."""
     if isinstance(value, tuple):
-        if type(value).__name__.startswith("core__") and hasattr(value, "t"):
+        if in_module(t1, value, "core") and hasattr(value, "t"):
             found.append(value)
         for item in value:
-            core_nodes(item, found)
+            core_nodes(t1, item, found)
     return found
 
 
 def typed_core(t1: ModuleType, path: Path) -> list[Any]:
     """The Core nodes of the program at ``path``, as the checker typed them."""
-    library = t1.expand__library_builtins(None)
-    modules = t1.include__read_modules(str(path))
-    tops = t1.check__type_check(t1.program_tops(modules, t1.read__read_hole, library), library)
-    return core_nodes(tops, [])
+    library = candy(t1, "expand.library-builtins")(None)
+    modules = candy(t1, "include.read-modules")(str(path))
+    tops = candy(t1, "check.type-check")(
+        candy(t1, "program-tops")(modules, candy(t1, "read.read-hole"), library), library
+    )
+    return core_nodes(t1, tops, [])
 
 
-def unsolved(t: Any) -> bool:
+def unsolved(t1: ModuleType, t: Any) -> bool:
     """Whether the type ``t`` holds a variable the checker never solved (``?N``)."""
-    kind = type(t).__name__
-    if kind == "core__TVar":
+    if isinstance(t, candy(t1, "core.TVar")):
         return cast(str, t.name).startswith("?")
-    if kind == "core__TFn":
-        return any(unsolved(p) for p in t.params) or unsolved(t.ret)
-    return any(unsolved(a) for a in t.args)
+    if isinstance(t, candy(t1, "core.TFn")):
+        return any(unsolved(t1, p) for p in t.params) or unsolved(t1, t.ret)
+    return any(unsolved(t1, a) for a in t.args)
 
 
 def test_every_node_is_typed(t1: ModuleType) -> None:
@@ -428,11 +513,11 @@ def test_every_node_is_typed(t1: ModuleType) -> None:
     # the name (?eK) it had while checked, so the checker reached them all; and none is
     # left unsolved (the eight that were all met Any: B132).
     nodes = typed_core(t1, ROOT / "src" / "cdy" / "cdyc.cdy")
-    kinds = {type(n.t).__name__ for n in nodes}
-    assert kinds <= {"core__TCon", "core__TVar", "core__TFn"}
-    assert not [n for n in nodes if unsolved(n.t)]
-    lambdas = [n for n in nodes if type(n).__name__ == "core__Lambda"]
-    assert lambdas and all(type(n.t).__name__ == "core__TFn" for n in lambdas)
+    kinds = {type(n.t) for n in nodes}
+    assert kinds <= {candy(t1, f"core.{k}") for k in ("TCon", "TVar", "TFn")}
+    assert not [n for n in nodes if unsolved(t1, n.t)]
+    lambdas = [n for n in nodes if isinstance(n, candy(t1, "core.Lambda"))]
+    assert lambdas and all(isinstance(n.t, candy(t1, "core.TFn")) for n in lambdas)
 
 
 UNSOLVED = """\
@@ -468,9 +553,9 @@ def test_unsolved_types(
     path = tmp_path / "unsolved.cdy"
     path.write_text(UNSOLVED, encoding="utf-8")
     types = {  # a type variable's number depends on what the prelude holds: tN
-        re.sub(r"\bt\d+\b", "tN", t1.check__show(n.t, {}))
+        re.sub(r"\bt\d+\b", "tN", candy(t1, "check.show")(n.t, {}))
         for n in typed_core(t1, path)
-        if type(n).__name__ == "core__Local" and n.name == local
+        if isinstance(n, candy(t1, "core.Local")) and n.name == local
     }
     assert types == {shown}
     assert python in translate_with(t1, UNSOLVED)
@@ -561,7 +646,7 @@ def test_builtin_arity_comes_from_system(t1: ModuleType) -> None:
 def reads(t1: ModuleType, text: str) -> bool:
     """Whether T1's reader accepts ``text``."""
     try:
-        t1.read__read_forms(text)
+        candy(t1, "read.read-forms")(text)
     except CandyFail:
         return False
     return True
@@ -624,21 +709,23 @@ def test_reader_accepts(text: str, accepted: bool, t1: ModuleType) -> None:
 )
 def test_reader_errors(text: str, message: str, t1: ModuleType) -> None:
     with pytest.raises(CandyFail, match="^" + re.escape(message)):
-        t1.read__read_forms(text)
+        candy(t1, "read.read-forms")(text)
 
 
 def test_reader_positions(t1: ModuleType) -> None:
-    forms = t1.read__read_source("f.cdy", "(a\n  (b c))\n x")
-    pos = t1.form__form_pos
-    assert pos(forms[0]) == t1.form__Pos("f.cdy", 1, 1)
+    forms = candy(t1, "read.read-source")("f.cdy", "(a\n  (b c))\n x")
+    pos = candy(t1, "form.form-pos")
+    assert pos(forms[0]) == candy(t1, "form.Pos")("f.cdy", 1, 1)
     assert [pos(f) for f in forms[0].items] == [
-        t1.form__Pos("f.cdy", 1, 2),
-        t1.form__Pos("f.cdy", 2, 3),
+        candy(t1, "form.Pos")("f.cdy", 1, 2),
+        candy(t1, "form.Pos")("f.cdy", 2, 3),
     ]
-    assert pos(forms[0].items[1].items[1]) == t1.form__Pos("f.cdy", 2, 6)
-    assert pos(forms[1]) == t1.form__Pos("f.cdy", 3, 2)
-    assert pos(t1.read__read_forms("x")[0]) == t1.form__NOWHERE  # read_forms gives no positions
-    literals = t1.read__read_source("f.cdy", '("s" 1 2.0\n \\c true)')[0].items
-    assert [pos(f) for f in literals] == [t1.form__Pos("f.cdy", 1, col) for col in (2, 6, 8)] + [
-        t1.form__Pos("f.cdy", 2, col) for col in (2, 5)
-    ]
+    assert pos(forms[0].items[1].items[1]) == candy(t1, "form.Pos")("f.cdy", 2, 6)
+    assert pos(forms[1]) == candy(t1, "form.Pos")("f.cdy", 3, 2)
+    assert pos(candy(t1, "read.read-forms")("x")[0]) == candy(
+        t1, "form.NOWHERE"
+    )  # read_forms gives no positions
+    literals = candy(t1, "read.read-source")("f.cdy", '("s" 1 2.0\n \\c true)')[0].items
+    assert [pos(f) for f in literals] == [
+        candy(t1, "form.Pos")("f.cdy", 1, col) for col in (2, 6, 8)
+    ] + [candy(t1, "form.Pos")("f.cdy", 2, col) for col in (2, 5)]

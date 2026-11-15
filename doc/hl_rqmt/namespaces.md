@@ -1,9 +1,10 @@
 # Namespaces (HLD)
 
-**Status: accepted (2026-11-12), with the answers to its questions (tasks [[B188]] to
-[[B194]]); proposed 2026-11-11, revised 2026-11-12 in review (`import`'s forms, its shape
-declared, no alias, one table of names), for branch `namespaces`. Epic: `python_complete.md` (its
-fourth branch). After tag `collections-2`.** Qualified names, the import forms, what is
+**Status: done (2026-11-14), steps 1 to 7 (tag `namespaces`). Accepted 2026-11-12, with
+the answers to its questions (tasks [[B188]] to [[B194]]); proposed 2026-11-11, revised
+2026-11-12 in review (`import`'s forms, its shape declared, no alias, one table of names),
+for branch `namespaces`. Epic: `python_complete.md` (its fourth branch). After tag
+`collections-2`.** Qualified names, the import forms, what is
 seen everywhere, macros' names, shadowing, private names, and the module kept to the
 backend: the epic's "Namespaces" section, whose scope its Question 10 settled (a branch of
 its own; types and values one namespace, *lasting*). The MVP this builds on is
@@ -18,7 +19,7 @@ Counts from today's source (2026-11-11, after tag `collections-2`).
 | [[B47]] only `(import m)`, everything unqualified | one import form; two imports that define one name are an error at the import, even if neither is used | `programs.import`; the translator's 24 imports (`cdyc.cdy` 8, `expand.cdy` 5, `emit.cdy` 3, the rest 1 or 2) |
 | qualified names | none: `m/x` is an ordinary name (`(def m/x 1)` translates and runs); no program, spec example or test writes one | `read.cdy` reads `u/greet` as one symbol |
 | [[B40]] types and values share a namespace | `(deft Box (Box ...))` is "defined more than once"; decided *lasting* (epic, Question 10), not yet a rule | `core.cdy` |
-| [[B11]] a variant named like a macro | translates; a later `(M 1)` expands as the macro | its repro |
+| [[B11]] a variant with the same name as a macro | translates; a later `(M 1)` expands as the macro | its repro |
 | [[B50]] the translator's five host built-ins are every program's | `py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name` in `system.cdy` | `system.cdy` |
 | shadowing | a local shadows any outer name, a built-in too (`expr.let`, *lasting*); a program's top-level definition of a built-in's name wins | `core.cdy` |
 | private names | none: every top-level name is exported | `modules.md`, Question 1 |
@@ -32,21 +33,21 @@ Counts from today's source (2026-11-11, after tag `collections-2`).
 
 - **One table of names:** what a file sees, one map from a name to what it is, so one
   namespace is the table's shape and each rule below is written once.
-- **Qualified names:** `m/name` reaches a name module `m` defines, as Clojure's.
+- **Qualified names:** `m.name` reaches a name module `m` defines, as Clojure's.
 - **The import forms:** chosen names, besides `(import m)`, the shape declared in
   `special.cdy`; two imports that define one name are an error only where the name is
   used unqualified.
 - **What every file sees, written down:** the special forms, the operators, the
   built-ins and the prelude.
 - **The rules that are decided but unwritten:** one namespace ([[B40]]), shadowing,
-  a variant named like a macro ([[B11]]).
+  a variant with the same name as a macro ([[B11]]).
 - **Private names,** so a library module can have helpers.
 - **The module kept to the backend:** a `Global` carries its module and its name, each
   target spelling them its own way, and the tests reach Candy names ([[B65]]).
 
 ## Not goals
 
-- **The library split into modules** (`math/cos`, [[B108]]): `library`'s, which needs
+- **The library split into modules** (`math.cos`, [[B108]]): `library`'s, which needs
   this branch's qualified names first.
 - **Macro files as modules, macros imported and qualified** ([[B45]]): `host-macros`',
   when macro code runs on the interpreter. Macros stay global to a program, *for now*.
@@ -91,25 +92,27 @@ and the build; if the sum is slow, `Entry` is one record with a kind field inste
 
 ### Qualified names
 
-A name with a `/` between two parts, `m/name`, is the name `name` that the module imported
-as `m` defines, *lasting*. The reader is unchanged (it already reads `m/name` as one
-symbol); analysis splits it. A lone `/` stays the division operator, and a name may hold
-no other `/` (`a/b/c`, `/x` and `x/` are errors), so a program's own name can't hold one
-either. `m` is the import's qualifier, the module's file stem (`lib/util` is `util`). A qualified name works for anything a module defines: a value, a
-function, a type (`(sig p shapes/Point)`), a variant (`(shapes/Circle 1.0)`, and in a
+A name with a `.` between two parts, `m.name`, is the name `name` that the module imported
+as `m` defines, *lasting*. The reader is unchanged (it already reads `m.name` as one
+symbol, and a number's `.` stays a number's); analysis splits it. A name may hold no other
+`.` (`a.b.c`, `.x` and `x.` are errors), so a program's own name can't hold one either.
+`m` is the import's qualifier, the module's file stem (`lib/util` is `util`). A `/` is no
+qualifier, but an import's path; a name can't hold one either, reserved, except the
+division operator `/` itself. A qualified name works for anything a module defines: a
+value, a function, a type (`(sig p shapes.Point)`), a variant (`(shapes.Circle 1.0)`, and in a
 pattern).
 
 ### The import forms
 
 ```
-(import m)          ; everything unqualified, and m/name
-(import m (a b))    ; a and b unqualified, the rest as m/name
+(import m)          ; everything unqualified, and m.name
+(import m (a b))    ; a and b unqualified, the rest as m.name
 ```
 
 - `(import m)` stays as it is, so the translator's 24 imports and every test keep working:
-  every name `m` defines, unqualified, and each as `m/name` too.
+  every name `m` defines, unqualified, and each as `m.name` too.
 - `(import m (a b))` makes only those names unqualified; the rest are reached as
-  `m/name`. Each must be a name `m` defines ("`m` doesn't define `c`").
+  `m.name`. Each must be a name `m` defines ("`m` doesn't define `c`").
 - Positional, with no marker words, so nothing is reserved. An alias would be a third
   position, `(import m (a b) u)`, if one is ever wanted there; [[B187]] proposes a form of
   its own instead.
@@ -135,13 +138,13 @@ branch; `import-macros` (one `ModName`) could follow.
 
 **Ambiguous only where used** (`modules.md`, "After the MVP"): two imports that define
 one name are an error only where the name is used unqualified ("`greet` is defined by
-`a` and `b`: write `a/greet` or `b/greet`"); a file's own definition still wins over
+`a` and `b`: write `a.greet` or `b.greet`"); a file's own definition still wins over
 both.
 
 ### What every file sees
 
 Unqualified, in every file, *lasting*: the special forms, the operators, the built-ins
-(`system.cdy`) and the prelude's names. They have no qualifier (not `system/map`) until
+(`system.cdy`) and the prelude's names. They have no qualifier (not `system.map`) until
 `library` splits the built-ins into modules ([[B108]]), which can give each one; this
 branch only writes the rule down.
 
@@ -155,10 +158,11 @@ rule, not a leak). A record's name being both its type and its constructor is th
 
 ### Macros' names
 
-Macros stay global to a program, *for now* until `host-macros` ([[B45]]): a `defmacro`'s
+*Corrected in step 5 (2026-11-13): a file's macros are its own, not the program's; see
+its Done note.* Macros stay global to a program, *for now* until `host-macros` ([[B45]]): a `defmacro`'s
 name, and those `import-macros` brings, are seen in every module. A variant, a value or a
-type named like a macro is an error at its definition ([[B11]], a defect fixed here), as a
-local named like one already is.
+type with the same name as a macro is an error at its definition ([[B11]], a defect fixed here), as a
+local with one's name already is.
 
 ### Shadowing
 
@@ -172,7 +176,7 @@ declarations only the translator imports).
 ### Private names
 
 `(private a b)`, a top-level form, keeps names in their module: they aren't visible
-unqualified, and `m/a` is an error ("`a` is private to `m`"). The default stays
+unqualified, and `m.a` is an error ("`a` is private to `m`"). The default stays
 everything exported. Question 4 weighs the alternatives: an export list, or a naming rule
 (Clojure's `defn-`, Python's leading `_`).
 
@@ -185,7 +189,7 @@ everything exported. Question 4 weighs the alternatives: an export list, or a na
   Python output doesn't change. Another target spells them its own way
   (`multi_target.md`).
 - The tests reach a Candy name, not a Python one ([[B65]]): a helper in `tst/py_cdy/`,
-  `candy(t1, "form/Sym")`, reads the spelling from the translator's own mapping, so moving
+  `candy(t1, "form.Sym")`, reads the spelling from the translator's own mapping, so moving
   a function between modules changes the test's text only where the module's name is.
 
 ### The spec
@@ -193,11 +197,11 @@ everything exported. Question 4 weighs the alternatives: an export list, or a na
 | Rule | File | Step |
 |---|---|---|
 | `programs.import`: the two forms, ambiguity where used, the error from the shape | `10-programs.md` | 2, 3 |
-| `programs.qualified` (new): `m/name`, for values, types, variants, patterns | `10-programs.md` | 2 |
+| `programs.qualified` (new): `m.name`, for values, types, variants, patterns | `10-programs.md` | 2 |
 | `programs.top-level`: one namespace; what every file sees; shadowing | `10-programs.md` | 5 |
 | `programs.private` (new) | `10-programs.md` | 4 |
-| `macros.defmacro`: global, *for now*; a definition named like a macro an error | `50-macros.md` | 5 |
-| `syntax.symbols`: a `/` in a name | `00-syntax.md` | 2 |
+| `macros.defmacro`: global, *for now*; a definition with the same name as a macro an error | `50-macros.md` | 5 |
+| `syntax.names`: a `.` in a name | `00-syntax.md` | 2 |
 
 ## Pros and cons
 
@@ -227,29 +231,177 @@ syntax, so it is one step.
 
 1. **One table of names** ([[B40]]'s shape): the seven maps one `Entry` map, `core.cdy`
    only; the output unchanged; mypy and the build measured.
-2. **Qualified names** ([[B47]]): `m/name` for a module `(import m)` imports, for values,
-   types and variants (and patterns); the `/` rule in names; ambiguity where used in place
+   *Done (2026-11-12). As built:* `Entry` has five kinds: `Value`, `Record` (a type and
+   its constructor), `Sum`, `VariantOf` (`Variant` is Core's) and `Elsewhere`; no `Clash`
+   yet, which is step 2's. `Scope` keeps one `names` table, and `Exports` is its stem and
+   its table (`module-names`, with `add-deft` and `add-entry`); `VInfo`, `Seen`,
+   `find-variants`, `add-variants`, `type-arities`, `prefixed` and `blank-scope` are gone.
+   `top-names` stays, for `expand.cdy`'s macro names. The lookups are small functions
+   (`is-top-value`, `is-sum`, `type-arity`, `variant-sum`, `variant-fields`,
+   `sum-variants`, `elsewhere-module`, `global-name`). A module's own names replace an
+   import's whole entry, where before each map was merged on its own. One error changed:
+   a sum's name used as a value said "S is not defined here; m defines it, but this file
+   doesn't import m", even in the file that defines it; it is now "S is a type, not a
+   value" (`types.exist`, a new row). Checked against `boot/70`'s `bin`: the same Python
+   for the 11 test programs, the translator, and 378 of the spec's and the backlog's 379
+   examples (the other is that error). The build 0.88 s to 0.90 s; mypy on the
+   translator 1.64 s to 1.62 s.
+2. **Qualified names** ([[B47]]): `m.name` for a module `(import m)` imports, for values,
+   types and variants (and patterns); the `.` rule in names; ambiguity where used in place
    of the clash at import.
+   *Done (2026-11-12). As built:* an import adds each name twice to the table, as `name`
+   and as `stem.name`; `Scope` has the file's `qualifiers` (its imports' stems). Two
+   imports that define one name make a `Clash` entry (`import-entry`), and `clash-error`
+   reports it where it is used unqualified: as a value or a call, a type, or a pattern
+   ("x is defined by a and b: write a.x or b.x"); the file's own definition replaces it.
+   A name that holds a `.` is never defined (`dot-error`, in
+   `add-entry`, `bind-local` and a field), and one that names nothing says why
+   (`qualified-error`: not m.name, a module not imported, a name it doesn't define). Two
+   places needed more than the table: `analyse-type` read `shapes.Shape` as a type
+   variable (it starts lowercase), and `match` compares clauses by their bare names, so
+   `(prelude.Some v)` and `(Some w)` are one variant twice; a variant now carries its
+   sum's variants (`all`), for exhaustiveness. The rules: `programs.qualified` (new),
+   `programs.import` and `programs.prelude` (a clash where used), `syntax.names` (no `.`);
+   `tst/cdy/cdyc/qualified.cdy` (new) is the example with two modules, and
+   `test_module_errors` has the clash (a value, a type), a module imported only by an
+   import, and the prelude's clash where used. Checked against `boot/71`'s `bin`: the
+   same Python for the translator and every example but the 12 new ones. The build 0.92 s
+   to 0.94 s. In review the owner changed the separator to `.` (Question 3), built as
+   above with `.` for `/` (`has-dot`), and `.5` in `syntax.numbers` now a qualified name
+   with no module; a `/` in a name stays an error, reserved (the owner), so a definition's
+   name is checked by `name-error`, for both.
 3. **The name list, and `import`'s shape declared** ([[B47]]): `(import m (a b))`; the
    import's record (`modules.md`'s `Import`, without an alias); `(special import ...)`
    with its shape, the syntax categories `import` needs, the check and its error.
+   *Done (2026-11-13). As built:* `special.cdy` declares
+   `(special import (ModName (Opt (List Name))))`; `syntax.cdy` (new) reads a shape into
+   `Syntax` (`SynName`, `SynModName`, `SynList`, `SynOpt`, the last only last), checks a
+   form's arguments against it (`fits-shape`) and writes the error from it (`shape-text`:
+   "import: expected (import ModName [(Name*)])"); `read-decls` (`core.cdy`) checks every
+   declared shape. `include.cdy` reads import's shape from `special.cdy` once per module
+   and checks each import with it (`import-parts`); its `Imp` carries the listed names
+   (`only`, a `Maybe`), and a macro file's import (inclusion) can list none. Analysis gets
+   an `Import` (`core.cdy`; `modules.md`'s, with `only` for its `Names`): every name goes
+   in as m.name, the listed ones (or all) unqualified, and the rest as `Unlisted`, an
+   entry whose use says "b: the import of m doesn't list it: write m.b" (`use-error`,
+   which was `clash-error`); a listed name `m` doesn't define, or one listed twice, is an
+   error at the name. An `Unlisted` name gives way to any other import's. The rule:
+   `programs.import`; `tst/cdy/cdyc/import_list.cdy` (new) is the example, and
+   `test_module_errors` has the name list's errors. `test_editor_grammar` reads a special
+   form declared with a shape. Checked against `boot/72`'s `bin`: the same Python for the
+   translator and every example but the new program, which it can't read. The build 1.00 s
+   to 1.03 s. `boot/72` can't read the new `special.cdy`, so this step is staged
+   `old-library`.
 4. **Private names**: `(private ...)`, its errors; the translator's first private names in
    a later step, if any.
+   *Done (2026-11-13). As built:* `(special private)`, with a rule of its own (no shape,
+   so no staging: `boot/73` reads it). `module-exports` reads a module's `(private ...)`s
+   into `Exports`' `privates` (`private-names`): each a name the file defines, listed
+   once, not a variant ("private only with its type: (private S)"), a private sum's
+   variants private with it. An importer's table has a `Private` entry for each, as
+   `name` and as `m.name`; `use-error` says "x is private to m" and "m.x: x is private to
+   m", and a name list "import: x is private to m". Like `Unlisted`, a `Private` entry gives
+   way to another import's name (`hidden-entry`, which was `unlisted-entry`), and a private
+   name is left out of the program's other modules' names (`elsewhere-names`), so one
+   that isn't imported is unknown. Analysis skips the form; elsewhere it is "only allowed
+   at top level", and expansion leaves it alone. The rule: `programs.private` (new);
+   `tst/cdy/cdyc/private.cdy` (new, with `lib/counter.cdy`, an abstract type) is the
+   example, and `test_module_errors` has the cross-module errors. The VS Code grammar
+   knows `private`. The translator has no private names yet. Checked against `boot/73`'s
+   `bin`: the same Python for the translator and every example but the two new ones,
+   which it can't read. The build about 1.0 s, as before.
 5. **The rules written down** ([[B40]], [[B11]], [[B50]]'s part): one namespace, what
-   every file sees, shadowing; a variant or value named like a macro an error.
+   every file sees, shadowing; a variant or value with the same name as a macro an error.
+   *Done (2026-11-13). As built:* three rules under `programs.top-level`, each with an
+   example: `programs.namespace` (one namespace, a record's name its type and its
+   constructor; [[B40]] kept), `programs.sees` (the built-ins, the prelude, and a file's
+   own macros) and `programs.shadowing` (local, own, import, built-in; a qualified name
+   never; [[B50]]'s five, *for now*). A `deft`'s type or variant with the same name as a macro is
+   "M is a macro, so it can't be defined" (`analyse-top`, `macro-named`; [[B11]] done,
+   its repro now `macros.binding`'s rows). Two findings: macros aren't global to a
+   program, as "Macros' names" above says: a file's macros are its own `defmacro`s,
+   those it loads with `import-macros` and the prelude's, and `import` doesn't pass them
+   on (`expand-file`; `macros.import-macros` already said so), so `programs.sees` states
+   that. And a file's own `text` changes `put`, whose expansion calls `text` (a note on
+   [[B46]], *for now*: the built-ins have no qualifier until `library`). A file may also
+   shadow a built-in type's name (`(deft List ...)`), as any built-in's. The naming rules,
+   spread over the spec, have an index in `spec/00-syntax.md` ("Naming rules, in one
+   place"), its last row pointing to the target's spellings (Python's, *for now*). Checked
+   against `boot/74`'s `bin`: the same Python for every program, the translator and
+   every example.
 6. **The module in Core** ([[B65]]): `Global` with its module and name, definitions too
    (and the table's `global`); `emit`'s spelling unchanged; the tests' `candy` helper.
+   *Done (2026-11-14). As built:* a `Global`, a `TCon`, a `Clause` and each definition
+   (`TDeft`, `TDeftSum`, `TDef`, `TDefn`) carry the module that defines them and the name
+   there (a `TCon`'s module `""` for a built-in type, macro code's `""` too: no module,
+   *for now*, [[B197]], to settle with `library`); the
+   lowered IR's definitions and `Case`s too. An `Entry`'s `global` is its `name`, and
+   `module-exports` takes no prefix. The top module keeps its stem: `has-main` and
+   `python-of` take it, and `emit` (`spelled`, `py-global-name`) writes the top module's
+   and macro code's names unprefixed, every other `util__greet`. Inside the checker and
+   `emit`, a name's key is `global-key`, `util.Shape` (a built-in's its own name; no name
+   holds a `.`), and the messages show the name itself. The tests reach the translator's
+   own names as Candy writes them, `candy(t1, "form.Pos")`, through `py-global-name`, the
+   one name they reach by its Python spelling ([[B65]] done). One finding: a type with
+   the same name as a built-in type, which didn't translate to valid Python before, now
+   does, but `show` still takes it for the built-in ([[B196]], new). Checked against
+   `boot/75`'s `bin`: the same Python for every program but [[B196]]'s repro; the build
+   (0.9 s) and T2's `mypy --strict` (1.7 s) as before.
 7. **Docs:** CLAUDE.md, the epic's fourth branch *done*, `modules.md`'s "After the MVP",
    `multi_target.md`'s "Modules and output units"; "Looking back".
+   *Done (2026-11-14). As built:* CLAUDE.md's history (the branch), its code list
+   (`syntax.cdy`), the built-ins (`import`'s declared shape) and "Modules" (the import
+   forms, qualified and private names, one table, shadowing, the module in Core,
+   `global-key`, the tests' `candy`); `python_complete.md`'s fourth branch *done*, and
+   its triage's [[B40]], [[B47]], [[B108]], [[B65]] and [[B11]] rows; *done* notes in
+   `modules.md`'s "After the MVP" and `multi_target.md`'s "Modules and output units".
+   [[B47]] done (steps 2 to 4); [[B108]] stays open, for `library`, with a note. The
+   spec's rules came with their steps; in review, the spec read through for what they
+   left stale: `match.namespace` said *for now*, now *lasting*, linking
+   [[programs.namespace]]; `10-programs.md`'s introduction and grammar gained the name
+   list, `private` and the new example programs, and `programs.top-level` `private`;
+   the index in `spec/README.md` names the new rules and the naming rules' index.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **A table first made each rule small.** The survey found seven maps where the HLD
+  expected one; making them one `Entry` map first (step 1, the output unchanged) turned
+  each later rule into an entry kind and a message: `Clash` (step 2), `Unlisted`
+  (step 3), `Private` (step 4), each reported where the name is used, and each giving
+  way to a name that is really there.
+- **A separator is cheap to change before anything uses it.** `/` became `.` in step 2's
+  review; no name in the translator, the library, the tests or the spec held either, so
+  it cost the reader's `has-dot` and a hint for `.5`. Checking the corpus first, as
+  Question 3 did, is what made it cheap.
+- **A declared shape is part of the library the last `bin` reads.** Step 3's
+  `(special import ...)` was the first special form with a shape, which `boot/72`
+  couldn't read, so the step was staged (`old-library`); a later shape, for another
+  form, will be too.
+- **Writing a rule down tests the design.** Step 5 found that macros are a file's own,
+  not global to a program as "Macros' names" said (`expand-file` never passed them on),
+  and that a file's own `text` changes `put` ([[B46]]). The code was right; the HLD was
+  corrected.
+- **A spelled name hides which thing it names.** Keyed by `util__greet`, the checker
+  and `emit` couldn't tell a program's `Map` from the built-in's; keyed by module and
+  name (step 6), the program's type translates, and `show` is the one place left that
+  takes it for the built-in ([[B196]]). One value, `""`, still means two things, a
+  built-in type's module and macro code's ([[B197]]).
+- **The last `bin` as an oracle.** Each step compared the Python it writes, for every
+  program, the translator and every example, with the previous `boot` tag's; the
+  differences were always the step's new examples or one named error, so a mechanical
+  step (6 most of all, every node's fields) could be trusted without reading its output.
+  The build stayed at 0.9 s to 1.0 s throughout.
 
 ## Questions
 
 1. **What `(import m)` makes unqualified:** everything, as now (proposed), so nothing
-   that works today breaks; or nothing, as Clojure's `require`, every use `m/name` unless
+   that works today breaks; or nothing, as Clojure's `require`, every use `m.name` unless
    its name list names it, which is clearer but rewrites the translator's uses of its own
    modules' names (about 1,030, in its 9 modules). **Proposed: everything, as now,**
    *lasting*. *Answer (2026-11-12, the owner): everything,* *lasting*. Weighed on the
-   way: under this, an alias on a module matters only where a file writes `m/name` (a
+   way: under this, an alias on a module matters only where a file writes `m.name` (a
    clash, the rest of a name list, or two stems alike), so leaving it out costs little;
    a file is one module, and two files with one stem (`util`, `lib/util`) stay an error.
 2. **The import forms' spelling:** keywords (`(import m :as u :only (a b))`, as Clojure's
@@ -265,7 +417,14 @@ syntax, so it is one step.
    (Rust's)? **Proposed: `/`,** as decided. *Answer (2026-11-12, the owner): `/`.*
    Checked: no name in the translator, the tests or the spec holds a `/` today; only
    `import`'s paths do (`lib/util`), a `ModName` by its declared shape, and a qualifier is
-   a stem, so the two never meet (`util/greet`, never `lib/util/greet`).
+   a stem, so the two never meet (`util/greet`, never `lib/util/greet`). *Changed
+   (2026-11-13, the owner, in step 2's review): `.`,* Python's, Java's and OCaml's.
+   Question 8 had already found that `.` for modules needn't keep it from fields. Checked:
+   no name in the translator, the library, the tests or the spec holds a `.`, and the
+   reader keeps a number's (`3.14f`); a word starting with `.` (`.5`), a name until now,
+   becomes a qualified name with no module, an error ("a number needs a digit before its
+   ." for `.5` and `-.5`, `number-hint`). A `/` in a name stays an error,
+   reserved (the owner, 2026-11-13), except the operator `/` itself.
 4. **Private names:** a `(private a b)` form (proposed: one place, the default stays
    "everything exported", no rename); an export list (`(export a b)`, everything else
    private: clearer for a library, but every module must list its names); `defn-` and
@@ -297,11 +456,12 @@ syntax, so it is one step.
    from Question 3) No: Python, Java and OCaml use one `.` for both. Candy resolves names
    statically, so `a.b` could be a module's name when `a` is an import's qualifier, and a
    field when `a` is a value (the checker already solves a `get` on a value of unknown
-   type, [[checking.records]]). What it would need: a rule for a local named like a
-   qualifier (an error, or the local wins); chains read left to right (`m.p.x`, module
+   type, [[checking.records]]). What it would need: a rule for a local with the same name
+   as a qualifier (an error, or the local wins); chains read left to right (`m.p.x`, module
    `m`'s `p`, then its field `x`); a reader that splits on `.` but not in numbers
    (`3.14f`); and field syntax, which Candy hasn't (only `(get p x)`). OCaml tells the two
    apart by case (`M.x`, `r.x`). **Proposed: not exclusive, and not decided here:** this
    branch uses `/`, and a `.` for fields, for modules too or not, is the field syntax's
    question, later (a `brainstorm.md` entry, or an idea item). *Answer (2026-11-12, the
-   owner): as proposed.*
+   owner): as proposed.* With Question 3 changed to `.` (2026-11-13), field syntax will
+   need the rule for a local with the same name as a qualifier ([[B195]]).

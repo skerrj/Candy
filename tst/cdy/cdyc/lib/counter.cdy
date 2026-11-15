@@ -1,0 +1,23 @@
+;; A counter kept abstract (tst/cdy/cdyc/private.cdy): its type and its helper are private,
+;; so an importer makes and reads one only through the public functions.
+(private Counter step label)
+
+(deft Counter ((n Int)))
+
+(sig label String)
+(def label "counter")
+
+(sig step (Fn (Int) Int))
+(defn step (n) (+ n 1))
+
+(sig start (Fn (Unit) Counter))
+(defn start (_) (Counter 0))
+
+(sig tick (Fn (Counter) Counter))
+(defn tick (c) (Counter (step (get c n))))
+
+(sig count (Fn (Counter) Int))
+(defn count (c) (get c n))
+
+(sig describe (Fn (Counter) String))
+(defn describe (c) (format "{label} at {(get c n)}"))

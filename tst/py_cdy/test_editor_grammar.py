@@ -20,7 +20,7 @@ def test_grammar_has_every_special_form() -> None:
         for name in group.split("|")
     }
     special = set(
-        re.findall(r"^\(special (\S+)\)", SPECIAL.read_text(encoding="utf-8"), re.MULTILINE)
+        re.findall(r"^\(special ([^\s()]+)", SPECIAL.read_text(encoding="utf-8"), re.MULTILINE)
     )
     assert special, SPECIAL
     assert special <= named, special - named

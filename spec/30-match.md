@@ -66,8 +66,8 @@ A sum can be generic and recursive:
 ```
 
 <a id="match.namespace"></a>
-Types and values share one namespace *for now* (so a type and a variant can't both be
-named `Box`), and variant names must be Capitalised:
+Types and values share one namespace, *lasting* ([[programs.namespace]]; so a type and a
+variant can't both be named `Box`), and variant names must be Capitalised:
 
 ```candy errors
 (deft Box (Box ((v Int)))) => defined more than once: Box

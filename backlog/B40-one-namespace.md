@@ -1,7 +1,7 @@
 # B40: Types and values share one namespace
 
 kind: leak
-state: open
+state: kept
 priority: low
 found: pre-self-host, 2026-10-17
 fixed:
@@ -16,3 +16,7 @@ name can reuse a type's name. Candy keeps types and values apart in principle. F
 ## Notes
 
 - 2026-10-26, the owner: `low` in triage ([[B103]]): an easy workaround, or rare.
+- 2026-11-13, the owner: kept, a rule, not a leak: types, values and variants share one
+  namespace per module, *lasting* (`python_complete.md`, Question 10; `namespaces.md`,
+  "One namespace, a rule"). Claude: written down by `namespaces` step 5 ([[B192]]) as
+  [[programs.namespace]].

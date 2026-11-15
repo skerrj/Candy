@@ -28,27 +28,25 @@
 (sig translate-modules (Fn ((List Module) (Fn (String Pos) (List Form))) String))
 (defn translate-modules (modules parse)
   (let ((builtins (library-builtins nil)))
-    (python-of (type-check (program-tops modules parse builtins) builtins))))
+    (python-of (type-check (program-tops modules parse builtins) builtins) (get (at modules (- (len modules) 1)) stem))))
 
 ;; The definitions of the program `modules`, analysed (see translate-modules); not yet
 ;; type-checked (check.cdy).
 (sig program-tops (Fn ((List Module) (Fn (String Pos) (List Form)) (Map String Builtin)) (List Top)))
 (defn program-tops (modules parse builtins)
-  (let ((ready (expand-modules modules (- (len modules) 1)))
+  (let ((ready (expand-modules modules))
         (by-key (exports-by-key ready))
         (elsewhere (elsewhere-names (exports-of ready))))
     (analyse-modules ready by-key elsewhere builtins parse)))
 
-;; Each of `modules` with its macros expanded; `top` is the top module's index.
-(sig expand-modules (Fn ((List Module) Int) (List Ready)))
-(defn expand-modules (modules top)
+;; Each of `modules` with its macros expanded.
+(sig expand-modules (Fn ((List Module)) (List Ready)))
+(defn expand-modules (modules)
   (map
-    (fn (im)
-      (let (((i m) im)
-            ((forms macros) (expand-program (get m forms) compile-macros))
-            (prefix (if (= i top) "" (++ (get m stem) "__"))))
-        (Ready m forms macros (module-exports forms (get m stem) prefix))))
-    (zip (range 0 (len modules)) modules)))
+    (fn (m)
+      (let (((forms macros) (expand-program (get m forms) compile-macros)))
+        (Ready m forms macros (module-exports forms (get m stem)))))
+    modules))
 
 (sig exports-by-key (Fn ((List Ready)) (Map String Exports)))
 (defn exports-by-key (ready)
@@ -77,9 +75,10 @@
             false)))
       ready)))
 
-;; The exports of each import, with where it is.
-(sig imported (Fn ((List Imp) (Map String Exports)) (List (Tup Exports Pos))))
-(defn imported (imps by-key) (map (fn (imp) (Tup (map-get by-key (get imp key)) (get imp pos))) imps))
+;; Each import, with its module's exports.
+(sig imported (Fn ((List Imp) (Map String Exports)) (List Import)))
+(defn imported (imps by-key)
+  (map (fn (imp) (Import (map-get by-key (get imp key)) (get imp pos) (get imp only))) imps))
 
 ;; A macro program (expand.cdy) as Python. It is macro code, so it can quote.
 (sig compile-macros (Fn ((List Form)) String))
@@ -89,20 +88,21 @@
 ;; the program's macros.
 (sig translate-expanded (Fn ((List Form) (Fn (String Pos) (List Form)) (Map String Macro) Bool) String))
 (defn translate-expanded (forms parse macros quoting)
-  (python-of (analyse-program forms (library-builtins nil) parse macros quoting)))
+  (python-of (analyse-program forms (library-builtins nil) parse macros quoting) ""))
 
 ;; The definitions `tops` as a Python module, which first makes a panic stop the program
-;; with its message (`stop_on_panic`; spec/60-library.md, library.errors).
-(sig python-of (Fn ((List Top)) String))
-(defn python-of (tops)
+;; with its message (`stop_on_panic`; spec/60-library.md, library.errors); `top` is the
+;; top module, whose names have no prefix ("" for macro code).
+(sig python-of (Fn ((List Top) String) String))
+(defn python-of (tops top)
   (let ((stmts (lower-program tops 0))
-        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops) py-spellings empty-map (deft-field-types tops))))
+        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops) py-spellings empty-map (deft-field-types tops) top)))
         (env (bind-locals (bound-locals stmts empty-list) globals)))
     (++ HEADER
        (emit-imports PY_IMPORTS)
        "\ncdy_rt.primitives.stop_on_panic()\n"
        (emit-stmts stmts 0 env)
-       (if (has-main tops) (emit-main env) ""))))
+       (if (has-main tops top) (emit-main env) ""))))
 
 ;; Candy text in, Python source out, read by the Candy reader (read.cdy), which also
 ;; reads the forms in `format` holes. Its imports are found in the current directory.

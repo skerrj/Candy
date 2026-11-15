@@ -184,7 +184,12 @@ same thing. Two steps:
     `/` as the separator, as in Clojure. The reader already reads `u/greet` as one symbol.
   - The spellings could become prelude macros only once a macro can expand into an
     `import` (`doc/leaks.md`).
-- **"Ambiguous only where used"** in place of the clash-at-import error.
+
+  *Done in `namespaces` (2026-11-14; `namespaces.md`), otherwise:* one form,
+  `(import m)` or `(import m (a b))`, its shape declared in `special.cdy`; every name is
+  also `m.name`, with `.` as the separator, not `/`; no alias ([[B187]], later).
+- **"Ambiguous only where used"** in place of the clash-at-import error. *Done in
+  `namespaces`* ([[programs.import]]).
 - **Modules all the way to the backend, so each target picks its output unit.** A Candy
   module is a namespace, which the front end settles the same way for every target; how
   many files a backend writes is that target's choice (`doc/hl_rqmt/multi_target.md`,
@@ -198,11 +203,18 @@ same thing. Two steps:
     `import {greet} from "./util.js"`);
   - writing one unit per module (one `.py` per module, as a package) is then an option
     per target, the way to separate compilation.
+
+  *Done in `namespaces`, the first and third:* Core's `Global`, `TCon` and definitions
+  carry the module and the name, and only `emit` spells them (`util__greet`, flat and
+  prefixed, as before). Python stays one file.
 - **Macro modules on the host:** caching compiled macro files, and letting the macro
   program import the translator's `form` module instead of copying it. Macro code runs in
   the translator, so this concerns the host's modules, whatever the target.
 - **Qualified template symbols** in `quasi` (macro hygiene); export lists or private names;
   a plain `import` bringing a file's `defmacro`s; `system.cdy` and `prelude.cdy`.
+  *Since:* private names are `(private ...)` (`namespaces`, [[programs.private]]), and
+  `system.cdy` and `prelude.cdy` came with `system-prelude`; the rest are
+  `host-macros`' ([[B45]], [[B46]]).
 
 ## Questions (decided: the simplest option for the MVP)
 

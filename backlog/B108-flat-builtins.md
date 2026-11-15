@@ -17,3 +17,10 @@ program's own once modules have qualified names ([[B47]]; `doc/hl_rqmt/modules.m
 "After the MVP": `util/greet`), with a few (the prelude, perhaps the operators) seen
 everywhere. It would shape the I/O refactor ([[B95]]) and a library per target
 ([[B97]]). Raised by the owner after `name-checks`.
+
+## Notes
+
+- 2026-11-14, Claude: `namespaces` gave modules qualified names (`m.name`, with `.`, not
+  the `/` above, [[programs.qualified]]) and name lists, so the split this item wants is
+  `library`'s to do; the built-ins stay one flat set, with no module, until then
+  ([[B197]]: their module is `""` in Core, *for now*).

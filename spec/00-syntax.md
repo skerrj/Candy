@@ -87,7 +87,9 @@ A literal must end at a delimiter: whitespace, a parenthesis, `;`, or the end of
 <a id="syntax.numbers"></a>
 A number has digits on both sides of its `.`, its exponent has digits, and its suffix
 comes last; anything else that starts with a digit is an error. A word that starts with
-`.` or `-` and isn't a number is a name (`.5`, `-x`):
+`-` and isn't a number is a name (`-x`); one that starts with `.` isn't a number either,
+but a qualified name with no module ([[programs.qualified]]), and one like a number with
+no digit before its `.` says so:
 
 ```candy errors
 (put 12x) => unexpected 1
@@ -96,7 +98,9 @@ comes last; anything else that starts with a digit is an error. A word that star
 (put 1e5) => unexpected 1
 (put 1.0e) => unexpected 1
 (put 1.0e+5) => unexpected 1
-(put .5) => unknown name .5
+(put .5) => .5: a number needs a digit before its . (0.5)
+(put -.5) => -.5: a number needs a digit before its . (-0.5)
+(put .x) => .x: a qualified name is m.name
 ```
 
 The number types have sizes, *lasting*, as Java's and Kotlin's: a `Byte` is 8 bits,
@@ -177,7 +181,10 @@ lines
 
 A name is any word that isn't a literal and doesn't start with a digit, `'`, `#`, `"` or
 `\`. It runs up to a delimiter, or a `'`, `"` or `\`. So names can hold punctuation that
-other languages reserve: `set-x!`, `empty?`, `->`, `a.b`, `a#b`.
+other languages reserve: `set-x!`, `empty?`, `->`, `a#b`. A name can't hold a `.`:
+`m.name` is a qualified name, a name a module defines ([[programs.qualified]]), so a name
+a program defines has none. Nor can it hold a `/`, reserved, *for now* (`/` on its own is
+the division operator).
 
 ```candy run
 (sig empty? (Fn (Int) Int))
@@ -188,6 +195,16 @@ other languages reserve: `set-x!`, `empty?`, `->`, `a.b`, `a#b`.
 ```
 ```expect
 1 <5>
+```
+
+```candy errors
+(sig a.b Int) (def a.b 1) => a.b: a name can't hold a .
+(put (let ((a.b 1)) a.b)) => a.b: a name can't hold a .
+(deft V ((a.b Int))) => deft V: a.b: a name can't hold a .
+(deft S (A) (x.B)) => x.B: a name can't hold a .
+(sig a/b Int) (def a/b 1) => a/b: a name can't hold a /, which is reserved
+(put (let ((a/b 1)) a/b)) => a/b: a name can't hold a /
+(deft V ((a/b Int))) => deft V: a/b: a name can't hold a /
 ```
 
 <a id="syntax.python-names"></a>
@@ -223,3 +240,28 @@ can't clash with a program's.
 (put #a) => unexpected #
 (put b__c) => a name can't contain __ (only gensym makes such names)
 ```
+
+## Naming rules, in one place
+
+An index only: each rule is where its feature is, with its examples, and this table links
+to it.
+
+| What | Rule | Where |
+|---|---|---|
+| A name's characters | any word that isn't a literal and doesn't start with a digit, `'`, `#`, `"` or `\`; it ends at a delimiter, `'`, `"` or `\` | [[syntax.names]] |
+| `.` | no name a program defines holds one; `m.name` is a qualified name | [[syntax.names]], [[programs.qualified]] |
+| `/` | reserved in names, *for now*; `/` on its own is division | [[syntax.names]] |
+| `'`, `#`, `__` | `'` reserved (a quote shorthand, later); no name starts with `#`; only `gensym` makes a name with `__` | [[syntax.reserved]] |
+| Types | Capitalised; a lowercase name in a type is a type variable | [[types.table]] |
+| Type variables | different within one `deft`; not a constraint's name (`number`, `comparable`, ...) | [[types.records]], [[checking.constraints]] |
+| Variants | Capitalised | [[match.namespace]] |
+| Fields | different within one record or variant | [[types.records]] |
+| Pattern names | different within one pattern | [[match.clauses]] |
+| One namespace | a module's types, values and variants share one; a record's name is its type and its constructor | [[programs.namespace]], [[match.namespace]] |
+| Defined once | a top-level name is defined once, and a macro | [[programs.top-level]], [[macros.binding]] |
+| Special forms | can't be bound, defined or made a macro | [[expr.let]], [[macros.binding]] |
+| Macros | no local, value, function, type or variant has the same name as a macro | [[macros.binding]] |
+| `main` | a `defn` typed `(Fn ((List String)) Int)` | [[programs.main]] |
+| Shadowing | a local, then the file's own, then an import's, then a built-in or the prelude's; a qualified name never | [[programs.shadowing]], [[expr.let]] |
+| Visibility | `(private ...)`; an import's name list | [[programs.private]], [[programs.import]] |
+| Target | see the target's spellings (Python, *for now*) | [[syntax.python-names]], [[types.records]] |

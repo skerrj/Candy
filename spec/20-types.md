@@ -53,7 +53,7 @@ Every type a program writes must exist, with as many arguments as it takes: a bu
 type (declared in `src/cdy/system.cdy`, each as a bodiless `deft`: `(deft (List a))` takes
 one), one the file defines or imports, or `Tup`, which takes any number. A type
 variable needs no declaration. A sum's variants are its constructors, not types, and a
-value isn't a type either.
+value isn't a type either, nor a sum's name a value (its variants are).
 
 ```candy errors
 (sig x Foo) (def x 1) => unknown type Foo
@@ -65,6 +65,7 @@ value isn't a type either.
 (deft P ((x Foo))) => unknown type Foo
 (deft S (A ((x Int))) (B ((y Int)))) (sig a A) (def a (A 1)) => A is a variant of S, not a type
 (sig X Int) (def X 1) (sig a X) (def a 1) => X is a value, not a type
+(deft S (A) (B)) (put S) => S is a type, not a value
 ```
 
 <a id="types.checking"></a>
