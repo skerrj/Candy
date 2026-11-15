@@ -36,7 +36,6 @@ By kind, then priority.
 | [B42](B42-macro-result-unchecked.md) | A macro's result isn't checked to be a `Form` | leak | open | normal |
 | [B45](B45-macro-files-inclusion.md) | Macro files still use inclusion | leak | open | normal |
 | [B46](B46-templates-not-hygienic.md) | Macro templates aren't hygienic across modules | leak | open | normal |
-| [B47](B47-imports-unqualified.md) | Only `(import m)`, everything unqualified | leak | open | normal |
 | [B49](B49-opaque-host-types.md) | Host objects have no Candy type | leak | open | normal |
 | [B51](B51-with-default-builtin.md) | `with-default` is a built-in, not prelude | leak | open | normal |
 | [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | open | normal |
@@ -83,7 +82,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B194](B194-namespaces-step-7.md) | namespaces step 7: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -148,7 +146,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [match.form](../spec/30-match.md#match.form): [B56](B56-match-temporary.md), [B55](B55-match-isinstance.md)
 - [match.sum-types](../spec/30-match.md#match.sum-types): [B29](B29-records-are-tuples.md), [B136](B136-patterns-without-every-field.md)
 - [match.tup](../spec/30-match.md#match.tup): [B17](B17-tup-destructuring.md)
-- [programs.import](../spec/10-programs.md#programs.import): [B47](B47-imports-unqualified.md), [B108](B108-flat-builtins.md), [B187](B187-alias.md), [B44](B44-macro-cant-make-import.md)
+- [programs.import](../spec/10-programs.md#programs.import): [B108](B108-flat-builtins.md), [B187](B187-alias.md), [B44](B44-macro-cant-make-import.md)
 - [programs.prelude](../spec/10-programs.md#programs.prelude): [B51](B51-with-default-builtin.md), [B52](B52-macro-code-no-prelude.md), [B68](B68-whole-prelude.md)
 - [programs.qualified](../spec/10-programs.md#programs.qualified): [B195](B195-field-syntax-dot.md), [B197](B197-builtins-module.md)
 - [programs.shadowing](../spec/10-programs.md#programs.shadowing): [B196](B196-type-shadowing-builtin-show.md)
@@ -194,6 +192,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B38](B38-operators-not-values.md) | Operators can't be values | leak | done | low |
 | [B39](B39-fail-for-errors.md) | `fail` stands in for errors | leak | done | normal |
 | [B40](B40-one-namespace.md) | Types and values share one namespace | leak | kept | low |
+| [B47](B47-imports-unqualified.md) | Only `(import m)`, everything unqualified | leak | done | normal |
 | [B48](B48-operators-no-type.md) | Operators, `tup` and `put` have no Candy type | leak | done | normal |
 | [B53](B53-unimported-type.md) | A type from a module the file doesn't import isn't caught | leak | done | normal |
 | [B59](B59-positions-symbols-lists.md) | Only symbols and lists carry positions | tech-debt | done | normal |
@@ -287,3 +286,4 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B191](B191-namespaces-step-4.md) | namespaces step 4: private names | task | done | normal |
 | [B192](B192-namespaces-step-5.md) | namespaces step 5: the rules written down | task | done | normal |
 | [B193](B193-namespaces-step-6.md) | namespaces step 6: the module in Core | task | done | normal |
+| [B194](B194-namespaces-step-7.md) | namespaces step 7: docs | task | done | normal |

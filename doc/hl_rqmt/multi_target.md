@@ -228,6 +228,11 @@ backend:
 - **The backend spells references:** flat and prefixed (`util__greet`), qualified
   (`util.greet`), or with an import and a bare name.
 
+*Done in part (`namespaces`, 2026-11-14; `namespaces.md`, step 6):* a `Global`, a type
+name and each definition carry the module and the name, and only the Python backend
+spells them, flat and prefixed (`emit.cdy`, `py-global-name`). Each definition carries
+its module, so a backend can group them; Python still writes one file.
+
 Separate compilation and caching then come per target. Macros are separate from all of
 this: they run on the translator's **host**, so caching compiled macro files is about the
 host's modules, whatever the target (`doc/hl_rqmt/macros.md`, "Terms: host and target").

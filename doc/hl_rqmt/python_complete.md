@@ -356,7 +356,13 @@ brackets:
    ([[B174]]), and `equatable`, so a generic `=` keeps off functions ([[B173]]).*
 4. **`namespaces`:** qualified names, the import forms, types and values, macros'
    names, shadowing, private names, each target's mapping. Independent of 2 and 3, so
-   it could swap with them. (L)
+   it could swap with them. (L) *Done (tag `namespaces`, 2026-11-14; `namespaces.md`):
+   one table of names, qualified names (`m.name`, `.` not `/`), `import`'s name list
+   with its shape declared, private names, the naming rules written down (one namespace,
+   [[B40]] kept; shadowing; a type or variant with the same name as a macro an error,
+   [[B11]]), and the module in Core, the tests reaching Candy names ([[B65]]). No alias
+   ([[B187]], later); macros stay a file's own until `host-macros` ([[B45]]); splitting
+   the built-ins into modules is `library`'s ([[B108]]).*
 5. **`library`** (perhaps two branches: the layering first, then the modules): the
    system revisited, each built-in specified; the prelude trimmed, the standard
    library's first modules, the I/O refactor, the target-extension mechanism and the
@@ -571,11 +577,11 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B135]] an operator's error at the call *(typed-core)* | D | `collections` (with [[B124]]) |
 | [[B69]] building a list is quadratic | X | `collections` (with B123; the loops' copies gone in `collections-2`, the rest open) |
 | [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
-| [[B40]] types and values share a namespace | S | `namespaces` |
-| [[B47]] only `(import m)` | L | `namespaces` |
-| [[B108]] one flat namespace | L | `namespaces`, `library` |
-| [[B65]] tests reach internals by Python names | X | `namespaces` |
-| [[B11]] a variant named like a macro | D | `namespaces` |
+| [[B40]] types and values share a namespace | S | `namespaces` (kept, a rule) |
+| [[B47]] only `(import m)` | L | `namespaces` (done) |
+| [[B108]] one flat namespace | L | `namespaces` (qualified names), `library` (the modules) |
+| [[B65]] tests reach internals by Python names | X | `namespaces` (done) |
+| [[B11]] a variant named like a macro | D | `namespaces` (done) |
 | [[B49]] host objects untyped | T | `library` (the `py` extension) |
 | [[B51]] `with-default` is a built-in | L | `library` |
 | [[B50]] the translator's host built-ins | L | `library` |

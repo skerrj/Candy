@@ -15,8 +15,8 @@ examples use features a later file specifies (`00-syntax.md` uses `defn`, `if` a
 
 | File | What it covers |
 |---|---|
-| `00-syntax.md` | forms, comments, literals, names: what the reader accepts and rejects |
-| `10-programs.md` | the top level, `main`, the prelude, `import` |
+| `00-syntax.md` | forms, comments, literals, names: what the reader accepts and rejects; the naming rules' index |
+| `10-programs.md` | the top level, one namespace, what every file sees, shadowing, `main`, the prelude, `import`, qualified and private names |
 | `20-types.md` | the types, `sig`, `def`, records (`deft`, `get`, `assoc`), `Tup` |
 | `25-checking.md` | type checking: calls, definitions, generics, locals, `if`, the operators, records, `match`, `Maybe`, `Any` |
 | `30-match.md` | patterns and match: sum types (`deft` with variants), `match`, `Tup` patterns |

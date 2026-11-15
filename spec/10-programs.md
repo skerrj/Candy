@@ -2,13 +2,16 @@
 
 status: stable, since: imvp-py-translator
 
-What a program is: its top-level forms, `main`, the prelude every file gets, and `import`
-(since `modules`). A program of several files can't be an example here (each example is
-one file), so the examples of `import` are the programs in `tst/cdy/cdyc/` (`imports`,
-`modules`); macro files and `import-macros` are in `50-macros.md`.
+What a program is: its top-level forms, `main`, the prelude every file gets, `import`
+(since `modules`), and qualified and private names (since `namespaces`). A program of
+several files can't be an example here (each example is one file), so the examples of
+`import` are the programs in `tst/cdy/cdyc/` (`imports`, `modules`, `qualified`,
+`import_list`, `private`); macro files and `import-macros` are in `50-macros.md`.
 
 ```candy
 (import name)
+(import name (name*))
+(private name+)
 (sig main (Fn ((List String)) Int))
 (defn main (args) expr)
 ```
@@ -17,7 +20,7 @@ one file), so the examples of `import` are the programs in `tst/cdy/cdyc/` (`imp
 ## Top level
 
 A program runs its top-level forms in order. The definitions (`sig`, `def`, `defn`,
-`deft`, `defmacro`) and the imports are allowed only at top level. A `def` is a
+`deft`, `defmacro`), the imports and `private` are allowed only at top level. A `def` is a
 constant (*lasting*): it is defined once and no form changes it; a mutable cell, if one
 comes, will be a form of its own.
 

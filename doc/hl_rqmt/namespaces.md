@@ -1,9 +1,10 @@
 # Namespaces (HLD)
 
-**Status: accepted (2026-11-12), with the answers to its questions (tasks [[B188]] to
-[[B194]]); proposed 2026-11-11, revised 2026-11-12 in review (`import`'s forms, its shape
-declared, no alias, one table of names), for branch `namespaces`. Epic: `python_complete.md` (its
-fourth branch). After tag `collections-2`.** Qualified names, the import forms, what is
+**Status: done (2026-11-14), steps 1 to 7 (tag `namespaces`). Accepted 2026-11-12, with
+the answers to its questions (tasks [[B188]] to [[B194]]); proposed 2026-11-11, revised
+2026-11-12 in review (`import`'s forms, its shape declared, no alias, one table of names),
+for branch `namespaces`. Epic: `python_complete.md` (its fourth branch). After tag
+`collections-2`.** Qualified names, the import forms, what is
 seen everywhere, macros' names, shadowing, private names, and the module kept to the
 backend: the epic's "Namespaces" section, whose scope its Question 10 settled (a branch of
 its own; types and values one namespace, *lasting*). The MVP this builds on is
@@ -348,6 +349,50 @@ syntax, so it is one step.
    (0.9 s) and T2's `mypy --strict` (1.7 s) as before.
 7. **Docs:** CLAUDE.md, the epic's fourth branch *done*, `modules.md`'s "After the MVP",
    `multi_target.md`'s "Modules and output units"; "Looking back".
+   *Done (2026-11-14). As built:* CLAUDE.md's history (the branch), its code list
+   (`syntax.cdy`), the built-ins (`import`'s declared shape) and "Modules" (the import
+   forms, qualified and private names, one table, shadowing, the module in Core,
+   `global-key`, the tests' `candy`); `python_complete.md`'s fourth branch *done*, and
+   its triage's [[B40]], [[B47]], [[B108]], [[B65]] and [[B11]] rows; *done* notes in
+   `modules.md`'s "After the MVP" and `multi_target.md`'s "Modules and output units".
+   [[B47]] done (steps 2 to 4); [[B108]] stays open, for `library`, with a note. The
+   spec's rules came with their steps; in review, the spec read through for what they
+   left stale: `match.namespace` said *for now*, now *lasting*, linking
+   [[programs.namespace]]; `10-programs.md`'s introduction and grammar gained the name
+   list, `private` and the new example programs, and `programs.top-level` `private`;
+   the index in `spec/README.md` names the new rules and the naming rules' index.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **A table first made each rule small.** The survey found seven maps where the HLD
+  expected one; making them one `Entry` map first (step 1, the output unchanged) turned
+  each later rule into an entry kind and a message: `Clash` (step 2), `Unlisted`
+  (step 3), `Private` (step 4), each reported where the name is used, and each giving
+  way to a name that is really there.
+- **A separator is cheap to change before anything uses it.** `/` became `.` in step 2's
+  review; no name in the translator, the library, the tests or the spec held either, so
+  it cost the reader's `has-dot` and a hint for `.5`. Checking the corpus first, as
+  Question 3 did, is what made it cheap.
+- **A declared shape is part of the library the last `bin` reads.** Step 3's
+  `(special import ...)` was the first special form with a shape, which `boot/72`
+  couldn't read, so the step was staged (`old-library`); a later shape, for another
+  form, will be too.
+- **Writing a rule down tests the design.** Step 5 found that macros are a file's own,
+  not global to a program as "Macros' names" said (`expand-file` never passed them on),
+  and that a file's own `text` changes `put` ([[B46]]). The code was right; the HLD was
+  corrected.
+- **A spelled name hides which thing it names.** Keyed by `util__greet`, the checker
+  and `emit` couldn't tell a program's `Map` from the built-in's; keyed by module and
+  name (step 6), the program's type translates, and `show` is the one place left that
+  takes it for the built-in ([[B196]]). One value, `""`, still means two things, a
+  built-in type's module and macro code's ([[B197]]).
+- **The last `bin` as an oracle.** Each step compared the Python it writes, for every
+  program, the translator and every example, with the previous `boot` tag's; the
+  differences were always the step's new examples or one named error, so a mechanical
+  step (6 most of all, every node's fields) could be trusted without reading its output.
+  The build stayed at 0.9 s to 1.0 s throughout.
 
 ## Questions
 
