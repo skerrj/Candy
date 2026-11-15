@@ -2934,6 +2934,8 @@ def core__analyse_top(form: form__Form, scope: core__Scope, prog: core__Prog) ->
     here = core__at_pos(scope, form__form_pos(form))
     if (cdy_rt.primitives.list_contains(head, ('def', 'defn')) and (len(items) > 1) and cdy_rt.primitives.map_has(scope.macros, form__sym_name(items[1]))):
         return cdy_rt.primitives.fail(core__located(here, (form__sym_name(items[1]) + " is a macro, so it can't be defined")))
+    elif ((head == 'deft') and (len(items) > 1) and (core__macro_named(core__deft_names(items), scope) != '')):
+        return cdy_rt.primitives.fail(core__located(here, (core__macro_named(core__deft_names(items), scope) + " is a macro, so it can't be defined")))
     elif (head == 'sig'):
         return core__top_sig(items, here, prog)
     elif (head == 'def'):
@@ -2949,6 +2951,17 @@ def core__analyse_top(form: form__Form, scope: core__Scope, prog: core__Prog) ->
         e = _tup[0]
         n = _tup[1]
         return core__add_top(prog, core__TExpr(e), n)
+
+def core__deft_names(items: tuple[form__Form, ...]) -> tuple[str, ...]:
+    body = cdy_rt.primitives.list_drop(2, items)
+    return ((core__deft_name(items[1]),) + (core__variant_names(body) if core__is_sum_body(body) else ()))
+
+def core__macro_named(names: tuple[str, ...], scope: core__Scope) -> str:
+    found = cdy_rt.primitives.list_filter((lambda name: cdy_rt.primitives.map_has(scope.macros, name)), names)
+    if (len(found) == 0):
+        return ''
+    else:
+        return found[0]
 
 def core__top_sig(items: tuple[form__Form, ...], scope: core__Scope, prog: core__Prog) -> core__Prog:
     name = (form__sym_name(items[1]) if (len(items) == 3) else '')
@@ -3054,7 +3067,7 @@ def core__top_deft(items: tuple[form__Form, ...], scope: core__Scope, prog: core
         return cdy_rt.primitives.fail(core__located(scope, 'deft: expected (deft Name ((field Type)+))'))
     else:
         fields = core__deft_fields(('deft ' + name), field_forms)
-        _cdy_checked_746 = core__check_fields(fields, scope)
+        _cdy_checked_752 = core__check_fields(fields, scope)
         return core__add_top(prog, core__TDeft(name, tvars, fields), prog.n)
 
 def core__check_fields(fields: tuple[tuple[str, core__CType], ...], scope: core__Scope) -> bool:
@@ -3155,9 +3168,9 @@ def core__top_defn(items: tuple[form__Form, ...], scope: core__Scope, prog: core
         params = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_795 = core__analyse_expr(items[3], inner, n1)
-        body = _cdy__tup_795[0]
-        n2 = _cdy__tup_795[1]
+        _cdy__tup_801 = core__analyse_expr(items[3], inner, n1)
+        body = _cdy__tup_801[0]
+        n2 = _cdy__tup_801[1]
         if (len(params) == 0):
             return cdy_rt.primitives.fail(core__located(scope, ('defn ' + name + ': at least one argument is needed')))
         elif (len(params) != core__fn_arity(t)):
@@ -3203,21 +3216,21 @@ def core__rest_item(t: core__CType) -> tuple[core__CType, ...]:
 
 def core__bind_params(forms: tuple[form__Form, ...], scope: core__Scope, n: int) -> tuple[tuple[core__Expr, ...], core__Scope, int]:
     def _cdy_t97(s: tuple[core__Scope, int], form: form__Form) -> tuple[tuple[core__Scope, int], core__Expr]:
-        _cdy__tup_812 = s
-        _cdy_sc_813 = _cdy__tup_812[0]
-        _cdy_k_814 = _cdy__tup_812[1]
+        _cdy__tup_818 = s
+        _cdy_sc_819 = _cdy__tup_818[0]
+        _cdy_k_820 = _cdy__tup_818[1]
         name = form__sym_name(form)
-        loc = core__Local(name, _cdy_k_814, form__form_pos(form), core__ANY)
+        loc = core__Local(name, _cdy_k_820, form__form_pos(form), core__ANY)
         if (name == ''):
-            return cdy_rt.primitives.fail(core__located(_cdy_sc_813, 'a parameter must be a name'))
+            return cdy_rt.primitives.fail(core__located(_cdy_sc_819, 'a parameter must be a name'))
         else:
-            return ((core__bind_local(_cdy_sc_813, name, loc), (_cdy_k_814 + 1)), loc)
+            return ((core__bind_local(_cdy_sc_819, name, loc), (_cdy_k_820 + 1)), loc)
     _tup = cdy_rt.primitives.list_map_acc(_cdy_t97, (scope, n), forms)
     last = _tup[0]
     locs = _tup[1]
-    _cdy__tup_820 = last
-    sc = _cdy__tup_820[0]
-    k = _cdy__tup_820[1]
+    _cdy__tup_826 = last
+    sc = _cdy__tup_826[0]
+    k = _cdy__tup_826[1]
     return (locs, sc, k)
 core__MAIN_TYPE: core__CType = core__TFn((core__TCon('List', (core__TCon('String', ()),)),), core__TCon('Int', ()))
 
@@ -3244,10 +3257,10 @@ def core__is_main(top: core__Top) -> bool:
         else:
             return cdy_rt.primitives.fail((form__pos_text(pos) + 'main must be typed (Fn ((List String)) Int)'))
     elif isinstance(_cdy_t98, core__TDef):
-        _cdy_name_828 = _cdy_t98.name
-        _cdy_pos_829 = _cdy_t98.pos
-        if (_cdy_name_828 == 'main'):
-            return cdy_rt.primitives.fail((form__pos_text(_cdy_pos_829) + 'main must be a defn'))
+        _cdy_name_834 = _cdy_t98.name
+        _cdy_pos_835 = _cdy_t98.pos
+        if (_cdy_name_834 == 'main'):
+            return cdy_rt.primitives.fail((form__pos_text(_cdy_pos_835) + 'main must be a defn'))
         else:
             return False
     else:

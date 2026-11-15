@@ -42,6 +42,64 @@ first
 (sig x Int) (def x 1) (def x 2) => defined more than once: x
 ```
 
+<a id="programs.namespace"></a>
+**One namespace** (since `namespaces`): a module's types, values and variants share one
+namespace, *lasting*, so a type can't share its name with a value or a variant; a record's
+name is both its type and its constructor.
+
+```candy run
+(deft P ((x Int)))
+(sig p P)
+(def p (P 3))
+(put (get p x))
+```
+```expect
+3
+```
+
+```candy errors
+(deft Box ((n Int))) (sig Box Int) (def Box 1) => defined more than once: Box
+(deft T (A)) (deft A ((n Int))) => defined more than once: A
+(deft S (S) (B)) => defined more than once: S
+```
+
+<a id="programs.sees"></a>
+**What every file sees**, unqualified and with no import, *lasting*: the special forms,
+the operators and the other built-ins (`system.cdy`), and the prelude's names
+([[programs.prelude]]). The built-ins have no qualifier (not `system.len`) until
+`library` splits them into modules ([[B108]]); the prelude's are `prelude.name` too. Its
+macros are its own: the file's `defmacro`s, those it loads with `import-macros`
+([[macros.import-macros]]), and the prelude's (`cond`, `put`); `import` doesn't pass a
+module's macros on, and a macro has no qualified name.
+
+```candy run
+(put (len (List 1 2)) (with-default 0 (Some 2)) (prelude.with-default 0 None))
+```
+```expect
+2 2 0
+```
+
+<a id="programs.shadowing"></a>
+**Shadowing**: a name means, from the innermost, a local; the file's own top-level
+definition; an unqualified import's; a built-in or the prelude's, *lasting*. So a file's
+definition of a built-in's name (`(defn len ...)`) is its own, in that file only, and a
+local shadows everything ([[expr.let]]). A qualified name is never shadowed. A macro's
+expansion sees what its use sees, the file's own definitions too, so a file's own `text`
+is the one `put` calls (*for now*: [[B46]]). The translator's five host built-ins
+(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`) are every
+program's, *for now* ([[B50]]).
+
+```candy run
+(sig len (Fn (String) Int))
+(defn len (s) 99)
+(sig rest Int)
+(def rest 5)
+(put (len "ab") rest (prelude.rest (List 1 2)) (let ((rest 0)) rest))
+```
+```expect
+99 5 (List 2) 0
+```
+
 <a id="programs.def-order"></a>
 **Definition order:** a `def`'s initial value and a top-level expression run when the
 program starts, so each top-level name they use must be defined before them: a value

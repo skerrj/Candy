@@ -240,3 +240,28 @@ can't clash with a program's.
 (put #a) => unexpected #
 (put b__c) => a name can't contain __ (only gensym makes such names)
 ```
+
+## Naming rules, in one place
+
+An index only: each rule is where its feature is, with its examples, and this table links
+to it.
+
+| What | Rule | Where |
+|---|---|---|
+| A name's characters | any word that isn't a literal and doesn't start with a digit, `'`, `#`, `"` or `\`; it ends at a delimiter, `'`, `"` or `\` | [[syntax.names]] |
+| `.` | no name a program defines holds one; `m.name` is a qualified name | [[syntax.names]], [[programs.qualified]] |
+| `/` | reserved in names, *for now*; `/` on its own is division | [[syntax.names]] |
+| `'`, `#`, `__` | `'` reserved (a quote shorthand, later); no name starts with `#`; only `gensym` makes a name with `__` | [[syntax.reserved]] |
+| Types | Capitalised; a lowercase name in a type is a type variable | [[types.table]] |
+| Type variables | different within one `deft`; not a constraint's name (`number`, `comparable`, ...) | [[types.records]], [[checking.constraints]] |
+| Variants | Capitalised | [[match.namespace]] |
+| Fields | different within one record or variant | [[types.records]] |
+| Pattern names | different within one pattern | [[match.clauses]] |
+| One namespace | a module's types, values and variants share one; a record's name is its type and its constructor | [[programs.namespace]], [[match.namespace]] |
+| Defined once | a top-level name is defined once, and a macro | [[programs.top-level]], [[macros.binding]] |
+| Special forms | can't be bound, defined or made a macro | [[expr.let]], [[macros.binding]] |
+| Macros | no local, value, function, type or variant has the same name as a macro | [[macros.binding]] |
+| `main` | a `defn` typed `(Fn ((List String)) Int)` | [[programs.main]] |
+| Shadowing | a local, then the file's own, then an import's, then a built-in or the prelude's; a qualified name never | [[programs.shadowing]], [[expr.let]] |
+| Visibility | `(private ...)`; an import's name list | [[programs.private]], [[programs.import]] |
+| Target | see the target's spellings (Python, *for now*) | [[syntax.python-names]], [[types.records]] |

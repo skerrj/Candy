@@ -1,4 +1,4 @@
-# B195: Field syntax with `.`, and a local named like a qualifier
+# B195: Field syntax with `.`, and a local with the same name as a qualifier
 
 kind: idea
 state: open
@@ -16,8 +16,8 @@ already solves a `get` on a value of unknown type, a field constraint).
 
 What its design settles:
 
-- a local named like an imported module's qualifier: an error (proposed, so `a.b` never
-  means two things in one file), or the local wins (Python's, but a module's names are
+- a local with the same name as an imported module's qualifier: an error (proposed, so
+  `a.b` never means two things in one file), or the local wins (Python's, but a module's names are
   then out of reach there);
 - chains, read left to right: `m.p.x`, module `m`'s `p`, then its field `x`;
   `p.q.x`, fields of fields;
@@ -29,3 +29,10 @@ What its design settles:
 
 - 2026-11-13, the owner: in `namespaces` step 2's review, the qualifier's separator
   became `.`, and field syntax needs this rule when it comes. Claude: filed.
+- 2026-11-14, the owner: "with the same name as a qualifier", not "named like a
+  qualifier". Claude: the title and the first point reworded; they were:
+
+  ```text
+  # B195: Field syntax with `.`, and a local named like a qualifier
+  - a local named like an imported module's qualifier: an error (proposed, so `a.b` never
+  ```

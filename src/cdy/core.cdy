@@ -1456,6 +1456,8 @@
     (cond
       ((and (contains head (List "def" "defn")) (> (len items) 1) (map-has (get scope macros) (sym-name (at items 1))))
         (fail (located here (format "{(sym-name (at items 1))} is a macro, so it can't be defined"))))
+      ((and (= head "deft") (> (len items) 1) (!= (macro-named (deft-names items) scope) ""))
+        (fail (located here (format "{(macro-named (deft-names items) scope)} is a macro, so it can't be defined"))))
       ((= head "sig") (top-sig items here prog))
       ((= head "def") (top-def items here prog))
       ((= head "defn") (top-defn items here prog))
@@ -1464,6 +1466,18 @@
       (else
         (let (((e n) (analyse-expr form here (get prog n))))
           (add-top prog (TExpr e) n))))))
+
+;; The names the deft `items` defines: its type's, and a sum's variants'.
+(sig deft-names (Fn ((List Form)) (List String)))
+(defn deft-names (items)
+  (let ((body (drop 2 items)))
+    (++ (List (deft-name (at items 1))) (if (is-sum-body body) (variant-names body) empty-list))))
+
+;; The first of `names` that is a macro's, or "".
+(sig macro-named (Fn ((List String) Scope) String))
+(defn macro-named (names scope)
+  (let ((found (filter (fn (name) (map-has (get scope macros) name)) names)))
+    (if (= (len found) 0) "" (at found 0))))
 
 (sig top-sig (Fn ((List Form) Scope Prog) Prog))
 (defn top-sig (items scope prog)

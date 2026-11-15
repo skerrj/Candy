@@ -16,7 +16,6 @@ By kind, then priority.
 | [B4](B4-def-name-not-a-name.md) | `(def (x) 1)` says " needs a (sig  Type)", with no name | defect | open | normal |
 | [B7](B7-record-name-lowercase.md) | A lowercase record name is accepted | defect | open | normal |
 | [B8](B8-fn-argument-twice.md) | A function with the same argument twice is accepted | defect | open | normal |
-| [B11](B11-variant-named-like-macro.md) | A `deft` variant named like a macro isn't rejected | defect | open | normal |
 | [B184](B184-empty-start-fails-mypy.md) | An empty list or map as a `fold`'s or `map-acc`'s start fails mypy | defect | open | normal |
 | [B185](B185-list-literal-temp-fails-mypy.md) | A `(List x)` in a `match` clause's value can fail mypy | defect | open | normal |
 | [B9](B9-nil-redefinable.md) | `nil` can be defined | defect | open | low |
@@ -43,7 +42,6 @@ By kind, then priority.
 | [B54](B54-slurp-fallback.md) | `slurp` searches `src/`, `tst/` and `lib/` when a path is missing | leak | open | normal |
 | [B22](B22-numbers-unbounded.md) | Overflow isn't checked, and a `Float` is 64 bits on Python | leak | open | low |
 | [B32](B32-regexes-python.md) | Regexes are Python's | leak | open | low |
-| [B40](B40-one-namespace.md) | Types and values share one namespace | leak | open | low |
 | [B41](B41-macros-exec.md) | Macros run with Python's `exec` | leak | open | low |
 | [B43](B43-gensym-impure.md) | `gensym` is impure | leak | open | low |
 | [B44](B44-macro-cant-make-import.md) | A macro can't expand into `import`, `import-macros` or `defmacro` | leak | open | low |
@@ -87,7 +85,6 @@ By kind, then priority.
 |---|---|---|---|---|
 | [B190](B190-namespaces-step-3.md) | namespaces step 3: the name list, and `import`'s shape declared | task | review | normal |
 | [B191](B191-namespaces-step-4.md) | namespaces step 4: private names | task | review | normal |
-| [B192](B192-namespaces-step-5.md) | namespaces step 5: the rules written down | task | open | normal |
 | [B193](B193-namespaces-step-6.md) | namespaces step 6: the module in Core | task | open | normal |
 | [B194](B194-namespaces-step-7.md) | namespaces step 7: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
@@ -100,7 +97,7 @@ By kind, then priority.
 | [B108](B108-flat-builtins.md) | The built-ins are one flat namespace | idea | open | normal |
 | [B136](B136-patterns-without-every-field.md) | A `match` pattern names every field | idea | open | normal |
 | [B187](B187-alias.md) | `alias`, a renaming at translation time, for modules, types and values | idea | open | normal |
-| [B195](B195-field-syntax-dot.md) | Field syntax with `.`, and a local named like a qualifier | idea | open | normal |
+| [B195](B195-field-syntax-dot.md) | Field syntax with `.`, and a local with the same name as a qualifier | idea | open | normal |
 | [B94](B94-doc-strings.md) | Doc strings and other metadata | idea | open | low |
 | [B96](B96-no-code-commits.md) | "No code changes" commits | idea | open | low |
 | [B97](B97-library-per-target.md) | Build a host and its targets from their own library files | idea | open | low |
@@ -143,7 +140,6 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [library.map-acc](../spec/60-library.md#library.map-acc): [B184](B184-empty-start-fails-mypy.md)
 - [library.show](../spec/60-library.md#library.show): [B158](B158-float-infinity-nan.md)
 - [library.strings](../spec/60-library.md#library.strings): [B34](B34-no-collection.md), [B49](B49-opaque-host-types.md), [B32](B32-regexes-python.md)
-- [macros.binding](../spec/50-macros.md#macros.binding): [B11](B11-variant-named-like-macro.md)
 - [macros.cond](../spec/50-macros.md#macros.cond): [B13](B13-long-cond-value.md), [B156](B156-macro-errors-name-expansion.md)
 - [macros.defmacro](../spec/50-macros.md#macros.defmacro): [B42](B42-macro-result-unchecked.md), [B41](B41-macros-exec.md), [B44](B44-macro-cant-make-import.md)
 - [macros.gensym](../spec/50-macros.md#macros.gensym): [B43](B43-gensym-impure.md)
@@ -152,8 +148,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [macros.quoting](../spec/50-macros.md#macros.quoting): [B46](B46-templates-not-hygienic.md), [B104](B104-up-down-quoting-names.md)
 - [match.exhaustive](../spec/30-match.md#match.exhaustive): [B56](B56-match-temporary.md)
 - [match.form](../spec/30-match.md#match.form): [B56](B56-match-temporary.md), [B55](B55-match-isinstance.md)
-- [match.namespace](../spec/30-match.md#match.namespace): [B40](B40-one-namespace.md)
-- [match.sum-types](../spec/30-match.md#match.sum-types): [B11](B11-variant-named-like-macro.md), [B29](B29-records-are-tuples.md), [B136](B136-patterns-without-every-field.md)
+- [match.sum-types](../spec/30-match.md#match.sum-types): [B29](B29-records-are-tuples.md), [B136](B136-patterns-without-every-field.md)
 - [match.tup](../spec/30-match.md#match.tup): [B17](B17-tup-destructuring.md)
 - [programs.import](../spec/10-programs.md#programs.import): [B47](B47-imports-unqualified.md), [B108](B108-flat-builtins.md), [B187](B187-alias.md), [B44](B44-macro-cant-make-import.md)
 - [programs.prelude](../spec/10-programs.md#programs.prelude): [B51](B51-with-default-builtin.md), [B52](B52-macro-code-no-prelude.md), [B68](B68-whole-prelude.md)
@@ -179,6 +174,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B5](B5-record-field-underscore.md) | A record field `_x` translates, and fails at run time | defect | done | normal |
 | [B6](B6-record-field-twice.md) | A record (or variant) with the same field twice translates | defect | done | high |
 | [B10](B10-record-constructor-arity.md) | A record constructor's number of arguments isn't checked | defect | done | normal |
+| [B11](B11-variant-named-like-macro.md) | A `deft` variant with the same name as a macro isn't rejected | defect | done | normal |
 | [B12](B12-module-prefix-collides.md) | Module prefixes can collide with mangled names | defect | done | high |
 | [B14](B14-errors-without-position.md) | A few errors have no position | defect | done | normal |
 | [B15](B15-no-type-checker.md) | Candy's type checker is an MVP, with mypy as a second check | leak | done | high |
@@ -198,6 +194,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B36](B36-values-print-as-python.md) | Values print as Python shows them | leak | done | high |
 | [B38](B38-operators-not-values.md) | Operators can't be values | leak | done | low |
 | [B39](B39-fail-for-errors.md) | `fail` stands in for errors | leak | done | normal |
+| [B40](B40-one-namespace.md) | Types and values share one namespace | leak | kept | low |
 | [B48](B48-operators-no-type.md) | Operators, `tup` and `put` have no Candy type | leak | done | normal |
 | [B53](B53-unimported-type.md) | A type from a module the file doesn't import isn't caught | leak | done | normal |
 | [B59](B59-positions-symbols-lists.md) | Only symbols and lists carry positions | tech-debt | done | normal |
@@ -286,3 +283,4 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B186](B186-deft-constraint-variable.md) | A `deft`'s type variable named for a constraint gets it, unspecified | defect | done | normal |
 | [B188](B188-namespaces-step-1.md) | namespaces step 1: one table of names | task | done | normal |
 | [B189](B189-namespaces-step-2.md) | namespaces step 2: qualified names | task | done | normal |
+| [B192](B192-namespaces-step-5.md) | namespaces step 5: the rules written down | task | done | normal |

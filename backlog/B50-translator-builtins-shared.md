@@ -17,3 +17,6 @@ file only the translator imports. From `doc/archive/leaks_system_prelude.md`.
 ## Notes
 
 - 2026-10-26, the owner: `low` in triage ([[B103]]): matters once there is a second target.
+- 2026-11-13, Claude: `namespaces` step 5 ([[B192]]) writes it into the shadowing rule,
+  [[programs.shadowing]], as *for now*: the five stay in `system.cdy` until `library`
+  gives a file of declarations only the translator imports.

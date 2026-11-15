@@ -18,7 +18,7 @@ Counts from today's source (2026-11-11, after tag `collections-2`).
 | [[B47]] only `(import m)`, everything unqualified | one import form; two imports that define one name are an error at the import, even if neither is used | `programs.import`; the translator's 24 imports (`cdyc.cdy` 8, `expand.cdy` 5, `emit.cdy` 3, the rest 1 or 2) |
 | qualified names | none: `m/x` is an ordinary name (`(def m/x 1)` translates and runs); no program, spec example or test writes one | `read.cdy` reads `u/greet` as one symbol |
 | [[B40]] types and values share a namespace | `(deft Box (Box ...))` is "defined more than once"; decided *lasting* (epic, Question 10), not yet a rule | `core.cdy` |
-| [[B11]] a variant named like a macro | translates; a later `(M 1)` expands as the macro | its repro |
+| [[B11]] a variant with the same name as a macro | translates; a later `(M 1)` expands as the macro | its repro |
 | [[B50]] the translator's five host built-ins are every program's | `py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name` in `system.cdy` | `system.cdy` |
 | shadowing | a local shadows any outer name, a built-in too (`expr.let`, *lasting*); a program's top-level definition of a built-in's name wins | `core.cdy` |
 | private names | none: every top-level name is exported | `modules.md`, Question 1 |
@@ -39,7 +39,7 @@ Counts from today's source (2026-11-11, after tag `collections-2`).
 - **What every file sees, written down:** the special forms, the operators, the
   built-ins and the prelude.
 - **The rules that are decided but unwritten:** one namespace ([[B40]]), shadowing,
-  a variant named like a macro ([[B11]]).
+  a variant with the same name as a macro ([[B11]]).
 - **Private names,** so a library module can have helpers.
 - **The module kept to the backend:** a `Global` carries its module and its name, each
   target spelling them its own way, and the tests reach Candy names ([[B65]]).
@@ -157,10 +157,11 @@ rule, not a leak). A record's name being both its type and its constructor is th
 
 ### Macros' names
 
-Macros stay global to a program, *for now* until `host-macros` ([[B45]]): a `defmacro`'s
+*Corrected in step 5 (2026-11-13): a file's macros are its own, not the program's; see
+its Done note.* Macros stay global to a program, *for now* until `host-macros` ([[B45]]): a `defmacro`'s
 name, and those `import-macros` brings, are seen in every module. A variant, a value or a
-type named like a macro is an error at its definition ([[B11]], a defect fixed here), as a
-local named like one already is.
+type with the same name as a macro is an error at its definition ([[B11]], a defect fixed here), as a
+local with one's name already is.
 
 ### Shadowing
 
@@ -198,7 +199,7 @@ everything exported. Question 4 weighs the alternatives: an export list, or a na
 | `programs.qualified` (new): `m.name`, for values, types, variants, patterns | `10-programs.md` | 2 |
 | `programs.top-level`: one namespace; what every file sees; shadowing | `10-programs.md` | 5 |
 | `programs.private` (new) | `10-programs.md` | 4 |
-| `macros.defmacro`: global, *for now*; a definition named like a macro an error | `50-macros.md` | 5 |
+| `macros.defmacro`: global, *for now*; a definition with the same name as a macro an error | `50-macros.md` | 5 |
 | `syntax.names`: a `.` in a name | `00-syntax.md` | 2 |
 
 ## Pros and cons
@@ -309,7 +310,24 @@ syntax, so it is one step.
    `bin`: the same Python for the translator and every example but the two new ones,
    which it can't read. The build about 1.0 s, as before.
 5. **The rules written down** ([[B40]], [[B11]], [[B50]]'s part): one namespace, what
-   every file sees, shadowing; a variant or value named like a macro an error.
+   every file sees, shadowing; a variant or value with the same name as a macro an error.
+   *Done (2026-11-13). As built:* three rules under `programs.top-level`, each with an
+   example: `programs.namespace` (one namespace, a record's name its type and its
+   constructor; [[B40]] kept), `programs.sees` (the built-ins, the prelude, and a file's
+   own macros) and `programs.shadowing` (local, own, import, built-in; a qualified name
+   never; [[B50]]'s five, *for now*). A `deft`'s type or variant with the same name as a macro is
+   "M is a macro, so it can't be defined" (`analyse-top`, `macro-named`; [[B11]] done,
+   its repro now `macros.binding`'s rows). Two findings: macros aren't global to a
+   program, as "Macros' names" above says: a file's macros are its own `defmacro`s,
+   those it loads with `import-macros` and the prelude's, and `import` doesn't pass them
+   on (`expand-file`; `macros.import-macros` already said so), so `programs.sees` states
+   that. And a file's own `text` changes `put`, whose expansion calls `text` (a note on
+   [[B46]], *for now*: the built-ins have no qualifier until `library`). A file may also
+   shadow a built-in type's name (`(deft List ...)`), as any built-in's. The naming rules,
+   spread over the spec, have an index in `spec/00-syntax.md` ("Naming rules, in one
+   place"), its last row pointing to the target's spellings (Python's, *for now*). Checked
+   against `boot/74`'s `bin`: the same Python for every program, the translator and
+   every example.
 6. **The module in Core** ([[B65]]): `Global` with its module and name, definitions too
    (and the table's `global`); `emit`'s spelling unchanged; the tests' `candy` helper.
 7. **Docs:** CLAUDE.md, the epic's fourth branch *done*, `modules.md`'s "After the MVP",
@@ -377,12 +395,12 @@ syntax, so it is one step.
    from Question 3) No: Python, Java and OCaml use one `.` for both. Candy resolves names
    statically, so `a.b` could be a module's name when `a` is an import's qualifier, and a
    field when `a` is a value (the checker already solves a `get` on a value of unknown
-   type, [[checking.records]]). What it would need: a rule for a local named like a
-   qualifier (an error, or the local wins); chains read left to right (`m.p.x`, module
+   type, [[checking.records]]). What it would need: a rule for a local with the same name
+   as a qualifier (an error, or the local wins); chains read left to right (`m.p.x`, module
    `m`'s `p`, then its field `x`); a reader that splits on `.` but not in numbers
    (`3.14f`); and field syntax, which Candy hasn't (only `(get p x)`). OCaml tells the two
    apart by case (`M.x`, `r.x`). **Proposed: not exclusive, and not decided here:** this
    branch uses `/`, and a `.` for fields, for modules too or not, is the field syntax's
    question, later (a `brainstorm.md` entry, or an idea item). *Answer (2026-11-12, the
    owner): as proposed.* With Question 3 changed to `.` (2026-11-13), field syntax will
-   need the rule for a local named like a qualifier ([[B195]]).
+   need the rule for a local with the same name as a qualifier ([[B195]]).
