@@ -330,6 +330,22 @@ syntax, so it is one step.
    every example.
 6. **The module in Core** ([[B65]]): `Global` with its module and name, definitions too
    (and the table's `global`); `emit`'s spelling unchanged; the tests' `candy` helper.
+   *Done (2026-11-14). As built:* a `Global`, a `TCon`, a `Clause` and each definition
+   (`TDeft`, `TDeftSum`, `TDef`, `TDefn`) carry the module that defines them and the name
+   there (a `TCon`'s module `""` for a built-in type, macro code's `""` too: no module,
+   *for now*, [[B197]], to settle with `library`); the
+   lowered IR's definitions and `Case`s too. An `Entry`'s `global` is its `name`, and
+   `module-exports` takes no prefix. The top module keeps its stem: `has-main` and
+   `python-of` take it, and `emit` (`spelled`, `py-global-name`) writes the top module's
+   and macro code's names unprefixed, every other `util__greet`. Inside the checker and
+   `emit`, a name's key is `global-key`, `util.Shape` (a built-in's its own name; no name
+   holds a `.`), and the messages show the name itself. The tests reach the translator's
+   own names as Candy writes them, `candy(t1, "form.Pos")`, through `py-global-name`, the
+   one name they reach by its Python spelling ([[B65]] done). One finding: a type with
+   the same name as a built-in type, which didn't translate to valid Python before, now
+   does, but `show` still takes it for the built-in ([[B196]], new). Checked against
+   `boot/75`'s `bin`: the same Python for every program but [[B196]]'s repro; the build
+   (0.9 s) and T2's `mypy --strict` (1.7 s) as before.
 7. **Docs:** CLAUDE.md, the epic's fourth branch *done*, `modules.md`'s "After the MVP",
    `multi_target.md`'s "Modules and output units"; "Looking back".
 

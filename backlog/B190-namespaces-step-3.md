@@ -1,7 +1,7 @@
 # B190: namespaces step 3: the name list, and `import`'s shape declared
 
 kind: task
-state: review
+state: done
 priority: normal
 found: namespaces, 2026-11-12
 fixed: namespaces, 2026-11-13
@@ -19,3 +19,4 @@ Step 3 of `doc/hl_rqmt/namespaces.md`. `(import m (a b))`; the import's record; 
 - 2026-11-13, Claude: its commit (`b98b523`) left one ruff finding in
   `test_self_host.py` (ISC004, a wrapped message not in parentheses: `ruff check` wasn't
   rerun after the wrap); fixed in step 4's commit.
+- 2026-11-14, the owner: ticked in review.

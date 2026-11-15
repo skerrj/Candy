@@ -8,18 +8,19 @@
 (import form)
 (import core)
 
+;; A definition's `module` and `name` are its Top's (core.cdy).
 (deft Stmt
-  (SRecord ((name String) (tvars (List String)) (fields (List (Tup String CType)))))
-  (SSum ((name String) (tvars (List String)) (variants (List Variant))))
+  (SRecord ((module String) (name String) (tvars (List String)) (fields (List (Tup String CType)))))
+  (SSum ((module String) (name String) (tvars (List String)) (variants (List Variant))))
   ;; `subject` is evaluated once, into `temp` (a Temp). `default` is empty, or the else
   ;; clause's statements.
   (SMatch ((temp Expr) (subject Expr) (cases (List Case)) (default (List (List Stmt)))))
   (SAssign ((target Expr) (val Expr)))
-  (SDefAssign ((name String) (val Expr) (t CType)))
+  (SDefAssign ((module String) (name String) (val Expr) (t CType)))
   (SExpr ((expr Expr)))
   (SReturn ((val Expr)))
   (SIf ((test Expr) (then (List Stmt)) (other (List Stmt))))
-  (SFunc ((name String) (params (List Expr)) (body (List Stmt)) (t CType)))
+  (SFunc ((module String) (name String) (params (List Expr)) (body (List Stmt)) (t CType)))
   ;; A fn whose body needs statements, as a function nested in the enclosing one (a nested
   ;; Python def), named by a Temp, with its fn's type.
   (SLocalFunc ((target Expr) (params (List Expr)) (body (List Stmt)) (t CType)))
@@ -29,7 +30,7 @@
   (SRebind ((targets (List Expr)) (vals (List Expr))))
   (SContinue))
 
-(deft Case ((variant String) (binds (List (Tup String Expr))) (body (List Stmt))))
+(deft Case ((module String) (variant String) (binds (List (Tup String Expr))) (body (List Stmt))))
 
 ;; An expression lowered in value mode: statements to run first, the value, the next Temp id.
 (deft Low ((stmts (List Stmt)) (expr Expr) (n Int)))
@@ -40,7 +41,7 @@
   (match e
     ((Lit _ _) true)
     ((Local _ _ _ _) true)
-    ((Global _ _ _) true)
+    ((Global _ _ _ _) true)
     ((Prim _ _ _) true)
     ((Temp _ _) true)
     (else false)))
@@ -139,7 +140,7 @@
           (map-acc
             (fn (k clause)
               (let (((body k1) (lower-body (get clause body) mode tmp k)))
-                (Tup k1 (Case (get clause variant) (get clause binds) body))))
+                (Tup k1 (Case (get clause module) (get clause variant) (get clause binds) body))))
             n
             clauses)))
     (Tup cases n1)))
@@ -392,30 +393,31 @@
   (match t
     ((TFn _ ret)
       (match ret
-        ((TCon name _) (= name "Unit"))
+        ((TCon m name _) (and (= m "") (= name "Unit")))
         (else false)))
     (else false)))
 
 (sig lower-top (Fn (Top Int) (Tup (List Stmt) Int)))
 (defn lower-top (top n)
   (match top
-    ((TDeft name tvars fields) (Tup (List (SRecord name tvars fields)) n))
-    ((TDeftSum name tvars variants) (Tup (List (SSum name tvars variants)) n))
-    ((TDef name init t _)
+    ((TDeft m name tvars fields) (Tup (List (SRecord m name tvars fields)) n))
+    ((TDeftSum m name tvars variants) (Tup (List (SSum m name tvars variants)) n))
+    ((TDef m name init t _)
       (let ((low (value init n)))
-        (Tup (++ (get low stmts) (List (SDefAssign name (get low expr) t))) (get low n))))
-    ((TDefn name params body t _)
+        (Tup (++ (get low stmts) (List (SDefAssign m name (get low expr) t))) (get low n))))
+    ((TDefn m name params body t _)
       (let (((stmts n1) (if (returns-unit t) (effect body n) (tail body n))))
         (Tup
           (List
             ;; A variadic defn's self call would rebind its rest parameter from a list.
-            (SFunc name params (if (is-variadic t) stmts (loop-tail-calls name params stmts (returns-unit t))) t))
+            (SFunc m name params (if (is-variadic t) stmts (loop-tail-calls (global-key m name) params stmts (returns-unit t))) t))
           n1)))
     ((TExpr e) (effect e n))))
 
 ;; --- self tail calls ---
 
-;; The body as a loop, if its tail position calls the function itself. A function that makes
+;; The body as a loop, if its tail position calls the function itself (`name`, its key,
+;; global-key). A function that makes
 ;; a closure is left alone: the closure would see the loop's later values. A Unit function
 ;; can fall off the end of its body, so its loop ends with a return.
 (sig loop-tail-calls (Fn (String (List Expr) (List Stmt) Bool) (List Stmt)))
@@ -459,7 +461,7 @@
   (match e
     ((Call callee args _ _)
       (match callee
-        ((Global g _ _) (and (= g name) (= (len args) (len params))))
+        ((Global m g _ _) (and (= (global-key m g) name) (= (len args) (len params))))
         (else false)))
     (else false)))
 
@@ -514,7 +516,7 @@
   (match s
     ((SLocalFunc _ _ _ _) true)
     ((SAssign target val) (or (has-lambda target) (has-lambda val)))
-    ((SDefAssign _ val _) (has-lambda val))
+    ((SDefAssign _ _ val _) (has-lambda val))
     ((SExpr e) (has-lambda e))
     ((SReturn val) (has-lambda val))
     ((SIf test then other)

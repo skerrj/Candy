@@ -1,7 +1,7 @@
 # B191: namespaces step 4: private names
 
 kind: task
-state: review
+state: done
 priority: normal
 found: namespaces, 2026-11-12
 fixed: namespaces, 2026-11-13
@@ -21,3 +21,4 @@ Step 4 of `doc/hl_rqmt/namespaces.md`. `(private a b)`: the names kept in their 
   ```
 - 2026-11-13, Claude: built (the HLD's step 4 *Done* note): `(private a b)`, a private
   type's variants with it, and its errors where the name is used or listed. In review.
+- 2026-11-14, the owner: ticked in review.
