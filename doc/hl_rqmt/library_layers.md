@@ -1,0 +1,230 @@
+# The library's layers (HLD)
+
+**Status: accepted (2026-11-15), with the answers to its questions, as proposed (tasks
+[[B199]] to [[B205]]); proposed 2026-11-14, for branch `library-layers` (Question 1). Epic: `python_complete.md` (its fifth branch, `library`, the first half: the layering;
+the modules are the second). After tag `namespaces`.** The system revisited: the
+translator's built-ins out of every program's sight, what is Python's or unused dropped,
+the built-ins a module of their own, each built-in specified; and what the standard
+library and the target extensions need first: modules found by name in the library, and
+declaration modules. The epic's "The library" (layers 2 and 3, and the mechanism for 4
+and 5) is the starting point, with the earlier `library.md`'s "What a program sees".
+
+## Where things stand
+
+Counts from today's source (2026-11-14, after tag `namespaces`).
+
+| Item | Today | Seen where |
+|---|---|---|
+| the system | 94 bodiless `sig`s and 12 bodiless `deft`s in one file, every file seeing all of them | `system.cdy` |
+| [[B50]] the translator's five host built-ins | `py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`: every program's | `system.cdy`, `library.builtins` |
+| unused built-ins | 14 that nothing uses: not the translator, the spec's examples, the test programs or the backlog's repros: `re-search`, `re-findall`, `re-compile`, `is-coll`, `is-str`, `is-alpha`, `is-neg-int`, `strip`, `is-empty-str`, `file-put-lines`, `sin`, `cos`, `tan`, `SYS_ARGS` | `system.cdy` |
+| [[B32]], [[B49]] Python's in disguise | the three regex built-ins return Python's objects, typed `Any`; `is-coll` and `is-str` take `Any`, a Python `isinstance` | `system.cdy` |
+| [[B54]] `slurp` searches | a missing path is looked for under `src/`, `tst/` and `lib/` | `primitives.py`, `get_path` |
+| [[B197]] the built-ins' module | `""` in Core; no program can write `system.len`, so a file that defines `text` can't reach the built-in | `core.cdy`, `programs.sees` |
+| built-ins specified | all 94 named in the spec, most only in `library.builtins`' table, with no rule or example of their own | `spec/60-library.md` |
+| a library module by name | none: `(import m)` finds `m.cdy` only in the importing file's directory; the library files are found by the translator itself, next to it | `include.cdy`, `expand.cdy` |
+| declaration files | only `system.cdy` may hold a bodiless `sig` or `deft` | `core.cdy` |
+| [[B51]] `with-default` a built-in | stale: it is the prelude's, written in Candy, since `semantics` | `prelude.cdy` |
+
+## Goals
+
+- **The translator's built-ins kept to the translator** ([[B50]]): a declaration module
+  only the translator imports.
+- **The system small and portable:** what nothing uses, or what is Python's, out
+  ([[B32]]; [[B49]]'s regex half).
+- **The built-ins a module:** `system`, imported by every file as the prelude is, so
+  `system.text` reaches a built-in that a file shadows (`namespaces.md`, Question 5's
+  *for now*), and a built-in type has a module ([[B197]]'s first half).
+- **Each built-in specified:** a rule with an example that runs, for every `sig` in
+  `system.cdy`, and a test that keeps it so.
+- **The mechanism for the layers above:** a module found by name in the library, and a
+  library module that declares built-ins, which the second branch's standard library and
+  the target extensions both need.
+- **`slurp` without a search** ([[B54]]).
+
+## Not goals
+
+- **The standard library's modules** (`list`, `string`, `map`, `math`, `io`, `test`,
+  `parse`; [[B108]]): the second branch's, with its own HLD. So the built-ins keep their
+  names here (`str-len`, `map-get`), and are renamed, if at all, when a module takes
+  them (`string.len`).
+- **The I/O refactor** ([[B95]]): the `io` module's design, the second branch's.
+- **A target extension** (`py`; [[B49]]'s other half, opaque host types): the second
+  branch's, or later, when a program needs one; this branch only lets one exist.
+- **Re-export**, a program seeing only the prelude, which re-exports the system
+  (`library.md`, "What a program sees", B): Question 6.
+- **The prelude's costs** ([[B66]], [[B68]], [[B62]]): measured here (Question 7), fixed
+  in the second branch, whose modules make them larger.
+- **Macro code's module** ([[B197]]'s other half): `host-macros`', with [[B42]] and
+  [[B45]].
+
+## Proposal
+
+### A library module, found by name
+
+`(import m)` finds `m.cdy` in the importing file's directory, as now, and otherwise in the
+**library directory**, the one the translator reads `system.cdy` and `prelude.cdy` from
+(next to it: `bin/py/`, `output/t1/`). So `(import host)` in the translator, and later
+`(import string)` in any program, find a file the translator brings. A local file with a
+library module's stem wins (Question 3), and two modules with one stem stay an error
+(`programs.import`). A library module is an ordinary module otherwise: its names are
+`m.name` too, and it can have private names.
+
+### Declaration modules
+
+A **declaration module** is a library module whose every top-level form is a bodiless
+`sig` or `deft`: it declares built-ins, which the target supplies, as `system.cdy` does
+now. Only a library module may be one (Question 4), and each name it declares needs the
+target's spelling (`spelling.py`), checked both ways, as now, across all of them: a
+spelling no declaration has is an error, as a declaration with no spelling is. A program
+can't declare a built-in, so it can't reach the translator's five by declaring them.
+
+### The translator's built-ins: `host.cdy`
+
+The five move from `system.cdy` to `host.cdy`, a declaration module next to it in
+`src/cdy/` (copied to `bin/py/` with the others). The translator's modules that call them
+import it (`cdyc.cdy`, `include.cdy`, `expand.cdy`, by the survey); a program that doesn't
+import it doesn't see them, and `library.builtins`' sentence on them becomes a rule:
+"only for the translator, in `host`". Its name is Question 5's.
+
+Macro code needs one of them: `gensym` (`form.cdy`, which every macro program includes)
+calls `fresh-name`. A macro program runs on the host, so it gets `host` as it gets the
+system, implicitly (`form.cdy` is included, not imported, until `host-macros`, [[B45]]);
+an ordinary program doesn't.
+
+### The system, a module
+
+`system.cdy` becomes module `system`: every file imports it implicitly, as it imports
+the prelude, so every built-in is also `system.name`. The shadowing rule stays (a file's
+own `text` wins in that file, [[programs.shadowing]]), and `system.text` is the built-in
+there, as a qualified name is never shadowed. In Core a built-in type's module is
+`"system"`, not `""` ([[B197]]'s first half): every check for a built-in type
+(`is-any`, `is-rest`, the constraints) reads `"system"`, and [[B196]]'s
+`show` can tell a program's `Map` from the built-in's by its module. Macro code keeps
+`""` until `host-macros`. `system.cdy` stays one file, a declaration module; the special
+forms stay unqualified and unmoduled (`special.cdy`), as the language.
+
+### The system, revisited
+
+- **Dropped, Python's** (Question 2): `re-search`, `re-findall`, `re-compile` (Python's
+  syntax and objects, [[B32]]), and `is-coll` and `is-str` (a host `isinstance` on an
+  `Any`); none is used. Regexes come back as a portable module, or in `py`, when a
+  program wants them.
+- **Dropped, unused:** `is-alpha`, `is-neg-int`, `strip`, `is-empty-str` (`(= s "")`),
+  `file-put-lines` and `SYS_ARGS` (`main` takes the arguments, [[programs.main]]).
+- **Kept, unused:** `PI`, `sin`, `cos` and `tan`: portable, and `math`'s first, in the
+  second branch.
+- **Spelling and runtime:** each dropped built-in's spelling and primitive go too, and
+  any runtime helper only they used.
+
+That leaves 83 built-ins in `system` and 5 in `host`.
+
+### Each built-in specified
+
+Every built-in in `system` gets a rule in `spec/60-library.md` (or the operators',
+`40-expressions.md`), with an example that runs: by group, as now (lists, strings, maps,
+files, output, math, the program), each rule naming its built-ins with their types and
+what they do on the edges (an empty list, an index out of range, a missing key, a missing
+file), *lasting*. `library.builtins`' table becomes the index, one row per group, linking
+the rules. A test (`test_doc_links.py`) checks that every `sig` in a declaration module is
+named in some `candy run` example, so a new built-in comes with one. The host's five are
+specified in `host.cdy`'s comments, not the spec: they aren't the language's.
+
+### `slurp` without a search
+
+`slurp` reads the path it is given; a missing file is a panic, "can't read path"
+([[library.errors]]). `get_path`'s search goes ([[B54]]). The translator reads its
+library files by their full path already (`module-dir`), so nothing there relies on it.
+
+### The spec
+
+No draft file: the rules change in `spec/10-programs.md` (`programs.import`: the library
+directory; `programs.sees`: `system` a module; `programs.shadowing`: `system.name`) and
+`spec/60-library.md` (`library.builtins` and a rule per group). Their examples come with
+their steps.
+
+## Pros and cons
+
+- **For:** the porting surface gets its shape: what a target supplies is the declaration
+  modules and their spellings, each specified, and a program can't see the translator's.
+  The second branch starts with its mechanism in place: `(import string)` finds the
+  library's `string`, and `string` can declare built-ins.
+- **Against:** a branch with little a program sees, beyond `system.name` and fewer
+  built-ins; dropping built-ins no program uses can break a program outside this repo
+  that does (none is known).
+- **Timing:** after `namespaces`, which gave the qualified names `system.name` needs;
+  before the standard library, which needs library modules by name.
+
+## Bootstrap
+
+Two steps can't be read by the last `bin`: declaration modules other than `system.cdy`
+(step 2's `host.cdy`, a bodiless `sig` there an error to it), and the dropped built-ins'
+spellings (the last `bin` checks its own `system.cdy` against the runtime's
+`spelling.py` both ways, so dropping a spelling it declares breaks it). Each is a staged
+boot step (`script/bootstrap.py`, `STAGING`), as `namespaces` step 3 was. The rest is
+ordinary: one `boot/NN` per step that changes `bin`.
+
+## Steps
+
+1. **A library module, found by name:** the library directory in `include.cdy`'s lookup;
+   the rule in `programs.import`; a test program importing a library module. And the
+   prelude's costs measured (Question 7): the build, and a small program's translation,
+   with and without it.
+2. **Declaration modules, and `host.cdy`** ([[B50]]): a bodiless `sig` or `deft` allowed
+   in a library module whose forms are all such; the spelling check across all of them;
+   the five moved; the translator's modules import `host`. Staged.
+3. **The system, a module** ([[B197]]'s first half): `system.name`; a built-in type's
+   module `"system"`; `programs.sees` and `programs.shadowing`. [[B196]] looked at again.
+4. **The system, revisited** ([[B32]]; [[B49]] narrowed): the 11 built-ins dropped, with
+   their spellings and primitives. Staged.
+5. **`slurp` without a search** ([[B54]]).
+6. **Each built-in specified:** a rule per group in `spec/60-library.md`, the index, and
+   the test.
+7. **Docs:** CLAUDE.md, the epic's fifth branch *done in part*, `library.md`'s "What a
+   program sees", `multi_target.md`; "Looking back".
+
+## Questions
+
+1. **The branches, and this one's name:** the epic's `library` as two branches, the
+   layering first (this HLD), then the modules (`list`, `string`, `map`, `math`, `io`
+   with the I/O refactor, `test`, perhaps `parse`; and the prelude's costs), or one
+   branch with both? A tag `library` already exists (the branch that made the list,
+   string and map operations built-ins), so neither can be called `library`.
+   **Proposed: two, `library-layers` then `stdlib`,** each with its HLD, as
+   `collections` and `collections-2` were.
+   *Answer (2026-11-15, the owner): two, `library-layers` then `stdlib`.*
+2. **What goes from the system:** the 11 above (the five that are Python's and the six
+   that are unused), keeping the unused math; or only the five that are Python's,
+   leaving the rest for the second branch's modules to take or drop; or all 14 unused,
+   the math too? **Proposed: the 11,** so the surface the spec covers is what something
+   uses or a module will; the math stays as `math`'s start.
+   *Answer (2026-11-15, the owner): the 11.*
+3. **A local file or the library's, for one stem:** the importing file's directory first
+   (proposed: a program's own file wins, as Python's script directory does, and a new
+   library module can't break a program); or the library first (a program can't hide the
+   library's, but a new library module breaks a program with that stem); or an error,
+   two files for one stem? **Proposed: the local one first,** *lasting*.
+   *Answer (2026-11-15, the owner): the local one first,* *lasting*.
+4. **Who may declare built-ins:** only a library module (proposed: a target brings its
+   declarations, and a program can't declare one); or any module, each declaration
+   checked against the spellings (a program could then name a host built-in itself,
+   which [[B50]] means to stop)? **Proposed: only a library module.**
+   *Answer (2026-11-15, the owner): only a library module.*
+5. **The translator's declaration module's name:** `host` (proposed: they are the host's,
+   macros and the spellings, and `host-macros` will move them on), `translator`, or
+   `cdyc`? **Proposed: `host`.**
+   *Answer (2026-11-15, the owner): `host`.*
+6. **What a program sees:** the system and the prelude, both imported implicitly, as now,
+   `system` now a module (proposed, *for now*); or `library.md`'s B, a program seeing
+   only the prelude, which imports the system and re-exports what programs need (one
+   interface for every target, but it needs re-export, a feature of its own)? **Proposed:
+   both implicit,** *for now*, re-export when the standard library shows it is needed
+   (a new idea item).
+   *Answer (2026-11-15, the owner): both implicit,* *for now* ([[B198]], new: re-export).
+7. **The prelude's costs** ([[B66]], [[B68]], [[B62]]): measured in step 1 and fixed in
+   the second branch (proposed: its modules make them grow, and its HLD can weigh them
+   against them); or fixed here? **Proposed: measured here, fixed there.**
+   *Answer (2026-11-15, the owner): measured here, fixed there.*
+8. **[[B51]]:** closed as done, `fixed: semantics` (proposed: `with-default` has been the
+   prelude's, in Candy, since `Maybe` became a sum), in the start commit.
+   *Answer (2026-11-15, the owner): closed,* in this commit.
