@@ -6,7 +6,7 @@ What a program is: its top-level forms, `main`, the prelude every file gets, `im
 (since `modules`), and qualified and private names (since `namespaces`). A program of
 several files can't be an example here (each example is one file), so the examples of
 `import` are the programs in `tst/cdy/cdyc/` (`imports`, `modules`, `qualified`,
-`import_list`, `private`); macro files and `import-macros` are in `50-macros.md`.
+`import_list`, `private`, `library_module`); macro files and `import-macros` are in `50-macros.md`.
 
 ```candy
 (import name)
@@ -232,10 +232,14 @@ with it, as any two imports do ([[programs.import]]). Its names are also `prelud
 <a id="programs.import"></a>
 ## import (since `modules`)
 
-`(import name)` imports the module `name.cdy`, found in the importing file's directory;
-`name` may be a relative path (`lib/util`). Every name the module defines at top level
-(`def`, `defn`, and `deft` with its variants) becomes visible, unqualified, and as
-`m.name` too ([[programs.qualified]]); the names it imports don't.
+`(import name)` imports the module `name.cdy`, found in the importing file's directory,
+or else in the library's, next to the translator (since `library-layers`): a **library
+module**. A file of the program wins over a library module of the same name, *lasting*,
+so a new library module can't break a program. Two of the library's files aren't
+modules, `special` and `prelude_macros`: the translator reads them itself. `name` may be
+a relative path (`lib/util`). Every name the module defines at top level (`def`, `defn`,
+and `deft` with its variants) becomes visible, unqualified, and as `m.name` too
+([[programs.qualified]]); the names it imports don't.
 
 `(import name (a b))` (since `namespaces`) makes only the names it lists unqualified; the
 module's other names are reached as `m.name` ("b: the import of m doesn't list it: write
@@ -244,7 +248,8 @@ module defines ("import: m doesn't define c"), listed once. The two forms are `i
 shape, declared in `special.cdy` as `(special import (ModName (Opt (List Name))))`, a
 module path and, optionally, a list of names; a form that doesn't fit it is an error
 written from it, `expected (import ModName [(Name*)])`. The example with a name list is
-`tst/cdy/cdyc/import_list.cdy`.
+`tst/cdy/cdyc/import_list.cdy`, and with a library module
+`tst/cdy/cdyc/library_module.cdy`.
 
 - Two imports that define the same name are an error only where the name is used
   unqualified ("x is defined by a and b: write a.x or b.x"); the file's own definition of a
@@ -260,8 +265,10 @@ written from it, `expected (import ModName [(Name*)])`. The example with a name 
 (import a b) => expected (import ModName [(Name*)])
 (import a (b) c) => expected (import ModName [(Name*)])
 (import a (1)) => expected (import ModName [(Name*)])
-(import nope) => can't find nope.cdy in .
-(import nope (a)) => can't find nope.cdy in .
+(import nope) => can't find nope.cdy in . or the library
+(import nope (a)) => can't find nope.cdy in . or the library
+(import special) => import: special is the translator's, not a module
+(import prelude_macros) => import: prelude_macros is the translator's, not a module
 ```
 
 The errors that need more than one file (clashes, cycles, two modules of one name, a name

@@ -785,8 +785,11 @@ def include__prelude_module(key: str) -> tuple[tuple[str, include__Imp], ...]:
     else:
         return ((path, include__Imp(prelude, form__NOWHERE, prelude__None())),)
 
+def include__library_dir(_: None) -> str:
+    return cdy_rt.primitives.module_dir(form__sym_name)
+
 def include__library_path(name: str) -> str:
-    dir_ = cdy_rt.primitives.module_dir(form__sym_name)
+    dir_ = include__library_dir(None)
     path = cdy_rt.primitives.path_join(dir_, name)
     if cdy_rt.primitives.file_exists(path):
         return path
@@ -915,13 +918,20 @@ def include__included_name(form: form__Form) -> str:
         return name
     else:
         return cdy_rt.primitives.fail((form__pos_text(form__form_pos(form)) + "import: a macro file's import includes the whole file, so it lists no names"))
+include__NOT_MODULES: tuple[str, ...] = ('special', 'prelude_macros')
 
 def include__import_path(what: str, dir_: str, name: str, pos: form__Pos) -> str:
-    path = cdy_rt.primitives.path_join(dir_, (name + '.cdy'))
+    file = (name + '.cdy')
+    path = cdy_rt.primitives.path_join(dir_, file)
+    lib = cdy_rt.primitives.path_join(include__library_dir(None), file)
     if cdy_rt.primitives.file_exists(path):
         return path
+    elif cdy_rt.primitives.list_contains(name, include__NOT_MODULES):
+        return cdy_rt.primitives.fail((form__pos_text(pos) + what + ': ' + name + " is the translator's, not a module"))
+    elif cdy_rt.primitives.file_exists(lib):
+        return lib
     else:
-        return cdy_rt.primitives.fail((form__pos_text(pos) + what + ": can't find " + name + '.cdy in ' + dir_))
+        return cdy_rt.primitives.fail((form__pos_text(pos) + what + ": can't find " + file + ' in ' + dir_ + ' or the library'))
 
 class core__TCon(_cdy_NamedTuple):
     module: str

@@ -1,0 +1,10 @@
+;; A library module (spec/10-programs.md, programs.import): there is no form.cdy next to
+;; this file, so `(import form)` finds the library's, next to the translator: the Form
+;; type the translator and macros read programs as.
+(import form (Sym Lst sym-name list-items NOWHERE))
+
+(sig names (Fn (form.Form) (List String)))
+(defn names (f) (map sym-name (list-items f)))
+
+(put (names (Lst (List (Sym "a" NOWHERE) (Sym "b" NOWHERE)) NOWHERE)))
+(put (form.pos-text (form.Pos "x.cdy" 3 4)))

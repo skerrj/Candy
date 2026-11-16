@@ -165,7 +165,7 @@ The examples need a second file, so they are `tst/cdy/cdyc/macro_files.cdy` and
 
 ```candy errors
 (import-macros) => import-macros: expected (import-macros name)
-(import-macros nope) => import-macros: can't find nope.cdy in .
+(import-macros nope) => import-macros: can't find nope.cdy in . or the library
 (put (import-macros m)) => import-macros is only allowed at top level
 ```
 

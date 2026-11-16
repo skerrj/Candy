@@ -1,7 +1,8 @@
 # The library's layers (HLD)
 
 **Status: accepted (2026-11-15), with the answers to its questions, as proposed (tasks
-[[B199]] to [[B205]]); proposed 2026-11-14, for branch `library-layers` (Question 1). Epic: `python_complete.md` (its fifth branch, `library`, the first half: the layering;
+[[B199]] to [[B205]]); proposed 2026-11-14, for branch `library-layers` (Question 1).
+Epic: `python_complete.md` (its fifth branch, `library`, the first half: the layering;
 the modules are the second). After tag `namespaces`.** The system revisited: the
 translator's built-ins out of every program's sight, what is Python's or unused dropped,
 the built-ins a module of their own, each built-in specified; and what the standard
@@ -170,6 +171,24 @@ ordinary: one `boot/NN` per step that changes `bin`.
    the rule in `programs.import`; a test program importing a library module. And the
    prelude's costs measured (Question 7): the build, and a small program's translation,
    with and without it.
+   *Done (2026-11-15). As built:* `import-path` (`include.cdy`) looks in the importing
+   file's directory, then in `library-dir`, the translator's; `import-macros` too, which
+   finds its file "as `import` does" (`macros.import-macros`). The error says both: "can't
+   find nope.cdy in . or the library". Two of the library's files aren't modules
+   (`NOT_MODULES`): `(import special)` and `(import prelude_macros)` are "special is the
+   translator's, not a module"; `(import prelude)` works, and `(import system)` fails on
+   its bodiless `deft`s until steps 2 and 3. The rule: `programs.import`;
+   `tst/cdy/cdyc/library_module.cdy` (new) imports the library's `form`, the only library
+   file that is an ordinary module today. Checked against `boot/76`'s `bin`: the same
+   Python for every program but the new one, which it can't find. No staging.
+   The costs, for `modules.cdy` (a top file importing two modules, four modules with the
+   prelude), with `bin`: 0.22 s to translate, 0.22 s with an empty prelude; `(put 1)`
+   0.15 s against 0.15 s, 80 lines of Python against 31. Profiled, reading `special.cdy`
+   and `system.cdy` is 62% of the translation (`library-builtins`, 11 times: per module,
+   and per macro program), and compiling the prelude's macros per module 39% (the two
+   overlap, since a macro program reads the built-ins too). So [[B66]] is the cost that
+   matters, [[B62]] the next, and [[B68]] small in time (2%) but 49 lines in every
+   program's Python.
 2. **Declaration modules, and `host.cdy`** ([[B50]]): a bodiless `sig` or `deft` allowed
    in a library module whose forms are all such; the spelling check across all of them;
    the five moved; the translator's modules import `host`. Staged.

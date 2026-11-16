@@ -104,7 +104,7 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
     ("imported", "message"),
     [
         ('(def x "open\n', "lib/b.cdy:1:8: parse error: string is never closed"),
-        ("(import nope)", "lib/b.cdy:1:1: import: can't find nope.cdy in lib"),
+        ("(import nope)", "lib/b.cdy:1:1: import: can't find nope.cdy in lib or the library"),
         ("\n  (import)", "lib/b.cdy:2:3: import: expected (import ModName [(Name*)])"),
         ("(put\n  (f 1))", "lib/b.cdy:2:4: unknown name f"),
         ("(sig x Int)\n(def x (+ 1))", "lib/b.cdy:2:8: (+ ...) takes at least 2 argument(s)"),

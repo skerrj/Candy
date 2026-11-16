@@ -81,7 +81,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B199](B199-library-layers-step-1.md) | library-layers step 1: A library module, found by name | task | open | normal |
 | [B200](B200-library-layers-step-2.md) | library-layers step 2: declaration modules, and `host.cdy` | task | open | normal |
 | [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | open | normal |
 | [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | open | normal |
@@ -153,7 +152,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [match.form](../spec/30-match.md#match.form): [B56](B56-match-temporary.md), [B55](B55-match-isinstance.md)
 - [match.sum-types](../spec/30-match.md#match.sum-types): [B29](B29-records-are-tuples.md), [B136](B136-patterns-without-every-field.md)
 - [match.tup](../spec/30-match.md#match.tup): [B17](B17-tup-destructuring.md)
-- [programs.import](../spec/10-programs.md#programs.import): [B108](B108-flat-builtins.md), [B187](B187-alias.md), [B199](B199-library-layers-step-1.md), [B44](B44-macro-cant-make-import.md), [B198](B198-reexport.md)
+- [programs.import](../spec/10-programs.md#programs.import): [B108](B108-flat-builtins.md), [B187](B187-alias.md), [B44](B44-macro-cant-make-import.md), [B198](B198-reexport.md)
 - [programs.prelude](../spec/10-programs.md#programs.prelude): [B52](B52-macro-code-no-prelude.md), [B68](B68-whole-prelude.md)
 - [programs.qualified](../spec/10-programs.md#programs.qualified): [B195](B195-field-syntax-dot.md), [B197](B197-builtins-module.md)
 - [programs.sees](../spec/10-programs.md#programs.sees): [B201](B201-library-layers-step-3.md), [B198](B198-reexport.md)
@@ -296,3 +295,4 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B192](B192-namespaces-step-5.md) | namespaces step 5: the rules written down | task | done | normal |
 | [B193](B193-namespaces-step-6.md) | namespaces step 6: the module in Core | task | done | normal |
 | [B194](B194-namespaces-step-7.md) | namespaces step 7: docs | task | done | normal |
+| [B199](B199-library-layers-step-1.md) | library-layers step 1: A library module, found by name | task | done | normal |

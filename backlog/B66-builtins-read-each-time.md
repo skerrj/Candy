@@ -10,3 +10,9 @@ refs:
 
 And again for every macro program, and checked against `spelling.py` each time. Nothing
 caches them. From `doc/tech_debt.md`.
+
+## Notes
+- 2026-11-15, Claude: measured (`library_layers.md`, step 1): for a program of four modules
+  (with the prelude), reading `special.cdy` and `system.cdy` is 62% of the translation,
+  under a profiler: `library-builtins` runs 11 times, per module and per macro program.
+  The biggest of the three costs; to fix in `stdlib` (Question 7).
