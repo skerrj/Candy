@@ -44,7 +44,7 @@ By kind, then priority.
 | [B41](B41-macros-exec.md) | Macros run with Python's `exec` | leak | open | low |
 | [B43](B43-gensym-impure.md) | `gensym` is impure | leak | open | low |
 | [B44](B44-macro-cant-make-import.md) | A macro can't expand into `import`, `import-macros` or `defmacro` | leak | open | low |
-| [B50](B50-translator-builtins-shared.md) | The translator's five host built-ins are every program's | leak | open | low |
+| [B50](B50-translator-builtins-shared.md) | The translator's five host built-ins are every program's | leak | review | low |
 | [B113](B113-field-leading-underscore.md) | A field can't start with `_`, because Python's `NamedTuple` can't | leak | open | low |
 | [B114](B114-field-tuple-method.md) | A field named like a tuple method fails mypy | leak | open | low |
 | [B134](B134-one-type-error-at-a-time.md) | Translation stops at the first type error | leak | open | low |
@@ -81,7 +81,7 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B200](B200-library-layers-step-2.md) | library-layers step 2: declaration modules, and `translator.cdy` | task | in-progress | normal |
+| [B200](B200-library-layers-step-2.md) | library-layers step 2: declaration modules, and `translator.cdy` | task | review | normal |
 | [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | open | normal |
 | [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | open | normal |
 | [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | open | normal |

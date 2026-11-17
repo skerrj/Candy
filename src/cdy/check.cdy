@@ -376,7 +376,7 @@
 (defn prim-type (name ctx st)
   (if (map-has (get ctx builtins) name)
     (match (map-get (get ctx builtins) name)
-      ((Typed type) (instantiate type st))
+      ((Typed type _) (instantiate type st))
       (else (Res ANY st)))
     (Res ANY st)))
 

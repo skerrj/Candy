@@ -41,7 +41,8 @@ file 7 3
 
 `fail` is a panic: the program stops with its message ([[library.errors]]). Five built-ins are only for the
 translator: `py-spellings`, `load-macros`, `call-macro`, `module-dir` and `fresh-name`,
-declared in `translator.cdy`, a declaration module ([[programs.import]]).
+declared in `translator.cdy`, a declaration module, and seen only by a file that imports
+`translator` ([[programs.import]]).
 
 <a id="library.lists"></a>
 ## Lists

@@ -3,6 +3,10 @@
 ;;; Python translator's parser nodes into them, to check that the two readers agreed.) See
 ;;; doc/hl_rqmt/self_hosting_primo.md.
 
+;; gensym calls fresh-name. Macro code reads this file without this import, and imports
+;; translator implicitly (expand.cdy, form-defs).
+(import translator (fresh-name))
+
 ;; Where a form starts: its file ("" for text that isn't from one), line and column.
 ;; Line 0 means nowhere: a form made by the translator, or read without positions.
 (deft Pos ((file String) (line Int) (col Int)))

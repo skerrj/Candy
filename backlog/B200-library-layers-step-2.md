@@ -1,10 +1,10 @@
 # B200: library-layers step 2: declaration modules, and `translator.cdy`
 
 kind: task
-state: in-progress
+state: review
 priority: normal
 found: library-layers, 2026-11-15
-fixed:
+fixed: library-layers, 2026-11-16
 where: `src/cdy/core.cdy`, `src/cdy/expand.cdy`, `src/cdy/system.cdy`, `src/cdy/translator.cdy`
 refs: [[B50]], [[library.builtins]]
 
@@ -30,3 +30,4 @@ Step 2 of `doc/hl_rqmt/library_layers.md`. A bodiless `sig` or `deft` allowed in
 - 2026-11-15, Claude: 2a built (the HLD's step 2, "2a done"): `translator.cdy`, a
   declaration module with the five, always the library's; every program still sees them
   until 2b.
+- 2026-11-16, Claude: 2b built (the HLD's step 2, "2b done"); [[B50]] to review.

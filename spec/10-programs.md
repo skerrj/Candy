@@ -89,8 +89,9 @@ definition of a built-in's name (`(defn len ...)`) is its own, in that file only
 local shadows everything ([[expr.let]]). A qualified name is never shadowed. A macro's
 expansion sees what its use sees, the file's own definitions too, so a file's own `text`
 is the one `put` calls (*for now*: [[B46]]). The translator's five built-ins
-(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`), which
-`translator` declares ([[programs.import]]), are every program's, *for now* ([[B50]]).
+(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`) are only a
+file's that imports `translator` ([[programs.import]]); macro code imports it
+implicitly ([[macros.macro-code]]).
 
 ```candy run
 (sig len (Fn (String) Int))
@@ -239,7 +240,7 @@ so a new library module can't break a program. Two of the library's files aren't
 modules, `special` and `prelude_macros`: the translator reads them itself. A
 **declaration module** is a library module that declares built-ins, which the target
 defines, each with a bodiless `sig` (since `library-layers`): `translator`, which declares
-those only the translator needs (*for now* every program sees them too, [[B50]]). It is
+those only the translator needs, seen only by a file that imports it. It is
 always the library's, *lasting*: a program's file of that name isn't imported in its
 place, so a program can't replace a target's declarations. `name` may be
 a relative path (`lib/util`). Every name the module defines at top level (`def`, `defn`,
@@ -275,6 +276,7 @@ written from it, `expected (import ModName [(Name*)])`. The example with a name 
 (import special) => import: special is the translator's, not a module
 (import prelude_macros) => import: prelude_macros is the translator's, not a module
 (import translator (nope)) => import: translator doesn't define nope
+(put (fresh-name "x")) => fresh-name is declared by translator, which this file doesn't import: (import translator)
 ```
 
 The errors that need more than one file (clashes, cycles, two modules of one name, a name

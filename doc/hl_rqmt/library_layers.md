@@ -234,6 +234,20 @@ was. The rest is ordinary: one `boot/NN` per step that changes `bin`.
    whose `system.cdy` no longer has the five its source calls
    (`test_newest_step_reads_the_library`, which now skips a library file the old step
    doesn't have). 2b needs none: 2a's `bin` reads `translator.cdy`.
+
+   *2b done (2026-11-16). As built:* `Typed` (`core.cdy`) carries the declaration module
+   that declares it, and `resolve` makes a `Prim` of a name no entry has only if
+   `system` declares it (`is-everyones`); one another declaration module declares is
+   "fresh-name is declared by translator, which this file doesn't import: (import
+   translator)" (`declaring-module`). `cdyc.cdy`, `include.cdy`, `expand.cdy` and
+   `form.cdy` import `translator` (`form.cdy` only `fresh-name`, for `gensym`). Macro
+   code imports it implicitly: `analyse-program` takes its imports, `macro-imports`
+   (`cdyc.cdy`); `form-defs` (`expand.cdy`) drops `form.cdy`'s import, and in a macro
+   file an import of a declaration module adds nothing (`include-forms`). The rules:
+   `programs.import`, `programs.shadowing`, `macros.macro-code`, `library`. Staged
+   `old-library` too, unlike what 2a's note says: `boot/78` reads macro code's
+   `form.cdy` from the library as it is, and 2b's has an import, an error in macro code
+   to 78. [[B50]] fixed.
 3. **The system, a module** ([[B197]]'s first half): `system.name`; a built-in type's
    module `"system"`; `programs.sees` and `programs.shadowing`. [[B196]] looked at again.
 4. **The system, revisited** ([[B32]]; [[B49]] narrowed): the 11 built-ins dropped, with

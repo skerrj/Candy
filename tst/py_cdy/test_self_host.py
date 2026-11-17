@@ -261,6 +261,18 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
             "main.cdy:2:6: translator.x: translator doesn't define x",
         ),
         (
+            # The translator's built-ins are only for a file that imports translator
+            # (B50), here a.cdy; main.cdy doesn't.
+            {
+                "main.cdy": '(import a)\n(put (fresh-name "x"))',
+                "a.cdy": '(import translator)\n(sig x String) (def x (fresh-name "a"))',
+            },
+            (
+                "main.cdy:2:7: fresh-name is declared by translator, which this file doesn't "
+                "import: (import translator)"
+            ),
+        ),
+        (
             {"main.cdy": "(import translator (nope))"},
             "main.cdy:1:21: import: translator doesn't define nope",
         ),

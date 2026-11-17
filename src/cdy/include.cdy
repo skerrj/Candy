@@ -12,6 +12,7 @@
 (import form)
 (import read)
 (import syntax)
+(import translator)
 
 ;; --- modules ---
 
@@ -161,16 +162,23 @@
         (path-dir path)
         (assoc acc seen (map-set (get acc seen) key true))))))
 
-;; `forms`, whose imports are found in directory `dir`.
+;; `forms`, whose imports are found in directory `dir`. An import of a declaration module
+;; adds nothing: macro code imports translator implicitly (cdyc.cdy, macro-imports).
 (sig include-forms (Fn ((List Form) String Incl) Incl))
 (defn include-forms (forms dir start)
   (fold
     (fn (acc form)
-      (if (is-import form)
-        (include-file (import-path "import" dir (included-name form) (form-pos form)) acc)
-        (assoc acc done (++ (get acc done) (List (macro-import form dir))))))
+      (cond
+        ((not (is-import form)) (assoc acc done (++ (get acc done) (List (macro-import form dir)))))
+        ((contains (imported-name form) DECLARATION_MODULES) acc)
+        (else (include-file (import-path "import" dir (included-name form) (form-pos form)) acc))))
     start
     forms))
+
+;; The module the import `form` names.
+(sig imported-name (Fn (Form) String))
+(defn imported-name (form)
+  (let (((name _only) (import-parts (import-shape nil) form))) name))
 
 ;; (import-macros name) as (import-macros "path"), with `name.cdy` found in directory
 ;; `dir`; any other form as it is.

@@ -310,8 +310,10 @@
     ((is-sum name scope) (fail (located scope (format "{name} is a type, not a value"))))
     ((is-special name (get scope builtins))
       (fail (located scope (format "{name} is a special form, not a value"))))
-    ((and (map-has (get scope builtins) name) (not (is-builtin-type name (get scope builtins))))
-      (Prim name (get scope here) ANY))
+    ((is-everyones name (get scope builtins)) (Prim name (get scope here) ANY))
+    ((!= (declaring-module name (get scope builtins)) "")
+      (let ((m (declaring-module name (get scope builtins))))
+        (fail (located scope (format "{name} is declared by {m}, which this file doesn't import: (import {m})")))))
     ((!= (elsewhere-module name scope) "")
       (let ((stem (elsewhere-module name scope)))
         (fail (located scope (format "{name} is not defined here; {stem} defines it, but this file doesn't import {stem}")))))
@@ -377,10 +379,10 @@
   (match callee
     ((Prim name _ _)
       (let ((builtin (map-get (get scope builtins) name))
-            (rest-of-type (match builtin ((Typed type) (is-variadic type)) (else false)))
+            (rest-of-type (match builtin ((Typed type _) (is-variadic type)) (else false)))
             (arity
               (match builtin
-                ((Typed type) (fn-arity type))
+                ((Typed type _) (fn-arity type))
                 (else -1))))
         (cond
           (rest-of-type
@@ -1058,12 +1060,27 @@
 ;; --- the built-ins (special.cdy and system.cdy, doc/hl_rqmt/symbol_table.md) ---
 
 ;; A built-in as analysis sees it: a special form, analysed by its own rule (special.cdy);
-;; a function or value, with its type, an operator among them; or a type, with its number
-;; of type arguments (system.cdy).
+;; a function or value, with its type and the declaration module that declares it
+;; (`system`, `translator`), an operator among them; or a type, with its number of type
+;; arguments (system.cdy).
 (deft Builtin
   (Special)
-  (Typed ((type CType)))
+  (Typed ((type CType) (module String)))
   (BType ((arity Int))))
+
+;; Whether `name` is a built-in function or value every file sees, without an import:
+;; system.cdy's.
+(sig is-everyones (Fn (String (Map String Builtin)) Bool))
+(defn is-everyones (name builtins)
+  (and (map-has builtins name) (match (map-get builtins name) ((Typed _ m) (= m "system")) (else false))))
+
+;; The declaration module, other than system, that declares the built-in `name`, seen only
+;; by a file that imports it (translator); or "".
+(sig declaring-module (Fn (String (Map String Builtin)) String))
+(defn declaring-module (name builtins)
+  (if (map-has builtins name)
+    (match (map-get builtins name) ((Typed _ m) (if (= m "system") "" m)) (else ""))
+    ""))
 
 ;; Whether `name` is a built-in type (system.cdy's bodiless deft), which isn't a value.
 (sig is-builtin-type (Fn (String (Map String Builtin)) Bool))
@@ -1173,7 +1190,7 @@
           ((map-has acc name) (fail (format "{where}: {name} is already declared")))
           ((not (contains (spelling-kind spellings name) (++ TYPED_KINDS OPERATOR_KINDS)))
             (fail (format "{where}: {name} has no Python mapping in spelling.py")))
-          (else (map-set acc name (Typed (analyse-type (at items 2))))))))
+          (else (map-set acc name (Typed (analyse-type (at items 2)) (path-stem file)))))))
     start
     forms))
 
@@ -1313,12 +1330,12 @@
     (else (map-set acc name e))))
 
 
-;; `forms`, one program on its own (a macro program), with no imports, its module "";
-;; `builtins` are the built-ins (read-builtins).
+;; `forms`, one program on its own (a macro program), its module "", which imports
+;; `imports` implicitly (translator); `builtins` are the built-ins (read-builtins).
 (sig analyse-program
-  (Fn ((List Form) (Map String Builtin) (Fn (String Pos) (List Form)) (Map String Macro) Bool) (List Top)))
-(defn analyse-program (forms builtins parse macros quoting)
-  (analyse-module forms (module-exports forms "") empty-list empty-map builtins parse macros quoting))
+  (Fn ((List Form) (List Import) (Map String Builtin) (Fn (String Pos) (List Form)) (Map String Macro) Bool) (List Top)))
+(defn analyse-program (forms imports builtins parse macros quoting)
+  (analyse-module forms (module-exports forms "") imports empty-map builtins parse macros quoting))
 
 ;; An import, as analysis sees it: the imported module's exports, where the import is, and
 ;; the names it lists, if it lists any (include.cdy's Imp).
