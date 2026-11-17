@@ -10,11 +10,11 @@ targets get their own, see `doc/hl_rqmt/multi_target.md`).
   exit with 1 (usage: 2). `python src/py_cdy/main.py FILE.cdy [--run]` does the same
   through `main.py`, which can also run the result. It needs only the
   runtime `cdy_rt` (it has its own reader), and it rebuilds itself (both tested).
-- `py/form.cdy`, `py/prelude_macros.cdy`, `py/special.cdy`, `py/system.cdy` and
-  `py/prelude.cdy`: copies of the files in `src/cdy/`, which the translator reads while
-  translating: macro code uses `Form` and its helpers, every file gets the prelude's macros
-  (`cond`) and the prelude (`rest`), and `special.cdy` and `system.cdy` declare the
-  built-ins. `self_host.py` copies them next to every
+- `py/form.cdy`, `py/prelude_macros.cdy`, `py/special.cdy`, `py/system.cdy`,
+  `py/translator.cdy` and `py/prelude.cdy`: copies of the files in `src/cdy/`, which the
+  translator reads while translating: macro code uses `Form` and its helpers, every file
+  gets the prelude's macros (`cond`) and the prelude (`rest`), and `special.cdy`,
+  `system.cdy` and `translator.cdy` declare the built-ins. `self_host.py` copies them next to every
   translator it builds; don't edit them.
 
 **Rebuilding.** After changing `src/cdy/`, run `python src/py_cdy/self_host.py`:

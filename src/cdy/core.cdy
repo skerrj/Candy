@@ -177,9 +177,12 @@
 ;; one that `Clash`es is defined by two (or more) of the modules it imports, an error where
 ;; it is used unqualified; one `Unlisted` is defined by a module whose import lists other
 ;; names (`(import m (a b))`), so it is reached only as m.name; one `Private` is kept in its
-;; module by `(private ...)`. A variant has its sum's variants (`all`), for `match`.
+;; module by `(private ...)`. A variant has its sum's variants (`all`), for `match`. A name
+;; `Declared` is a built-in a declaration module declares (translator.cdy), which the runtime
+;; defines (doc/hl_rqmt/library_layers.md).
 (deft Entry
   (Value ((module String) (name String)))
+  (Declared ((module String) (name String)))
   (Record ((module String) (name String) (arity Int)))
   (Sum ((module String) (name String) (arity Int) (variants (List String))))
   (VariantOf ((module String) (name String) (sum String) (fields (List String)) (all (List String))))
@@ -193,6 +196,7 @@
 (defn entry-name (e)
   (match e
     ((Value _ g) g)
+    ((Declared _ g) g)
     ((Record _ g _) g)
     ((Sum _ g _ _) g)
     ((VariantOf _ g _ _ _) g)
@@ -203,6 +207,7 @@
 (defn entry-module (e)
   (match e
     ((Value m _) m)
+    ((Declared m _) m)
     ((Record m _ _) m)
     ((Sum m _ _ _) m)
     ((VariantOf m _ _ _ _) m)
@@ -237,6 +242,14 @@
       ((Sum _ _ arity _) arity)
       (else -1))
     -1))
+
+;; The built-in `name` is, as written (`translator.fresh-name` too), if a declaration
+;; module this one imports declares it; or "".
+(sig declared-name (Fn (String Scope) String))
+(defn declared-name (name scope)
+  (if (map-has (get scope names) name)
+    (match (map-get (get scope names) name) ((Declared _ g) g) (else ""))
+    ""))
 
 ;; The module that defines `name`, when this one doesn't import it, or "".
 (sig elsewhere-module (Fn (String Scope) String))
@@ -290,6 +303,7 @@
   (cond
     ((map-has (get scope env) name) (at-use (map-get (get scope env) name) (get scope here)))
     ((!= (use-error name scope) "") (fail (located scope (use-error name scope))))
+    ((!= (declared-name name scope) "") (Prim (declared-name name scope) (get scope here) ANY))
     ((and (is-variant name scope) (= (len (variant-fields name scope)) 0))
       (Call (global-of name scope) empty-list (get scope here) ANY))
     ((is-top-value name scope) (global-of name scope))
@@ -1060,15 +1074,20 @@
 (defn is-special (name builtins)
   (and (map-has builtins name) (match (map-get builtins name) ((Special) true) (else false))))
 
-;; The built-ins, from the forms of special.cdy (`decls`: the special forms) and of
-;; system.cdy (`sigs`: each a bodiless (sig name Type), or a type, a bodiless (deft Name) or
-;; (deft (Name a ...))). They are checked against `spellings`,
-;; the target's spellings, both ways: each needs an entry of its kind there, and every
-;; entry needs a declaration.
-(sig read-builtins (Fn ((List Form) (List Form) (Map String (Tup String String String))) (Map String Builtin)))
-(defn read-builtins (decls sigs spellings)
-  (let ((builtins (read-sigs sigs spellings (read-decls decls spellings)))
-        (checked (all-declared (map-keys spellings) builtins)))
+;; The built-ins, from the forms of special.cdy (`decls`: the special forms) and of the
+;; declaration modules (`files`, each a file's name and its forms: system.cdy first, each
+;; form a bodiless (sig name Type) or, in system.cdy only, a type, a bodiless (deft Name) or
+;; (deft (Name a ...))). They are checked against `spellings`, the target's spellings, both
+;; ways: each needs an entry of its kind there, and every entry needs a declaration.
+(sig read-builtins
+  (Fn ((List Form) (List (Tup String (List Form))) (Map String (Tup String String String))) (Map String Builtin)))
+(defn read-builtins (decls files spellings)
+  (let ((builtins
+          (fold
+            (fn (acc file) (let (((name forms) file)) (read-sigs name forms spellings acc)))
+            (read-decls decls spellings)
+            files))
+        (checked (all-declared (map-keys spellings) builtins (map (fn (f) (let (((name _) f)) name)) files))))
     builtins))
 
 ;; The built-in `name`'s entry in `spellings`, the target's (spelling.py's Spelling: each
@@ -1136,26 +1155,30 @@
     ((= class "special") SPECIAL_KINDS)
     (else TYPED_KINDS)))
 
-(sig read-sigs (Fn ((List Form) (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
-(defn read-sigs (forms spellings start)
+;; `start` with the built-ins the declaration module `file` (system.cdy, translator.cdy)
+;; declares, its `forms`. Only system.cdy declares types, *for now*: every file sees them.
+(sig read-sigs (Fn (String (List Form) (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
+(defn read-sigs (file forms spellings start)
   (fold
     (fn (acc form)
       (let ((items (list-items form))
             (head (if (> (len items) 0) (sym-name (at items 0)) ""))
             (name (if (and (= (len items) 3) (= head "sig")) (sym-name (at items 1)) ""))
-            (where (pos-text (form-pos form))))
+            (where (++ (pos-text (form-pos form)) file)))
         (cond
-          ((= head "deft") (read-type form items where spellings acc))
-          ((= name "") (fail (++ where "system.cdy: expected (sig name Type) or (deft Name)")))
-          ((map-has acc name) (fail (format "{where}system.cdy: {name} is already declared")))
+          ((and (= head "deft") (= file "system.cdy")) (read-type form items where spellings acc))
+          ((= head "deft") (fail (++ where ": only system.cdy declares types")))
+          ((and (= name "") (= file "system.cdy")) (fail (++ where ": expected (sig name Type) or (deft Name)")))
+          ((= name "") (fail (++ where ": expected (sig name Type)")))
+          ((map-has acc name) (fail (format "{where}: {name} is already declared")))
           ((not (contains (spelling-kind spellings name) (++ TYPED_KINDS OPERATOR_KINDS)))
-            (fail (format "{where}system.cdy: {name} has no Python mapping in spelling.py")))
+            (fail (format "{where}: {name} has no Python mapping in spelling.py")))
           (else (map-set acc name (Typed (analyse-type (at items 2))))))))
     start
     forms))
 
 ;; `acc` with the built-in type `form`, a bodiless (deft Name) or (deft (Name a ...)): its
-;; arity is its number of type variables.
+;; arity is its number of type variables. `where` is its position and file.
 (sig read-type (Fn (Form (List Form) String (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
 (defn read-type (form items where spellings acc)
   (let ((header (if (= (len items) 2) (at items 1) form))
@@ -1167,10 +1190,10 @@
         (tvars (if (> (len parts) 0) (rest parts) empty-list)))
     (cond
       ((or (= name "") (is-lower name) (not (all-lower tvars)))
-        (fail (++ where "system.cdy: expected (deft Name) or (deft (Name a ...))")))
-      ((map-has acc name) (fail (format "{where}system.cdy: {name} is already declared")))
+        (fail (++ where ": expected (deft Name) or (deft (Name a ...))")))
+      ((map-has acc name) (fail (format "{where}: {name} is already declared")))
       ((not (contains (spelling-kind spellings name) TYPE_KINDS))
-        (fail (format "{where}system.cdy: {name} has no Python type in spelling.py")))
+        (fail (format "{where}: {name} has no Python type in spelling.py")))
       (else (map-set acc name (BType (len tvars)))))))
 
 ;; Whether every one of `forms` is a lowercase name (a type variable).
@@ -1181,14 +1204,15 @@
     ((not (is-lower (sym-name (at forms 0)))) false)
     (else (all-lower (rest forms)))))
 
-;; Fail unless every one of `names`, the spellings' entries, is a declared built-in.
-(sig all-declared (Fn ((List String) (Map String Builtin)) Bool))
-(defn all-declared (names builtins)
+;; Fail unless every one of `names`, the spellings' entries, is a declared built-in;
+;; `files` are the declaration modules, for the error.
+(sig all-declared (Fn ((List String) (Map String Builtin) (List String)) Bool))
+(defn all-declared (names builtins files)
   (cond
     ((= (len names) 0) true)
     ((not (map-has builtins (at names 0)))
-      (fail (format "spelling.py: {(at names 0)} is declared in neither special.cdy nor system.cdy")))
-    (else (all-declared (rest names) builtins))))
+      (fail (format "spelling.py: {(at names 0)} is declared in none of special.cdy, {(join files \", \")}")))
+    (else (all-declared (rest names) builtins files))))
 
 ;; --- modules (doc/hl_rqmt/modules.md) ---
 
@@ -1201,6 +1225,20 @@
 (defn module-exports (forms stem)
   (let ((names (module-names forms stem)))
     (Exports stem names (private-names forms names empty-map))))
+
+;; What the declaration module `stem` declares, its `forms` (each a bodiless sig, as
+;; read-builtins checked): each a built-in, `Declared`.
+(sig declared-exports (Fn ((List Form) String) Exports))
+(defn declared-exports (forms stem) (Exports stem (declared-names forms stem empty-map) empty-map))
+
+;; `start` with the names `forms` declare, in the declaration module `stem`. (A parameter,
+;; not a literal empty-map: mypy types a fold's start by its shape, [[B184]].)
+(sig declared-names (Fn ((List Form) String (Map String Entry)) (Map String Entry)))
+(defn declared-names (forms stem start)
+  (fold
+    (fn (acc form) (let ((name (sym-name (at (list-items form) 1)))) (map-set acc name (Declared stem name))))
+    start
+    forms))
 
 ;; `start` with the names `forms`' `(private a b)`s keep in the module, which `names` are
 ;; what it defines; a private type's variants are private too. Each must be a name it

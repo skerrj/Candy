@@ -1,0 +1,21 @@
+;;; Translator: the built-ins only the translator needs, declared
+;;; (doc/hl_rqmt/library_layers.md). Each bodiless sig gives one its Candy type; the
+;;; runtime it runs on defines it, and src/cdy_rt/spelling.py says how Python spells it,
+;;; as for system.cdy's. system.cdy is the built-ins every program gets, this file those
+;;; only the translator does. Both are declaration modules: `(import translator)` always
+;;; finds the library's copy, never a program's file of that name (this one included).
+;;; This file is read as it is, so it can't use macros.
+
+;; --- the spellings (each built-in's Python text and kind, and an operator's function as
+;; a value) ---
+(sig py-spellings (Map String (Tup String String String)))
+
+;; --- macros (the macros are Python functions on Forms) ---
+(sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))
+(sig call-macro (Fn (Any (List Any) String) Any))
+
+;; --- the translator's own directory, where its library is ---
+(sig module-dir (Fn (Any) String))
+
+;; --- a name no program has written, for gensym (form.cdy) ---
+(sig fresh-name (Fn (String) String))

@@ -65,7 +65,7 @@ Counts from today's source (2026-11-14, after tag `namespaces`).
 
 `(import m)` finds `m.cdy` in the importing file's directory, as now, and otherwise in the
 **library directory**, the one the translator reads `system.cdy` and `prelude.cdy` from
-(next to it: `bin/py/`, `output/t1/`). So `(import host)` in the translator, and later
+(next to it: `bin/py/`, `output/t1/`). So `(import translator)` in the translator, and later
 `(import string)` in any program, find a file the translator brings. A local file with a
 library module's stem wins (Question 3), and two modules with one stem stay an error
 (`programs.import`). A library module is an ordinary module otherwise: its names are
@@ -74,22 +74,37 @@ library module's stem wins (Question 3), and two modules with one stem stay an e
 ### Declaration modules
 
 A **declaration module** is a library module whose every top-level form is a bodiless
-`sig` or `deft`: it declares built-ins, which the target supplies, as `system.cdy` does
+`sig` or `deft` (a `deft` only in `system.cdy`, *for now*): it declares built-ins, which the target supplies, as `system.cdy` does
 now. Only a library module may be one (Question 4), and each name it declares needs the
 target's spelling (`spelling.py`), checked both ways, as now, across all of them: a
 spelling no declaration has is an error, as a declaration with no spelling is. A program
 can't declare a built-in, so it can't reach the translator's five by declaring them.
 
-### The translator's built-ins: `host.cdy`
+A declaration module is always the library's (Question 9): `(import translator)` finds
+the library's `translator.cdy` even next to a file with that stem, as the translator
+already reads what it supplies itself (`system.cdy`, `special.cdy`, the prelude) from its
+library only (`library-path`), never from a program's directory. So the translator's own
+`src/cdy/translator.cdy` is only the source of the library's copy, as `src/cdy/system.cdy`
+is, and a program can't put its own declarations in their place. Which library files are
+declaration modules is a list, `system` and `translator`, *for now*: the runtime can't
+list a directory.
 
-The five move from `system.cdy` to `host.cdy`, a declaration module next to it in
+### The translator's built-ins: `translator.cdy`
+
+`translator.cdy` declares the built-ins only the translator needs: each a bodiless `sig`,
+typed in Candy and defined by the runtime it runs on. `system.cdy` is the built-ins every
+program gets, `translator.cdy` those only the translator does; both are declaration
+modules.
+
+The five move from `system.cdy` to `translator.cdy`, a declaration module next to it in
 `src/cdy/` (copied to `bin/py/` with the others). The translator's modules that call them
 import it (`cdyc.cdy`, `include.cdy`, `expand.cdy`, by the survey); a program that doesn't
 import it doesn't see them, and `library.builtins`' sentence on them becomes a rule:
-"only for the translator, in `host`". Its name is Question 5's.
+"only for the translator, in `translator`". Its name is Question 5's.
 
 Macro code needs one of them: `gensym` (`form.cdy`, which every macro program includes)
-calls `fresh-name`. A macro program runs on the host, so it gets `host` as it gets the
+calls `fresh-name`. A macro program runs inside the translator, so it gets `translator`
+as it gets the
 system, implicitly (`form.cdy` is included, not imported, until `host-macros`, [[B45]]);
 an ordinary program doesn't.
 
@@ -118,7 +133,7 @@ forms stay unqualified and unmoduled (`special.cdy`), as the language.
 - **Spelling and runtime:** each dropped built-in's spelling and primitive go too, and
   any runtime helper only they used.
 
-That leaves 83 built-ins in `system` and 5 in `host`.
+That leaves 83 built-ins in `system` and 5 in `translator`.
 
 ### Each built-in specified
 
@@ -128,8 +143,8 @@ files, output, math, the program), each rule naming its built-ins with their typ
 what they do on the edges (an empty list, an index out of range, a missing key, a missing
 file), *lasting*. `library.builtins`' table becomes the index, one row per group, linking
 the rules. A test (`test_doc_links.py`) checks that every `sig` in a declaration module is
-named in some `candy run` example, so a new built-in comes with one. The host's five are
-specified in `host.cdy`'s comments, not the spec: they aren't the language's.
+named in some `candy run` example, so a new built-in comes with one. The translator's five
+are specified in `translator.cdy`'s comments, not the spec: they aren't the language's.
 
 ### `slurp` without a search
 
@@ -159,11 +174,13 @@ their steps.
 ## Bootstrap
 
 Two steps can't be read by the last `bin`: declaration modules other than `system.cdy`
-(step 2's `host.cdy`, a bodiless `sig` there an error to it), and the dropped built-ins'
+(step 2's `translator.cdy`, a bodiless `sig` there an error to it), and the dropped built-ins'
 spellings (the last `bin` checks its own `system.cdy` against the runtime's
-`spelling.py` both ways, so dropping a spelling it declares breaks it). Each is a staged
-boot step (`script/bootstrap.py`, `STAGING`), as `namespaces` step 3 was. The rest is
-ordinary: one `boot/NN` per step that changes `bin`.
+`spelling.py` both ways, so dropping a spelling it declares breaks it). Step 2 is two
+commits instead (Question 10): 2a brings declaration modules and `translator.cdy`, so
+its `bin` has one, and 2b, which imports it, is read by that `bin`.
+Step 4 is a staged boot step (`script/bootstrap.py`, `STAGING`), as `namespaces` step 3
+was. The rest is ordinary: one `boot/NN` per step that changes `bin`.
 
 ## Steps
 
@@ -189,9 +206,34 @@ ordinary: one `boot/NN` per step that changes `bin`.
    overlap, since a macro program reads the built-ins too). So [[B66]] is the cost that
    matters, [[B62]] the next, and [[B68]] small in time (2%) but 49 lines in every
    program's Python.
-2. **Declaration modules, and `host.cdy`** ([[B50]]): a bodiless `sig` or `deft` allowed
-   in a library module whose forms are all such; the spelling check across all of them;
-   the five moved; the translator's modules import `host`. Staged.
+2. **Declaration modules, and `translator.cdy`** ([[B50]]), two commits (Question 10):
+   - 2a: a bodiless `sig` or `deft` allowed in a library module whose forms are all
+     such; a declaration module always the library's; the spelling check across all of
+     them; the five moved to `translator.cdy`, every program still seeing them.
+   - 2b: only a module importing `translator` sees them; the translator's modules import
+     it, and macro programs get it.
+
+   *2a done (2026-11-15). As built:* the five could move in 2a already, since every file
+   still sees them: `bin` reads its own `system.cdy`, which has them, and 2a's own
+   translator its `translator.cdy`; so 2a is testable, and 2b is what [[B50]] asks.
+   `translator.cdy` (`src/cdy/`, in `LIBRARY`) declares the five, bodiless `sig`s only:
+   only `system.cdy` declares types, *for now* ("translator.cdy: only system.cdy
+   declares types"). `DECLARATION_MODULES` (`include.cdy`) lists the declaration
+   modules, `translator` (`system` joins in step 3); `import-path` finds one in the
+   library before looking anywhere else, and `is-declaration` tells one by its key, the
+   library file's path, so a top file named `translator.cdy` stays ordinary. A
+   declaration module imports no prelude, and `expand-modules` (`cdyc.cdy`) gives it no
+   definitions, only `declared-exports` (`core.cdy`): each name a new `Entry`,
+   `Declared`, which `resolve` makes a `Prim`, so an import's name list, `m.name` and
+   the namespace errors work for it as for any module. `library-builtins` reads
+   `system.cdy` and each declaration module (`read-builtins` takes them as a list of
+   files, its errors naming the file), and checks the spellings across them all
+   ("spelling.py: fresh-name is declared in none of special.cdy, system.cdy,
+   translator.cdy"). The rule: `programs.import`. Staged `old-library`: `boot/77`'s
+   `bin` builds 2a next to its own library (`self_host.py` does so), not next to 2a's,
+   whose `system.cdy` no longer has the five its source calls
+   (`test_newest_step_reads_the_library`, which now skips a library file the old step
+   doesn't have). 2b needs none: 2a's `bin` reads `translator.cdy`.
 3. **The system, a module** ([[B197]]'s first half): `system.name`; a built-in type's
    module `"system"`; `programs.sees` and `programs.shadowing`. [[B196]] looked at again.
 4. **The system, revisited** ([[B32]]; [[B49]] narrowed): the 11 built-ins dropped, with
@@ -233,6 +275,11 @@ ordinary: one `boot/NN` per step that changes `bin`.
    macros and the spellings, and `host-macros` will move them on), `translator`, or
    `cdyc`? **Proposed: `host`.**
    *Answer (2026-11-15, the owner): `host`.*
+   *Revised (2026-11-15, the owner): `translator`.* Every built-in is defined by the
+   host, `system`'s too, so `host` named what the two share; what sets these five apart
+   is that only the translator needs them. A tag on `system.cdy`'s declarations
+   (metadata, as Clojure's) was weighed and left to `doc/brainstorm.md`: what a file
+   sees is its imports' to say.
 6. **What a program sees:** the system and the prelude, both imported implicitly, as now,
    `system` now a module (proposed, *for now*); or `library.md`'s B, a program seeing
    only the prelude, which imports the system and re-exports what programs need (one
@@ -247,3 +294,18 @@ ordinary: one `boot/NN` per step that changes `bin`.
 8. **[[B51]]:** closed as done, `fixed: semantics` (proposed: `with-default` has been the
    prelude's, in Candy, since `Maybe` became a sum), in the start commit.
    *Answer (2026-11-15, the owner): closed,* in this commit.
+9. **Where a declaration module is found** (raised in step 2): the translator's own
+   `(import translator)` would find `src/cdy/translator.cdy` first, a program's file,
+   which can't declare (Question 4). Always in the library, even next to a file with its
+   stem (proposed: the rule that already holds for what the translator reads itself,
+   `library-path`, extended to an import by name, and a program can't replace a
+   target's declarations); or the library's sources in a directory of their own,
+   `src/lib/`, so the translator's modules have no local copy (one lookup rule for
+   every import, but a layout change, and a program's file could still hide
+   `system`)? **Proposed: always in the library.**
+   *Answer (2026-11-15, the owner): always in the library.*
+10. **Step 2's bootstrap** (raised in step 2): two commits, 2a with declaration modules
+    and an empty `translator.cdy`, 2b with the five moved and the imports (proposed: 2a's
+    `bin` reads 2b, so no new staging kind); or one commit, a staging kind that strips
+    `(import translator)` from the source for the last `bin`? **Proposed: two commits.**
+    *Answer (2026-11-15, the owner): two commits.*

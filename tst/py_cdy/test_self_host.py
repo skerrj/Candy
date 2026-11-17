@@ -254,6 +254,23 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
             },
             "x (from module a) and a--x are one name in Python (a__x)",
         ),
+        (
+            # A declaration module is always the library's: a program's file of that
+            # name is never imported in its place.
+            {"main.cdy": "(import translator)\n(put translator.x)", "translator.cdy": "(def x 1)"},
+            "main.cdy:2:6: translator.x: translator doesn't define x",
+        ),
+        (
+            {"main.cdy": "(import translator (nope))"},
+            "main.cdy:1:21: import: translator doesn't define nope",
+        ),
+        (
+            {"main.cdy": "(import translator (fresh-name))\n(put (module-dir nil))"},
+            (
+                "main.cdy:2:7: module-dir: the import of translator doesn't list it: "
+                "write translator.module-dir"
+            ),
+        ),
     ],
 )
 def test_module_errors(
@@ -574,7 +591,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig slurp (Fn (String) String))\n", ""),
-            "spelling.py: slurp is declared in neither special.cdy nor system.cdy",
+            "spelling.py: slurp is declared in none of special.cdy, system.cdy, translator.cdy",
         ),
         (
             "system.cdy",
@@ -587,7 +604,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(deft Bool)\n", ""),
-            "spelling.py: Bool is declared in neither special.cdy nor system.cdy",
+            "spelling.py: Bool is declared in none of special.cdy, system.cdy, translator.cdy",
         ),
         ("system.cdy", ("", "(deft Nope)\n"), "system.cdy: Nope has no Python type in spelling.py"),
         ("system.cdy", ("", "(deft (List a))\n"), "system.cdy: List is already declared"),
@@ -599,8 +616,23 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig not (Fn (Bool) Bool))\n", ""),
-            "spelling.py: not is declared in neither special.cdy nor system.cdy",
+            "spelling.py: not is declared in none of special.cdy, system.cdy, translator.cdy",
         ),
+        (
+            "translator.cdy",
+            ("(sig fresh-name (Fn (String) String))\n", ""),
+            (
+                "spelling.py: fresh-name is declared in none of special.cdy, system.cdy, "
+                "translator.cdy"
+            ),
+        ),
+        (
+            "translator.cdy",
+            ("", "(sig len (Fn (Any) Int))\n"),
+            "translator.cdy: len is already declared",
+        ),
+        ("translator.cdy", ("", "(def x 1)\n"), "translator.cdy: expected (sig name Type)"),
+        ("translator.cdy", ("", "(deft Nope)\n"), "translator.cdy: only system.cdy declares types"),
         (
             "special.cdy",
             ("", "(special len)\n"),

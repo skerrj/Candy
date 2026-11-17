@@ -1,12 +1,14 @@
 ;;; System: the built-ins, declared (doc/hl_rqmt/system_prelude.md). Each bodiless sig
 ;;; gives a built-in its Candy type; the target's runtime provides it, and src/cdy_rt/spelling.py
 ;;; says how Python spells it. The translator checks the two against each other, and a
-;;; built-in's arity is its type's. Only here may a sig have no definition. Each bodiless
+;;; built-in's arity is its type's. Only here and in translator.cdy, the declaration modules,
+;;; may a sig have no definition. Each bodiless
 ;;; deft declares a built-in type, whose type variables say how many arguments it takes
 ;;; (doc/hl_rqmt/name_checks.md); `Fn` and `Tup` aren't here, since they take any number of
 ;;; type arguments.
 ;;;
-;;; Not here: the special forms, which special.cdy declares. `Any` marks a type Candy can't write yet: built-ins
+;;; Not here: the special forms, which special.cdy declares, and the built-ins only the
+;;; translator needs, which translator.cdy does. `Any` marks a type Candy can't write yet: built-ins
 ;;; that take any number of arguments, or work on lists, strings and maps alike (Collection,
 ;;; later), or return Python objects with no Candy type. Each is a leak (backlog [[B48]],
 ;;; [[B34]], [[B49]]).
@@ -144,16 +146,6 @@
 (sig replace (Fn (String String String) String))
 (sig isspace-at (Fn (String Int) Bool))
 (sig isspace (Fn (String) Bool))
-
-;; --- the spellings, for the translator (each built-in's Python text and kind, and an
-;; operator's function as a value) ---
-(sig py-spellings (Map String (Tup String String String)))
-
-;; --- macros, for the translator (the macros are Python functions on Forms) ---
-(sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))
-(sig call-macro (Fn (Any (List Any) String) Any))
-(sig module-dir (Fn (Any) String))
-(sig fresh-name (Fn (String) String))
 
 ;; --- the program ---
 (sig SYS_ARGS (List String))

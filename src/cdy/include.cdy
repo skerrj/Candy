@@ -48,12 +48,13 @@
       (++ (get inner done)
          (List (Module path key (path-stem path) (other-forms forms dir) (imp-list imports)))))))
 
-;; The prelude, as an import of the module `key`, unless it is the prelude.
+;; The prelude, as an import of the module `key`, unless it is the prelude or a declaration
+;; module.
 (sig prelude-module (Fn (String) (List (Tup String Imp))))
 (defn prelude-module (key)
   (let ((path (library-path "prelude.cdy"))
         (prelude (path-resolve path)))
-    (if (= prelude key) empty-list (List (Tup path (Imp prelude NOWHERE None))))))
+    (if (or (= prelude key) (is-declaration key)) empty-list (List (Tup path (Imp prelude NOWHERE None))))))
 
 ;; The library's directory: the translator's own (bin/py/; py_cdy/self_host.py copies the
 ;; library there).
@@ -214,18 +215,31 @@
       ((None) name)
       (else (fail (++ (pos-text (form-pos form)) "import: a macro file's import includes the whole file, so it lists no names"))))))
 
+;; The library's declaration modules (doc/hl_rqmt/library_layers.md): each declares built-ins
+;; the runtime defines, with bodiless sigs, and is always the library's, as what the
+;; translator reads itself is. system.cdy, every file's without an import, isn't one yet.
+(sig DECLARATION_MODULES (List String))
+(def DECLARATION_MODULES (List "translator"))
+
+;; Whether the module whose key is `key` is a declaration module, the library's.
+(sig is-declaration (Fn (String) Bool))
+(defn is-declaration (key)
+  (any (fn (name) (= key (path-resolve (library-path (++ name ".cdy"))))) DECLARATION_MODULES))
+
 ;; The library's files that aren't modules: the translator reads them itself.
 (sig NOT_MODULES (List String))
 (def NOT_MODULES (List "special" "prelude_macros"))
 
 ;; The path of `name.cdy`, imported at `pos` by `what` (import or import-macros): in
-;; directory `dir`, or else in the library's (programs.import).
+;; directory `dir`, or else in the library's (programs.import); a declaration module's is
+;; always the library's.
 (sig import-path (Fn (String String String Pos) String))
 (defn import-path (what dir name pos)
   (let ((file (++ name ".cdy"))
         (path (path-join dir file))
         (lib (path-join (library-dir nil) file)))
     (cond
+      ((contains name DECLARATION_MODULES) (library-path file))
       ((file-exists path) path)
       ((contains name NOT_MODULES)
         (fail (format "{(pos-text pos)}{what}: {name} is the translator's, not a module")))

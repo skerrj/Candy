@@ -39,13 +39,16 @@
         (elsewhere (elsewhere-names (exports-of ready))))
     (analyse-modules ready by-key elsewhere builtins parse)))
 
-;; Each of `modules` with its macros expanded.
+;; Each of `modules` with its macros expanded. A declaration module (translator.cdy) has
+;; no definitions, only what it declares, for the modules importing it.
 (sig expand-modules (Fn ((List Module)) (List Ready)))
 (defn expand-modules (modules)
   (map
     (fn (m)
-      (let (((forms macros) (expand-program (get m forms) compile-macros)))
-        (Ready m forms macros (module-exports forms (get m stem)))))
+      (if (is-declaration (get m key))
+        (Ready m empty-list empty-map (declared-exports (get m forms) (get m stem)))
+        (let (((forms macros) (expand-program (get m forms) compile-macros)))
+          (Ready m forms macros (module-exports forms (get m stem))))))
     modules))
 
 (sig exports-by-key (Fn ((List Ready)) (Map String Exports)))

@@ -88,9 +88,9 @@ definition; an unqualified import's; a built-in or the prelude's, *lasting*. So 
 definition of a built-in's name (`(defn len ...)`) is its own, in that file only, and a
 local shadows everything ([[expr.let]]). A qualified name is never shadowed. A macro's
 expansion sees what its use sees, the file's own definitions too, so a file's own `text`
-is the one `put` calls (*for now*: [[B46]]). The translator's five host built-ins
-(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`) are every
-program's, *for now* ([[B50]]).
+is the one `put` calls (*for now*: [[B46]]). The translator's five built-ins
+(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`), which
+`translator` declares ([[programs.import]]), are every program's, *for now* ([[B50]]).
 
 ```candy run
 (sig len (Fn (String) Int))
@@ -236,7 +236,12 @@ with it, as any two imports do ([[programs.import]]). Its names are also `prelud
 or else in the library's, next to the translator (since `library-layers`): a **library
 module**. A file of the program wins over a library module of the same name, *lasting*,
 so a new library module can't break a program. Two of the library's files aren't
-modules, `special` and `prelude_macros`: the translator reads them itself. `name` may be
+modules, `special` and `prelude_macros`: the translator reads them itself. A
+**declaration module** is a library module that declares built-ins, which the target
+defines, each with a bodiless `sig` (since `library-layers`): `translator`, which declares
+those only the translator needs (*for now* every program sees them too, [[B50]]). It is
+always the library's, *lasting*: a program's file of that name isn't imported in its
+place, so a program can't replace a target's declarations. `name` may be
 a relative path (`lib/util`). Every name the module defines at top level (`def`, `defn`,
 and `deft` with its variants) becomes visible, unqualified, and as `m.name` too
 ([[programs.qualified]]); the names it imports don't.
@@ -269,6 +274,7 @@ written from it, `expected (import ModName [(Name*)])`. The example with a name 
 (import nope (a)) => can't find nope.cdy in . or the library
 (import special) => import: special is the translator's, not a module
 (import prelude_macros) => import: prelude_macros is the translator's, not a module
+(import translator (nope)) => import: translator doesn't define nope
 ```
 
 The errors that need more than one file (clashes, cycles, two modules of one name, a name

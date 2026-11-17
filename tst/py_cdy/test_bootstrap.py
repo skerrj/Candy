@@ -52,8 +52,10 @@ def test_newest_step_reads_the_library(tmp_path: Path) -> None:
     copy_library(tmp_path)
     if build(translator, tmp_path).returncode == 0:
         return
-    for name in LIBRARY:
-        (tmp_path / name).write_text(bootstrap.git("show", f"{newest}:bin/py/{name}"))
+    own = bootstrap.git("ls-tree", "--name-only", newest, "bin/py/").split()
+    for name in LIBRARY:  # a file new since that step it doesn't read
+        if f"bin/py/{name}" in own:
+            (tmp_path / name).write_text(bootstrap.git("show", f"{newest}:bin/py/{name}"))
     done = build(translator, tmp_path)
     assert done.returncode == 0, (
         f"{tagged[-1].label} reads neither today's library nor its own: two steps are needed\n"

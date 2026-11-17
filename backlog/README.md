@@ -81,7 +81,7 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B200](B200-library-layers-step-2.md) | library-layers step 2: declaration modules, and `host.cdy` | task | open | normal |
+| [B200](B200-library-layers-step-2.md) | library-layers step 2: declaration modules, and `translator.cdy` | task | in-progress | normal |
 | [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | open | normal |
 | [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | open | normal |
 | [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | open | normal |
