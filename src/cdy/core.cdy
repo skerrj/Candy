@@ -9,7 +9,8 @@
 ;; --- types (from sig) ---
 
 (deft CType
-  ;; A type's module is "" for a built-in type: no module, *for now* ([[B197]]).
+  ;; A built-in type's module is `system` (SYSTEM); macro code's own types' is "", *for
+  ;; now* ([[B197]]).
   (TCon ((module String) (name String) (args (List CType))))
   (TVar ((name String)))
   (TFn ((params (List CType)) (ret CType))))
@@ -23,7 +24,7 @@
   (Lit ((form Form) (t CType)))
   (Local ((name String) (id Int) (pos Pos) (t CType)))
   ;; A top-level name: the module that defines it, and its name there. Macro code has no
-  ;; module, "" as a built-in type has, *for now* ([[B197]]; it isn't checked, [[B42]]).
+  ;; module, "", *for now* ([[B197]]; it isn't checked, [[B42]]).
   (Global ((module String) (name String) (pos Pos) (t CType)))
   (Prim ((name String) (pos Pos) (t CType)))
   (Call ((callee Expr) (args (List Expr)) (pos Pos) (t CType)))
@@ -39,9 +40,14 @@
   (MatchE ((subject Expr) (clauses (List Clause)) (default (List Expr)) (pos Pos) (t CType)))
   (Temp ((id Int) (t CType))))
 
+;; The module of the built-ins, system.cdy's (doc/hl_rqmt/library_layers.md): every file
+;; sees them, and as `system.name` too; in Core a built-in type's module.
+(sig SYSTEM String)
+(def SYSTEM "system")
+
 ;; Any: the type that matches every type; a node's type before it is checked.
 (sig ANY CType)
-(def ANY (TCon "" "Any" empty-list))
+(def ANY (TCon SYSTEM "Any" empty-list))
 
 ;; ((Variant a b) body): the (field, Local) pairs it binds (`_` binds nothing); `module`
 ;; defines the variant.
@@ -243,8 +249,8 @@
       (else -1))
     -1))
 
-;; The built-in `name` is, as written (`translator.fresh-name` too), if a declaration
-;; module this one imports declares it; or "".
+;; The built-in `name` is, as written (`system.len`, `translator.fresh-name`), if a
+;; declaration module this one sees declares it; or "".
 (sig declared-name (Fn (String Scope) String))
 (defn declared-name (name scope)
   (if (map-has (get scope names) name)
@@ -303,6 +309,8 @@
   (cond
     ((map-has (get scope env) name) (at-use (map-get (get scope env) name) (get scope here)))
     ((!= (use-error name scope) "") (fail (located scope (use-error name scope))))
+    ((is-builtin-type (declared-name name scope) (get scope builtins))
+      (fail (located scope (format "{name} is a type, not a value"))))
     ((!= (declared-name name scope) "") (Prim (declared-name name scope) (get scope here) ANY))
     ((and (is-variant name scope) (= (len (variant-fields name scope)) 0))
       (Call (global-of name scope) empty-list (get scope here) ANY))
@@ -333,13 +341,13 @@
   (let (((module own) (global-ref name (get scope names))))
     (Global module own (get scope here) ANY)))
 
-;; The module that defines the top-level name `name`, as written, and its name there; ""
-;; and `name` itself if `names` doesn't have it (a built-in type), or another module
-;; defines it.
+;; The module that defines the top-level name `name`, as written, and its name there; or
+;; `system` and `name` itself, a built-in type, if no entry this module can use names it
+;; (`names` has none, or one another module defines: `Elsewhere`, say).
 (sig global-ref (Fn (String (Map String Entry)) (Tup String String)))
 (defn global-ref (name names)
   (let ((e (if (map-has names name) (map-get names name) (Clash empty-list))))
-    (if (= (entry-name e) "") (Tup "" name) (Tup (entry-module e) (entry-name e)))))
+    (if (= (entry-name e) "") (Tup SYSTEM name) (Tup (entry-module e) (entry-name e)))))
 
 ;; A top-level name's key, one string for the module that defines it and its name there:
 ;; `util.greet`, or a built-in's own name. No name holds a `.`, so no two are one key.
@@ -934,7 +942,8 @@
 (defn analyse-type (form)
   (match form
     ;; A qualified name is a type's (shapes.Shape), not a type variable.
-    ((Sym name _) (if (and (is-lower name) (not (has-dot name))) (TVar name) (TCon "" name empty-list)))
+    ;; A name is a built-in type's until rename-type finds the module that defines it.
+    ((Sym name _) (if (and (is-lower name) (not (has-dot name))) (TVar name) (TCon SYSTEM name empty-list)))
     ((Lst items _)
       (cond
         ((= (len items) 0) (fail (++ (pos-text (form-pos form)) "bad type ()")))
@@ -944,9 +953,9 @@
             (fail (++ (pos-text (form-pos form)) "bad function type: expected (Fn (Arg+) Ret)"))))
         ((= (sym-name (at items 0)) "Rest")
           (if (= (len items) 2)
-            (TCon "" "Rest" (List (analyse-type (at items 1))))
+            (TCon SYSTEM "Rest" (List (analyse-type (at items 1))))
             (fail (++ (pos-text (form-pos form)) "bad rest type: expected (Rest Type)"))))
-        (else (TCon "" (sym-name (at items 0)) (map analyse-type (rest items))))))
+        (else (TCon SYSTEM (sym-name (at items 0)) (map analyse-type (rest items))))))
     (else (fail (++ (pos-text (form-pos form)) "bad type")))))
 
 ;; --- constraint variables (spec/25-checking.md, checking.constraints) ---
@@ -1347,8 +1356,8 @@
   (Fn ((List Form) Exports (List Import) (Map String String) (Map String Builtin) (Fn (String Pos) (List Form)) (Map String Macro) Bool)
       (List Top)))
 (defn analyse-module (forms own imports elsewhere builtins parse macros quoting)
-  (let ((names (with-own (with-imports imports (elsewhere-entries elsewhere)) own))
-        (qualifiers (qualifiers-of imports empty-map))
+  (let ((names (with-own (with-imports imports (with-system builtins (elsewhere-entries elsewhere))) own))
+        (qualifiers (qualifiers-of imports (map-set empty-map SYSTEM true)))
         (scope (Scope empty-map parse NOWHERE macros quoting names qualifiers builtins))
         (prog (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms) empty-map))))
     (rename-tops (get prog out) names)))
@@ -1358,6 +1367,19 @@
 (sig qualifiers-of (Fn ((List Import) (Map String Bool)) (Map String Bool)))
 (defn qualifiers-of (imports start)
   (fold (fn (acc imp) (map-set acc (get (get imp exports) stem) true)) start imports))
+
+;; `names` with the built-ins every file sees, system.cdy's, as `system.name`: each
+;; `Declared`. Unqualified, a built-in is a name no entry has (resolve), so an import's or
+;; the file's own name of a built-in's shadows it (programs.shadowing).
+(sig with-system (Fn ((Map String Builtin) (Map String Entry)) (Map String Entry)))
+(defn with-system (builtins names)
+  (fold
+    (fn (acc name)
+      (if (or (is-everyones name builtins) (is-builtin-type name builtins))
+        (map-set acc (++ SYSTEM (++ "." name)) (Declared SYSTEM name))
+        acc))
+    names
+    (map-keys builtins)))
 
 ;; `elsewhere`'s names, each defined by another module (`Elsewhere`): the table a module's
 ;; imports and its own names are added to.
@@ -1601,6 +1623,9 @@
                 ((= name "Rest")
                   (fail (located scope "(Rest t) is only for the last argument of a sig's function type")))
                 ((>= (type-arity name scope) 0) (type-arity name scope))
+                ((is-builtin-type (declared-name name scope) builtins)
+                  (match (map-get builtins (declared-name name scope)) ((BType n) n) (else 0)))
+                ((!= (declared-name name scope) "") (fail (located scope (format "{name} is a value, not a type"))))
                 ((is-builtin-type name builtins)
                   (match (map-get builtins name) ((BType n) n) (else 0)))
                 ((!= (variant-sum name scope) "")
@@ -1770,14 +1795,14 @@
 (sig is-rest (Fn (CType) Bool))
 (defn is-rest (t)
   (match t
-    ((TCon module name _) (and (= module "") (= name "Rest")))
+    ((TCon module name _) (and (= module SYSTEM) (= name "Rest")))
     (else false)))
 
 ;; `(Rest t)`'s `t`, as a list of one (none if it isn't a Rest).
 (sig rest-item (Fn (CType) (List CType)))
 (defn rest-item (t)
   (match t
-    ((TCon module name args) (if (and (= module "") (= name "Rest")) args empty-list))
+    ((TCon module name args) (if (and (= module SYSTEM) (= name "Rest")) args empty-list))
     (else empty-list)))
 
 ;; Fresh Locals for the parameter names, and the scope that includes them.
@@ -1802,7 +1827,7 @@
 ;; A program may define `main`: it takes the command-line arguments and returns the exit
 ;; status, and it runs when the program is run (not when its module is imported).
 (sig MAIN_TYPE CType)
-(def MAIN_TYPE (TFn (List (TCon "" "List" (List (TCon "" "String" empty-list)))) (TCon "" "Int" empty-list)))
+(def MAIN_TYPE (TFn (List (TCon SYSTEM "List" (List (TCon SYSTEM "String" empty-list)))) (TCon SYSTEM "Int" empty-list)))
 
 ;; Whether the program's top module, `top`, defines `main`; it must be a defn typed
 ;; (Fn ((List String)) Int).

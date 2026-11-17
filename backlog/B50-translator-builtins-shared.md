@@ -1,7 +1,7 @@
 # B50: The translator's five host built-ins are every program's
 
 kind: leak
-state: review
+state: done
 priority: low
 found: system-prelude, 2026-10-19
 fixed: library-layers, 2026-11-16
@@ -30,3 +30,4 @@ file only the translator imports. From `doc/archive/leaks_system_prelude.md`.
   ```text
   where: `src/cdy/system.cdy`
   ```
+- 2026-11-16, the owner: ticked in review.

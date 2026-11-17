@@ -329,6 +329,19 @@ a (List true) and text
 (List "1" "2")
 ```
 
+A program's type with the same name as a built-in type ([[programs.shadowing]]) is shown
+as the program's (since `library-layers`):
+
+```candy run
+(deft Map ((x Int)))
+(sig m Map)
+(def m (Map 1))
+(put (get m x) m)
+```
+```expect
+1 (Map 1)
+```
+
 ```candy errors
 (put (fn (x) x)) => show: a function can't be shown
 (deft F ((f (Fn (Int) Int)))) (put (F (fn (n) n))) => show: a function can't be shown, and F holds one

@@ -69,17 +69,23 @@ name is both its type and its constructor.
 <a id="programs.sees"></a>
 **What every file sees**, unqualified and with no import, *lasting*: the special forms,
 the operators and the other built-ins (`system.cdy`), and the prelude's names
-([[programs.prelude]]). The built-ins have no qualifier (not `system.len`) until
-`library` splits them into modules ([[B108]]); the prelude's are `prelude.name` too. Its
+([[programs.prelude]]). The built-ins are `system.name` too (since `library-layers`):
+every file imports `system`, `system.cdy`, implicitly, but only qualified, so a built-in
+unqualified is the last a name can mean ([[programs.shadowing]]); a library of modules is
+`stdlib`'s ([[B108]]). The prelude's are `prelude.name` too. Its
 macros are its own: the file's `defmacro`s, those it loads with `import-macros`
 ([[macros.import-macros]]), and the prelude's (`cond`, `put`); `import` doesn't pass a
 module's macros on, and a macro has no qualified name.
 
 ```candy run
 (put (len (List 1 2)) (with-default 0 (Some 2)) (prelude.with-default 0 None))
+(sig n system.Int)
+(def n (system.len (List 1 2 3)))
+(put n (system.+ n 1))
 ```
 ```expect
 2 2 0
+3 4
 ```
 
 <a id="programs.shadowing"></a>
@@ -276,6 +282,7 @@ written from it, `expected (import ModName [(Name*)])`. The example with a name 
 (import special) => import: special is the translator's, not a module
 (import prelude_macros) => import: prelude_macros is the translator's, not a module
 (import translator (nope)) => import: translator doesn't define nope
+(import system) => import: every file imports system, implicitly
 (put (fresh-name "x")) => fresh-name is declared by translator, which this file doesn't import: (import translator)
 ```
 
@@ -290,8 +297,9 @@ module's file stem (`lib/util` is `util`), and the prelude's is `prelude`. It re
 anything a module defines: a value or a function, a type (`(sig p shapes.Pt)`), a
 constructor (`(shapes.Circle 1.0)`), and a variant in a pattern. It is never shadowed (a
 local can't hold a `.`, [[syntax.names]], and a file's own `rest` leaves `prelude.rest`
-the prelude's). It reaches the module's own names, not those it imports, nor the
-built-ins, which have no qualifier until `library` ([[B108]]). A `/` is no qualifier:
+the prelude's). It reaches the module's own names, not those it imports; a built-in is
+`system.name` ([[programs.sees]]), but not a special form (`if`) nor a declaration
+module's built-in, which is its own module's (`translator.fresh-name`). A `/` is no qualifier:
 `lib/util` is an import's path, and a name can't hold one ([[syntax.names]]). The example
 with two modules is `tst/cdy/cdyc/qualified.cdy`.
 
@@ -311,6 +319,9 @@ with two modules is `tst/cdy/cdyc/qualified.cdy`.
 (put a.b.c) => a.b.c: a qualified name is m.name, one . between a module (its file name, without its path) and a name
 (put .x) => .x: a qualified name is m.name
 (put prelude.Maybe) => prelude.Maybe is a type, not a value
+(put system.Int) => system.Int is a type, not a value
+(sig x system.len) (def x 1) => system.len is a value, not a type
+(put system.if) => system.if: system doesn't define if
 (sig x (Maybe Int)) (def x None) (put (match x ((prelude.Some v) v) ((Some w) w) ((None) 0))) => match: more than one clause for Some
 ```
 

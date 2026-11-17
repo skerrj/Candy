@@ -250,6 +250,21 @@ was. The rest is ordinary: one `boot/NN` per step that changes `bin`.
    to 78. [[B50]] fixed.
 3. **The system, a module** ([[B197]]'s first half): `system.name`; a built-in type's
    module `"system"`; `programs.sees` and `programs.shadowing`. [[B196]] looked at again.
+   *Done (2026-11-16). As built:* `system` isn't imported as a module: every file's table
+   gets each built-in function, value and type as `system.name`, a `Declared` entry
+   (`with-system`, `core.cdy`), and `system` as a qualifier; unqualified, a built-in stays
+   the last a name can mean (`resolve`'s fallback), so an import's `len` still shadows
+   it rather than clashing with it, as `programs.shadowing` says. `system.Int` in a type
+   is the built-in type (`check-type`), and a type as a value, or a value as a type, says
+   so. `(import system)`, of the library's file or a program's, is "import: every file
+   imports system, implicitly". `system.cdy` stays out of `DECLARATION_MODULES`, read
+   by `library-builtins` as before. In Core a built-in type's module is `SYSTEM`
+   (`core.cdy`): `analyse-type` writes it, and `rename-type` keeps it for a name no
+   usable entry has (`global-ref`; before, `""` there); `is-any`, `is-rest`,
+   `returns-unit`, the constraints, `tcon` and `emit` read it. [[B196]] fixed:
+   `show-name` (`emit.cdy`) writes a program's type with its module (`main.Map`,
+   `.Map`), so `show` can't take it for the built-in's; its repro is `library.show`'s
+   example now. The rules: `programs.sees`, `programs.qualified`, `programs.import`.
 4. **The system, revisited** ([[B32]]; [[B49]] narrowed): the 11 built-ins dropped, with
    their spellings and primitives. Staged.
 5. **`slurp` without a search** ([[B54]]).

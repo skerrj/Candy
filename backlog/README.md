@@ -21,7 +21,7 @@ By kind, then priority.
 | [B9](B9-nil-redefinable.md) | `nil` can be defined | defect | open | low |
 | [B13](B13-long-cond-value.md) | A `cond` of about 200 clauses, used as a value, doesn't compile | defect | open | low |
 | [B131](B131-errors-without-position.md) | Python-name errors have no position, and a format hole's column can be off | defect | open | low |
-| [B196](B196-type-shadowing-builtin-show.md) | A type with the same name as a built-in type can't be shown | defect | open | low |
+| [B196](B196-type-shadowing-builtin-show.md) | A type with the same name as a built-in type can't be shown | defect | review | low |
 
 ### leak
 
@@ -44,7 +44,6 @@ By kind, then priority.
 | [B41](B41-macros-exec.md) | Macros run with Python's `exec` | leak | open | low |
 | [B43](B43-gensym-impure.md) | `gensym` is impure | leak | open | low |
 | [B44](B44-macro-cant-make-import.md) | A macro can't expand into `import`, `import-macros` or `defmacro` | leak | open | low |
-| [B50](B50-translator-builtins-shared.md) | The translator's five host built-ins are every program's | leak | review | low |
 | [B113](B113-field-leading-underscore.md) | A field can't start with `_`, because Python's `NamedTuple` can't | leak | open | low |
 | [B114](B114-field-tuple-method.md) | A field named like a tuple method fails mypy | leak | open | low |
 | [B134](B134-one-type-error-at-a-time.md) | Translation stops at the first type error | leak | open | low |
@@ -81,8 +80,7 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B200](B200-library-layers-step-2.md) | library-layers step 2: declaration modules, and `translator.cdy` | task | review | normal |
-| [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | open | normal |
+| [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | review | normal |
 | [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | open | normal |
 | [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | open | normal |
 | [B204](B204-library-layers-step-6.md) | library-layers step 6: each built-in specified | task | open | normal |
@@ -135,7 +133,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [expr.tail-calls](../spec/40-expressions.md#expr.tail-calls): [B37](B37-self-tail-calls-only.md), [B98](B98-trampolines.md)
 - [expr.unit](../spec/40-expressions.md#expr.unit): [B9](B9-nil-redefinable.md)
 - [library.bounds](../spec/60-library.md#library.bounds): [B159](B159-string-helpers-negative-index.md), [B160](B160-python-errors-not-panics.md)
-- [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B54](B54-slurp-fallback.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B200](B200-library-layers-step-2.md), [B202](B202-library-layers-step-4.md), [B204](B204-library-layers-step-6.md), [B50](B50-translator-builtins-shared.md), [B97](B97-library-per-target.md)
+- [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B54](B54-slurp-fallback.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B202](B202-library-layers-step-4.md), [B204](B204-library-layers-step-6.md), [B97](B97-library-per-target.md)
 - [library.errors](../spec/60-library.md#library.errors): [B203](B203-library-layers-step-5.md), [B160](B160-python-errors-not-panics.md)
 - [library.format](../spec/60-library.md#library.format): [B16](B16-format-hack.md), [B131](B131-errors-without-position.md)
 - [library.lists](../spec/60-library.md#library.lists): [B34](B34-no-collection.md), [B184](B184-empty-start-fails-mypy.md)
@@ -201,6 +199,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B40](B40-one-namespace.md) | Types and values share one namespace | leak | kept | low |
 | [B47](B47-imports-unqualified.md) | Only `(import m)`, everything unqualified | leak | done | normal |
 | [B48](B48-operators-no-type.md) | Operators, `tup` and `put` have no Candy type | leak | done | normal |
+| [B50](B50-translator-builtins-shared.md) | The translator's five host built-ins are every program's | leak | done | low |
 | [B51](B51-with-default-builtin.md) | `with-default` is a built-in, not prelude | leak | done | normal |
 | [B53](B53-unimported-type.md) | A type from a module the file doesn't import isn't caught | leak | done | normal |
 | [B59](B59-positions-symbols-lists.md) | Only symbols and lists carry positions | tech-debt | done | normal |
@@ -296,3 +295,4 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B193](B193-namespaces-step-6.md) | namespaces step 6: the module in Core | task | done | normal |
 | [B194](B194-namespaces-step-7.md) | namespaces step 7: docs | task | done | normal |
 | [B199](B199-library-layers-step-1.md) | library-layers step 1: A library module, found by name | task | done | normal |
+| [B200](B200-library-layers-step-2.md) | library-layers step 2: declaration modules, and `translator.cdy` | task | done | normal |

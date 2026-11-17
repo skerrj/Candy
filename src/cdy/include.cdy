@@ -225,7 +225,8 @@
 
 ;; The library's declaration modules (doc/hl_rqmt/library_layers.md): each declares built-ins
 ;; the runtime defines, with bodiless sigs, and is always the library's, as what the
-;; translator reads itself is. system.cdy, every file's without an import, isn't one yet.
+;; translator reads itself is. system.cdy is one too, but every file imports it
+;; implicitly, only qualified (core.cdy, with-system), so it isn't listed.
 (sig DECLARATION_MODULES (List String))
 (def DECLARATION_MODULES (List "translator"))
 
@@ -240,13 +241,15 @@
 
 ;; The path of `name.cdy`, imported at `pos` by `what` (import or import-macros): in
 ;; directory `dir`, or else in the library's (programs.import); a declaration module's is
-;; always the library's.
+;; always the library's. No import names `system`, which every file imports implicitly.
 (sig import-path (Fn (String String String Pos) String))
 (defn import-path (what dir name pos)
   (let ((file (++ name ".cdy"))
         (path (path-join dir file))
         (lib (path-join (library-dir nil) file)))
     (cond
+      ((= (path-stem name) "system")
+        (fail (format "{(pos-text pos)}{what}: every file imports system, implicitly")))
       ((contains name DECLARATION_MODULES) (library-path file))
       ((file-exists path) path)
       ((contains name NOT_MODULES)

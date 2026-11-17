@@ -1,7 +1,7 @@
 # B200: library-layers step 2: declaration modules, and `translator.cdy`
 
 kind: task
-state: review
+state: done
 priority: normal
 found: library-layers, 2026-11-15
 fixed: library-layers, 2026-11-16
@@ -31,3 +31,4 @@ Step 2 of `doc/hl_rqmt/library_layers.md`. A bodiless `sig` or `deft` allowed in
   declaration module with the five, always the library's; every program still sees them
   until 2b.
 - 2026-11-16, Claude: 2b built (the HLD's step 2, "2b done"); [[B50]] to review.
+- 2026-11-16, the owner: ticked in review.
