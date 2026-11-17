@@ -433,9 +433,8 @@ gives the value or a fallback. A `(Maybe (Maybe t))` is two layers, `(Some None)
 ## Any
 
 `Any` matches every type, both ways, and nothing passing through it is checked (*for
-now*: [[B18]]). The built-ins Candy can't type yet are `Any`: `is-coll` and `is-str`
-(for forms read as `Any`, [[B79]]), the regular expressions' results, and four of the
-translator's host built-ins.
+now*: [[B18]]). The built-ins Candy can't type yet are `Any`: three of `translator`'s,
+which take or give a host function, such as a macro ([[B49]]).
 
 `Any` binds no type variable it meets, so a later use can still solve it; one that met
 `Any` and nothing else is `Any` once its definition is checked, as gradual inference

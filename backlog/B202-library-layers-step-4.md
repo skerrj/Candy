@@ -1,10 +1,10 @@
 # B202: library-layers step 4: the system, revisited
 
 kind: task
-state: open
+state: review
 priority: normal
 found: library-layers, 2026-11-15
-fixed:
+fixed: library-layers, 2026-11-16
 where: `src/cdy/system.cdy`, `src/cdy_rt/spelling.py`, `src/cdy_rt/primitives.py`
 refs: [[B32]], [[B49]], [[library.builtins]]
 
@@ -13,3 +13,6 @@ Step 4 of `doc/hl_rqmt/library_layers.md`. The 11 built-ins dropped, with their 
 ## Notes
 
 - 2026-11-15, Claude: filed on the HLD's acceptance (the owner, 2026-11-15).
+- 2026-11-16, Claude: built (the HLD's step 4, "Done"); generated code no longer imports
+  `re`. Not staged after all: the chain reads the step's own library, which agrees with
+  its runtime. [[B32]] fixed, [[B49]] narrowed.

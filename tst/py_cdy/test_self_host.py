@@ -473,7 +473,7 @@ def test_py_mangle(t1: ModuleType, name: str, py: str) -> None:
 
 def test_py_reserved_is_this_python(t1: ModuleType) -> None:
     live = {*keyword.kwlist, *dir(builtins)}
-    assert set(candy(t1, "emit.PY_RESERVED")) == live | {"math", "re", "cdy_rt"}, (
+    assert set(candy(t1, "emit.PY_RESERVED")) == live | {"math", "cdy_rt"}, (
         "emit.cdy's PY_RESERVED is Python 3.14's; update it for this Python"
     )
 

@@ -7,12 +7,8 @@ Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
   ``join_it`` is now ``join``, and ``in_`` is ``str_contains`` (a list's is
   ``list_contains``).
 - ``spit`` takes ``(path, text)`` and writes a string, like Clojure's ``spit``.
-  ``file_put_lines`` takes ``(path, lines)``. (schmuz had them in opposite orders.)
 - ``slurp`` raises ``FileNotFoundError`` instead of calling ``exit()``, and looks for
   ``.cdy`` files.
-- ``is_coll`` accepts tuples as well as lists.
-- ``is_str`` is a plain type check. schmuz's version tested for a ``"``-quoted token.
-- Added ``is_empty_str`` (schmuz's table referred to it, but smztils never defined it).
 - Dropped the ``m_table_*`` functions (the translator reads ``spelling.py``'s spellings as
   Candy data), the ``parse_string_help*`` leftovers (schmuz's own ``parse.scm`` defined the
   one it used) and commented-out experiments.
@@ -306,11 +302,6 @@ def join(coll: Sequence[str], delim: str) -> str:
     return delim.join(coll)
 
 
-def is_coll(expr: object) -> bool:
-    """Whether ``expr`` is a list or tuple."""
-    return isinstance(expr, (list, tuple))
-
-
 def list_map[A, B](f: Callable[[A], B], xs: Sequence[A]) -> tuple[B, ...]:
     """``f`` of each item of ``xs``. A built-in, not Candy, for speed: Candy adds to a list
     by copying it (doc/hl_rqmt/system_prelude.md, step 5)."""
@@ -431,11 +422,6 @@ def map_from[K, V](pairs: Sequence[tuple[K, V]]) -> Mapping[K, V]:
 # --- strings ---
 
 
-def is_str(expr: object) -> bool:
-    """Whether ``expr`` is a string."""
-    return isinstance(expr, str)
-
-
 def starts_with(text: str, prefix: str) -> bool:
     """Whether ``text`` starts with ``prefix``."""
     return text.startswith(prefix)
@@ -456,24 +442,9 @@ def repeat(text: str, n: int) -> str:
     return text * max(n, 0)
 
 
-def is_empty_str(text: str) -> bool:
-    """Whether ``text`` is the empty string."""
-    return text == ""
-
-
 def is_digit(text: str) -> bool:
     """Whether ``text`` is all digits (and not empty)."""
     return text.isdigit()
-
-
-def is_alpha(text: str) -> bool:
-    """Whether ``text`` is all letters (and not empty)."""
-    return text.isalpha()
-
-
-def is_neg_int(text: str, pos: int) -> bool:
-    """Whether ``text`` has a ``-`` followed by a digit at ``pos``."""
-    return text[pos : pos + 1] == "-" and text[pos + 1 : pos + 2].isdigit()
 
 
 def isspace(text: str) -> bool:
@@ -504,11 +475,6 @@ def is_decimal(text: str) -> bool:
 def hex_char(text: str) -> str:
     """The character whose code is ``text`` in hexadecimal: ``hex_char("41")`` is ``"A"``."""
     return chr(int(text, 16))
-
-
-def strip(text: str, chars: str) -> str:
-    """``text`` without leading or trailing characters from ``chars``."""
-    return text.strip(chars)
 
 
 def replace(text: str, old: str, new: str) -> str:
@@ -556,11 +522,6 @@ def put_err(text: str) -> None:
 def spit(path: str, text: str) -> None:
     """Write ``text`` to ``path``, replacing its contents."""
     Path(path).write_text(text, encoding="utf-8")
-
-
-def file_put_lines(path: str, lines: Sequence[str]) -> None:
-    """Write ``lines`` to ``path`` as they are (they carry their own newlines)."""
-    Path(path).write_text("".join(lines), encoding="utf-8")
 
 
 def file_exists(path: str) -> bool:

@@ -17,20 +17,18 @@ them. A value prints as Candy shows it ([[library.show]]).
 provides it, with that type. Only there may a `sig` have no definition. A built-in's
 arity is its type's (`40-expressions.md`). Lists, strings and maps each have their own
 operations (`len` a list's, `str-len` a string's, `map-size` a map's), *for now*, until
-interfaces let one name work on each ([[B34]]). A built-in typed `Any` returns a host
-object, or reads a form as `Any` (*for now*: Candy can't write those types yet,
-[[B48]], [[B49]], [[B79]]).
+interfaces let one name work on each ([[B34]]). None is typed `Any`; only three of
+`translator`'s are, which take or give a host function (*for now*: [[B49]]).
 
 | Group | Built-ins |
 |---|---|
 | output | `put` (a prelude macro: any number of arguments, with a space between; [[library.put]]), `put-line`, `text`, `put-err` |
-| files | `slurp`, `spit`, `file-put-lines`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
-| lists | `len`, `at`, `slice`, `empty-list`, `is-coll`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of`, `contains`, `with-default`, `join` |
+| files | `slurp`, `spit`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
+| lists | `len`, `at`, `slice`, `empty-list`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of`, `contains`, `with-default`, `join` |
 | maps | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size` |
-| strings | `str-len`, `char-at`, `substring`, `str-contains`, `split`, `starts-with`, `ends-with`, `repeat`, `strip`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-empty-str`, `is-decimal`, `is-digit`, `is-alpha`, `is-str`, `is-neg-int`, `isspace`, `isspace-at` |
-| regular expressions | `re-search`, `re-findall`, `re-compile` (Python's match and pattern objects, `Any`) |
+| strings | `str-len`, `char-at`, `substring`, `str-contains`, `split`, `starts-with`, `ends-with`, `repeat`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-decimal`, `is-digit`, `isspace`, `isspace-at` |
 | math | `PI`, `sin`, `cos`, `tan` |
-| the program | `SYS_ARGS`, `fail`, `nil` |
+| the program | `fail`, `nil` |
 
 ```candy run
 (put (path-stem "dir/file.cdy") (to-int "7") (len (range 0 3)))

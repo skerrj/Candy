@@ -49,7 +49,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 
 ;; The modules every generated file imports: those spelling.py's spellings refer to.
 (sig PY_IMPORTS (List String))
-(def PY_IMPORTS (List "math" "re" "cdy_rt.spelling" "cdy_rt.primitives"))
+(def PY_IMPORTS (List "math" "cdy_rt.spelling" "cdy_rt.primitives"))
 
 ;; The names `names` as a set (each mapped to true).
 (sig name-set (Fn ((List String)) (Map String Bool)))
@@ -91,7 +91,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     "pass" "pow" "print" "property" "quit" "raise" "range" "repr" "return" "reversed"
     "round" "set" "setattr" "slice" "sorted" "staticmethod" "str" "sum" "super" "try"
     "tuple" "type" "vars" "while" "with" "yield" "zip")
-      (List "math" "re" "cdy_rt"))))
+      (List "math" "cdy_rt"))))
 
 ;; The characters py-mangle spells as letters.
 (sig MANGLED (Map String String))

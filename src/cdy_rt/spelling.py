@@ -131,7 +131,6 @@ IO: Spellings = {
     "text": primitive("text_any"),
     "show": primitive("show"),
     "put-err": primitive("put_err"),
-    "file-put-lines": primitive("file_put_lines"),
     "slurp": primitive("slurp"),
     "spit": primitive("spit"),
     "file-exists": primitive("file_exists"),
@@ -142,12 +141,6 @@ IO: Spellings = {
     "path-resolve": primitive("path_resolve"),
 }
 
-RE: Spellings = {
-    "re-search": call("re.search"),
-    "re-findall": call("re.findall"),
-    "re-compile": call("re.compile"),
-}
-
 COLLECTION: Spellings = {
     "len": call("len"),
     "empty-list": value("()"),
@@ -156,7 +149,6 @@ COLLECTION: Spellings = {
     "at": Spelling(f"{PRIMITIVES_MODULE}.at", "index"),
     "slice": primitive("slice_"),
     "join": primitive("join"),
-    "is-coll": primitive("is_coll"),
     # Writable in Candy (the prelude), but built in for speed: Candy adds to a list by
     # copying it, so its own map would take quadratic time.
     "map": primitive("list_map"),
@@ -191,7 +183,6 @@ STRING: Spellings = {
     "char-at": Spelling(f"{PRIMITIVES_MODULE}.char_at", "index"),
     "substring": primitive("substring"),
     "str-contains": primitive("str_contains"),
-    "is-empty-str": primitive("is_empty_str"),
     "to-int": primitive("to_int"),
     "to-float": primitive("to_float"),
     "is-decimal": primitive("is_decimal"),
@@ -201,11 +192,7 @@ STRING: Spellings = {
     "split": primitive("split"),
     "repeat": primitive("repeat"),
     "char-code": call("ord"),
-    "is-str": primitive("is_str"),
     "is-digit": primitive("is_digit"),
-    "is-alpha": primitive("is_alpha"),
-    "is-neg-int": primitive("is_neg_int"),
-    "strip": primitive("strip"),
     "replace": primitive("replace"),
     "isspace-at": primitive("isspace_at"),
     "isspace": primitive("isspace"),
@@ -228,7 +215,6 @@ MACRO: Spellings = {
 }
 
 INFRA: Spellings = {
-    "SYS_ARGS": value(f"{PRIMITIVES_MODULE}.get_args()"),
     "fail": primitive("fail"),
 }
 
@@ -238,7 +224,6 @@ SPELLINGS: Spellings = MappingProxyType(
         **MATH,
         **BOOL,
         **IO,
-        **RE,
         **COLLECTION,
         **STRING,
         **TRANSLATOR,

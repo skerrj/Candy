@@ -40,7 +40,6 @@ By kind, then priority.
 | [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | open | normal |
 | [B54](B54-slurp-fallback.md) | `slurp` searches `src/`, `tst/` and `lib/` when a path is missing | leak | open | normal |
 | [B22](B22-numbers-unbounded.md) | Overflow isn't checked, and a `Float` is 64 bits on Python | leak | open | low |
-| [B32](B32-regexes-python.md) | Regexes are Python's | leak | open | low |
 | [B41](B41-macros-exec.md) | Macros run with Python's `exec` | leak | open | low |
 | [B43](B43-gensym-impure.md) | `gensym` is impure | leak | open | low |
 | [B44](B44-macro-cant-make-import.md) | A macro can't expand into `import`, `import-macros` or `defmacro` | leak | open | low |
@@ -81,7 +80,7 @@ By kind, then priority.
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | review | normal |
-| [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | open | normal |
+| [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | review | normal |
 | [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | open | normal |
 | [B204](B204-library-layers-step-6.md) | library-layers step 6: each built-in specified | task | open | normal |
 | [B205](B205-library-layers-step-7.md) | library-layers step 7: docs | task | open | normal |
@@ -118,7 +117,7 @@ By kind, then priority.
 
 The open items, by the ids in their refs (spec rules, and sections of other docs).
 
-- [checking.any](../spec/25-checking.md#checking.any): [B133](B133-let-polymorphism.md)
+- [checking.any](../spec/25-checking.md#checking.any): [B49](B49-opaque-host-types.md), [B133](B133-let-polymorphism.md)
 - [checking.calls](../spec/25-checking.md#checking.calls): [B134](B134-one-type-error-at-a-time.md)
 - [checking.if](../spec/25-checking.md#checking.if): [B156](B156-macro-errors-name-expansion.md)
 - [checking.locals](../spec/25-checking.md#checking.locals): [B133](B133-let-polymorphism.md)
@@ -139,7 +138,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [library.lists](../spec/60-library.md#library.lists): [B34](B34-no-collection.md), [B184](B184-empty-start-fails-mypy.md)
 - [library.map-acc](../spec/60-library.md#library.map-acc): [B184](B184-empty-start-fails-mypy.md)
 - [library.show](../spec/60-library.md#library.show): [B158](B158-float-infinity-nan.md), [B196](B196-type-shadowing-builtin-show.md)
-- [library.strings](../spec/60-library.md#library.strings): [B34](B34-no-collection.md), [B49](B49-opaque-host-types.md), [B32](B32-regexes-python.md)
+- [library.strings](../spec/60-library.md#library.strings): [B34](B34-no-collection.md)
 - [macros.cond](../spec/50-macros.md#macros.cond): [B13](B13-long-cond-value.md), [B156](B156-macro-errors-name-expansion.md)
 - [macros.defmacro](../spec/50-macros.md#macros.defmacro): [B42](B42-macro-result-unchecked.md), [B41](B41-macros-exec.md), [B44](B44-macro-cant-make-import.md)
 - [macros.gensym](../spec/50-macros.md#macros.gensym): [B43](B43-gensym-impure.md)
@@ -191,6 +190,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B28](B28-char-is-str.md) | A `Char` is a one-character `str` | leak | done | low |
 | [B30](B30-get-assoc-unchecked.md) | `get` and `assoc` field names are checked by mypy, not Candy | leak | done | normal |
 | [B31](B31-value-before-def.md) | A top-level value used before its `def` fails at run time | leak | done | normal |
+| [B32](B32-regexes-python.md) | Regexes are Python's | leak | done | low |
 | [B33](B33-no-unary-minus.md) | No unary minus | leak | kept | normal |
 | [B35](B35-at-slice-python.md) | `at` and `slice` behave as Python's subscripts | leak | done | normal |
 | [B36](B36-values-print-as-python.md) | Values print as Python shows them | leak | done | high |

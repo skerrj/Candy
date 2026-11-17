@@ -267,6 +267,16 @@ was. The rest is ordinary: one `boot/NN` per step that changes `bin`.
    example now. The rules: `programs.sees`, `programs.qualified`, `programs.import`.
 4. **The system, revisited** ([[B32]]; [[B49]] narrowed): the 11 built-ins dropped, with
    their spellings and primitives. Staged.
+   *Done (2026-11-16). As built:* `system.cdy` and `spelling.py` lose the 11, and
+   `primitives.py` their seven functions (`get_args` stays, for `run_main`); generated
+   code no longer imports `re` (`PY_IMPORTS`, `emit.cdy`), so `re` is a name a program
+   may take. No `system` built-in is typed `Any` now: only three of `translator`'s
+   (`checking.any`, `library.builtins`). Not staged, unlike the Bootstrap section says:
+   the chain puts the step's own library next to the translator before, and the step's
+   `system.cdy` and runtime agree, so `boot/80` reads them
+   (`test_newest_step_reads_the_library`). Only a local rebuild needs `bin/py`'s copies
+   replaced first. `system` has 78 built-ins left, not 83 (the count above was taken
+   with `translator`'s five still in it). [[B32]] fixed; [[B49]] narrowed to the macros.
 5. **`slurp` without a search** ([[B54]]).
 6. **Each built-in specified:** a rule per group in `spec/60-library.md`, the index, and
    the test.
