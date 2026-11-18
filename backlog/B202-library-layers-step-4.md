@@ -16,3 +16,6 @@ Step 4 of `doc/hl_rqmt/library_layers.md`. The 11 built-ins dropped, with their 
 - 2026-11-16, Claude: built (the HLD's step 4, "Done"); generated code no longer imports
   `re`. Not staged after all: the chain reads the step's own library, which agrees with
   its runtime. [[B32]] fixed, [[B49]] narrowed.
+- 2026-11-17, the owner: drop what else can go. Claude: `isspace-at`, `elem-index` and
+  `is-digit` dropped, after step 6 (the HLD's step 6, "Then"), whose commit moved the
+  reader and the prelude off the first two; the rest kept for `stdlib`.

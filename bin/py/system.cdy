@@ -100,8 +100,6 @@
 (sig drop (Fn (Int (List a)) (List a)))
 (sig concat (Fn ((List (List a))) (List a)))
 (sig zip (Fn ((List a) (List b)) (List (Tup a b))))
-;; The index of the first item equal to `x`, or -1: the prelude's `index-of` is built on it.
-(sig elem-index (Fn (equatable (List equatable)) Int))
 (sig contains (Fn (equatable (List equatable)) Bool))
 
 ;; --- maps ---
@@ -128,9 +126,7 @@
 (sig ends-with (Fn (String String) Bool))
 (sig split (Fn (String String) (List String)))
 (sig repeat (Fn (String Int) String))
-(sig is-digit (Fn (String) Bool))
 (sig replace (Fn (String String String) String))
-(sig isspace-at (Fn (String Int) Bool))
 (sig isspace (Fn (String) Bool))
 
 ;; --- the program ---

@@ -151,7 +151,7 @@ compare its arguments; inside its body, a `number` is one unknown number type, s
 isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
 
 `equatable` is what `=` and `!=` take ([[expr.equality]]), and the built-ins that compare
-(`contains`, `elem-index`, the prelude's `index-of`): a function, a list of them, or a
+(`contains`, the prelude's `index-of`): a function, a list of them, or a
 record or variant with one among its fields is no `equatable`. A generic function that
 compares its arguments says so in its `sig`; an ordinary type variable, which takes any
 type, can't be compared. Every other constraint's types are `equatable` but

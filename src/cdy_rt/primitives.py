@@ -401,11 +401,6 @@ def list_zip[A, B](xs: Sequence[A], ys: Sequence[B]) -> tuple[tuple[A, B], ...]:
     return tuple(zip(xs, ys, strict=False))
 
 
-def list_elem_index[A](x: A, xs: Sequence[A]) -> int:
-    """The index of the first item of ``xs`` equal to ``x``, or -1."""
-    return next((i for i, y in enumerate(xs) if y == x), -1)
-
-
 def list_contains[A](x: A, xs: Sequence[A]) -> bool:
     """Whether ``xs`` has an item equal to ``x``."""
     return x in xs
@@ -439,22 +434,9 @@ def repeat(text: str, n: int) -> str:
     return text * max(n, 0)
 
 
-def is_digit(text: str) -> bool:
-    """Whether ``text`` is all digits (and not empty)."""
-    return text.isdigit()
-
-
 def isspace(text: str) -> bool:
     """Whether ``text`` is all whitespace (and not empty)."""
     return text.isspace()
-
-
-def isspace_at(text: str, pos: int) -> bool:
-    """Whether the character at ``pos`` is whitespace; ``pos`` is bounds-checked, as
-    ``char_at``'s is."""
-    if 0 <= pos < len(text):
-        return text[pos].isspace()
-    raise CandyFail(f"isspace-at: index out of range: {pos}, for length {len(text)}")
 
 
 def to_int(text: str) -> int:

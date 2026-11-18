@@ -174,7 +174,6 @@ COLLECTION: Spellings = {
     "drop": primitive("list_drop"),
     "concat": primitive("list_concat"),
     "zip": primitive("list_zip"),
-    "elem-index": primitive("list_elem_index"),
     "contains": primitive("list_contains"),
 }
 
@@ -192,9 +191,7 @@ STRING: Spellings = {
     "split": primitive("split"),
     "repeat": primitive("repeat"),
     "char-code": call("ord"),
-    "is-digit": primitive("is_digit"),
     "replace": primitive("replace"),
-    "isspace-at": primitive("isspace_at"),
     "isspace": primitive("isspace"),
 }
 

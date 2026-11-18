@@ -303,6 +303,15 @@ was. The rest is ordinary: one `boot/NN` per step that changes `bin`.
    for those two and `is-digit` to go (2026-11-17). The next commit drops them, read by
    this one's `bin`, which no longer calls them (two commits rather than `old-runtime`
    staging, as step 2 was).
+   *Then (2026-11-17), its own commit:* `isspace-at`, `elem-index` and `is-digit` dropped,
+   with their spellings and primitives, as step 4 dropped its 11: the first is `isspace`
+   of one character, the second `find-index` with an `=`, the third `is-decimal`'s twin
+   (Python's `isdigit` takes `²` as a digit) that only `tst/cdy/read_sexpr.cdy` used.
+   `system` has 75 built-ins. The others weighed and kept (the owner, 2026-11-17):
+   `reverse`, `map-size`, `ends-with` and `repeat`, unused but basic, which `stdlib`'s
+   modules decide; and `all`, `contains`, `take`, `drop`, `starts-with`, `ends-with`,
+   `map-size` and `tan`, which Candy could write over other built-ins, at the prelude's
+   costs (Question 1), also `stdlib`'s.
 7. **Docs:** CLAUDE.md, the epic's fifth branch *done in part*, `library.md`'s "What a
    program sees", `multi_target.md`; "Looking back".
 

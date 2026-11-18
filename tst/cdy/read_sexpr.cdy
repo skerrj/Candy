@@ -43,7 +43,7 @@
     (else (read-str text (+ pos 1) (++ acc (ch text pos))))))
 
 (sig atom (Fn (String) Any))
-(defn atom (tok) (if (is-digit tok) (to-int tok) tok))
+(defn atom (tok) (if (is-decimal tok) (to-int tok) tok))
 
 (sig read-list (Fn (String Int (List Any)) (Tup (List Any) Int)))
 (defn read-list (text pos acc)

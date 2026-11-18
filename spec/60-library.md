@@ -31,9 +31,9 @@ the prelude's are marked.
 | the operators | `40-expressions.md`: [[expr.arithmetic]], [[expr.append]], [[expr.comparisons]], [[expr.equality]], [[expr.logic]] | `+`, `-`, `*`, `/`, `quot`, `mod`, `++`, `=`, `!=`, `<`, `>`, `<=`, `>=`, `and`, `or`, `not` |
 | output | [[library.put]], [[library.show]] | `put` (the prelude's, a macro), `put-line`, `text`, `show`, `put-err` |
 | files | [[library.files]] | `slurp`, `spit`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
-| lists | [[library.lists]], [[library.map-acc]], [[library.zip]], [[library.rest]], [[library.bounds]], [[library.maybe]] | `len`, `empty-list`, `at`, `slice`, `join`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find-index`, `elem-index`, `contains`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`; the prelude's `rest`, `find`, `index-of`, `with-default` |
+| lists | [[library.lists]], [[library.map-acc]], [[library.zip]], [[library.rest]], [[library.bounds]], [[library.maybe]] | `len`, `empty-list`, `at`, `slice`, `join`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find-index`, `contains`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`; the prelude's `rest`, `find`, `index-of`, `with-default` |
 | maps | [[library.maps]] | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size`; the prelude's `map-update` |
-| strings | [[library.strings]], [[library.bounds]] | `str-len`, `char-at`, `substring`, `str-contains`, `starts-with`, `ends-with`, `split`, `repeat`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-decimal`, `is-digit`, `isspace`, `isspace-at` |
+| strings | [[library.strings]], [[library.bounds]] | `str-len`, `char-at`, `substring`, `str-contains`, `starts-with`, `ends-with`, `split`, `repeat`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-decimal`, `isspace` |
 | math | [[library.math]] | `PI`, `sin`, `cos`, `tan` |
 | the program | [[library.errors]], [[expr.unit]] | `fail`, `nil`; the prelude's `Result` |
 
@@ -71,7 +71,6 @@ speed, since Candy adds to a list by copying it. `find` and `index-of` give a `(
 | `(any keep xs)` | `(Fn ((Fn (a) Bool) (List a)) Bool)` | whether `keep` is true of some item; `false` for none |
 | `(all keep xs)` | `(Fn ((Fn (a) Bool) (List a)) Bool)` | whether `keep` is true of every item; `true` for none |
 | `(find-index keep xs)` | `(Fn ((Fn (a) Bool) (List a)) Int)` | the index of the first item `keep` is true of, or `-1` |
-| `(elem-index x xs)` | `(Fn (equatable (List equatable)) Int)` | the index of the first item equal to `x`, or `-1` |
 | `(contains x xs)` | `(Fn (equatable (List equatable)) Bool)` | whether an item is equal to `x` |
 | `(reverse xs)` | `(Fn ((List a)) (List a))` | the items, last first |
 | `(range a b)` | `(Fn (Int Int) (List Int))` | the integers from `a` up to, not including, `b`; empty when `b <= a` |
@@ -244,7 +243,7 @@ char-at: index out of range: 3, for length 3
 
 A string's own operations are `str-len`, `char-at` (a `Char`, [[syntax.chars]]),
 `substring` and `(str-contains part s)`, *for now* until interfaces ([[B34]]). The
-predicates on a whole string (`is-decimal`, `is-digit`, `isspace`) are `false` for `""`.
+predicates on a whole string (`is-decimal`, `isspace`) are `false` for `""`.
 Text that isn't a number, to `to-int` or `to-float`, a `char-code` of a string that isn't
 one character, and a `split` on `""` stop with Python's error, not a panic (*for now*:
 [[B160]]).
@@ -265,9 +264,7 @@ one character, and a `split` on `""` stop with Python's error, not a panic (*for
 | `(char-code s)` | `(Fn (String) Int)` | the code of the one character in `s` |
 | `(hex-char s)` | `(Fn (String) String)` | the character whose code `s` writes in hexadecimal |
 | `(is-decimal s)` | `(Fn (String) Bool)` | whether `s` is all decimal digits |
-| `(is-digit s)` | `(Fn (String) Bool)` | whether `s` is all digits |
 | `(isspace s)` | `(Fn (String) Bool)` | whether `s` is all whitespace |
-| `(isspace-at s i)` | `(Fn (String Int) Bool)` | whether the character at `i` is whitespace; out of range a panic |
 
 ```candy run
 (sig yes (Fn (Bool) String))
@@ -280,8 +277,7 @@ one character, and a `split` on `""` stop with Python's error, not a panic (*for
 (put (to-int "42") (char-code "A") (substring "candy" 1 3))
 (put (str-len "candy") (char-at "candy" 0) (= (char-at "candy" 0) \c) (str-contains "and" "candy"))
 (put (replace "a-b-c" "-" "+") (to-int "-7") (to-float "2.5") (hex-char "41"))
-(put (is-digit "123") (is-digit "") (is-decimal "1a") (isspace " \t") (isspace ""))
-(put (isspace-at "a b" 1) (isspace-at "a b" 0))
+(put (is-decimal "123") (is-decimal "") (is-decimal "1a") (isspace " \t") (isspace ""))
 ```
 ```expect
 yes no yes
@@ -292,14 +288,6 @@ ababab 0
 5 c true true
 a+b-c -7 2.5 A
 true false false true false
-true false
-```
-
-```candy panic
-(put (isspace-at "ab" -1))
-```
-```expect-panic
-isspace-at: index out of range: -1, for length 2
 ```
 
 <a id="library.maps"></a>
@@ -533,14 +521,14 @@ The prelude's `(deft (Maybe a) (Some ((v a))) (None))` is a value that may be mi
 (*lasting*; [[checking.maybe]]). `(find keep xs)` is the first item `keep` is true of,
 `(index-of x xs)` the index of the first item equal to `x`, each `None` when there is
 none, and `(with-default fallback m)` is `m`'s value, or `fallback` for `None`. They are
-prelude Candy, over the built-ins `find-index` and `elem-index`, which give `-1` for none.
+prelude Candy, over the built-in `find-index`, which gives `-1` for none.
 
 ```candy run
 (sig xs (List Int))
 (def xs (List 3 1 4))
 (put (find (fn (n) (> n 2)) xs) (find (fn (n) (> n 5)) xs))
 (put (index-of 4 xs) (with-default -1 (index-of 9 xs)))
-(put (find-index (fn (n) (= n 1)) xs) (elem-index 9 xs))
+(put (find-index (fn (n) (= n 1)) xs) (find-index (fn (n) (= n 9)) xs))
 ```
 ```expect
 (Some 3) None
