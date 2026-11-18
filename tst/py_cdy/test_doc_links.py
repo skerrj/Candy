@@ -10,6 +10,7 @@ rule whose anchor is above it, and a stable rule has an example, or says where i
 no alias left, is a warning: a rename keeps the old id as an alias.
 """
 
+import re
 import subprocess
 import warnings
 from pathlib import Path
@@ -45,6 +46,8 @@ DEFINED = {a.id: a for a in (*ANCHORS, *ITEMS)}
 SPEC = {p: t for p, t in DOCS.items() if p.startswith("spec/") and p != "spec/README.md"}
 EXAMPLES = ("candy run", "candy error", "candy errors")
 ARCHIVE = "doc/archive/"
+# The rule whose table indexes the built-ins.
+INDEX = "library.builtins"
 
 
 def where(item: Anchor | Link) -> str:
@@ -117,6 +120,54 @@ def test_every_spec_example_belongs_to_a_rule(path: str) -> None:
 def test_every_stable_rule_has_an_example(path: str) -> None:
     bare = bare_rules(path, SPEC[path])
     assert not bare, f"stable rules with no example (or *Tested in*): {bare}"
+
+
+def builtin_names(text: str) -> tuple[str, ...]:
+    """The names a declaration module's bodiless ``sig``s declare."""
+    return tuple(re.findall(r"^\(sig (\S+)", text, re.MULTILINE))
+
+
+def unexampled(names: tuple[str, ...], spec: dict[str, str]) -> list[str]:
+    """The ``names`` no example that runs (``candy run``, or ``candy panic`` for what stops
+    the program) in ``spec`` uses."""
+    used = {
+        word
+        for text in spec.values()
+        for b in blocks(text)
+        if b.info in ("candy run", "candy panic")
+        for word in re.findall(r'[^\s()"]+', b.text)
+    }
+    return [name for name in names if name not in used]
+
+
+def unindexed(names: tuple[str, ...], text: str) -> list[str]:
+    """The ``names`` not in the table of the rule ``library.builtins`` in ``text``."""
+    start, end = next(
+        (s, e) for s, e in rules(text) if f'<a id="{INDEX}"></a>' in text.splitlines()[s - 1]
+    )
+    rows = [line for line in text.splitlines()[start:end] if line.startswith("|")]
+    listed = {span for row in rows for span in re.findall(r"`([^`]+)`", row)}
+    return [name for name in names if name not in listed]
+
+
+def test_every_builtin_is_specified() -> None:
+    """Every built-in in ``system`` is in ``library.builtins``' index and in an example
+    that runs (``doc/hl_rqmt/library_layers.md``, step 6). ``translator``'s aren't the
+    language's: ``translator.cdy``'s comments specify them."""
+    names = builtin_names((ROOT / "src/cdy/system.cdy").read_text(encoding="utf-8"))
+    assert len(names) > 50
+    assert not unindexed(names, SPEC["spec/60-library.md"]), "not in library.builtins' table"
+    assert not unexampled(names, SPEC), "in no example that runs"
+
+
+def test_builtin_checks_catch_a_missing_one() -> None:
+    text = (
+        f'<a id="{INDEX}"></a>\n| lists | `len` |\n'
+        '<a id="a.other"></a>\n| x | `at` |\n'
+        "```candy run\n(put (len (List 1)))\n```\n"
+    )
+    assert unindexed(("len", "at"), text) == ["at"]
+    assert unexampled(("len", "at"), {"f.md": text}) == ["at"]
 
 
 def test_renamed_ids_keep_an_alias() -> None:

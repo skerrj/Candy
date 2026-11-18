@@ -450,8 +450,11 @@ def isspace(text: str) -> bool:
 
 
 def isspace_at(text: str, pos: int) -> bool:
-    """Whether the character at ``pos`` is whitespace."""
-    return text[pos].isspace()
+    """Whether the character at ``pos`` is whitespace; ``pos`` is bounds-checked, as
+    ``char_at``'s is."""
+    if 0 <= pos < len(text):
+        return text[pos].isspace()
+    raise CandyFail(f"isspace-at: index out of range: {pos}, for length {len(text)}")
 
 
 def to_int(text: str) -> int:

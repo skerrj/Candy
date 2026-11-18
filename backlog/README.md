@@ -82,7 +82,7 @@ By kind, then priority.
 | [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | review | normal |
 | [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | review | normal |
 | [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | review | normal |
-| [B204](B204-library-layers-step-6.md) | library-layers step 6: each built-in specified | task | open | normal |
+| [B204](B204-library-layers-step-6.md) | library-layers step 6: each built-in specified | task | review | normal |
 | [B205](B205-library-layers-step-7.md) | library-layers step 7: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 

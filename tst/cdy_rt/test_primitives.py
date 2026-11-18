@@ -17,6 +17,7 @@ from cdy_rt.primitives import (
     fresh_name,
     hex_char,
     is_decimal,
+    isspace_at,
     join,
     list_filter,
     list_fold,
@@ -68,8 +69,16 @@ def test_collections() -> None:
         (lambda: slice_("abc", 2, 4), "slice: index out of range: 2 to 4, for length 3"),
         (lambda: slice_("abc", 2, 1), "slice: index out of range: 2 to 1, for length 3"),
         (lambda: slice_("abc", -1, 2), "slice: index out of range: -1 to 2, for length 3"),
+        (lambda: isspace_at("a ", -1), "isspace-at: index out of range: -1, for length 2"),
     ],
-    ids=["at-negative", "at-past-end", "slice-past-end", "slice-backwards", "slice-negative"],
+    ids=[
+        "at-negative",
+        "at-past-end",
+        "slice-past-end",
+        "slice-backwards",
+        "slice-negative",
+        "isspace-at-negative",
+    ],
 )
 def test_bounds(index: Callable[[], object], message: str) -> None:
     with pytest.raises(CandyFail, match=re.escape(message)):

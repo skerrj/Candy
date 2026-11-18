@@ -60,7 +60,7 @@ def prelude__find[a](keep: _cdy_Callable[[a], bool], xs: tuple[a, ...]) -> prelu
         return prelude__Some(cdy_rt.primitives.at(xs, i))
 
 def prelude__index_of[equatable](x: equatable, xs: tuple[equatable, ...]) -> prelude__Maybe[int]:
-    i = cdy_rt.primitives.list_elem_index(x, xs)
+    i = cdy_rt.primitives.list_find_index((lambda y: (y == x)), xs)
     if (i < 0):
         return prelude__None()
     else:
@@ -352,7 +352,7 @@ def read__skip(text: str, pos: int) -> int:
     while True:
         if (pos >= len(text)):
             return pos
-        elif cdy_rt.primitives.isspace_at(text, pos):
+        elif cdy_rt.primitives.isspace(read__char_text(text, pos)):
             pos = (pos + 1)
             continue
         elif (cdy_rt.primitives.char_at(text, pos) == ';'):
@@ -370,7 +370,7 @@ def read__line_end(text: str, pos: int) -> int:
             continue
 
 def read__ends_at(text: str, pos: int) -> bool:
-    return ((pos >= len(text)) or cdy_rt.primitives.isspace_at(text, pos) or cdy_rt.primitives.str_contains(read__char_text(text, pos), '();'))
+    return ((pos >= len(text)) or cdy_rt.primitives.isspace(read__char_text(text, pos)) or cdy_rt.primitives.str_contains(read__char_text(text, pos), '();'))
 
 def read__word_end(text: str, pos: int) -> int:
     while True:
@@ -410,7 +410,7 @@ def read__read_list(src: read__Source, text: str, pos: int, acc: tuple[form__For
             continue
 
 def read__read_char(src: read__Source, text: str, pos: int) -> tuple[form__Form, int]:
-    if (((pos + 1) < len(text)) and (not cdy_rt.primitives.isspace_at(text, (pos + 1))) and read__ends_at(text, (pos + 2))):
+    if (((pos + 1) < len(text)) and (not cdy_rt.primitives.isspace(read__char_text(text, (pos + 1)))) and read__ends_at(text, (pos + 2))):
         return (form__CharLit(cdy_rt.primitives.char_at(text, (pos + 1)), read__pos_at(src, pos)), (pos + 2))
     else:
         return cdy_rt.primitives.fail(read__parse_error(src, text, pos, 'a char is \\ and one character, then a delimiter'))
@@ -439,7 +439,7 @@ def read__symbol_start(ch: str) -> bool:
 
 def read__symbol_end(text: str, pos: int) -> int:
     while True:
-        if ((pos >= len(text)) or cdy_rt.primitives.isspace_at(text, pos) or cdy_rt.primitives.str_contains(read__char_text(text, pos), '()\'";\\')):
+        if ((pos >= len(text)) or cdy_rt.primitives.isspace(read__char_text(text, pos)) or cdy_rt.primitives.str_contains(read__char_text(text, pos), '()\'";\\')):
             return pos
         else:
             pos = (pos + 1)

@@ -286,6 +286,23 @@ was. The rest is ordinary: one `boot/NN` per step that changes `bin`.
    translator is unchanged, so `bin` is too, and the step has no `boot` tag.
 6. **Each built-in specified:** a rule per group in `spec/60-library.md`, the index, and
    the test.
+   *Done (2026-11-17). As built:* `library.builtins`' table is the index, a row per group
+   with its rules, the operators' too, and the prelude's built-ins marked. Each group's
+   rule has a table of its calls, with their types and what they give at the edges; new
+   rules `library.files` and `library.math`, and the operators' types in
+   `expr.arithmetic`. Where a built-in stops with Python's error rather than a panic
+   (`map-get` of a missing key, `to-int` of text that isn't a number, a `spit` that can't
+   write), the rule says so, *for now* ([[B160]]). `isspace-at` wasn't bounds-checked (a
+   negative index counted from the end); it is now, as `char-at` is. The test,
+   `test_every_builtin_is_specified` (`test_doc_links.py`), checks `system.cdy`'s
+   built-ins only: each is in the index and in a `candy run` example, or a `candy panic`
+   one (`fail` can't be shown otherwise). `translator`'s five are specified by
+   `translator.cdy`'s comments, as this section says, so the test leaves them out. The
+   reader (`read.cdy`) writes `(isspace (char-text text pos))` for `isspace-at`, and the
+   prelude's `index-of` is `find-index` with an `=`, not `elem-index`: the owner asked
+   for those two and `is-digit` to go (2026-11-17). The next commit drops them, read by
+   this one's `bin`, which no longer calls them (two commits rather than `old-runtime`
+   staging, as step 2 was).
 7. **Docs:** CLAUDE.md, the epic's fifth branch *done in part*, `library.md`'s "What a
    program sees", `multi_target.md`; "Looking back".
 

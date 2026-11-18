@@ -14,21 +14,28 @@ them. A value prints as Candy shows it ([[library.show]]).
 ## Built-ins
 
 `system.cdy` declares each built-in with a `sig` that has no definition: the runtime
-provides it, with that type. Only there may a `sig` have no definition. A built-in's
-arity is its type's (`40-expressions.md`). Lists, strings and maps each have their own
-operations (`len` a list's, `str-len` a string's, `map-size` a map's), *for now*, until
-interfaces let one name work on each ([[B34]]). None is typed `Any`; only three of
-`translator`'s are, which take or give a host function (*for now*: [[B49]]).
+provides it, with that type. Only a declaration module (`system.cdy`, `translator.cdy`)
+may have a `sig` with no definition. A built-in's arity is its type's
+(`40-expressions.md`). Lists, strings and maps each have their own operations (`len` a
+list's, `str-len` a string's, `map-size` a map's), *for now*, until interfaces let one
+name work on each ([[B34]]). None is typed `Any`; only three of `translator`'s are, which
+take or give a host function (*for now*: [[B49]]).
 
-| Group | Built-ins |
-|---|---|
-| output | `put` (a prelude macro: any number of arguments, with a space between; [[library.put]]), `put-line`, `text`, `put-err` |
-| files | `slurp`, `spit`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
-| lists | `len`, `at`, `slice`, `empty-list`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`, `index-of`, `contains`, `with-default`, `join` |
-| maps | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size` |
-| strings | `str-len`, `char-at`, `substring`, `str-contains`, `split`, `starts-with`, `ends-with`, `repeat`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-decimal`, `is-digit`, `isspace`, `isspace-at` |
-| math | `PI`, `sin`, `cos`, `tan` |
-| the program | `fail`, `nil` |
+Each group's rule names its built-ins with their types, and what they do at the edges (an
+empty list, an index out of range, a missing key or file), *lasting*. This table is the
+index: every built-in is in it, and in an example that runs (`test_doc_links.py`), and
+the prelude's are marked.
+
+| Group | Rules | Built-ins |
+|---|---|---|
+| the operators | `40-expressions.md`: [[expr.arithmetic]], [[expr.append]], [[expr.comparisons]], [[expr.equality]], [[expr.logic]] | `+`, `-`, `*`, `/`, `quot`, `mod`, `++`, `=`, `!=`, `<`, `>`, `<=`, `>=`, `and`, `or`, `not` |
+| output | [[library.put]], [[library.show]] | `put` (the prelude's, a macro), `put-line`, `text`, `show`, `put-err` |
+| files | [[library.files]] | `slurp`, `spit`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
+| lists | [[library.lists]], [[library.map-acc]], [[library.zip]], [[library.rest]], [[library.bounds]], [[library.maybe]] | `len`, `empty-list`, `at`, `slice`, `join`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find-index`, `elem-index`, `contains`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`; the prelude's `rest`, `find`, `index-of`, `with-default` |
+| maps | [[library.maps]] | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size`; the prelude's `map-update` |
+| strings | [[library.strings]], [[library.bounds]] | `str-len`, `char-at`, `substring`, `str-contains`, `starts-with`, `ends-with`, `split`, `repeat`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-decimal`, `is-digit`, `isspace`, `isspace-at` |
+| math | [[library.math]] | `PI`, `sin`, `cos`, `tan` |
+| the program | [[library.errors]], [[expr.unit]] | `fail`, `nil`; the prelude's `Result` |
 
 ```candy run
 (put (path-stem "dir/file.cdy") (to-int "7") (len (range 0 3)))
@@ -49,6 +56,33 @@ A list is typed `(List a)`; `List` ([[types.constructors]]) and `range` make one
 `empty-list` is the empty one. The functions take the list last. `map`, `filter` and `fold` are built in for
 speed, since Candy adds to a list by copying it. `find` and `index-of` give a `(Maybe a)`
 ([[library.maybe]]): `None` when nothing is found, which `with-default` replaces.
+
+| Call | Type | Gives |
+|---|---|---|
+| `(len xs)` | `(Fn ((List a)) Int)` | the number of items |
+| `empty-list` | `(List a)` | the list with no items |
+| `(at xs i)` | `(Fn ((List a) Int) a)` | the item at `i`; out of range a panic ([[library.bounds]]) |
+| `(slice xs i j)` | `(Fn ((List a) Int Int) (List a))` | the items from `i` up to `j`; out of range a panic |
+| `(join strs sep)` | `(Fn ((List String) String) String)` | the strings, `sep` between them; `""` for none |
+| `(map f xs)` | `(Fn ((Fn (a) b) (List a)) (List b))` | `f` of each item |
+| `(filter keep xs)` | `(Fn ((Fn (a) Bool) (List a)) (List a))` | the items `keep` is true of |
+| `(fold f start xs)` | `(Fn ((Fn (b a) b) b (List a)) b)` | `f` of the result so far and each item, from the left; `start` for none |
+| `(map-acc f state xs)` | `(Fn ((Fn (s a) (Tup s b)) s (List a)) (Tup s (List b)))` | a `map` that threads a state ([[library.map-acc]]) |
+| `(any keep xs)` | `(Fn ((Fn (a) Bool) (List a)) Bool)` | whether `keep` is true of some item; `false` for none |
+| `(all keep xs)` | `(Fn ((Fn (a) Bool) (List a)) Bool)` | whether `keep` is true of every item; `true` for none |
+| `(find-index keep xs)` | `(Fn ((Fn (a) Bool) (List a)) Int)` | the index of the first item `keep` is true of, or `-1` |
+| `(elem-index x xs)` | `(Fn (equatable (List equatable)) Int)` | the index of the first item equal to `x`, or `-1` |
+| `(contains x xs)` | `(Fn (equatable (List equatable)) Bool)` | whether an item is equal to `x` |
+| `(reverse xs)` | `(Fn ((List a)) (List a))` | the items, last first |
+| `(range a b)` | `(Fn (Int Int) (List Int))` | the integers from `a` up to, not including, `b`; empty when `b <= a` |
+| `(take n xs)` | `(Fn (Int (List a)) (List a))` | the first `n` items; all past the end, none when `n` is negative |
+| `(drop n xs)` | `(Fn (Int (List a)) (List a))` | all but the first `n`; none past the end, all when `n` is negative |
+| `(concat xss)` | `(Fn ((List (List a))) (List a))` | the lists, one after another |
+| `(zip xs ys)` | `(Fn ((List a) (List b)) (List (Tup a b)))` | the items paired, up to the shorter list ([[library.zip]]) |
+| `(rest xs)`, the prelude's | `(Fn ((List a)) (List a))` | all but the first item; empty for none ([[library.rest]]) |
+| `(find keep xs)`, the prelude's | `(Fn ((Fn (a) Bool) (List a)) (Maybe a))` | the first item `keep` is true of, or `None` ([[library.maybe]]) |
+| `(index-of x xs)`, the prelude's | `(Fn (equatable (List equatable)) (Maybe Int))` | the index of the first item equal to `x`, or `None` |
+| `(with-default x m)`, the prelude's | `(Fn (a (Maybe a)) a)` | `m`'s value, or `x` for `None` |
 
 ```candy run
 (sig nums (List Int))
@@ -209,7 +243,31 @@ char-at: index out of range: 3, for length 3
 ## Strings
 
 A string's own operations are `str-len`, `char-at` (a `Char`, [[syntax.chars]]),
-`substring` and `(str-contains part s)`, *for now* until interfaces ([[B34]]).
+`substring` and `(str-contains part s)`, *for now* until interfaces ([[B34]]). The
+predicates on a whole string (`is-decimal`, `is-digit`, `isspace`) are `false` for `""`.
+Text that isn't a number, to `to-int` or `to-float`, a `char-code` of a string that isn't
+one character, and a `split` on `""` stop with Python's error, not a panic (*for now*:
+[[B160]]).
+
+| Call | Type | Gives |
+|---|---|---|
+| `(str-len s)` | `(Fn (String) Int)` | the number of characters |
+| `(char-at s i)` | `(Fn (String Int) Char)` | the character at `i`; out of range a panic ([[library.bounds]]) |
+| `(substring s i j)` | `(Fn (String Int Int) String)` | the characters from `i` up to `j`; out of range a panic |
+| `(str-contains part s)` | `(Fn (String String) Bool)` | whether `part` is in `s`; `true` for `""` |
+| `(starts-with s prefix)` | `(Fn (String String) Bool)` | whether `s` starts with `prefix` |
+| `(ends-with s suffix)` | `(Fn (String String) Bool)` | whether `s` ends with `suffix` |
+| `(split s sep)` | `(Fn (String String) (List String))` | the parts of `s` between each `sep`, empty ones too; `(List s)` when there is none |
+| `(repeat s n)` | `(Fn (String Int) String)` | `s` `n` times over; `""` when `n` isn't positive |
+| `(replace s old new)` | `(Fn (String String String) String)` | `s` with its first `old` replaced by `new` |
+| `(to-int s)` | `(Fn (String) Int)` | the integer `s` writes, a sign allowed |
+| `(to-float s)` | `(Fn (String) Double)` | the number `s` writes |
+| `(char-code s)` | `(Fn (String) Int)` | the code of the one character in `s` |
+| `(hex-char s)` | `(Fn (String) String)` | the character whose code `s` writes in hexadecimal |
+| `(is-decimal s)` | `(Fn (String) Bool)` | whether `s` is all decimal digits |
+| `(is-digit s)` | `(Fn (String) Bool)` | whether `s` is all digits |
+| `(isspace s)` | `(Fn (String) Bool)` | whether `s` is all whitespace |
+| `(isspace-at s i)` | `(Fn (String Int) Bool)` | whether the character at `i` is whitespace; out of range a panic |
 
 ```candy run
 (sig yes (Fn (Bool) String))
@@ -221,6 +279,9 @@ A string's own operations are `str-len`, `char-at` (a `Char`, [[syntax.chars]]),
 (put (repeat "ab" 3) (str-len (repeat "ab" 0)))
 (put (to-int "42") (char-code "A") (substring "candy" 1 3))
 (put (str-len "candy") (char-at "candy" 0) (= (char-at "candy" 0) \c) (str-contains "and" "candy"))
+(put (replace "a-b-c" "-" "+") (to-int "-7") (to-float "2.5") (hex-char "41"))
+(put (is-digit "123") (is-digit "") (is-decimal "1a") (isspace " \t") (isspace ""))
+(put (isspace-at "a b" 1) (isspace-at "a b" 0))
 ```
 ```expect
 yes no yes
@@ -229,6 +290,16 @@ a|b||c 4 1
 ababab 0
 42 65 an
 5 c true true
+a+b-c -7 2.5 A
+true false false true false
+true false
+```
+
+```candy panic
+(put (isspace-at "ab" -1))
+```
+```expect-panic
+isspace-at: index out of range: -1, for length 2
 ```
 
 <a id="library.maps"></a>
@@ -237,7 +308,20 @@ ababab 0
 A map is typed `(Map k v)`, and immutable: `map-set` returns a new one. `map-from` makes
 one from a list of key-value tuples, the later of two equal keys winning; `map-keys`
 lists the keys in the order they were first added. The prelude's `map-update` replaces
-the value at a key, which must be in the map, by a function of it.
+the value at a key, which must be in the map, by a function of it. A `map-get` of a key
+that isn't in the map stops with Python's error, not a panic (*for now*: [[B160]]); ask
+`map-has` first.
+
+| Call | Type | Gives |
+|---|---|---|
+| `empty-map` | `(Map k v)` | the map with no keys |
+| `(map-get m k)` | `(Fn ((Map k v) k) v)` | the value at `k`, which must be in `m` |
+| `(map-has m k)` | `(Fn ((Map k v) k) Bool)` | whether `k` is in `m` |
+| `(map-set m k v)` | `(Fn ((Map k v) k v) (Map k v))` | `m` with `v` at `k`, replacing any value there |
+| `(map-keys m)` | `(Fn ((Map k v)) (List k))` | the keys, in the order they were first added |
+| `(map-from pairs)` | `(Fn ((List (Tup k v))) (Map k v))` | the map of the pairs, the later of two equal keys winning |
+| `(map-size m)` | `(Fn ((Map k v)) Int)` | the number of keys |
+| `(map-update m k f)`, the prelude's | `(Fn ((Map k v) k (Fn (v) v)) (Map k v))` | `m` with `f` of the value at `k`, which must be in `m` |
 
 ```candy run
 (sig ages (Map String Int))
@@ -247,12 +331,70 @@ the value at a key, which must be in the map, by a function of it.
 (put (map-get (map-update ages "bo" (fn (n) (+ n 1))) "bo") (map-get ages "bo"))
 (put (map-get (map-set ages "cy" 7) "cy") (if (map-has ages "cy") "has cy" "no cy"))
 (put (map-size ages) (map-size (map-set ages "cy" 7)))
+(sig none (Map String Int))
+(def none empty-map)
+(put (map-size none) (map-keys none) (map-has none "ann"))
 ```
 ```expect
 ann bo 31
 5 4
 7 no cy
 2 3
+0 (List) false
+```
+
+<a id="library.files"></a>
+## Files
+
+A path is a `String`, relative to the directory the program runs in, with `/` between its
+parts. `slurp` reads the path it is given, with no search; a file it can't read is a
+panic ([[library.errors]]). A file `spit` can't write (its directory missing, say) stops
+with Python's error, not a panic (*for now*: [[B160]]).
+
+| Call | Type | Gives |
+|---|---|---|
+| `(slurp path)` | `(Fn (String) String)` | the file's text; one it can't read a panic |
+| `(spit path s)` | `(Fn (String String) Unit)` | writes `s` to the file, replacing what was there |
+| `(file-exists path)` | `(Fn (String) Bool)` | whether `path` is a file; `false` for a directory |
+| `(make-dirs path)` | `(Fn (String) Unit)` | makes the directory, and those above it; nothing if it is there |
+| `(path-stem path)` | `(Fn (String) String)` | the file's name without its extension |
+| `(path-dir path)` | `(Fn (String) String)` | the directory part; `"."` for a bare name |
+| `(path-join dir name)` | `(Fn (String String) String)` | `name` inside `dir` |
+| `(path-resolve path)` | `(Fn (String) String)` | `path` made absolute, with `..` and links resolved |
+
+```candy run
+(sig dir String)
+(def dir (path-join "output" "spec"))
+(sig file String)
+(def file (path-join dir "note.txt"))
+(do (make-dirs dir) (make-dirs dir) (spit file "hi") (spit file "again"))
+(put (slurp file) (file-exists file) (file-exists dir))
+(put (path-stem "src/cdy/core.cdy") (path-dir "src/cdy/core.cdy") (path-dir "core.cdy"))
+(put file (= (path-resolve "src/../src") (path-resolve "src")))
+```
+```expect
+again true false
+core src/cdy .
+output/spec/note.txt true
+```
+
+<a id="library.math"></a>
+## Math
+
+`PI` and the trigonometric functions are on `Double`s, an angle in radians.
+
+| Call | Type | Gives |
+|---|---|---|
+| `PI` | `Double` | π, as near as a `Double` is |
+| `(sin x)`, `(cos x)`, `(tan x)` | `(Fn (Double) Double)` | the sine, cosine and tangent of `x` |
+
+```candy run
+(put PI (sin 0.0) (cos 0.0) (tan 0.0))
+(put (< (- 1.0 (sin (/ PI 2.0))) 1.0e-9))
+```
+```expect
+3.141592653589793 0.0 1.0 0.0
+true
 ```
 
 <a id="library.format"></a>
@@ -357,11 +499,20 @@ b)))`, *lasting*. `(text x)` is `x` as `show` writes it, but a `String` or a `Ch
 its text ([[library.show]]); `put-line` writes one `String` and a newline. Macro code has
 `put-line` and `text`, not `put` (it isn't expanded, *for now*: [[B52]]).
 
+| Call | Type | Gives |
+|---|---|---|
+| `(put x ...)`, the prelude's macro | any number of arguments, of any type | writes their texts, a space between, and a newline; `nil` |
+| `(put-line s)` | `(Fn (String) Unit)` | writes `s` and a newline to standard output |
+| `(put-err s)` | `(Fn (String) Unit)` | writes `s` and a newline to standard error |
+| `(text x)` | `(Fn (a) String)` | `x` as `put` writes it |
+| `(show x)` | `(Fn (a) String)` | `x` as an expression that evaluates to it ([[library.show]]) |
+
 ```candy run
 (put)
 (put "a" \b 3 (List "c"))
 (put-line (text 1.5))
 (put (map text (List "d" "e")))
+(put-err "standard error") ; not part of what the example writes
 ```
 ```expect
 
@@ -408,6 +559,11 @@ panic, and has no exceptions (a narrow catch for tools is [[B139]]). `fail`'s re
 typed as anything, since it never returns, so it fits where any value does. The other
 errors Python can raise (an integer divided by zero, a missing map key) aren't panics yet,
 and stop with Python's traceback (*for now*: [[B160]]).
+
+| Call | Type | Gives |
+|---|---|---|
+| `(fail msg)` | `(Fn (String) a)` | never returns: the program stops, writing `candy: msg` |
+| `nil` | `Unit` | `Unit`'s one value ([[expr.unit]]) |
 
 ```candy panic
 (sig half (Fn (Int) Int))

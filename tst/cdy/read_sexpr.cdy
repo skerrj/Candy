@@ -12,7 +12,7 @@
 (defn skip-space (text pos)
   (cond
     ((>= pos (str-len text)) pos)
-    ((isspace-at text pos) (skip-space text (+ pos 1)))
+    ((isspace (ch text pos)) (skip-space text (+ pos 1)))
     ((= (ch text pos) ";") (skip-space text (skip-line text pos)))
     (else pos)))
 
