@@ -437,7 +437,7 @@ def test_bin_driver(tmp_path: Path) -> None:
     done = run_bin(["bad.cdy"], tmp_path)
     assert (done.returncode, done.stderr) == (1, "candy: bad.cdy:1:6: unknown name nope\n")
     done = run_bin(["missing.cdy"], tmp_path)
-    assert done.returncode == 1 and done.stderr.startswith("candy: can't find")
+    assert (done.returncode, done.stderr) == (1, "candy: slurp: can't read missing.cdy\n")
 
 
 def test_bin_driver_expands_macros(tmp_path: Path) -> None:

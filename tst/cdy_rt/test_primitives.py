@@ -41,6 +41,7 @@ from cdy_rt.primitives import (
     show,
     show_any,
     slice_,
+    slurp,
     spit,
     stop_on_panic,
     str_contains,
@@ -86,6 +87,9 @@ def test_files(tmp_path: Path) -> None:
     out = tmp_path / "o.txt"
     spit(str(out), "hi")
     assert out.read_text(encoding="utf-8") == "hi"
+    assert slurp(str(out)) == "hi"
+    with pytest.raises(CandyFail, match="slurp: can't read o.txt"):
+        slurp("o.txt")  # the given path only, not searched for
     assert file_exists(str(out)) and not file_exists(str(tmp_path))
     assert path_dir(path_join(str(tmp_path), "o.txt")) == str(tmp_path)
     assert path_resolve(path_join(str(tmp_path / "x"), "../o.txt")) == str(out.resolve())

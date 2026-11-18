@@ -2,13 +2,13 @@
 
 Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
 
-- No ``bop_table`` copy or renamed imports; ``SEARCH_PATH`` is here, beside ``slurp``.
+- No ``bop_table`` copy or renamed imports.
 - Names that clash with Python built-ins or keywords get a trailing ``_``: ``slice_``.
   ``join_it`` is now ``join``, and ``in_`` is ``str_contains`` (a list's is
   ``list_contains``).
 - ``spit`` takes ``(path, text)`` and writes a string, like Clojure's ``spit``.
-- ``slurp`` raises ``FileNotFoundError`` instead of calling ``exit()``, and looks for
-  ``.cdy`` files.
+- ``slurp`` reads the path it is given, with no search, and panics if it can't, instead of
+  calling ``exit()``.
 - Dropped the ``m_table_*`` functions (the translator reads ``spelling.py``'s spellings as
   Candy data), the ``parse_string_help*`` leftovers (schmuz's own ``parse.scm`` defined the
   one it used) and commented-out experiments.
@@ -21,9 +21,6 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from types import TracebackType
 from typing import Any, NoReturn, cast
-
-# Where ``slurp`` looks for a Candy file that isn't found at the given path.
-SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 
 # --- the operators as values (spec/40-expressions.md, expr.operator-values) ---
 
@@ -485,33 +482,13 @@ def replace(text: str, old: str, new: str) -> str:
 # --- files ---
 
 
-def find_path(name: str, search_path: Sequence[str]) -> Path | None:
-    """The first ``.cdy`` file under ``search_path`` whose stem matches ``name``.
-
-    Files under a ``tmp`` directory (below the search root) are skipped.
-    """
-    stem = Path(name).stem
-    matches = (
-        path
-        for root in search_path
-        for path in Path(root).rglob("*.cdy")
-        if path.stem == stem and "tmp" not in path.relative_to(root).parts
-    )
-    return next(matches, None)
-
-
-def get_path(name: str, search_path: Sequence[str]) -> Path:
-    """``name`` if it exists, otherwise the matching file under ``search_path``."""
-    given = Path(name)
-    found = given if given.exists() else find_path(name, search_path)
-    if found is None:
-        raise FileNotFoundError(f"can't find {name} (searched {', '.join(search_path)})")
-    return found
-
-
-def slurp(name: str) -> str:
-    """The whole text of a Candy file, found as ``get_path`` describes."""
-    return get_path(name, SEARCH_PATH).read_text(encoding="utf-8")
+def slurp(path: str) -> str:
+    """The whole text of the file at ``path``; one it can't read is a panic (spec/60-library.md,
+    library.errors)."""
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as err:
+        raise CandyFail(f"slurp: can't read {path}") from err
 
 
 def put_err(text: str) -> None:

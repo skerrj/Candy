@@ -81,5 +81,5 @@
 
 ;; Read this file itself: count its top-level forms and show the first one.
 (sig me (List Any))
-(def me (read-string (slurp "read_sexpr")))
+(def me (read-string (slurp "tst/cdy/read_sexpr.cdy")))
 (put (format "{(len me)} forms; first: {(at me 0)}"))

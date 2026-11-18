@@ -38,7 +38,7 @@ By kind, then priority.
 | [B46](B46-templates-not-hygienic.md) | Macro templates aren't hygienic across modules | leak | open | normal |
 | [B49](B49-opaque-host-types.md) | Host objects have no Candy type | leak | open | normal |
 | [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | open | normal |
-| [B54](B54-slurp-fallback.md) | `slurp` searches `src/`, `tst/` and `lib/` when a path is missing | leak | open | normal |
+| [B54](B54-slurp-fallback.md) | `slurp` searches `src/`, `tst/` and `lib/` when a path is missing | leak | review | normal |
 | [B22](B22-numbers-unbounded.md) | Overflow isn't checked, and a `Float` is 64 bits on Python | leak | open | low |
 | [B41](B41-macros-exec.md) | Macros run with Python's `exec` | leak | open | low |
 | [B43](B43-gensym-impure.md) | `gensym` is impure | leak | open | low |
@@ -81,7 +81,7 @@ By kind, then priority.
 |---|---|---|---|---|
 | [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | review | normal |
 | [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | review | normal |
-| [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | open | normal |
+| [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | review | normal |
 | [B204](B204-library-layers-step-6.md) | library-layers step 6: each built-in specified | task | open | normal |
 | [B205](B205-library-layers-step-7.md) | library-layers step 7: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
@@ -133,7 +133,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [expr.unit](../spec/40-expressions.md#expr.unit): [B9](B9-nil-redefinable.md)
 - [library.bounds](../spec/60-library.md#library.bounds): [B159](B159-string-helpers-negative-index.md), [B160](B160-python-errors-not-panics.md)
 - [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B54](B54-slurp-fallback.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B202](B202-library-layers-step-4.md), [B204](B204-library-layers-step-6.md), [B97](B97-library-per-target.md)
-- [library.errors](../spec/60-library.md#library.errors): [B203](B203-library-layers-step-5.md), [B160](B160-python-errors-not-panics.md)
+- [library.errors](../spec/60-library.md#library.errors): [B54](B54-slurp-fallback.md), [B203](B203-library-layers-step-5.md), [B160](B160-python-errors-not-panics.md)
 - [library.format](../spec/60-library.md#library.format): [B16](B16-format-hack.md), [B131](B131-errors-without-position.md)
 - [library.lists](../spec/60-library.md#library.lists): [B34](B34-no-collection.md), [B184](B184-empty-start-fails-mypy.md)
 - [library.map-acc](../spec/60-library.md#library.map-acc): [B184](B184-empty-start-fails-mypy.md)

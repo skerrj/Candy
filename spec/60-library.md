@@ -400,8 +400,9 @@ prelude Candy, over the built-ins `find-index` and `elem-index`, which give `-1`
 <a id="library.errors"></a>
 ## Errors
 
-**A panic is a bug,** *lasting*: `(fail msg)`, or an index out of range
-([[library.bounds]]). The program stops: it writes `candy: ` and the message to standard
+**A panic is a bug,** *lasting*: `(fail msg)`, an index out of range
+([[library.bounds]]), or a file `slurp` can't read (it reads the path it is given, with no
+search). The program stops: it writes `candy: ` and the message to standard
 error, and exits with 1, with or without `main` ([[programs.main]]). Candy can't catch a
 panic, and has no exceptions (a narrow catch for tools is [[B139]]). `fail`'s result is
 typed as anything, since it never returns, so it fits where any value does. The other
@@ -416,6 +417,13 @@ and stop with Python's traceback (*for now*: [[B160]]).
 ```
 ```expect-panic
 candy: half: 3 is odd
+```
+
+```candy panic
+(put (str-len (slurp "no/such/file.cdy")))
+```
+```expect-panic
+candy: slurp: can't read no/such/file.cdy
 ```
 
 **An expected failure is a value,** *lasting*: the prelude's `(deft (Result a e) (Ok ((v

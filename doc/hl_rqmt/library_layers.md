@@ -278,6 +278,12 @@ was. The rest is ordinary: one `boot/NN` per step that changes `bin`.
    replaced first. `system` has 78 built-ins left, not 83 (the count above was taken
    with `translator`'s five still in it). [[B32]] fixed; [[B49]] narrowed to the macros.
 5. **`slurp` without a search** ([[B54]]).
+   *Done (2026-11-17). As built:* `slurp` (`primitives.py`) reads the path it is given;
+   one it can't read is the panic "slurp: can't read path" (a `CandyFail`, so the
+   translator's driver says so too, `test_bin_driver`). `SEARCH_PATH`, `find_path` and
+   `get_path` are gone. Only `tst/cdy/read_sexpr.cdy` relied on the search, reading
+   itself as `read_sexpr`; it gives its path now. The rule: `library.errors`. The
+   translator is unchanged, so `bin` is too, and the step has no `boot` tag.
 6. **Each built-in specified:** a rule per group in `spec/60-library.md`, the index, and
    the test.
 7. **Docs:** CLAUDE.md, the epic's fifth branch *done in part*, `library.md`'s "What a
