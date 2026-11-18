@@ -1,7 +1,7 @@
 # B196: A type with the same name as a built-in type can't be shown
 
 kind: defect
-state: review
+state: done
 priority: low
 found: namespaces step 6, 2026-11-14
 fixed: library-layers, 2026-11-16
@@ -45,3 +45,4 @@ built-in's name can be it.
   (Map 1)
   ```
   ````
+- 2026-11-17, the owner: ticked in review.

@@ -1,7 +1,7 @@
 # B54: `slurp` searches `src/`, `tst/` and `lib/` when a path is missing
 
 kind: leak
-state: review
+state: done
 priority: normal
 found: macros, 2026-10-18
 fixed: library-layers, 2026-11-17
@@ -18,3 +18,4 @@ audit, `doc/hl_rqmt/tracking.md`).
 - 2026-11-17, Claude: fixed (library-layers step 5, [[B203]]): `slurp` reads the path it
   is given, and one it can't read is a panic, "slurp: can't read path"
   (`library.errors`).
+- 2026-11-17, the owner: ticked in review.

@@ -1,7 +1,7 @@
 # B204: library-layers step 6: each built-in specified
 
 kind: task
-state: review
+state: done
 priority: normal
 found: library-layers, 2026-11-15
 fixed: library-layers, 2026-11-17
@@ -18,3 +18,4 @@ Step 6 of `doc/hl_rqmt/library_layers.md`. A rule per group in `spec/60-library.
   `candy run` one (for `fail`). `isspace-at` is now bounds-checked. The reader no longer
   uses it, nor the prelude's `index-of` `elem-index`: the owner asked for those two and
   `is-digit` to go (2026-11-17), in the next commit, which this one's `bin` can read.
+- 2026-11-17, the owner: ticked in review.

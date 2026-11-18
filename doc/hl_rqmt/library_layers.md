@@ -1,7 +1,8 @@
 # The library's layers (HLD)
 
-**Status: accepted (2026-11-15), with the answers to its questions, as proposed (tasks
-[[B199]] to [[B205]]); proposed 2026-11-14, for branch `library-layers` (Question 1).
+**Status: done (2026-11-17), steps 1 to 7 (tag `library-layers`). Accepted 2026-11-15,
+with the answers to its questions, as proposed (tasks [[B199]] to [[B205]]); proposed
+2026-11-14, for branch `library-layers` (Question 1).
 Epic: `python_complete.md` (its fifth branch, `library`, the first half: the layering;
 the modules are the second). After tag `namespaces`.** The system revisited: the
 translator's built-ins out of every program's sight, what is Python's or unused dropped,
@@ -314,6 +315,46 @@ was. The rest is ordinary: one `boot/NN` per step that changes `bin`.
    costs (Question 1), also `stdlib`'s.
 7. **Docs:** CLAUDE.md, the epic's fifth branch *done in part*, `library.md`'s "What a
    program sees", `multi_target.md`; "Looking back".
+   *Done (2026-11-17). As built:* CLAUDE.md's history (the branch), "Modules"
+   (`import`'s library lookup, `(import system)` an error), "The library" (`slurp`, each
+   built-in specified) and the spec's checks; `python_complete.md`'s fifth branch *done
+   in part*, the second half `stdlib`'s, and its triage's [[B108]], [[B49]], [[B50]],
+   [[B32]] and [[B54]] rows; *done in part* notes in `library.md`'s "What a program
+   sees" and `multi_target.md` (declaration modules, the mechanism for a target's own
+   built-ins). The spec's rules came with their steps.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **What the last `bin` needs is found by running it, not by reasoning.** The HLD's
+  Bootstrap section was wrong three times. Step 2, as two commits, was to need no
+  staging; 2a needed `old-library`, since its `system.cdy` no longer declares the five
+  `boot/77`'s source calls, and 2b too, since `boot/78` reads macro code's `form.cdy` as
+  it is, and 2b's has an import. Step 4 was to be staged, the last `bin` checking its
+  `system.cdy` against the runtime; but the chain runs it next to the step's own library,
+  which agrees with the step's runtime, so it needed nothing. What did need care was a
+  primitive the last `bin`'s own Python calls: dropping `isspace-at` broke it, so the
+  reader came off it in one commit and the drop came in the next.
+  `test_newest_step_reads_the_library` and `bootstrap.py --step` found each case before
+  the tag, not after.
+- **A module of built-ins isn't an import.** Importing `system` as a module would have
+  made an import's `len` clash with the built-in, against the shadowing rule; adding
+  `system.name` as qualified entries only, with the unqualified built-ins still the last
+  meaning, gave `system.len` and changed nothing else.
+- **One value meaning two things hides a defect.** `""` was both a built-in type's module
+  and macro code's; giving the first its own, `system` (step 3), was all [[B196]] needed:
+  `show` could tell a program's `Map` from the built-in. The second meaning stays, for
+  `host-macros` ([[B197]]).
+- **Specifying each built-in is a review of it.** Writing each one's type and edges
+  (step 6) found `isspace-at` unchecked, `is-digit` a twin of `is-decimal` with Python's
+  idea of a digit, and `elem-index` writable over `find-index`: three more dropped,
+  after step 4's 11. It also listed where a built-in still stops with Python's error
+  ([[B160]]), each now in its rule.
+- **The last `bin` as an oracle, again.** Each step compared the Python it writes, for
+  every program and example, with the previous `boot` tag's: the differences were
+  `show`'s type names (step 3), `import re` (step 4) and `index-of`'s line (step 6), so
+  no step's output had to be read. The build stayed at about 1.0 s.
 
 ## Questions
 
@@ -358,6 +399,9 @@ was. The rest is ordinary: one `boot/NN` per step that changes `bin`.
    both implicit,** *for now*, re-export when the standard library shows it is needed
    (a new idea item).
    *Answer (2026-11-15, the owner): both implicit,* *for now* ([[B198]], new: re-export).
+   *Revised (2026-11-17, the owner): both implicit,* *lasting*: re-export dropped
+   ([[B198]]). `system` is the interface itself; a target's own built-ins go to its
+   extension.
 7. **The prelude's costs** ([[B66]], [[B68]], [[B62]]): measured in step 1 and fixed in
    the second branch (proposed: its modules make them grow, and its HLD can weigh them
    against them); or fixed here? **Proposed: measured here, fixed there.**

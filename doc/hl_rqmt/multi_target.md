@@ -111,6 +111,15 @@ declarations both ways. A second target needs its own spelling table and runtime
 *Renamed on branch `runtime-names`* (`doc/hl_rqmt/runtime_names.md`): `table.py` is
 `spelling.py`, `table_defs.py` is `primitives.py`, and `initial-table` is `py-spellings`.
 
+*Taken further on branch `library-layers`* (`doc/hl_rqmt/library_layers.md`): a
+*declaration module* is a library module of bodiless `sig`s that declares built-ins its
+runtime defines, always found in the library; `system.cdy` is one, which every file
+imports implicitly, and `translator.cdy` another, which only the translator's files (and
+macro code) import. The spelling check runs across them all. So a target's own
+built-ins can be a declaration module of their own, a target extension (`py`, one more
+in `DECLARATION_MODULES`, `include.cdy`), which a program imports by name: the mechanism
+for question 1's per-target files, not yet the layout.
+
 The open questions below are still open: there is one `system.cdy`, for Python.
 
 ### Open: abstracting `system.cdy` while allowing specifics

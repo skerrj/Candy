@@ -1,7 +1,7 @@
 # B201: library-layers step 3: the system, a module
 
 kind: task
-state: review
+state: done
 priority: normal
 found: library-layers, 2026-11-15
 fixed: library-layers, 2026-11-16
@@ -15,3 +15,4 @@ Step 3 of `doc/hl_rqmt/library_layers.md`. `system` imported implicitly by every
 - 2026-11-15, Claude: filed on the HLD's acceptance (the owner, 2026-11-15).
 - 2026-11-16, Claude: built (the HLD's step 3, "Done"); [[B196]] to review, [[B197]]'s
   first half done.
+- 2026-11-17, the owner: ticked in review.
