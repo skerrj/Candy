@@ -366,7 +366,16 @@ brackets:
 5. **`library`** (perhaps two branches: the layering first, then the modules): the
    system revisited, each built-in specified; the prelude trimmed, the standard
    library's first modules, the I/O refactor, the target-extension mechanism and the
-   `py` extension; the `test` module. (L)
+   `py` extension; the `test` module. (L) *Done in part (tag `library-layers`,
+   2026-11-17; `library_layers.md`), the first half, the layering:* a library module
+   found by name; declaration modules, and the translator's five built-ins in one,
+   `translator.cdy`, seen only by its importers ([[B50]]); the built-ins a module,
+   `system` (`system.name`; a built-in type's module `system` in Core, [[B197]]'s first
+   half, which fixed [[B196]]); 14 built-ins dropped, Python's (the regexes, [[B32]]) or
+   unused, 75 left, none typed `Any` ([[B49]] narrowed to the macros); each built-in
+   specified, `library.builtins` the index; `slurp` without a search ([[B54]]). The
+   second half, `stdlib`, has the rest: the prelude trimmed, the standard library's
+   modules, the I/O refactor, target extensions and `py`, `test` ([[B108]]).
 6. **`interpreter`:** the interpreter over typed Core, written once against the
    language as the branches before it leave it; the spec runs on both, and a
    difference is a gap in the spec or a bug in one of them. (S, checked)
@@ -579,15 +588,15 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
 | [[B40]] types and values share a namespace | S | `namespaces` (kept, a rule) |
 | [[B47]] only `(import m)` | L | `namespaces` (done) |
-| [[B108]] one flat namespace | L | `namespaces` (qualified names), `library` (the modules) |
+| [[B108]] one flat namespace | L | `namespaces` (qualified names), `library-layers` (`system` a module), `stdlib` (the modules) |
 | [[B65]] tests reach internals by Python names | X | `namespaces` (done) |
 | [[B11]] a variant named like a macro | D | `namespaces` (done) |
-| [[B49]] host objects untyped | T | `library` (the `py` extension) |
+| [[B49]] host objects untyped | T | `library-layers` (narrowed to the macros), `host-macros` or the `py` extension |
 | [[B51]] `with-default` is a built-in | L | `library` |
-| [[B50]] the translator's host built-ins | L | `library` |
+| [[B50]] the translator's host built-ins | L | `library-layers` (done) |
 | [[B95]] the I/O refactor | L | `library` |
-| [[B32]] regexes are Python's | L | `library` (the `py` extension) |
-| [[B54]] `slurp`'s search | L | `library` |
+| [[B32]] regexes are Python's | L | `library-layers` (done: dropped) |
+| [[B54]] `slurp`'s search | L | `library-layers` (done) |
 | [[B68]] the whole prelude in every program | L | `library` |
 | [[B66]] the built-ins read every time | L | `library` |
 | [[B62]] every module compiles the prelude's macros | L | `library` |

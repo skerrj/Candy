@@ -1,6 +1,6 @@
 ;;; Include: reading a program's files. A program is modules (doc/hl_rqmt/modules.md):
 ;;; `(import name)` at top level imports `name.cdy`, found in the importing file's
-;;; directory (`(import name (a b))` too, its names listed; its shape is special.cdy's), and read-modules returns each module after those it imports. A cycle is an
+;;; directory, or else in the library's, next to the translator (`(import name (a b))` too, its names listed; its shape is special.cdy's), and read-modules returns each module after those it imports. A cycle is an
 ;;; error. Every file but the prelude itself also imports the prelude (prelude.cdy, next to
 ;;; the translator). `(import-macros name)` stays, with `name.cdy`'s path in place of the name, for
 ;;; expand.cdy to load.
@@ -12,6 +12,7 @@
 (import form)
 (import read)
 (import syntax)
+(import translator)
 
 ;; --- modules ---
 
@@ -48,18 +49,24 @@
       (++ (get inner done)
          (List (Module path key (path-stem path) (other-forms forms dir) (imp-list imports)))))))
 
-;; The prelude, as an import of the module `key`, unless it is the prelude.
+;; The prelude, as an import of the module `key`, unless it is the prelude or a declaration
+;; module.
 (sig prelude-module (Fn (String) (List (Tup String Imp))))
 (defn prelude-module (key)
   (let ((path (library-path "prelude.cdy"))
         (prelude (path-resolve path)))
-    (if (= prelude key) empty-list (List (Tup path (Imp prelude NOWHERE None))))))
+    (if (or (= prelude key) (is-declaration key)) empty-list (List (Tup path (Imp prelude NOWHERE None))))))
 
-;; The path of the library file `name` (form.cdy, special.cdy, system.cdy, the prelude and its macros), which
-;; is kept next to the translator (in bin/py/; py_cdy/self_host.py copies the library there).
+;; The library's directory: the translator's own (bin/py/; py_cdy/self_host.py copies the
+;; library there).
+(sig library-dir (Fn (Unit) String))
+(defn library-dir (_) (module-dir sym-name))
+
+;; The path of the library file `name` (form.cdy, special.cdy, system.cdy, the prelude and
+;; its macros), which is kept next to the translator.
 (sig library-path (Fn (String) String))
 (defn library-path (name)
-  (let ((dir (module-dir sym-name))
+  (let ((dir (library-dir nil))
         (path (path-join dir name)))
     (if (file-exists path)
       path
@@ -155,16 +162,23 @@
         (path-dir path)
         (assoc acc seen (map-set (get acc seen) key true))))))
 
-;; `forms`, whose imports are found in directory `dir`.
+;; `forms`, whose imports are found in directory `dir`. An import of a declaration module
+;; adds nothing: macro code imports translator implicitly (cdyc.cdy, macro-imports).
 (sig include-forms (Fn ((List Form) String Incl) Incl))
 (defn include-forms (forms dir start)
   (fold
     (fn (acc form)
-      (if (is-import form)
-        (include-file (import-path "import" dir (included-name form) (form-pos form)) acc)
-        (assoc acc done (++ (get acc done) (List (macro-import form dir))))))
+      (cond
+        ((not (is-import form)) (assoc acc done (++ (get acc done) (List (macro-import form dir)))))
+        ((contains (imported-name form) DECLARATION_MODULES) acc)
+        (else (include-file (import-path "import" dir (included-name form) (form-pos form)) acc))))
     start
     forms))
+
+;; The module the import `form` names.
+(sig imported-name (Fn (Form) String))
+(defn imported-name (form)
+  (let (((name _only) (import-parts (import-shape nil) form))) name))
 
 ;; (import-macros name) as (import-macros "path"), with `name.cdy` found in directory
 ;; `dir`; any other form as it is.
@@ -209,11 +223,36 @@
       ((None) name)
       (else (fail (++ (pos-text (form-pos form)) "import: a macro file's import includes the whole file, so it lists no names"))))))
 
-;; The path of `name.cdy` in directory `dir`, imported at `pos` by `what` (import or
-;; import-macros).
+;; The library's declaration modules (doc/hl_rqmt/library_layers.md): each declares built-ins
+;; the runtime defines, with bodiless sigs, and is always the library's, as what the
+;; translator reads itself is. system.cdy is one too, but every file imports it
+;; implicitly, only qualified (core.cdy, with-system), so it isn't listed.
+(sig DECLARATION_MODULES (List String))
+(def DECLARATION_MODULES (List "translator"))
+
+;; Whether the module whose key is `key` is a declaration module, the library's.
+(sig is-declaration (Fn (String) Bool))
+(defn is-declaration (key)
+  (any (fn (name) (= key (path-resolve (library-path (++ name ".cdy"))))) DECLARATION_MODULES))
+
+;; The library's files that aren't modules: the translator reads them itself.
+(sig NOT_MODULES (List String))
+(def NOT_MODULES (List "special" "prelude_macros"))
+
+;; The path of `name.cdy`, imported at `pos` by `what` (import or import-macros): in
+;; directory `dir`, or else in the library's (programs.import); a declaration module's is
+;; always the library's. No import names `system`, which every file imports implicitly.
 (sig import-path (Fn (String String String Pos) String))
 (defn import-path (what dir name pos)
-  (let ((path (path-join dir (++ name ".cdy"))))
-    (if (file-exists path)
-      path
-      (fail (format "{(pos-text pos)}{what}: can't find {name}.cdy in {dir}")))))
+  (let ((file (++ name ".cdy"))
+        (path (path-join dir file))
+        (lib (path-join (library-dir nil) file)))
+    (cond
+      ((= (path-stem name) "system")
+        (fail (format "{(pos-text pos)}{what}: every file imports system, implicitly")))
+      ((contains name DECLARATION_MODULES) (library-path file))
+      ((file-exists path) path)
+      ((contains name NOT_MODULES)
+        (fail (format "{(pos-text pos)}{what}: {name} is the translator's, not a module")))
+      ((file-exists lib) lib)
+      (else (fail (format "{(pos-text pos)}{what}: can't find {file} in {dir} or the library"))))))

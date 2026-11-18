@@ -14,12 +14,9 @@ from cdy_rt.primitives import (
     call_macro,
     fail,
     file_exists,
-    file_put_lines,
     fresh_name,
     hex_char,
-    is_coll,
     is_decimal,
-    is_neg_int,
     join,
     list_filter,
     list_fold,
@@ -44,6 +41,7 @@ from cdy_rt.primitives import (
     show,
     show_any,
     slice_,
+    slurp,
     spit,
     stop_on_panic,
     str_contains,
@@ -59,7 +57,6 @@ def test_collections() -> None:
     assert len(slice_(nums, 4, 4)) == 0
     assert slice_("candy", 1, 3) == "an"
     assert join(("a", "b"), ", ") == "a, b"
-    assert is_coll((1,)) and is_coll([1]) and not is_coll("ab")
     assert str_contains("b", "abc") and not str_contains("abd", "abc")
 
 
@@ -80,9 +77,6 @@ def test_bounds(index: Callable[[], object], message: str) -> None:
 
 
 def test_strings() -> None:
-    assert is_neg_int("x-3", 1)
-    assert not is_neg_int("x-", 1)
-    assert not is_neg_int("-", 0)
     assert replace("a-a", "a", "b") == "b-a"
     assert to_float("-1.5") == -1.5
     assert is_decimal("09") and not is_decimal("") and not is_decimal("\u00b2")
@@ -93,8 +87,9 @@ def test_files(tmp_path: Path) -> None:
     out = tmp_path / "o.txt"
     spit(str(out), "hi")
     assert out.read_text(encoding="utf-8") == "hi"
-    file_put_lines(str(out), ("a\n", "b\n"))
-    assert out.read_text(encoding="utf-8") == "a\nb\n"
+    assert slurp(str(out)) == "hi"
+    with pytest.raises(CandyFail, match="slurp: can't read o.txt"):
+        slurp("o.txt")  # the given path only, not searched for
     assert file_exists(str(out)) and not file_exists(str(tmp_path))
     assert path_dir(path_join(str(tmp_path), "o.txt")) == str(tmp_path)
     assert path_resolve(path_join(str(tmp_path / "x"), "../o.txt")) == str(out.resolve())

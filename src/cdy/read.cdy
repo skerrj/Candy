@@ -68,7 +68,7 @@
 (defn skip (text pos)
   (cond
     ((>= pos (str-len text)) pos)
-    ((isspace-at text pos) (skip text (+ pos 1)))
+    ((isspace (char-text text pos)) (skip text (+ pos 1)))
     ((= (char-at text pos) \;) (skip text (line-end text pos)))
     (else pos)))
 
@@ -79,7 +79,7 @@
 ;; Whether a literal may end just before `pos`: at the end, whitespace, a paren or a `;`.
 (sig ends-at (Fn (String Int) Bool))
 (defn ends-at (text pos)
-  (or (>= pos (str-len text)) (isspace-at text pos) (str-contains (char-text text pos) "();")))
+  (or (>= pos (str-len text)) (isspace (char-text text pos)) (str-contains (char-text text pos) "();")))
 
 (sig word-end (Fn (String Int) Int))
 (defn word-end (text pos) (if (ends-at text pos) pos (word-end text (+ pos 1))))
@@ -115,7 +115,7 @@
 ;; A char literal: `\` and one character that isn't whitespace, then a delimiter.
 (sig read-char (Fn (Source String Int) (Tup Form Int)))
 (defn read-char (src text pos)
-  (if (and (< (+ pos 1) (str-len text)) (not (isspace-at text (+ pos 1))) (ends-at text (+ pos 2)))
+  (if (and (< (+ pos 1) (str-len text)) (not (isspace (char-text text (+ pos 1)))) (ends-at text (+ pos 2)))
     (Tup (CharLit (char-at text (+ pos 1)) (pos-at src pos)) (+ pos 2))
     (fail (parse-error src text pos "a char is \\ and one character, then a delimiter"))))
 
@@ -145,7 +145,7 @@
 ;; A symbol runs up to a delimiter, `'`, `"` or `\`.
 (sig symbol-end (Fn (String Int) Int))
 (defn symbol-end (text pos)
-  (if (or (>= pos (str-len text)) (isspace-at text pos) (str-contains (char-text text pos) "()'\";\\"))
+  (if (or (>= pos (str-len text)) (isspace (char-text text pos)) (str-contains (char-text text pos) "()'\";\\"))
     pos
     (symbol-end text (+ pos 1))))
 

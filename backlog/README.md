@@ -21,7 +21,6 @@ By kind, then priority.
 | [B9](B9-nil-redefinable.md) | `nil` can be defined | defect | open | low |
 | [B13](B13-long-cond-value.md) | A `cond` of about 200 clauses, used as a value, doesn't compile | defect | open | low |
 | [B131](B131-errors-without-position.md) | Python-name errors have no position, and a format hole's column can be off | defect | open | low |
-| [B196](B196-type-shadowing-builtin-show.md) | A type with the same name as a built-in type can't be shown | defect | open | low |
 
 ### leak
 
@@ -38,13 +37,10 @@ By kind, then priority.
 | [B46](B46-templates-not-hygienic.md) | Macro templates aren't hygienic across modules | leak | open | normal |
 | [B49](B49-opaque-host-types.md) | Host objects have no Candy type | leak | open | normal |
 | [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | open | normal |
-| [B54](B54-slurp-fallback.md) | `slurp` searches `src/`, `tst/` and `lib/` when a path is missing | leak | open | normal |
 | [B22](B22-numbers-unbounded.md) | Overflow isn't checked, and a `Float` is 64 bits on Python | leak | open | low |
-| [B32](B32-regexes-python.md) | Regexes are Python's | leak | open | low |
 | [B41](B41-macros-exec.md) | Macros run with Python's `exec` | leak | open | low |
 | [B43](B43-gensym-impure.md) | `gensym` is impure | leak | open | low |
 | [B44](B44-macro-cant-make-import.md) | A macro can't expand into `import`, `import-macros` or `defmacro` | leak | open | low |
-| [B50](B50-translator-builtins-shared.md) | The translator's five host built-ins are every program's | leak | open | low |
 | [B113](B113-field-leading-underscore.md) | A field can't start with `_`, because Python's `NamedTuple` can't | leak | open | low |
 | [B114](B114-field-tuple-method.md) | A field named like a tuple method fails mypy | leak | open | low |
 | [B134](B134-one-type-error-at-a-time.md) | Translation stops at the first type error | leak | open | low |
@@ -81,13 +77,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B199](B199-library-layers-step-1.md) | library-layers step 1: A library module, found by name | task | open | normal |
-| [B200](B200-library-layers-step-2.md) | library-layers step 2: declaration modules, and `host.cdy` | task | open | normal |
-| [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | open | normal |
-| [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | open | normal |
-| [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | open | normal |
-| [B204](B204-library-layers-step-6.md) | library-layers step 6: each built-in specified | task | open | normal |
-| [B205](B205-library-layers-step-7.md) | library-layers step 7: docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -115,13 +104,12 @@ By kind, then priority.
 | [B170](B170-bracket-list-literal.md) | Brackets for a list literal | idea | open | low |
 | [B176](B176-host-records.md) | Host records: a built-in type with fields | idea | open | low |
 | [B197](B197-builtins-module.md) | The built-ins' module, and macro code's | idea | open | low |
-| [B198](B198-reexport.md) | Re-export, so a program can see only the prelude | idea | open | low |
 
 ## By rule
 
 The open items, by the ids in their refs (spec rules, and sections of other docs).
 
-- [checking.any](../spec/25-checking.md#checking.any): [B133](B133-let-polymorphism.md)
+- [checking.any](../spec/25-checking.md#checking.any): [B49](B49-opaque-host-types.md), [B133](B133-let-polymorphism.md)
 - [checking.calls](../spec/25-checking.md#checking.calls): [B134](B134-one-type-error-at-a-time.md)
 - [checking.if](../spec/25-checking.md#checking.if): [B156](B156-macro-errors-name-expansion.md)
 - [checking.locals](../spec/25-checking.md#checking.locals): [B133](B133-let-polymorphism.md)
@@ -136,13 +124,13 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [expr.tail-calls](../spec/40-expressions.md#expr.tail-calls): [B37](B37-self-tail-calls-only.md), [B98](B98-trampolines.md)
 - [expr.unit](../spec/40-expressions.md#expr.unit): [B9](B9-nil-redefinable.md)
 - [library.bounds](../spec/60-library.md#library.bounds): [B159](B159-string-helpers-negative-index.md), [B160](B160-python-errors-not-panics.md)
-- [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B54](B54-slurp-fallback.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B200](B200-library-layers-step-2.md), [B202](B202-library-layers-step-4.md), [B204](B204-library-layers-step-6.md), [B50](B50-translator-builtins-shared.md), [B97](B97-library-per-target.md)
-- [library.errors](../spec/60-library.md#library.errors): [B203](B203-library-layers-step-5.md), [B160](B160-python-errors-not-panics.md)
+- [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B97](B97-library-per-target.md)
+- [library.errors](../spec/60-library.md#library.errors): [B160](B160-python-errors-not-panics.md)
 - [library.format](../spec/60-library.md#library.format): [B16](B16-format-hack.md), [B131](B131-errors-without-position.md)
 - [library.lists](../spec/60-library.md#library.lists): [B34](B34-no-collection.md), [B184](B184-empty-start-fails-mypy.md)
 - [library.map-acc](../spec/60-library.md#library.map-acc): [B184](B184-empty-start-fails-mypy.md)
-- [library.show](../spec/60-library.md#library.show): [B158](B158-float-infinity-nan.md), [B196](B196-type-shadowing-builtin-show.md)
-- [library.strings](../spec/60-library.md#library.strings): [B34](B34-no-collection.md), [B49](B49-opaque-host-types.md), [B32](B32-regexes-python.md)
+- [library.show](../spec/60-library.md#library.show): [B158](B158-float-infinity-nan.md)
+- [library.strings](../spec/60-library.md#library.strings): [B34](B34-no-collection.md)
 - [macros.cond](../spec/50-macros.md#macros.cond): [B13](B13-long-cond-value.md), [B156](B156-macro-errors-name-expansion.md)
 - [macros.defmacro](../spec/50-macros.md#macros.defmacro): [B42](B42-macro-result-unchecked.md), [B41](B41-macros-exec.md), [B44](B44-macro-cant-make-import.md)
 - [macros.gensym](../spec/50-macros.md#macros.gensym): [B43](B43-gensym-impure.md)
@@ -153,11 +141,9 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [match.form](../spec/30-match.md#match.form): [B56](B56-match-temporary.md), [B55](B55-match-isinstance.md)
 - [match.sum-types](../spec/30-match.md#match.sum-types): [B29](B29-records-are-tuples.md), [B136](B136-patterns-without-every-field.md)
 - [match.tup](../spec/30-match.md#match.tup): [B17](B17-tup-destructuring.md)
-- [programs.import](../spec/10-programs.md#programs.import): [B108](B108-flat-builtins.md), [B187](B187-alias.md), [B199](B199-library-layers-step-1.md), [B44](B44-macro-cant-make-import.md), [B198](B198-reexport.md)
+- [programs.import](../spec/10-programs.md#programs.import): [B108](B108-flat-builtins.md), [B187](B187-alias.md), [B44](B44-macro-cant-make-import.md)
 - [programs.prelude](../spec/10-programs.md#programs.prelude): [B52](B52-macro-code-no-prelude.md), [B68](B68-whole-prelude.md)
 - [programs.qualified](../spec/10-programs.md#programs.qualified): [B195](B195-field-syntax-dot.md), [B197](B197-builtins-module.md)
-- [programs.sees](../spec/10-programs.md#programs.sees): [B201](B201-library-layers-step-3.md), [B198](B198-reexport.md)
-- [programs.shadowing](../spec/10-programs.md#programs.shadowing): [B201](B201-library-layers-step-3.md), [B196](B196-type-shadowing-builtin-show.md)
 - [syntax.comments](../spec/00-syntax.md#syntax.comments): [B94](B94-doc-strings.md)
 - [syntax.literals](../spec/00-syntax.md#syntax.literals): [B9](B9-nil-redefinable.md)
 - [syntax.names](../spec/00-syntax.md#syntax.names): [B195](B195-field-syntax-dot.md)
@@ -194,6 +180,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B28](B28-char-is-str.md) | A `Char` is a one-character `str` | leak | done | low |
 | [B30](B30-get-assoc-unchecked.md) | `get` and `assoc` field names are checked by mypy, not Candy | leak | done | normal |
 | [B31](B31-value-before-def.md) | A top-level value used before its `def` fails at run time | leak | done | normal |
+| [B32](B32-regexes-python.md) | Regexes are Python's | leak | done | low |
 | [B33](B33-no-unary-minus.md) | No unary minus | leak | kept | normal |
 | [B35](B35-at-slice-python.md) | `at` and `slice` behave as Python's subscripts | leak | done | normal |
 | [B36](B36-values-print-as-python.md) | Values print as Python shows them | leak | done | high |
@@ -202,8 +189,10 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B40](B40-one-namespace.md) | Types and values share one namespace | leak | kept | low |
 | [B47](B47-imports-unqualified.md) | Only `(import m)`, everything unqualified | leak | done | normal |
 | [B48](B48-operators-no-type.md) | Operators, `tup` and `put` have no Candy type | leak | done | normal |
+| [B50](B50-translator-builtins-shared.md) | The translator's five host built-ins are every program's | leak | done | low |
 | [B51](B51-with-default-builtin.md) | `with-default` is a built-in, not prelude | leak | done | normal |
 | [B53](B53-unimported-type.md) | A type from a module the file doesn't import isn't caught | leak | done | normal |
+| [B54](B54-slurp-fallback.md) | `slurp` searches `src/`, `tst/` and `lib/` when a path is missing | leak | done | normal |
 | [B59](B59-positions-symbols-lists.md) | Only symbols and lists carry positions | tech-debt | done | normal |
 | [B65](B65-internals-prefixed.md) | Tests reach translator internals by prefixed Python names | tech-debt | done | normal |
 | [B67](B67-builtin-types-unused.md) | The built-ins' types are read but not used | tech-debt | done | low |
@@ -296,3 +285,12 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B192](B192-namespaces-step-5.md) | namespaces step 5: the rules written down | task | done | normal |
 | [B193](B193-namespaces-step-6.md) | namespaces step 6: the module in Core | task | done | normal |
 | [B194](B194-namespaces-step-7.md) | namespaces step 7: docs | task | done | normal |
+| [B196](B196-type-shadowing-builtin-show.md) | A type with the same name as a built-in type can't be shown | defect | done | low |
+| [B198](B198-reexport.md) | Re-export, so a program can see only the prelude | idea | dropped | low |
+| [B199](B199-library-layers-step-1.md) | library-layers step 1: A library module, found by name | task | done | normal |
+| [B200](B200-library-layers-step-2.md) | library-layers step 2: declaration modules, and `translator.cdy` | task | done | normal |
+| [B201](B201-library-layers-step-3.md) | library-layers step 3: the system, a module | task | done | normal |
+| [B202](B202-library-layers-step-4.md) | library-layers step 4: the system, revisited | task | done | normal |
+| [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | done | normal |
+| [B204](B204-library-layers-step-6.md) | library-layers step 6: each built-in specified | task | done | normal |
+| [B205](B205-library-layers-step-7.md) | library-layers step 7: docs | task | done | normal |

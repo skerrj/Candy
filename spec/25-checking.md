@@ -151,7 +151,7 @@ compare its arguments; inside its body, a `number` is one unknown number type, s
 isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
 
 `equatable` is what `=` and `!=` take ([[expr.equality]]), and the built-ins that compare
-(`contains`, `elem-index`, the prelude's `index-of`): a function, a list of them, or a
+(`contains`, the prelude's `index-of`): a function, a list of them, or a
 record or variant with one among its fields is no `equatable`. A generic function that
 compares its arguments says so in its `sig`; an ordinary type variable, which takes any
 type, can't be compared. Every other constraint's types are `equatable` but
@@ -433,9 +433,8 @@ gives the value or a fallback. A `(Maybe (Maybe t))` is two layers, `(Some None)
 ## Any
 
 `Any` matches every type, both ways, and nothing passing through it is checked (*for
-now*: [[B18]]). The built-ins Candy can't type yet are `Any`: `is-coll` and `is-str`
-(for forms read as `Any`, [[B79]]), the regular expressions' results, and four of the
-translator's host built-ins.
+now*: [[B18]]). The built-ins Candy can't type yet are `Any`: three of `translator`'s,
+which take or give a host function, such as a macro ([[B49]]).
 
 `Any` binds no type variable it meets, so a later use can still solve it; one that met
 `Any` and nothing else is `Any` once its definition is checked, as gradual inference

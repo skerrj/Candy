@@ -40,8 +40,10 @@ unless: yes
 <a id="macros.macro-code"></a>
 A macro's body is **macro code**: it can use the built-ins, `Form` with its helpers
 (`form.cdy`: `sym-name`, `list-items`, `rest-of`, `gensym`, and the variants, such as
-`Sym` and `Txt`), and the helpers of the macro files it imports; not the program's own
-definitions, and not the prelude (*for now*: [[B52]]). Macro code isn't type-checked,
+`Sym` and `Txt`), the helpers of the macro files it imports, and the translator's
+built-ins, since it imports `translator` implicitly (`gensym` calls `fresh-name`;
+[[programs.import]]); not the program's own definitions, and not the prelude (*for now*:
+[[B52]]). Macro code isn't type-checked,
 by Candy or by mypy (*for now*: [[B42]]).
 
 ```candy run
@@ -165,7 +167,7 @@ The examples need a second file, so they are `tst/cdy/cdyc/macro_files.cdy` and
 
 ```candy errors
 (import-macros) => import-macros: expected (import-macros name)
-(import-macros nope) => import-macros: can't find nope.cdy in .
+(import-macros nope) => import-macros: can't find nope.cdy in . or the library
 (put (import-macros m)) => import-macros is only allowed at top level
 ```
 

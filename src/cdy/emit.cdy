@@ -49,7 +49,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 
 ;; The modules every generated file imports: those spelling.py's spellings refer to.
 (sig PY_IMPORTS (List String))
-(def PY_IMPORTS (List "math" "re" "cdy_rt.spelling" "cdy_rt.primitives"))
+(def PY_IMPORTS (List "math" "cdy_rt.spelling" "cdy_rt.primitives"))
 
 ;; The names `names` as a set (each mapped to true).
 (sig name-set (Fn ((List String)) (Map String Bool)))
@@ -91,7 +91,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     "pass" "pow" "print" "property" "quit" "raise" "range" "repr" "return" "reversed"
     "round" "set" "setattr" "slice" "sorted" "staticmethod" "str" "sum" "super" "try"
     "tuple" "type" "vars" "while" "with" "yield" "zip")
-      (List "math" "re" "cdy_rt"))))
+      (List "math" "cdy_rt"))))
 
 ;; The characters py-mangle spells as letters.
 (sig MANGLED (Map String String))
@@ -403,7 +403,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ;; typed Any shown from its Python value (cdy_rt's text_any).
 (sig text-of (Fn (String CType Pos Env) String))
 (defn text-of (x t pos env)
-  (let ((name (match t ((TCon m name _) (if (= m "") name "")) (else ""))))
+  (let ((name (match t ((TCon m name _) (if (= m SYSTEM) name "")) (else ""))))
     (cond
       ((contains name (List "String" "Char")) x)
       ((= name "Int") (format "str({x})"))
@@ -422,7 +422,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
   (match t
     ((TCon m name args)
       (let ((key (global-key m name))
-            (shown (py-str (spelled m name env))))
+            (shown (py-str (show-name m name))))
         (cond
           ((holds-fn key env (List key))
             (fail (++ (pos-text pos) (format "show: a function can't be shown, and {name} holds one"))))
@@ -432,6 +432,13 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     ((TVar name)
       (let ((shown (if (starts-with name "?") (++ "t" (substring name 1 (str-len name))) name)))
         (fail (++ (pos-text pos) (format "show: can't show a value of type {shown}, a type variable")))))))
+
+;; The name of module `m`'s type `name` as cdy_rt's show reads it: a built-in's its own
+;; (`Map`), which show knows; a program's with its module (`main.Map`, or `.Map` in a
+;; module with no stem, text's or macro code's), which no built-in's can be, so show takes
+;; it for a record ([[B196]]).
+(sig show-name (Fn (String String) String))
+(defn show-name (m name) (if (= m SYSTEM) name (++ m (++ "." name))))
 
 ;; Whether the record or variant `name` (a key) has a field whose type is, or holds, a
 ;; function, or the sum `name` a variant that does; its type variables, which its
@@ -458,7 +465,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (defn field-show-type (t env)
   (match t
     ((TCon m name args)
-      (let ((shown (py-str (spelled m name env))))
+      (let ((shown (py-str (show-name m name))))
         (if (= (len args) 0)
           shown
           (format "({(comma-join (++ (List shown) (map (fn (a) (field-show-type a env)) args)))})"))))
@@ -557,7 +564,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     ((TFn params ret)
       (format "_cdy_Callable[[{(comma-join (emit-types params env))}], {(emit-type ret env)}]"))
     ((TCon m name args)
-      (if (= m "")
+      (if (= m SYSTEM)
         (emit-tcon name (emit-types args env) (get env spellings))
         (emit-tcon (spelled m name env) (emit-types args env) empty-map)))))
 

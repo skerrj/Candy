@@ -140,6 +140,14 @@ one is rewritten. One line per type is simpler:
 The few built-ins left for the translator (above) are visible to programs either way,
 until a declaration file can be imported (question 3).
 
+*Done in part (`library-layers`, 2026-11-17; `library_layers.md`):* A, as built, with the
+built-ins a module, `system`, every file importing it implicitly (so `system.len` is the
+built-in wherever a file's own `len` hides it); the translator's built-ins are in a
+declaration module, `translator.cdy`, that only its importers see. B is dropped (the
+owner, 2026-11-17; [[B198]]): `system.cdy` is the one interface for every target, its
+types Candy's and its spellings each target's, and what differs by target goes to a
+target extension, so no prelude re-exporting it is needed.
+
 ### A fuller library (question 5)
 
 Candidates, from what the translator and the test programs write by hand. By the revised

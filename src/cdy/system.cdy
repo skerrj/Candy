@@ -1,15 +1,15 @@
 ;;; System: the built-ins, declared (doc/hl_rqmt/system_prelude.md). Each bodiless sig
 ;;; gives a built-in its Candy type; the target's runtime provides it, and src/cdy_rt/spelling.py
 ;;; says how Python spells it. The translator checks the two against each other, and a
-;;; built-in's arity is its type's. Only here may a sig have no definition. Each bodiless
+;;; built-in's arity is its type's. Only here and in translator.cdy, the declaration modules,
+;;; may a sig have no definition. Each bodiless
 ;;; deft declares a built-in type, whose type variables say how many arguments it takes
 ;;; (doc/hl_rqmt/name_checks.md); `Fn` and `Tup` aren't here, since they take any number of
 ;;; type arguments.
 ;;;
-;;; Not here: the special forms, which special.cdy declares. `Any` marks a type Candy can't write yet: built-ins
-;;; that take any number of arguments, or work on lists, strings and maps alike (Collection,
-;;; later), or return Python objects with no Candy type. Each is a leak (backlog [[B48]],
-;;; [[B34]], [[B49]]).
+;;; Not here: the special forms, which special.cdy declares, and the built-ins only the
+;;; translator needs, which translator.cdy does. None of these is typed `Any`: a built-in that
+;;; works on lists, strings and maps alike is one per collection until interfaces ([[B34]]).
 ;;; This file is read as it is, so it can't use macros.
 
 ;; --- types ---
@@ -66,7 +66,6 @@
 
 ;; --- files ---
 (sig put-err (Fn (String) Unit))
-(sig file-put-lines (Fn (String (List String)) Unit))
 (sig slurp (Fn (String) String))
 (sig spit (Fn (String String) Unit))
 (sig file-exists (Fn (String) Bool))
@@ -76,18 +75,12 @@
 (sig path-join (Fn (String String) String))
 (sig path-resolve (Fn (String) String))
 
-;; --- regular expressions (Python's match and pattern objects) ---
-(sig re-search (Fn (String String) Any))
-(sig re-findall (Fn (String String) (List Any)))
-(sig re-compile (Fn (String) Any))
-
 ;; --- lists (a string's own operations are below; a tuple is taken apart by a pattern) ---
 (sig len (Fn ((List a)) Int))
 (sig empty-list (List a))
 (sig at (Fn ((List a) Int) a))
 (sig slice (Fn ((List a) Int Int) (List a)))
 (sig join (Fn ((List String) String) String))
-(sig is-coll (Fn (Any) Bool))
 ;; Writable in Candy, but built in for speed: Candy adds to a list by copying it.
 (sig map (Fn ((Fn (a) b) (List a)) (List b)))
 (sig filter (Fn ((Fn (a) Bool) (List a)) (List a)))
@@ -107,8 +100,6 @@
 (sig drop (Fn (Int (List a)) (List a)))
 (sig concat (Fn ((List (List a))) (List a)))
 (sig zip (Fn ((List a) (List b)) (List (Tup a b))))
-;; The index of the first item equal to `x`, or -1: the prelude's `index-of` is built on it.
-(sig elem-index (Fn (equatable (List equatable)) Int))
 (sig contains (Fn (equatable (List equatable)) Bool))
 
 ;; --- maps ---
@@ -126,7 +117,6 @@
 (sig substring (Fn (String Int Int) String))
 ;; Whether `part` is in `s`: (str-contains part s), as `contains` takes the list last.
 (sig str-contains (Fn (String String) Bool))
-(sig is-empty-str (Fn (String) Bool))
 (sig to-int (Fn (String) Int))
 (sig to-float (Fn (String) Double))
 (sig is-decimal (Fn (String) Bool))
@@ -136,25 +126,8 @@
 (sig ends-with (Fn (String String) Bool))
 (sig split (Fn (String String) (List String)))
 (sig repeat (Fn (String Int) String))
-(sig is-str (Fn (Any) Bool))
-(sig is-digit (Fn (String) Bool))
-(sig is-alpha (Fn (String) Bool))
-(sig is-neg-int (Fn (String Int) Bool))
-(sig strip (Fn (String String) String))
 (sig replace (Fn (String String String) String))
-(sig isspace-at (Fn (String Int) Bool))
 (sig isspace (Fn (String) Bool))
 
-;; --- the spellings, for the translator (each built-in's Python text and kind, and an
-;; operator's function as a value) ---
-(sig py-spellings (Map String (Tup String String String)))
-
-;; --- macros, for the translator (the macros are Python functions on Forms) ---
-(sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))
-(sig call-macro (Fn (Any (List Any) String) Any))
-(sig module-dir (Fn (Any) String))
-(sig fresh-name (Fn (String) String))
-
 ;; --- the program ---
-(sig SYS_ARGS (List String))
 (sig fail (Fn (String) a))

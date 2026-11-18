@@ -6,7 +6,7 @@ What a program is: its top-level forms, `main`, the prelude every file gets, `im
 (since `modules`), and qualified and private names (since `namespaces`). A program of
 several files can't be an example here (each example is one file), so the examples of
 `import` are the programs in `tst/cdy/cdyc/` (`imports`, `modules`, `qualified`,
-`import_list`, `private`); macro files and `import-macros` are in `50-macros.md`.
+`import_list`, `private`, `library_module`); macro files and `import-macros` are in `50-macros.md`.
 
 ```candy
 (import name)
@@ -69,17 +69,23 @@ name is both its type and its constructor.
 <a id="programs.sees"></a>
 **What every file sees**, unqualified and with no import, *lasting*: the special forms,
 the operators and the other built-ins (`system.cdy`), and the prelude's names
-([[programs.prelude]]). The built-ins have no qualifier (not `system.len`) until
-`library` splits them into modules ([[B108]]); the prelude's are `prelude.name` too. Its
+([[programs.prelude]]). The built-ins are `system.name` too (since `library-layers`):
+every file imports `system`, `system.cdy`, implicitly, but only qualified, so a built-in
+unqualified is the last a name can mean ([[programs.shadowing]]); a library of modules is
+`stdlib`'s ([[B108]]). The prelude's are `prelude.name` too. Its
 macros are its own: the file's `defmacro`s, those it loads with `import-macros`
 ([[macros.import-macros]]), and the prelude's (`cond`, `put`); `import` doesn't pass a
 module's macros on, and a macro has no qualified name.
 
 ```candy run
 (put (len (List 1 2)) (with-default 0 (Some 2)) (prelude.with-default 0 None))
+(sig n system.Int)
+(def n (system.len (List 1 2 3)))
+(put n (system.+ n 1))
 ```
 ```expect
 2 2 0
+3 4
 ```
 
 <a id="programs.shadowing"></a>
@@ -88,9 +94,10 @@ definition; an unqualified import's; a built-in or the prelude's, *lasting*. So 
 definition of a built-in's name (`(defn len ...)`) is its own, in that file only, and a
 local shadows everything ([[expr.let]]). A qualified name is never shadowed. A macro's
 expansion sees what its use sees, the file's own definitions too, so a file's own `text`
-is the one `put` calls (*for now*: [[B46]]). The translator's five host built-ins
-(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`) are every
-program's, *for now* ([[B50]]).
+is the one `put` calls (*for now*: [[B46]]). The translator's five built-ins
+(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`) are only a
+file's that imports `translator` ([[programs.import]]); macro code imports it
+implicitly ([[macros.macro-code]]).
 
 ```candy run
 (sig len (Fn (String) Int))
@@ -232,10 +239,19 @@ with it, as any two imports do ([[programs.import]]). Its names are also `prelud
 <a id="programs.import"></a>
 ## import (since `modules`)
 
-`(import name)` imports the module `name.cdy`, found in the importing file's directory;
-`name` may be a relative path (`lib/util`). Every name the module defines at top level
-(`def`, `defn`, and `deft` with its variants) becomes visible, unqualified, and as
-`m.name` too ([[programs.qualified]]); the names it imports don't.
+`(import name)` imports the module `name.cdy`, found in the importing file's directory,
+or else in the library's, next to the translator (since `library-layers`): a **library
+module**. A file of the program wins over a library module of the same name, *lasting*,
+so a new library module can't break a program. Two of the library's files aren't
+modules, `special` and `prelude_macros`: the translator reads them itself. A
+**declaration module** is a library module that declares built-ins, which the target
+defines, each with a bodiless `sig` (since `library-layers`): `translator`, which declares
+those only the translator needs, seen only by a file that imports it. It is
+always the library's, *lasting*: a program's file of that name isn't imported in its
+place, so a program can't replace a target's declarations. `name` may be
+a relative path (`lib/util`). Every name the module defines at top level (`def`, `defn`,
+and `deft` with its variants) becomes visible, unqualified, and as `m.name` too
+([[programs.qualified]]); the names it imports don't.
 
 `(import name (a b))` (since `namespaces`) makes only the names it lists unqualified; the
 module's other names are reached as `m.name` ("b: the import of m doesn't list it: write
@@ -244,7 +260,8 @@ module defines ("import: m doesn't define c"), listed once. The two forms are `i
 shape, declared in `special.cdy` as `(special import (ModName (Opt (List Name))))`, a
 module path and, optionally, a list of names; a form that doesn't fit it is an error
 written from it, `expected (import ModName [(Name*)])`. The example with a name list is
-`tst/cdy/cdyc/import_list.cdy`.
+`tst/cdy/cdyc/import_list.cdy`, and with a library module
+`tst/cdy/cdyc/library_module.cdy`.
 
 - Two imports that define the same name are an error only where the name is used
   unqualified ("x is defined by a and b: write a.x or b.x"); the file's own definition of a
@@ -260,8 +277,13 @@ written from it, `expected (import ModName [(Name*)])`. The example with a name 
 (import a b) => expected (import ModName [(Name*)])
 (import a (b) c) => expected (import ModName [(Name*)])
 (import a (1)) => expected (import ModName [(Name*)])
-(import nope) => can't find nope.cdy in .
-(import nope (a)) => can't find nope.cdy in .
+(import nope) => can't find nope.cdy in . or the library
+(import nope (a)) => can't find nope.cdy in . or the library
+(import special) => import: special is the translator's, not a module
+(import prelude_macros) => import: prelude_macros is the translator's, not a module
+(import translator (nope)) => import: translator doesn't define nope
+(import system) => import: every file imports system, implicitly
+(put (fresh-name "x")) => fresh-name is declared by translator, which this file doesn't import: (import translator)
 ```
 
 The errors that need more than one file (clashes, cycles, two modules of one name, a name
@@ -275,8 +297,9 @@ module's file stem (`lib/util` is `util`), and the prelude's is `prelude`. It re
 anything a module defines: a value or a function, a type (`(sig p shapes.Pt)`), a
 constructor (`(shapes.Circle 1.0)`), and a variant in a pattern. It is never shadowed (a
 local can't hold a `.`, [[syntax.names]], and a file's own `rest` leaves `prelude.rest`
-the prelude's). It reaches the module's own names, not those it imports, nor the
-built-ins, which have no qualifier until `library` ([[B108]]). A `/` is no qualifier:
+the prelude's). It reaches the module's own names, not those it imports; a built-in is
+`system.name` ([[programs.sees]]), but not a special form (`if`) nor a declaration
+module's built-in, which is its own module's (`translator.fresh-name`). A `/` is no qualifier:
 `lib/util` is an import's path, and a name can't hold one ([[syntax.names]]). The example
 with two modules is `tst/cdy/cdyc/qualified.cdy`.
 
@@ -296,6 +319,9 @@ with two modules is `tst/cdy/cdyc/qualified.cdy`.
 (put a.b.c) => a.b.c: a qualified name is m.name, one . between a module (its file name, without its path) and a name
 (put .x) => .x: a qualified name is m.name
 (put prelude.Maybe) => prelude.Maybe is a type, not a value
+(put system.Int) => system.Int is a type, not a value
+(sig x system.len) (def x 1) => system.len is a value, not a type
+(put system.if) => system.if: system doesn't define if
 (sig x (Maybe Int)) (def x None) (put (match x ((prelude.Some v) v) ((Some w) w) ((None) 0))) => match: more than one clause for Some
 ```
 

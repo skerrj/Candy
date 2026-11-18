@@ -59,9 +59,9 @@
 
 ;; The built-in type `name`, with no arguments.
 (sig tcon (Fn (String) CType))
-(defn tcon (name) (TCon "" name empty-list))
+(defn tcon (name) (TCon SYSTEM name empty-list))
 
-;; The type whose key (global-key: `util.Shape`, or a built-in's `Int`) is `key`, with
+;; The type whose key (global-key: `util.Shape`, `system.Int`, or macro code's `Sym`) is `key`, with
 ;; `args`. No name holds a `.`, so the key splits back into its module and name.
 (sig key-tcon (Fn (String (List CType)) CType))
 (defn key-tcon (key args)
@@ -120,7 +120,7 @@
 ;; `(List t)` (types.rest).
 (sig body-types (Fn ((List CType)) (List CType)))
 (defn body-types (ptypes)
-  (map (fn (p) (if (is-rest p) (TCon "" "List" (rest-item p)) p)) ptypes))
+  (map (fn (p) (if (is-rest p) (TCon SYSTEM "List" (rest-item p)) p)) ptypes))
 
 ;; `env` with each of `params` (Locals) bound to the type at its index in `types`.
 (sig bind-all (Fn ((List Expr) (List CType) (Map String CType) Int) (Map String CType)))
@@ -294,7 +294,7 @@
       ((Lambda params body _ _) (infer-lambda params body ctx st))
       ((Tuple items _ _)
         (let (((ts st1) (infer-all items ctx st)))
-          (Res (TCon "" "Tup" ts) st1)))
+          (Res (TCon SYSTEM "Tup" ts) st1)))
       ((ListOf items _ _) (infer-list-of items ctx st))
       ((Fmt parts _ _) (Res (tcon "String") (infer-holes parts ctx st)))
       ((Field obj field _ _) (infer-field obj field ctx st))
@@ -376,7 +376,7 @@
 (defn prim-type (name ctx st)
   (if (map-has (get ctx builtins) name)
     (match (map-get (get ctx builtins) name)
-      ((Typed type) (instantiate type st))
+      ((Typed type _) (instantiate type st))
       (else (Res ANY st)))
     (Res ANY st)))
 
@@ -390,7 +390,7 @@
 (defn infer-list-of (items ctx st)
   (let ((rv (fresh st))
         (st1 (fold (fn (s e) (infer-expect e (get rv t) "List: an item" ctx s)) (get rv st) items)))
-    (Res (TCon "" "List" (List (get rv t))) st1)))
+    (Res (TCon SYSTEM "List" (List (get rv t))) st1)))
 
 (sig infer-do (Fn ((List Expr) Ctx Res) Res))
 (defn infer-do (body ctx start)
@@ -578,7 +578,7 @@
         (items (tup-items tt)))
     (cond
       ((or (is-any tt) (is-var tt)) (Res ANY (get r st)))
-      ((!= (tcon-name tt) "Tup")
+      ((!= (tcon-name tt) (global-key SYSTEM "Tup"))
         (Res ANY (if (= i 0) (report (format "a Tup pattern takes a tuple, not a {(show tt (get (get r st) subst))}") ctx (get r st)) (get r st))))
       ((< i (len items)) (Res (at items i) (get r st)))
       (else (Res ANY (report (format "a {(show tt (get (get r st) subst))} has {(len items)} items, not {(+ i 1)}") ctx (get r st)))))))
@@ -1097,7 +1097,7 @@
     (match t
       ((TCon m name _)
         (cond
-          ((and (= m "") (contains name takes)) (Tup true (map-set subst v t)))
+          ((and (= m SYSTEM) (contains name takes)) (Tup true (map-set subst v t)))
           (else (Tup false subst))))
       ((TVar other)
         (let ((oc (constraint-of other)))
@@ -1142,7 +1142,7 @@
 (sig is-any (Fn (CType) Bool))
 (defn is-any (t)
   (match t
-    ((TCon m name _) (and (= m "") (= name "Any")))
+    ((TCon m name _) (and (= m SYSTEM) (= name "Any")))
     (else false)))
 
 ;; Whether `t` is a variable the checker may solve.

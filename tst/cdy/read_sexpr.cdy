@@ -12,7 +12,7 @@
 (defn skip-space (text pos)
   (cond
     ((>= pos (str-len text)) pos)
-    ((isspace-at text pos) (skip-space text (+ pos 1)))
+    ((isspace (ch text pos)) (skip-space text (+ pos 1)))
     ((= (ch text pos) ";") (skip-space text (skip-line text pos)))
     (else pos)))
 
@@ -43,7 +43,7 @@
     (else (read-str text (+ pos 1) (++ acc (ch text pos))))))
 
 (sig atom (Fn (String) Any))
-(defn atom (tok) (if (is-digit tok) (to-int tok) tok))
+(defn atom (tok) (if (is-decimal tok) (to-int tok) tok))
 
 (sig read-list (Fn (String Int (List Any)) (Tup (List Any) Int)))
 (defn read-list (text pos acc)
@@ -81,5 +81,5 @@
 
 ;; Read this file itself: count its top-level forms and show the first one.
 (sig me (List Any))
-(def me (read-string (slurp "read_sexpr")))
+(def me (read-string (slurp "tst/cdy/read_sexpr.cdy")))
 (put (format "{(len me)} forms; first: {(at me 0)}"))

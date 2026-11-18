@@ -2,17 +2,13 @@
 
 Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
 
-- No ``bop_table`` copy or renamed imports; ``SEARCH_PATH`` is here, beside ``slurp``.
+- No ``bop_table`` copy or renamed imports.
 - Names that clash with Python built-ins or keywords get a trailing ``_``: ``slice_``.
   ``join_it`` is now ``join``, and ``in_`` is ``str_contains`` (a list's is
   ``list_contains``).
 - ``spit`` takes ``(path, text)`` and writes a string, like Clojure's ``spit``.
-  ``file_put_lines`` takes ``(path, lines)``. (schmuz had them in opposite orders.)
-- ``slurp`` raises ``FileNotFoundError`` instead of calling ``exit()``, and looks for
-  ``.cdy`` files.
-- ``is_coll`` accepts tuples as well as lists.
-- ``is_str`` is a plain type check. schmuz's version tested for a ``"``-quoted token.
-- Added ``is_empty_str`` (schmuz's table referred to it, but smztils never defined it).
+- ``slurp`` reads the path it is given, with no search, and panics if it can't, instead of
+  calling ``exit()``.
 - Dropped the ``m_table_*`` functions (the translator reads ``spelling.py``'s spellings as
   Candy data), the ``parse_string_help*`` leftovers (schmuz's own ``parse.scm`` defined the
   one it used) and commented-out experiments.
@@ -25,9 +21,6 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from types import TracebackType
 from typing import Any, NoReturn, cast
-
-# Where ``slurp`` looks for a Candy file that isn't found at the given path.
-SEARCH_PATH: tuple[str, ...] = ("src", "tst", "lib")
 
 # --- the operators as values (spec/40-expressions.md, expr.operator-values) ---
 
@@ -306,11 +299,6 @@ def join(coll: Sequence[str], delim: str) -> str:
     return delim.join(coll)
 
 
-def is_coll(expr: object) -> bool:
-    """Whether ``expr`` is a list or tuple."""
-    return isinstance(expr, (list, tuple))
-
-
 def list_map[A, B](f: Callable[[A], B], xs: Sequence[A]) -> tuple[B, ...]:
     """``f`` of each item of ``xs``. A built-in, not Candy, for speed: Candy adds to a list
     by copying it (doc/hl_rqmt/system_prelude.md, step 5)."""
@@ -413,11 +401,6 @@ def list_zip[A, B](xs: Sequence[A], ys: Sequence[B]) -> tuple[tuple[A, B], ...]:
     return tuple(zip(xs, ys, strict=False))
 
 
-def list_elem_index[A](x: A, xs: Sequence[A]) -> int:
-    """The index of the first item of ``xs`` equal to ``x``, or -1."""
-    return next((i for i, y in enumerate(xs) if y == x), -1)
-
-
 def list_contains[A](x: A, xs: Sequence[A]) -> bool:
     """Whether ``xs`` has an item equal to ``x``."""
     return x in xs
@@ -429,11 +412,6 @@ def map_from[K, V](pairs: Sequence[tuple[K, V]]) -> Mapping[K, V]:
 
 
 # --- strings ---
-
-
-def is_str(expr: object) -> bool:
-    """Whether ``expr`` is a string."""
-    return isinstance(expr, str)
 
 
 def starts_with(text: str, prefix: str) -> bool:
@@ -456,34 +434,9 @@ def repeat(text: str, n: int) -> str:
     return text * max(n, 0)
 
 
-def is_empty_str(text: str) -> bool:
-    """Whether ``text`` is the empty string."""
-    return text == ""
-
-
-def is_digit(text: str) -> bool:
-    """Whether ``text`` is all digits (and not empty)."""
-    return text.isdigit()
-
-
-def is_alpha(text: str) -> bool:
-    """Whether ``text`` is all letters (and not empty)."""
-    return text.isalpha()
-
-
-def is_neg_int(text: str, pos: int) -> bool:
-    """Whether ``text`` has a ``-`` followed by a digit at ``pos``."""
-    return text[pos : pos + 1] == "-" and text[pos + 1 : pos + 2].isdigit()
-
-
 def isspace(text: str) -> bool:
     """Whether ``text`` is all whitespace (and not empty)."""
     return text.isspace()
-
-
-def isspace_at(text: str, pos: int) -> bool:
-    """Whether the character at ``pos`` is whitespace."""
-    return text[pos].isspace()
 
 
 def to_int(text: str) -> int:
@@ -506,11 +459,6 @@ def hex_char(text: str) -> str:
     return chr(int(text, 16))
 
 
-def strip(text: str, chars: str) -> str:
-    """``text`` without leading or trailing characters from ``chars``."""
-    return text.strip(chars)
-
-
 def replace(text: str, old: str, new: str) -> str:
     """``text`` with the first ``old`` replaced by ``new``."""
     return text.replace(old, new, 1)
@@ -519,33 +467,13 @@ def replace(text: str, old: str, new: str) -> str:
 # --- files ---
 
 
-def find_path(name: str, search_path: Sequence[str]) -> Path | None:
-    """The first ``.cdy`` file under ``search_path`` whose stem matches ``name``.
-
-    Files under a ``tmp`` directory (below the search root) are skipped.
-    """
-    stem = Path(name).stem
-    matches = (
-        path
-        for root in search_path
-        for path in Path(root).rglob("*.cdy")
-        if path.stem == stem and "tmp" not in path.relative_to(root).parts
-    )
-    return next(matches, None)
-
-
-def get_path(name: str, search_path: Sequence[str]) -> Path:
-    """``name`` if it exists, otherwise the matching file under ``search_path``."""
-    given = Path(name)
-    found = given if given.exists() else find_path(name, search_path)
-    if found is None:
-        raise FileNotFoundError(f"can't find {name} (searched {', '.join(search_path)})")
-    return found
-
-
-def slurp(name: str) -> str:
-    """The whole text of a Candy file, found as ``get_path`` describes."""
-    return get_path(name, SEARCH_PATH).read_text(encoding="utf-8")
+def slurp(path: str) -> str:
+    """The whole text of the file at ``path``; one it can't read is a panic (spec/60-library.md,
+    library.errors)."""
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as err:
+        raise CandyFail(f"slurp: can't read {path}") from err
 
 
 def put_err(text: str) -> None:
@@ -556,11 +484,6 @@ def put_err(text: str) -> None:
 def spit(path: str, text: str) -> None:
     """Write ``text`` to ``path``, replacing its contents."""
     Path(path).write_text(text, encoding="utf-8")
-
-
-def file_put_lines(path: str, lines: Sequence[str]) -> None:
-    """Write ``lines`` to ``path`` as they are (they carry their own newlines)."""
-    Path(path).write_text("".join(lines), encoding="utf-8")
 
 
 def file_exists(path: str) -> bool:

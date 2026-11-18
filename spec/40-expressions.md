@@ -55,6 +55,17 @@ it takes `b`'s sign, as Haskell's `mod` (*lasting*). There is no unary minus: a 
 number is a literal (`-5`), and `(- 0 x)` negates (*lasting*: [[B33]]). Overflow isn't
 checked (*for now*: [[B22]]; [[syntax.numbers]] has the sizes).
 
+| Operators | Type |
+|---|---|
+| `+`, `-`, `*` | `(Fn (number number (Rest number)) number)` |
+| `/` | `(Fn (float float (Rest float)) float)` |
+| `quot`, `mod` | `(Fn (integer integer (Rest integer)) integer)` |
+| `++` ([[expr.append]]) | `(Fn (appendable appendable (Rest appendable)) appendable)` |
+| `=`, `!=` ([[expr.equality]]) | `(Fn (equatable equatable (Rest equatable)) Bool)` |
+| `<`, `>`, `<=`, `>=` ([[expr.comparisons]]) | `(Fn (comparable comparable (Rest comparable)) Bool)` |
+| `and`, `or` ([[expr.logic]]) | `(Fn (Bool Bool (Rest Bool)) Bool)` |
+| `not` | `(Fn (Bool) Bool)` |
+
 ```candy run
 (put (- 10 2 3) (* 2 3 4) (+ 1 2 3))
 (put (/ 7.0 2.0) (/ 1.0f 4.0f) (quot 7 2) (quot -7 2))
@@ -104,9 +115,11 @@ The comparisons, `=`, `!=`, `<`, `>`, `<=` and `>=`, take two or more and chain:
 (sig two Int)
 (def two 2)
 (put (yes (< one two 3)) (yes (< one 3 two)) (yes (= two two 2)) (yes (!= one two)))
+(put (yes (<= one one two)) (yes (<= two one)))
 ```
 ```expect
 yes no yes yes
+yes no
 ```
 
 <a id="expr.equality"></a>

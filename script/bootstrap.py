@@ -61,6 +61,8 @@ STAGING = {
     "a0499db578e82a82e7a929d2cc20c283e6a27875": "old-runtime",
     "f0f062d88f55f6016c8e47390bb60f7afd7790ad": "old-library",
     "b98b523a6262eaa64bc24c78018bef04fc9b3c90": "old-library",
+    "7dc8c6f07682d6b4f2904f6551493c9de1a56b35": "old-library",
+    "f957aa893ca43feb03b688e6c1d9a2d7d576d0c2": "old-library",
 }
 
 

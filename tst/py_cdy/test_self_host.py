@@ -104,7 +104,7 @@ def test_mypy_strict(program: Path, t1: ModuleType, tmp_path: Path) -> None:
     ("imported", "message"),
     [
         ('(def x "open\n', "lib/b.cdy:1:8: parse error: string is never closed"),
-        ("(import nope)", "lib/b.cdy:1:1: import: can't find nope.cdy in lib"),
+        ("(import nope)", "lib/b.cdy:1:1: import: can't find nope.cdy in lib or the library"),
         ("\n  (import)", "lib/b.cdy:2:3: import: expected (import ModName [(Name*)])"),
         ("(put\n  (f 1))", "lib/b.cdy:2:4: unknown name f"),
         ("(sig x Int)\n(def x (+ 1))", "lib/b.cdy:2:8: (+ ...) takes at least 2 argument(s)"),
@@ -253,6 +253,35 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
                 "a.cdy": "(sig x Int) (def x 2)",
             },
             "x (from module a) and a--x are one name in Python (a__x)",
+        ),
+        (
+            # A declaration module is always the library's: a program's file of that
+            # name is never imported in its place.
+            {"main.cdy": "(import translator)\n(put translator.x)", "translator.cdy": "(def x 1)"},
+            "main.cdy:2:6: translator.x: translator doesn't define x",
+        ),
+        (
+            # The translator's built-ins are only for a file that imports translator
+            # (B50), here a.cdy; main.cdy doesn't.
+            {
+                "main.cdy": '(import a)\n(put (fresh-name "x"))',
+                "a.cdy": '(import translator)\n(sig x String) (def x (fresh-name "a"))',
+            },
+            (
+                "main.cdy:2:7: fresh-name is declared by translator, which this file doesn't "
+                "import: (import translator)"
+            ),
+        ),
+        (
+            {"main.cdy": "(import translator (nope))"},
+            "main.cdy:1:21: import: translator doesn't define nope",
+        ),
+        (
+            {"main.cdy": "(import translator (fresh-name))\n(put (module-dir nil))"},
+            (
+                "main.cdy:2:7: module-dir: the import of translator doesn't list it: "
+                "write translator.module-dir"
+            ),
         ),
     ],
 )
@@ -408,7 +437,7 @@ def test_bin_driver(tmp_path: Path) -> None:
     done = run_bin(["bad.cdy"], tmp_path)
     assert (done.returncode, done.stderr) == (1, "candy: bad.cdy:1:6: unknown name nope\n")
     done = run_bin(["missing.cdy"], tmp_path)
-    assert done.returncode == 1 and done.stderr.startswith("candy: can't find")
+    assert (done.returncode, done.stderr) == (1, "candy: slurp: can't read missing.cdy\n")
 
 
 def test_bin_driver_expands_macros(tmp_path: Path) -> None:
@@ -444,7 +473,7 @@ def test_py_mangle(t1: ModuleType, name: str, py: str) -> None:
 
 def test_py_reserved_is_this_python(t1: ModuleType) -> None:
     live = {*keyword.kwlist, *dir(builtins)}
-    assert set(candy(t1, "emit.PY_RESERVED")) == live | {"math", "re", "cdy_rt"}, (
+    assert set(candy(t1, "emit.PY_RESERVED")) == live | {"math", "cdy_rt"}, (
         "emit.cdy's PY_RESERVED is Python 3.14's; update it for this Python"
     )
 
@@ -574,7 +603,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig slurp (Fn (String) String))\n", ""),
-            "spelling.py: slurp is declared in neither special.cdy nor system.cdy",
+            "spelling.py: slurp is declared in none of special.cdy, system.cdy, translator.cdy",
         ),
         (
             "system.cdy",
@@ -587,7 +616,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(deft Bool)\n", ""),
-            "spelling.py: Bool is declared in neither special.cdy nor system.cdy",
+            "spelling.py: Bool is declared in none of special.cdy, system.cdy, translator.cdy",
         ),
         ("system.cdy", ("", "(deft Nope)\n"), "system.cdy: Nope has no Python type in spelling.py"),
         ("system.cdy", ("", "(deft (List a))\n"), "system.cdy: List is already declared"),
@@ -599,8 +628,23 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig not (Fn (Bool) Bool))\n", ""),
-            "spelling.py: not is declared in neither special.cdy nor system.cdy",
+            "spelling.py: not is declared in none of special.cdy, system.cdy, translator.cdy",
         ),
+        (
+            "translator.cdy",
+            ("(sig fresh-name (Fn (String) String))\n", ""),
+            (
+                "spelling.py: fresh-name is declared in none of special.cdy, system.cdy, "
+                "translator.cdy"
+            ),
+        ),
+        (
+            "translator.cdy",
+            ("", "(sig len (Fn (Any) Int))\n"),
+            "translator.cdy: len is already declared",
+        ),
+        ("translator.cdy", ("", "(def x 1)\n"), "translator.cdy: expected (sig name Type)"),
+        ("translator.cdy", ("", "(deft Nope)\n"), "translator.cdy: only system.cdy declares types"),
         (
             "special.cdy",
             ("", "(special len)\n"),

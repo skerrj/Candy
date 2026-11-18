@@ -393,7 +393,7 @@
   (match t
     ((TFn _ ret)
       (match ret
-        ((TCon m name _) (and (= m "") (= name "Unit")))
+        ((TCon m name _) (and (= m SYSTEM) (= name "Unit")))
         (else false)))
     (else false)))
 

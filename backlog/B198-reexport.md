@@ -1,7 +1,7 @@
 # B198: Re-export, so a program can see only the prelude
 
 kind: idea
-state: open
+state: dropped
 priority: low
 found: library-layers (HLD), 2026-11-15
 fixed:
@@ -20,3 +20,13 @@ its own (`programs.import`).
 - 2026-11-15, the owner: `library_layers.md` Question 6, both the system and the prelude
   imported implicitly, *for now*; re-export when the standard library shows it is needed.
   Claude: filed.
+- 2026-11-17, the owner: dropped; it would make what a program sees more confusing, not
+  clearer. Claude: what it was for is had already. `system.cdy` is target-neutral (Candy
+  types only; a target's spellings and runtime are its own), and what differs by target
+  goes to a target extension (`py`), a declaration module imported by name, so `system`
+  is the one interface itself. Re-export would make a name's origin indirect (`len` the
+  prelude's, or `system`'s through it), add a layer to shadowing and qualified names,
+  and to errors. Elm, cited above, has no re-export either, as far as recalled: it
+  imports a fixed list of modules implicitly, as Candy does. A wrapped built-in (an
+  `at` giving a `Maybe`) is an ordinary function, with its own name; re-export in
+  general, for a program's own modules, would be an item of its own, if one needs it.

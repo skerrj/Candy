@@ -28,3 +28,8 @@ What settling it needs:
 
 - 2026-11-14, the owner: in step 6's review, not now, written down *for now*. Claude:
   filed.
+- 2026-11-16, Claude: its first half done by `library-layers` step 3 ([[B201]]): a
+  built-in type's module is `system` in Core (`SYSTEM`, `core.cdy`), and every built-in
+  is `system.name` too ([[programs.sees]]); `emit` spells a `system` type through
+  `spelling.py`, and `show` tells a program's `Map` from the built-in's ([[B196]]). Macro
+  code's module stays `""`: the second half, with [[B42]] and [[B45]].

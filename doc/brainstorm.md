@@ -15,3 +15,12 @@ question 3).
 - **Joy like recursive macros**: optimized target implementations
 - **Curry**: could this be a macro?
 - **cndy specifice macros**: any boiler plate patterns worth a macro
+- **metadata on names** (Clojure's `^:tag`, a map on a symbol): tag `system.cdy`'s
+  translator-only built-ins instead of a `translator.cdy`? Kept the module: what a file
+  sees is its imports' to say, and `(import translator)` shows the use. Metadata could
+  carry what cuts across that: docs, `deprecated`, `pure`, which targets have a built-in
+  (`doc/hl_rqmt/multi_target.md`); `private` too ([[programs.private]])?
+- **does the prelude need to exist?** (for `stdlib`'s HLD): once `list`, `string` and
+  `map` are modules, the prelude may be little more than `Maybe` and `Result`. Keep it
+  apart from `system` either way: `system` is declarations only (a declaration module,
+  each target providing it), the prelude ordinary Candy, the same on every target.
