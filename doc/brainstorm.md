@@ -24,3 +24,8 @@ question 3).
   `map` are modules, the prelude may be little more than `Maybe` and `Result`. Keep it
   apart from `system` either way: `system` is declarations only (a declaration module,
   each target providing it), the prelude ordinary Candy, the same on every target.
+- **is `system` only the language?** (`stdlib`'s HLD, Question 8, tabled 2026-11-18):
+  Candy's code is `Form`s, not its lists, so the Lisp reason to put lists in the core
+  doesn't hold; the `List` type stays (rest parameters, `++`), but its operations could
+  be an implicitly imported `list` declaration module, `system` the language alone.
+  Decide at `io` ([[B95]]) or a second target.
