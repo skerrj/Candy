@@ -246,7 +246,10 @@ so a new library module can't break a program. Two of the library's files aren't
 modules, `special` and `prelude_macros`: the translator reads them itself. A
 **declaration module** is a library module that declares built-ins, which the target
 defines, each with a bodiless `sig` (since `library-layers`): `translator`, which declares
-those only the translator needs, seen only by a file that imports it. It is
+those only the translator needs, seen only by a file that imports it. The declaration
+modules are those the target provides built-ins for, and each built-in is its module's,
+`translator.fresh-name`, as a program's names are (since `stdlib`), so two declaration
+modules may each declare a name. A declaration module is
 always the library's, *lasting*: a program's file of that name isn't imported in its
 place, so a program can't replace a target's declarations. `name` may be
 a relative path (`lib/util`). Every name the module defines at top level (`def`, `defn`,

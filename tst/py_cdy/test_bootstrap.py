@@ -1,5 +1,6 @@
 """Tests for the bootstrap chain (``script/bootstrap.py``, ``doc/hl_rqmt/bootstrap.md``)."""
 
+import os
 import subprocess
 import sys
 import warnings
@@ -39,10 +40,11 @@ def test_tags_cover_the_steps() -> None:
 
 
 def test_newest_step_reads_the_library(tmp_path: Path) -> None:
-    """The newest step's translator, next to today's library (``src/cdy``), builds the
-    translator, as the next step's check will (``bootstrap.run_step``): a library it can't
-    read is found before the commit. If only its own library works, the next step needs
-    ``old-library`` staging (a warning); if neither does, it needs two steps."""
+    """The newest step's translator, next to today's library (``src/cdy``) and with today's
+    runtime, builds the translator, as the next step's check will (``bootstrap.run_step``):
+    a library or a runtime it can't read is found before the commit. If only its own
+    library works, the next step needs ``old-library`` staging, and if only its own runtime
+    does, ``old-runtime`` (a warning); if none does, it needs two steps."""
     tagged = bootstrap.tagged_steps()
     if not tagged:
         pytest.skip("no boot/NN tags yet")
@@ -52,14 +54,30 @@ def test_newest_step_reads_the_library(tmp_path: Path) -> None:
     copy_library(tmp_path)
     if build(translator, tmp_path).returncode == 0:
         return
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    archive = subprocess.run(
+        ("git", "archive", newest, "src/cdy_rt"),
+        cwd=bootstrap.ROOT,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(("tar", "-x", "-C", str(runtime)), input=archive.stdout, check=True)
+    if build(translator, tmp_path, runtime / "src").returncode == 0:
+        warnings.warn(
+            f"{tagged[-1].label} can't read today's runtime: the next boot step needs staging "
+            "old-runtime (script/bootstrap.py, STAGING)",
+            stacklevel=1,
+        )
+        return
     own = bootstrap.git("ls-tree", "--name-only", newest, "bin/py/").split()
     for name in LIBRARY:  # a file new since that step it doesn't read
         if f"bin/py/{name}" in own:
             (tmp_path / name).write_text(bootstrap.git("show", f"{newest}:bin/py/{name}"))
     done = build(translator, tmp_path)
     assert done.returncode == 0, (
-        f"{tagged[-1].label} reads neither today's library nor its own: two steps are needed\n"
-        + done.stderr
+        f"{tagged[-1].label} reads neither today's library and runtime nor its own: two steps "
+        "are needed\n" + done.stderr
     )
     warnings.warn(
         f"{tagged[-1].label} can't read today's library: the next boot step needs staging "
@@ -68,13 +86,18 @@ def test_newest_step_reads_the_library(tmp_path: Path) -> None:
     )
 
 
-def build(translator: Path, tmp_path: Path) -> subprocess.CompletedProcess[str]:
-    """``translator`` run on the translator's source, into ``tmp_path``."""
+def build(
+    translator: Path, tmp_path: Path, runtime: Path | None = None
+) -> subprocess.CompletedProcess[str]:
+    """``translator`` run on the translator's source, into ``tmp_path``; with the runtime
+    (``cdy_rt``) in the directory ``runtime``, if given, in place of today's."""
+    env = {**os.environ, "PYTHONPATH": str(runtime)} if runtime is not None else None
     return subprocess.run(
         (sys.executable, str(translator), str(TRANSLATOR), str(tmp_path / "built.py")),
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
 
 

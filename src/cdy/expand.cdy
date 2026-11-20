@@ -170,7 +170,7 @@
       (read-source decls (slurp decls))
       (map
         (fn (file) (let ((path (library-path file))) (Tup file (read-source path (slurp path)))))
-        (++ (List "system.cdy") (map (fn (name) (++ name ".cdy")) DECLARATION_MODULES)))
+        (++ (List "system.cdy") (map (fn (name) (++ name ".cdy")) (declaration-modules nil))))
       py-spellings)))
 
 ;; The Python names of `names` (form.cdy's), which load-macros sets back to the translator's.

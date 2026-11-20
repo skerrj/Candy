@@ -72,14 +72,42 @@ built-ins; the prelude trimmed, and its costs fixed; and a `test` module.
 
 ## Proposal
 
-### Declaration modules without a list, and built-ins keyed by module
+### Declaration modules from the spellings, and built-ins keyed by module
 
+A declaration module is a library module the target provides built-ins for, each a
+bodiless `sig` there giving its type. A built-in is keyed by its module and name, as a
+program's names are (`global-key`): `string.len` and `len` are two built-ins,
+`spelling.py` spells `"string.len"`, and `system`'s keep their bare names. So the
+spellings' keys name the declaration modules, and no list does (`DECLARATION_MODULES`
+goes). `string.cdy` declares `len`; a file that imports `string` sees it as `string.len`
+(and unqualified, as any import's names, Question 3).
+
+The library's files, by what they are and how the translator finds each:
+
+| File | What it is | Found | Seen by |
+|---|---|---|---|
+| `system.cdy` | a declaration module | by name; a bare spelling key is its | every file, implicitly |
+| `translator.cdy`, later `string.cdy`, `map.cdy`, `math.cdy` | declaration modules | their spelling keys (`translator.fresh-name`) | a file that imports it |
+| `prelude.cdy` | an ordinary Candy module | by name | every file but itself and the declaration modules, implicitly |
+| `form.cdy`, later `list.cdy`, `test.cdy` | ordinary library modules | by file name, when imported | a file that imports it |
+| `special.cdy`, `prelude_macros.cdy` | not modules (`NOT_MODULES`) | by name; the translator reads them | — |
+
+The names the translator knows are the language's fixed points (`system`, `prelude`,
+`special`, `prelude_macros`); every other library module is found by a rule.
+
+*Revised (2026-11-19, the owner and Claude),* as built in step 1: a declaration module
+found by the spellings, not by reading every library file to see what it holds, which
+`library-layers` had proposed too and also built otherwise (a list, its step 2a). It
+was:
+
+```text
 A library module whose forms are all bodiless `sig`s and `deft`s is a declaration
 module, found by what it holds, not by a list (`DECLARATION_MODULES` goes). A built-in
 is keyed by its module and name, as a program's names are (`global-key`): `string.len`
 and `len` are two built-ins, `spelling.py` spells `"string.len"`, and `system`'s keep
 their bare names. `string.cdy` declares `len`; a file that imports `string` sees it as
 `string.len` (and unqualified, as any import's names, Question 3).
+```
 
 ### The modules
 
@@ -151,8 +179,8 @@ exit status 0.
 (`library.string`, `library.map`, `library.math`, `library.list`, `library.test`), with
 its calls' table and examples, and `library.builtins`' index a row per module. The
 index test (`test_every_builtin_is_specified`) reads every declaration module, not
-only `system.cdy`. `programs.import` changes for declaration modules found by what they
-hold.
+only `system.cdy`. `programs.import` changes for declaration modules found by the
+spellings.
 
 ## Pros and cons
 
@@ -170,7 +198,7 @@ hold.
 ## Bootstrap
 
 The last `bin` reads the step's own library, so a declaration module it doesn't know
-breaks it: step 1 (found by what it holds) comes first, in its own commit, before any
+breaks it: step 1 (found by the spellings) comes first, in its own commit, before any
 new one. A module's move renames built-ins the translator's source calls: the step's
 library declares the new names and the step's runtime spells them, which the last `bin`
 reads, as in `library-layers` step 4; what the last `bin`'s own Python calls must stay
@@ -180,9 +208,25 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
 
 ## Steps
 
-1. **Declaration modules by what they hold, built-ins keyed by module:**
+1. **Declaration modules from the spellings, built-ins keyed by module:**
    `DECLARATION_MODULES` gone; `Builtin` and the spellings keyed by `global-key`; the
    index test over every declaration module.
+   *Done (2026-11-18). As built:* a built-in is keyed by `builtin-key` (`core.cdy`), its
+   module's `global-key` but a `system` built-in's own name: `translator.fresh-name`,
+   `len`; `read-sigs` keys each, `declared-name` gives a `Declared` entry's key, and
+   `declaring-module` finds `m.name` for the "doesn't import" error. `spelling.py` keys
+   the translator's five `translator.`; `system`'s keep their names, so nothing else
+   changes. The declaration modules are found by what the target holds, not by what
+   each file does: `declaration-modules` (`include.cdy`) is the modules the spellings'
+   keys name, which needs no directory listing and no read of every library file (B66);
+   `read-sigs` still checks each holds only bodiless forms, and a library module that
+   holds both (Question 2) comes with step 4, the first. The rule: `programs.import`. The
+   index test reads every declaration module the runtime's spellings name but
+   `translator` (`declared_builtins`). Bootstrap: `boot/83` can't read the new keys
+   (`spelling.py: translator.fresh-name is declared in none ...`), so this step is
+   staged `old-runtime`; `test_newest_step_reads_the_library` now tries the step's own
+   runtime too, and says which staging is needed. Checked against `boot/83`'s `bin` (run
+   with its runtime): the same output for all 102 programs, the translator's too.
 2. **The prelude's costs:** [[B66]] and [[B62]], measured before and after; [[B68]] if it
    is cheap.
 3. **`test`:** `check`, `deftest`, `test.run`, with its own tests.

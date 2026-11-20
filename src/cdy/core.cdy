@@ -249,12 +249,13 @@
       (else -1))
     -1))
 
-;; The built-in `name` is, as written (`system.len`, `translator.fresh-name`), if a
-;; declaration module this one sees declares it; or "".
+;; The key of the built-in `name` is (builtin-key: `len` for `system.len`,
+;; `translator.fresh-name` for `fresh-name`), if a declaration module this one sees
+;; declares it; or "".
 (sig declared-name (Fn (String Scope) String))
 (defn declared-name (name scope)
   (if (map-has (get scope names) name)
-    (match (map-get (get scope names) name) ((Declared _ g) g) (else ""))
+    (match (map-get (get scope names) name) ((Declared m g) (builtin-key m g)) (else ""))
     ""))
 
 ;; The module that defines `name`, when this one doesn't import it, or "".
@@ -353,6 +354,12 @@
 ;; `util.greet`, or a built-in's own name. No name holds a `.`, so no two are one key.
 (sig global-key (Fn (String String) String))
 (defn global-key (module name) (if (= module "") name (++ module "." name)))
+
+;; A built-in's key, in the built-ins and the target's spellings: its declaration module
+;; and its name, as a program's names are (`translator.fresh-name`), but a `system`
+;; built-in's own name (`len`), which every file sees (doc/hl_rqmt/stdlib.md, step 1).
+(sig builtin-key (Fn (String String) String))
+(defn builtin-key (module name) (if (= module SYSTEM) name (global-key module name)))
 
 (sig is-special-head (Fn (String Scope) Bool))
 (defn is-special-head (name scope)
@@ -1083,13 +1090,13 @@
 (defn is-everyones (name builtins)
   (and (map-has builtins name) (match (map-get builtins name) ((Typed _ m) (= m "system")) (else false))))
 
-;; The declaration module, other than system, that declares the built-in `name`, seen only
-;; by a file that imports it (translator); or "".
+;; A declaration module, other than system, that declares a built-in named `name`, seen
+;; only by a file that imports it (translator); or "".
 (sig declaring-module (Fn (String (Map String Builtin)) String))
 (defn declaring-module (name builtins)
-  (if (map-has builtins name)
-    (match (map-get builtins name) ((Typed _ m) (if (= m "system") "" m)) (else ""))
-    ""))
+  (let ((owner (fn (key) (match (map-get builtins key) ((Typed _ m) m) (else SYSTEM))))
+        (found (find (fn (key) (and (!= (owner key) SYSTEM) (= key (global-key (owner key) name)))) (map-keys builtins))))
+    (match found ((Some key) (owner key)) ((None) ""))))
 
 ;; Whether `name` is a built-in type (system.cdy's bodiless deft), which isn't a value.
 (sig is-builtin-type (Fn (String (Map String Builtin)) Bool))
@@ -1182,7 +1189,8 @@
     (else TYPED_KINDS)))
 
 ;; `start` with the built-ins the declaration module `file` (system.cdy, translator.cdy)
-;; declares, its `forms`. Only system.cdy declares types, *for now*: every file sees them.
+;; declares, its `forms`, each keyed by builtin-key. Only system.cdy declares types, *for
+;; now*: every file sees them.
 (sig read-sigs (Fn (String (List Form) (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
 (defn read-sigs (file forms spellings start)
   (fold
@@ -1190,16 +1198,17 @@
       (let ((items (list-items form))
             (head (if (> (len items) 0) (sym-name (at items 0)) ""))
             (name (if (and (= (len items) 3) (= head "sig")) (sym-name (at items 1)) ""))
+            (key (builtin-key (path-stem file) name))
             (where (++ (pos-text (form-pos form)) file)))
         (cond
           ((and (= head "deft") (= file "system.cdy")) (read-type form items where spellings acc))
           ((= head "deft") (fail (++ where ": only system.cdy declares types")))
           ((and (= name "") (= file "system.cdy")) (fail (++ where ": expected (sig name Type) or (deft Name)")))
           ((= name "") (fail (++ where ": expected (sig name Type)")))
-          ((map-has acc name) (fail (format "{where}: {name} is already declared")))
-          ((not (contains (spelling-kind spellings name) (++ TYPED_KINDS OPERATOR_KINDS)))
-            (fail (format "{where}: {name} has no Python mapping in spelling.py")))
-          (else (map-set acc name (Typed (analyse-type (at items 2)) (path-stem file)))))))
+          ((map-has acc key) (fail (format "{where}: {name} is already declared")))
+          ((not (contains (spelling-kind spellings key) (++ TYPED_KINDS OPERATOR_KINDS)))
+            (fail (format "{where}: {key} has no Python mapping in spelling.py")))
+          (else (map-set acc key (Typed (analyse-type (at items 2)) (path-stem file)))))))
     start
     forms))
 

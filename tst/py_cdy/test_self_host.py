@@ -634,14 +634,21 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
             "translator.cdy",
             ("(sig fresh-name (Fn (String) String))\n", ""),
             (
-                "spelling.py: fresh-name is declared in none of special.cdy, system.cdy, "
-                "translator.cdy"
+                "spelling.py: translator.fresh-name is declared in none of special.cdy, "
+                "system.cdy, translator.cdy"
             ),
         ),
         (
+            # Keyed by its module, a built-in may have a system one's name
+            # (doc/hl_rqmt/stdlib.md, step 1), but needs its own spelling.
             "translator.cdy",
             ("", "(sig len (Fn (Any) Int))\n"),
-            "translator.cdy: len is already declared",
+            "translator.cdy: translator.len has no Python mapping in spelling.py",
+        ),
+        (
+            "translator.cdy",
+            ("", "(sig fresh-name (Fn (String) String))\n"),
+            "translator.cdy: fresh-name is already declared",
         ),
         ("translator.cdy", ("", "(def x 1)\n"), "translator.cdy: expected (sig name Type)"),
         ("translator.cdy", ("", "(deft Nope)\n"), "translator.cdy: only system.cdy declares types"),

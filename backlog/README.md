@@ -77,7 +77,7 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B206](B206-stdlib-step-1.md) | stdlib step 1: Declaration modules by what they hold, built-ins keyed by module | task | open | normal |
+| [B206](B206-stdlib-step-1.md) | stdlib step 1: Declaration modules from the spellings, built-ins keyed by module | task | review | normal |
 | [B207](B207-stdlib-step-2.md) | stdlib step 2: The prelude's costs | task | open | normal |
 | [B208](B208-stdlib-step-3.md) | stdlib step 3: The `test` module | task | open | normal |
 | [B209](B209-stdlib-step-4.md) | stdlib step 4: The `math` module | task | open | normal |

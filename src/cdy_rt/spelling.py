@@ -1,7 +1,10 @@
 """The Python spellings of Candy's built-ins: what each translates to in Python. What a
 built-in is (special form, operator, or function or value with a type) is declared in
 Candy, in ``src/cdy/special.cdy`` and ``src/cdy/system.cdy``, which the translator checks
-against these spellings both ways (``doc/hl_rqmt/symbol_table.md``).
+against these spellings both ways (``doc/hl_rqmt/symbol_table.md``). Each is keyed by its
+declaration module and name, ``translator.fresh-name``, except ``system``'s, which keep
+their own names (``len``); the modules these keys name are the declaration modules
+(``include.cdy``, ``declaration-modules``; ``doc/hl_rqmt/stdlib.md``, step 1).
 
 Modelled on schmuz's ``src/py_smz/table.py`` (``OP_TABLE``). Differences from schmuz:
 
@@ -195,20 +198,20 @@ STRING: Spellings = {
     "isspace": primitive("isspace"),
 }
 
-# For the translator: these spellings, which it reads as Candy data (each entry a pair, its
-# text and kind; doc/hl_rqmt/symbol_table.md). schmuz read its table through ``op-tab-*``
-# functions.
+# For the translator (translator.cdy's, so keyed ``translator.``): these spellings, which it
+# reads as Candy data (each entry a pair, its text and kind; doc/hl_rqmt/symbol_table.md).
+# schmuz read its table through ``op-tab-*`` functions.
 TRANSLATOR: Spellings = {
-    "py-spellings": value(f"{SPELLING_MODULE}.SPELLINGS"),
+    "translator.py-spellings": value(f"{SPELLING_MODULE}.SPELLINGS"),
 }
 
 # Macros (doc/hl_rqmt/macros.md): the translator loads a translated macro program and calls
 # its macros; ``fresh-name`` is behind ``gensym`` (form.cdy).
 MACRO: Spellings = {
-    "load-macros": primitive("load_macros"),
-    "call-macro": primitive("call_macro"),
-    "module-dir": primitive("module_dir"),
-    "fresh-name": primitive("fresh_name"),
+    "translator.load-macros": primitive("load_macros"),
+    "translator.call-macro": primitive("call_macro"),
+    "translator.module-dir": primitive("module_dir"),
+    "translator.fresh-name": primitive("fresh_name"),
 }
 
 INFRA: Spellings = {

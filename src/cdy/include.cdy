@@ -170,7 +170,7 @@
     (fn (acc form)
       (cond
         ((not (is-import form)) (assoc acc done (++ (get acc done) (List (macro-import form dir)))))
-        ((contains (imported-name form) DECLARATION_MODULES) acc)
+        ((is-declaration-name (imported-name form)) acc)
         (else (include-file (import-path "import" dir (included-name form) (form-pos form)) acc))))
     start
     forms))
@@ -224,16 +224,29 @@
       (else (fail (++ (pos-text (form-pos form)) "import: a macro file's import includes the whole file, so it lists no names"))))))
 
 ;; The library's declaration modules (doc/hl_rqmt/library_layers.md): each declares built-ins
-;; the runtime defines, with bodiless sigs, and is always the library's, as what the
-;; translator reads itself is. system.cdy is one too, but every file imports it
-;; implicitly, only qualified (core.cdy, with-system), so it isn't listed.
-(sig DECLARATION_MODULES (List String))
-(def DECLARATION_MODULES (List "translator"))
+;; the target defines, with bodiless sigs, and is always the library's, as what the
+;; translator reads itself is. They are the modules the target's spellings name, each
+;; built-in keyed by its module (core.cdy, builtin-key: `translator.fresh-name`), so no
+;; list names them (doc/hl_rqmt/stdlib.md, step 1). system.cdy is one too, but its
+;; built-ins keep their own names, and every file imports it implicitly, only qualified
+;; (core.cdy, with-system), so it isn't among them.
+(sig declaration-modules (Fn (Unit) (List String)))
+(defn declaration-modules (_)
+  (fold
+    (fn (acc key)
+      (let ((parts (split key ".")))
+        (if (or (!= (len parts) 2) (= (at parts 0) "") (contains (at parts 0) acc)) acc (++ acc (List (at parts 0))))))
+    empty-list
+    (map-keys py-spellings)))
+
+;; Whether `name` (an import's) is a declaration module's.
+(sig is-declaration-name (Fn (String) Bool))
+(defn is-declaration-name (name) (contains name (declaration-modules nil)))
 
 ;; Whether the module whose key is `key` is a declaration module, the library's.
 (sig is-declaration (Fn (String) Bool))
 (defn is-declaration (key)
-  (any (fn (name) (= key (path-resolve (library-path (++ name ".cdy"))))) DECLARATION_MODULES))
+  (any (fn (name) (= key (path-resolve (library-path (++ name ".cdy"))))) (declaration-modules nil)))
 
 ;; The library's files that aren't modules: the translator reads them itself.
 (sig NOT_MODULES (List String))
@@ -250,7 +263,7 @@
     (cond
       ((= (path-stem name) "system")
         (fail (format "{(pos-text pos)}{what}: every file imports system, implicitly")))
-      ((contains name DECLARATION_MODULES) (library-path file))
+      ((is-declaration-name name) (library-path file))
       ((file-exists path) path)
       ((contains name NOT_MODULES)
         (fail (format "{(pos-text pos)}{what}: {name} is the translator's, not a module")))
