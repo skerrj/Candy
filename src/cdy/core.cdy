@@ -1189,10 +1189,11 @@
     (else TYPED_KINDS)))
 
 ;; `start` with the built-ins the declaration module `file` (system.cdy, translator.cdy)
-;; declares, its `forms`, each keyed by builtin-key. Only system.cdy declares types, *for
+;; declares, each keyed by builtin-key: system.cdy's every form, and another's
+;; declarations (the rest of it is ordinary Candy). Only system.cdy declares types, *for
 ;; now*: every file sees them.
 (sig read-sigs (Fn (String (List Form) (Map String (Tup String String String)) (Map String Builtin)) (Map String Builtin)))
-(defn read-sigs (file forms spellings start)
+(defn read-sigs (file all spellings start)
   (fold
     (fn (acc form)
       (let ((items (list-items form))
@@ -1210,7 +1211,29 @@
             (fail (format "{where}: {key} has no Python mapping in spelling.py")))
           (else (map-set acc key (Typed (analyse-type (at items 2)) (path-stem file)))))))
     start
-    forms))
+    (if (= file "system.cdy") all (declarations all))))
+
+;; A declaration module's declarations among its `forms` (doc/hl_rqmt/stdlib.md, Question
+;; 2): each sig of a name no def or defn of the module defines, a built-in, and each
+;; bodiless deft, `(deft Name)`; its other forms are ordinary Candy (definitions).
+(sig declarations (Fn ((List Form)) (List Form)))
+(defn declarations (forms)
+  (let ((defined (def-names forms))) (filter (fn (form) (is-declaration-form form defined)) forms)))
+
+;; A declaration module's `forms` but its declarations: ordinary Candy.
+(sig definitions (Fn ((List Form)) (List Form)))
+(defn definitions (forms)
+  (let ((defined (def-names forms))) (filter (fn (form) (not (is-declaration-form form defined))) forms)))
+
+;; Whether `form` is a declaration, `defined` holding the names the module defines.
+(sig is-declaration-form (Fn (Form (Map String Bool)) Bool))
+(defn is-declaration-form (form defined)
+  (let ((items (list-items form))
+        (head (if (> (len items) 0) (sym-name (at items 0)) "")))
+    (cond
+      ((= head "sig") (not (and (= (len items) 3) (map-has defined (sym-name (at items 1))))))
+      ((= head "deft") (= (len items) 2))
+      (else false))))
 
 ;; `acc` with the built-in type `form`, a bodiless (deft Name) or (deft (Name a ...)): its
 ;; arity is its number of type variables. `where` is its position and file.
@@ -1261,10 +1284,16 @@
   (let ((names (module-names forms stem)))
     (Exports stem names (private-names forms names empty-map))))
 
-;; What the declaration module `stem` declares, its `forms` (each a bodiless sig, as
-;; read-builtins checked): each a built-in, `Declared`.
+;; What the declaration module `stem` declares among its `forms` (its declarations, each a
+;; bodiless sig, as read-builtins checked): each a built-in, `Declared`.
 (sig declared-exports (Fn ((List Form) String) Exports))
-(defn declared-exports (forms stem) (Exports stem (declared-names forms stem empty-map) empty-map))
+(defn declared-exports (forms stem) (Exports stem (declared-names (declarations forms) stem empty-map) empty-map))
+
+;; What the declaration module `stem` exports: `own`, what its definitions define, with
+;; what its `forms`' declarations declare, each `Declared`.
+(sig with-declared (Fn (Exports (List Form) String) Exports))
+(defn with-declared (own forms stem)
+  (assoc own names (declared-names (declarations forms) stem (get own names))))
 
 ;; `start` with the names `forms` declare, in the declaration module `stem`. (A parameter,
 ;; not a literal empty-map: mypy types a fold's start by its shape, [[B184]].)

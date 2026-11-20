@@ -1,7 +1,7 @@
 # B209: stdlib step 4: The `math` module
 
 kind: task
-state: open
+state: in-progress
 priority: normal
 found: stdlib, 2026-11-18
 fixed:
@@ -13,3 +13,5 @@ Step 4 of `doc/hl_rqmt/stdlib.md`. The four moved (`PI`, `sin`, `cos`, `tan`), a
 ## Notes
 
 - 2026-11-18, Claude: filed on the HLD's acceptance (the owner, 2026-11-18).
+- 2026-11-19, Claude: two commits (the HLD's step 4): 4a, a declaration module with
+  Candy, built; 4b, `math` moved.

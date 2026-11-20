@@ -81,7 +81,7 @@ By kind, then priority.
 | [B206](B206-stdlib-step-1.md) | stdlib step 1: Declaration modules from the spellings, built-ins keyed by module | task | review | normal |
 | [B207](B207-stdlib-step-2.md) | stdlib step 2: The prelude's costs | task | review | normal |
 | [B208](B208-stdlib-step-3.md) | stdlib step 3: The `test` module | task | review | normal |
-| [B209](B209-stdlib-step-4.md) | stdlib step 4: The `math` module | task | open | normal |
+| [B209](B209-stdlib-step-4.md) | stdlib step 4: The `math` module | task | in-progress | normal |
 | [B210](B210-stdlib-step-5.md) | stdlib step 5: The `string` module | task | open | normal |
 | [B211](B211-stdlib-step-6.md) | stdlib step 6: The `map` module | task | open | normal |
 | [B212](B212-stdlib-step-7.md) | stdlib step 7: The `list` module | task | open | normal |

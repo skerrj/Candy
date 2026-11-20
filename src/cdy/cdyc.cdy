@@ -45,16 +45,18 @@
         (elsewhere (elsewhere-names (exports-of ready))))
     (analyse-modules ready by-key elsewhere builtins parse)))
 
-;; Each of `modules` with its macros expanded. A declaration module (translator.cdy) has
-;; no definitions, only what it declares, for the modules importing it.
+;; Each of `modules` with its macros expanded. A declaration module (translator.cdy) exports
+;; what it declares, its built-ins, as well as what its definitions, ordinary Candy,
+;; define (doc/hl_rqmt/stdlib.md, Question 2).
 (sig expand-modules (Fn ((List Module) Expander) (List Ready)))
 (defn expand-modules (modules ex)
   (map
     (fn (m)
-      (if (is-declaration (get m key))
-        (Ready m empty-list empty-map (declared-exports (get m forms) (get m stem)))
-        (let (((forms macros) (expand-program (get m forms) ex)))
-          (Ready m forms macros (module-exports forms (get m stem))))))
+      (let ((declaring (is-declaration (get m key)))
+            (all (get m forms))
+            ((forms macros) (expand-program (if declaring (definitions all) all) ex))
+            (own (module-exports forms (get m stem))))
+        (Ready m forms macros (if declaring (with-declared own all (get m stem)) own))))
     modules))
 
 (sig exports-by-key (Fn ((List Ready)) (Map String Exports)))

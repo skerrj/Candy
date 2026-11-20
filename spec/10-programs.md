@@ -274,7 +274,9 @@ defines, each with a bodiless `sig` (since `library-layers`): `translator`, whic
 those only the translator needs, seen only by a file that imports it. The declaration
 modules are those the target provides built-ins for, and each built-in is its module's,
 `translator.fresh-name`, as a program's names are (since `stdlib`), so two declaration
-modules may each declare a name. A declaration module is
+modules may each declare a name. Its other forms, the `sig`s of names it defines and its
+definitions, are ordinary Candy, which may use its built-ins; its importers see both
+(since `stdlib`). A declaration module is
 always the library's, *lasting*: a program's file of that name isn't imported in its
 place, so a program can't replace a target's declarations. `name` may be
 a relative path (`lib/util`). Every name the module defines at top level (`def`, `defn`,

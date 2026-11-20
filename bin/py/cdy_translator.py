@@ -2733,7 +2733,7 @@ def core__kinds_of(class_: str) -> tuple[str, ...]:
     else:
         return core__TYPED_KINDS
 
-def core__read_sigs(file: str, forms: tuple[form__Form, ...], spellings: _cdy_Mapping[str, tuple[str, str, str]], start: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
+def core__read_sigs(file: str, all_: tuple[form__Form, ...], spellings: _cdy_Mapping[str, tuple[str, str, str]], start: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
     def _cdy_t78(acc: _cdy_Mapping[str, core__Builtin], form: form__Form) -> _cdy_Mapping[str, core__Builtin]:
         items = form__list_items(form)
         head = (form__sym_name(items[0]) if (len(items) > 0) else '')
@@ -2754,7 +2754,25 @@ def core__read_sigs(file: str, forms: tuple[form__Form, ...], spellings: _cdy_Ma
             return cdy_rt.primitives.fail((where + ': ' + key + ' has no Python mapping in spelling.py'))
         else:
             return cdy_rt.primitives.map_set(acc, key, core__Typed(core__analyse_type(items[2]), cdy_rt.primitives.path_stem(file)))
-    return cdy_rt.primitives.list_fold(_cdy_t78, start, forms)
+    return cdy_rt.primitives.list_fold(_cdy_t78, start, (all_ if (file == 'system.cdy') else core__declarations(all_)))
+
+def core__declarations(forms: tuple[form__Form, ...]) -> tuple[form__Form, ...]:
+    defined = core__def_names(forms)
+    return cdy_rt.primitives.list_filter((lambda form: core__is_declaration_form(form, defined)), forms)
+
+def core__definitions(forms: tuple[form__Form, ...]) -> tuple[form__Form, ...]:
+    defined = core__def_names(forms)
+    return cdy_rt.primitives.list_filter((lambda form: (not core__is_declaration_form(form, defined))), forms)
+
+def core__is_declaration_form(form: form__Form, defined: _cdy_Mapping[str, bool]) -> bool:
+    items = form__list_items(form)
+    head = (form__sym_name(items[0]) if (len(items) > 0) else '')
+    if (head == 'sig'):
+        return (not ((len(items) == 3) and cdy_rt.primitives.map_has(defined, form__sym_name(items[1]))))
+    elif (head == 'deft'):
+        return (len(items) == 2)
+    else:
+        return False
 
 def core__read_type(form: form__Form, items: tuple[form__Form, ...], where: str, spellings: _cdy_Mapping[str, tuple[str, str, str]], acc: _cdy_Mapping[str, core__Builtin]) -> _cdy_Mapping[str, core__Builtin]:
     header = (items[1] if (len(items) == 2) else form)
@@ -2815,7 +2833,10 @@ def core__module_exports(forms: tuple[form__Form, ...], stem: str) -> core__Expo
     return core__Exports(stem, names, core__private_names(forms, names, {}))
 
 def core__declared_exports(forms: tuple[form__Form, ...], stem: str) -> core__Exports:
-    return core__Exports(stem, core__declared_names(forms, stem, {}), {})
+    return core__Exports(stem, core__declared_names(core__declarations(forms), stem, {}), {})
+
+def core__with_declared(own: core__Exports, forms: tuple[form__Form, ...], stem: str) -> core__Exports:
+    return own._replace(names=core__declared_names(core__declarations(forms), stem, own.names))
 
 def core__declared_names(forms: tuple[form__Form, ...], stem: str, start: _cdy_Mapping[str, core__Entry]) -> _cdy_Mapping[str, core__Entry]:
     def _cdy_t81(acc: _cdy_Mapping[str, core__Entry], form: form__Form) -> _cdy_Mapping[str, core__Entry]:
@@ -3021,23 +3042,23 @@ def core__rename_top(top: core__Top, names: _cdy_Mapping[str, core__Entry]) -> c
         fields = _cdy_t95.fields
         return core__TDeft(core__top_module(name, names), name, tvars, core__rename_fields(fields, names))
     elif isinstance(_cdy_t95, core__TDeftSum):
-        _cdy_name_709 = _cdy_t95.name
-        _cdy_tvars_710 = _cdy_t95.tvars
+        _cdy_name_722 = _cdy_t95.name
+        _cdy_tvars_723 = _cdy_t95.tvars
         variants = _cdy_t95.variants
-        return core__TDeftSum(core__top_module(_cdy_name_709, names), _cdy_name_709, _cdy_tvars_710, core__rename_variants(variants, names))
+        return core__TDeftSum(core__top_module(_cdy_name_722, names), _cdy_name_722, _cdy_tvars_723, core__rename_variants(variants, names))
     elif isinstance(_cdy_t95, core__TDef):
-        _cdy_name_712 = _cdy_t95.name
+        _cdy_name_725 = _cdy_t95.name
         init = _cdy_t95.init
         t = _cdy_t95.t
         pos = _cdy_t95.pos
-        return core__TDef(core__top_module(_cdy_name_712, names), _cdy_name_712, init, core__rename_type(t, names), pos)
+        return core__TDef(core__top_module(_cdy_name_725, names), _cdy_name_725, init, core__rename_type(t, names), pos)
     elif isinstance(_cdy_t95, core__TDefn):
-        _cdy_name_716 = _cdy_t95.name
+        _cdy_name_729 = _cdy_t95.name
         params = _cdy_t95.params
         body = _cdy_t95.body
-        _cdy_t_719 = _cdy_t95.t
-        _cdy_pos_720 = _cdy_t95.pos
-        return core__TDefn(core__top_module(_cdy_name_716, names), _cdy_name_716, params, body, core__rename_type(_cdy_t_719, names), _cdy_pos_720)
+        _cdy_t_732 = _cdy_t95.t
+        _cdy_pos_733 = _cdy_t95.pos
+        return core__TDefn(core__top_module(_cdy_name_729, names), _cdy_name_729, params, body, core__rename_type(_cdy_t_732, names), _cdy_pos_733)
     else:
         assert isinstance(_cdy_t95, core__TExpr)
         return top
@@ -3200,8 +3221,8 @@ def core__check_type(t: core__CType, scope: core__Scope) -> bool:
         elif core__is_builtin_type(name, builtins):
             _cdy_t104: object = cdy_rt.primitives.map_get(builtins, name)
             if isinstance(_cdy_t104, core__BType):
-                _cdy_n_794 = _cdy_t104.arity
-                _cdy_t103 = _cdy_n_794
+                _cdy_n_807 = _cdy_t104.arity
+                _cdy_t103 = _cdy_n_807
             else:
                 _cdy_t103 = 0
             _cdy_t105 = _cdy_t103
@@ -3252,7 +3273,7 @@ def core__top_deft(items: tuple[form__Form, ...], scope: core__Scope, prog: core
         return cdy_rt.primitives.fail(core__located(scope, 'deft: expected (deft Name ((field Type)+))'))
     else:
         fields = core__deft_fields(('deft ' + name), field_forms)
-        _cdy_checked_813 = core__check_fields(fields, scope)
+        _cdy_checked_826 = core__check_fields(fields, scope)
         return core__add_top(prog, core__TDeft('', name, tvars, fields), prog.n)
 
 def core__check_fields(fields: tuple[tuple[str, core__CType], ...], scope: core__Scope) -> bool:
@@ -3353,9 +3374,9 @@ def core__top_defn(items: tuple[form__Form, ...], scope: core__Scope, prog: core
         params = _tup[0]
         inner = _tup[1]
         n1 = _tup[2]
-        _cdy__tup_862 = core__analyse_expr(items[3], inner, n1)
-        body = _cdy__tup_862[0]
-        n2 = _cdy__tup_862[1]
+        _cdy__tup_875 = core__analyse_expr(items[3], inner, n1)
+        body = _cdy__tup_875[0]
+        n2 = _cdy__tup_875[1]
         if (len(params) == 0):
             return cdy_rt.primitives.fail(core__located(scope, ('defn ' + name + ': at least one argument is needed')))
         elif (len(params) != core__fn_arity(t)):
@@ -3403,21 +3424,21 @@ def core__rest_item(t: core__CType) -> tuple[core__CType, ...]:
 
 def core__bind_params(forms: tuple[form__Form, ...], scope: core__Scope, n: int) -> tuple[tuple[core__Expr, ...], core__Scope, int]:
     def _cdy_t113(s: tuple[core__Scope, int], form: form__Form) -> tuple[tuple[core__Scope, int], core__Expr]:
-        _cdy__tup_881 = s
-        _cdy_sc_882 = _cdy__tup_881[0]
-        _cdy_k_883 = _cdy__tup_881[1]
+        _cdy__tup_894 = s
+        _cdy_sc_895 = _cdy__tup_894[0]
+        _cdy_k_896 = _cdy__tup_894[1]
         name = form__sym_name(form)
-        loc = core__Local(name, _cdy_k_883, form__form_pos(form), core__ANY)
+        loc = core__Local(name, _cdy_k_896, form__form_pos(form), core__ANY)
         if (name == ''):
-            return cdy_rt.primitives.fail(core__located(_cdy_sc_882, 'a parameter must be a name'))
+            return cdy_rt.primitives.fail(core__located(_cdy_sc_895, 'a parameter must be a name'))
         else:
-            return ((core__bind_local(_cdy_sc_882, name, loc), (_cdy_k_883 + 1)), loc)
+            return ((core__bind_local(_cdy_sc_895, name, loc), (_cdy_k_896 + 1)), loc)
     _tup = cdy_rt.primitives.list_map_acc(_cdy_t113, (scope, n), forms)
     last = _tup[0]
     locs = _tup[1]
-    _cdy__tup_889 = last
-    sc = _cdy__tup_889[0]
-    k = _cdy__tup_889[1]
+    _cdy__tup_902 = last
+    sc = _cdy__tup_902[0]
+    k = _cdy__tup_902[1]
     return (locs, sc, k)
 core__MAIN_TYPE: core__CType = core__TFn((core__TCon(core__SYSTEM, 'List', (core__TCon(core__SYSTEM, 'String', ()),)),), core__TCon(core__SYSTEM, 'Int', ()))
 
@@ -3445,11 +3466,11 @@ def core__is_main(t0: core__Top, top: str) -> bool:
         else:
             return cdy_rt.primitives.fail((form__pos_text(pos) + 'main must be typed (Fn ((List String)) Int)'))
     elif isinstance(_cdy_t114, core__TDef):
-        _cdy_module_900 = _cdy_t114.module
-        _cdy_name_901 = _cdy_t114.name
-        _cdy_pos_902 = _cdy_t114.pos
-        if ((_cdy_module_900 == top) and (_cdy_name_901 == 'main')):
-            return cdy_rt.primitives.fail((form__pos_text(_cdy_pos_902) + 'main must be a defn'))
+        _cdy_module_913 = _cdy_t114.module
+        _cdy_name_914 = _cdy_t114.name
+        _cdy_pos_915 = _cdy_t114.pos
+        if ((_cdy_module_913 == top) and (_cdy_name_914 == 'main')):
+            return cdy_rt.primitives.fail((form__pos_text(_cdy_pos_915) + 'main must be a defn'))
         else:
             return False
     else:
@@ -7570,13 +7591,13 @@ def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str
 
 def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -> tuple[Ready, ...]:
     def _cdy_t326(m: include__Module) -> Ready:
-        if include__is_declaration(m.key):
-            return Ready(m, (), {}, core__declared_exports(m.forms, m.stem))
-        else:
-            _tup = expand__expand_program(m.forms, ex)
-            forms = _tup[0]
-            macros = _tup[1]
-            return Ready(m, forms, macros, core__module_exports(forms, m.stem))
+        declaring = include__is_declaration(m.key)
+        all_ = m.forms
+        _tup = expand__expand_program((core__definitions(all_) if declaring else all_), ex)
+        forms = _tup[0]
+        macros = _tup[1]
+        own = core__module_exports(forms, m.stem)
+        return Ready(m, forms, macros, (core__with_declared(own, all_, m.stem) if declaring else own))
     return cdy_rt.primitives.list_map(_cdy_t326, modules)
 
 def exports_by_key(ready: tuple[Ready, ...]) -> _cdy_Mapping[str, core__Exports]:

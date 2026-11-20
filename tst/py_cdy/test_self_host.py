@@ -659,7 +659,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
             ("", "(sig fresh-name (Fn (String) String))\n"),
             "translator.cdy: fresh-name is already declared",
         ),
-        ("translator.cdy", ("", "(def x 1)\n"), "translator.cdy: expected (sig name Type)"),
+        ("translator.cdy", ("", "(sig x)\n"), "translator.cdy: expected (sig name Type)"),
         ("translator.cdy", ("", "(deft Nope)\n"), "translator.cdy: only system.cdy declares types"),
         (
             "special.cdy",
@@ -683,6 +683,25 @@ def test_library_errors(
     declared.write_text(text.replace(old, "") + extra, encoding="utf-8")
     with pytest.raises(CandyFail, match=re.escape(message)):
         translate_with(load(translator), "(put 1)")
+
+
+def test_a_declaration_module_holds_candy(t1_path: Path, tmp_path: Path) -> None:
+    """A declaration module's definitions are ordinary Candy, which its importers see as
+    they see its built-ins, and which use its built-ins too (``doc/hl_rqmt/stdlib.md``,
+    Question 2)."""
+    translator = tmp_path / t1_path.name
+    shutil.copyfile(t1_path, translator)
+    copy_library(tmp_path)
+    declared = tmp_path / "translator.cdy"
+    declared.write_text(
+        declared.read_text(encoding="utf-8")
+        + '(sig shout (Fn (String) String))\n(defn shout (s) (++ s "!"))\n'
+        + "(sig spelled (Fn (String) Bool))\n(defn spelled (name) (map-has py-spellings name))\n",
+        encoding="utf-8",
+    )
+    source = '(import translator)\n(put (shout "hi") (translator.shout "a") (spelled "len"))'
+    done = run(translate_with(load(translator), source), tmp_path, "mixed")
+    assert (done.returncode, done.stdout) == (0, "hi! a! true\n"), done.stderr
 
 
 def test_special_forms_are_declared(t1: ModuleType) -> None:

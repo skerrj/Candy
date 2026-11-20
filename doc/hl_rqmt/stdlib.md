@@ -264,6 +264,22 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    only allowed at top level"). No staging.
 4. **`math`:** the four moved, and `abs`, `min`, `max`; nothing in the translator uses
    them.
+
+   Two commits: `boot/86` finds `math` by its new spelling keys and can't read its Candy
+   ("expected (sig name Type)"), and no staging helps, since the old runtime and the old
+   library each fail too. So 4a teaches the translator a declaration module with
+   Candy, and 4b moves `math`, which 4a's `bin` reads.
+
+   *4a done (2026-11-19). As built:* a declaration module's declarations
+   (`declarations`, `core.cdy`) are each `sig` of a name it doesn't define and each
+   bodiless `deft`; the rest (`definitions`) is ordinary Candy. `read-sigs` reads only a
+   module's declarations (all of `system.cdy`'s, which stays declarations only), and
+   `declared-exports` too; `expand-modules` (`cdyc.cdy`) expands and analyses a
+   declaration module's definitions as any module's, its exports both
+   (`with-declared`), so its Candy uses its built-ins unqualified. A declaration module
+   still imports no prelude, and macro code sees only `translator`'s built-ins. The rule:
+   `programs.import`; `test_a_declaration_module_holds_candy`. Checked against
+   `boot/86`'s `bin`: the same output for all 105 programs. No staging.
 5. **`string`:** moved and renamed, `trim` and `lines`; the translator onto it.
 6. **`map`:** moved and renamed, `update`, `values`, `get-or`; the translator onto it;
    the prelude's `map-update` gone.
