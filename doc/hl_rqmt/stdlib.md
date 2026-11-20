@@ -229,6 +229,21 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    with its runtime): the same output for all 102 programs, the translator's too.
 2. **The prelude's costs:** [[B66]] and [[B62]], measured before and after; [[B68]] if it
    is cheap.
+
+   *Done (2026-11-19). As built:* an `Expander` (`expand.cdy`), made once per
+   translation (`expander`, `cdyc.cdy`), carries the built-ins, the macro compiler and
+   the prelude's macros, compiled and loaded once (`new-expander`), which every file's
+   expansion starts from, in place of `prelude-import`; `compile-macros` closes over the
+   built-ins and macro code's imports, each read once, and `load-defs` takes the
+   built-ins from it. `library-builtins` runs once per translation, against 11 times
+   for `modules.cdy` and 23 for the translator. With `bin`, wall time (median of 5),
+   before and after: `modules.cdy` 0.219 s and 0.119 s, `(put 1)` 0.153 s and 0.114 s,
+   `macro_files.cdy` 0.240 s and 0.134 s, the translator 1.041 s and 0.861 s.
+   [[B68]] waits: it is more than a step (a reachability pass over Core, through the
+   functions' bodies as `check-order`'s `uses`, every node's and definition's types, for
+   the annotations, and each clause's variant, for its sum; and whatever `lower` and
+   `emit` name without a `Global`), for 49 lines of a program's Python and 2% of its
+   time. No staging.
 3. **`test`:** `check`, `deftest`, `test.run`, with its own tests.
 4. **`math`:** the four moved, and `abs`, `min`, `max`; nothing in the translator uses
    them.

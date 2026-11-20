@@ -31,24 +31,29 @@
   (let ((builtins (library-builtins nil)))
     (python-of (type-check (program-tops modules parse builtins) builtins) (get (at modules (- (len modules) 1)) stem))))
 
+;; The Expander for a translation: the built-ins read once, and the prelude's macros loaded
+;; once, for every module ([[B66]], [[B62]]).
+(sig expander (Fn ((Map String Builtin)) Expander))
+(defn expander (builtins) (new-expander builtins (compile-macros builtins (macro-imports nil))))
+
 ;; The definitions of the program `modules`, analysed (see translate-modules); not yet
 ;; type-checked (check.cdy).
 (sig program-tops (Fn ((List Module) (Fn (String Pos) (List Form)) (Map String Builtin)) (List Top)))
 (defn program-tops (modules parse builtins)
-  (let ((ready (expand-modules modules))
+  (let ((ready (expand-modules modules (expander builtins)))
         (by-key (exports-by-key ready))
         (elsewhere (elsewhere-names (exports-of ready))))
     (analyse-modules ready by-key elsewhere builtins parse)))
 
 ;; Each of `modules` with its macros expanded. A declaration module (translator.cdy) has
 ;; no definitions, only what it declares, for the modules importing it.
-(sig expand-modules (Fn ((List Module)) (List Ready)))
-(defn expand-modules (modules)
+(sig expand-modules (Fn ((List Module) Expander) (List Ready)))
+(defn expand-modules (modules ex)
   (map
     (fn (m)
       (if (is-declaration (get m key))
         (Ready m empty-list empty-map (declared-exports (get m forms) (get m stem)))
-        (let (((forms macros) (expand-program (get m forms) compile-macros)))
+        (let (((forms macros) (expand-program (get m forms) ex)))
           (Ready m forms macros (module-exports forms (get m stem))))))
     modules))
 
@@ -84,15 +89,20 @@
 (defn imported (imps by-key)
   (map (fn (imp) (Import (map-get by-key (get imp key)) (get imp pos) (get imp only))) imps))
 
-;; A macro program (expand.cdy) as Python. It is macro code, so it can quote.
-(sig compile-macros (Fn ((List Form)) String))
-(defn compile-macros (forms) (translate-expanded forms read-hole empty-map true))
+;; How a macro program (expand.cdy) becomes Python, with `builtins` and macro code's
+;; `imports` (macro-imports), each read once per translation. It is macro code, so it can
+;; quote.
+(sig compile-macros (Fn ((Map String Builtin) (List Import)) (Fn ((List Form)) String)))
+(defn compile-macros (builtins imports)
+  (fn (forms) (translate-expanded forms read-hole empty-map true builtins imports)))
 
 ;; `forms`, one program with no imports and no macro calls left, as Python; `macros` are
-;; the program's macros.
-(sig translate-expanded (Fn ((List Form) (Fn (String Pos) (List Form)) (Map String Macro) Bool) String))
-(defn translate-expanded (forms parse macros quoting)
-  (python-of (analyse-program forms (macro-imports nil) (library-builtins nil) parse macros quoting) ""))
+;; the program's macros, `builtins` the built-ins, and `imports` what it imports
+;; implicitly.
+(sig translate-expanded
+  (Fn ((List Form) (Fn (String Pos) (List Form)) (Map String Macro) Bool (Map String Builtin) (List Import)) String))
+(defn translate-expanded (forms parse macros quoting builtins imports)
+  (python-of (analyse-program forms imports builtins parse macros quoting) ""))
 
 ;; What macro code imports implicitly: translator, the library's (`gensym`, form.cdy,
 ;; calls fresh-name).

@@ -56,9 +56,9 @@ By kind, then priority.
 |---|---|---|---|---|
 | [B56](B56-match-temporary.md) | Every `match` subject gets a temporary | tech-debt | open | normal |
 | [B61](B61-expand-knows-forms.md) | `expand.cdy` knows the shape of some special forms | tech-debt | open | normal |
-| [B62](B62-prelude-macros-per-module.md) | Every module compiles the prelude's macros | tech-debt | open | normal |
+| [B62](B62-prelude-macros-per-module.md) | Every module compiles the prelude's macros | tech-debt | review | normal |
 | [B63](B63-macro-file-per-importer.md) | A macro file is compiled once per file that imports it | tech-debt | open | normal |
-| [B66](B66-builtins-read-each-time.md) | `special.cdy` and `system.cdy` are read for every translation | tech-debt | open | normal |
+| [B66](B66-builtins-read-each-time.md) | `special.cdy` and `system.cdy` are read for every translation | tech-debt | review | normal |
 | [B68](B68-whole-prelude.md) | The whole prelude goes into every program | tech-debt | open | normal |
 | [B69](B69-quadratic-lists.md) | Building a list is quadratic | tech-debt | open | normal |
 | [B72](B72-parsec-unpublished.md) | parsec.py v4 isn't published | tech-debt | open | normal |
@@ -78,7 +78,7 @@ By kind, then priority.
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B206](B206-stdlib-step-1.md) | stdlib step 1: Declaration modules from the spellings, built-ins keyed by module | task | review | normal |
-| [B207](B207-stdlib-step-2.md) | stdlib step 2: The prelude's costs | task | open | normal |
+| [B207](B207-stdlib-step-2.md) | stdlib step 2: The prelude's costs | task | review | normal |
 | [B208](B208-stdlib-step-3.md) | stdlib step 3: The `test` module | task | open | normal |
 | [B209](B209-stdlib-step-4.md) | stdlib step 4: The `math` module | task | open | normal |
 | [B210](B210-stdlib-step-5.md) | stdlib step 5: The `string` module | task | open | normal |

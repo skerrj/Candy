@@ -322,7 +322,14 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
 def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
     """``forms`` as Python, translated as macro code (where quoting is allowed), as
     ``expand.cdy`` translates a macro program."""
-    return cast(str, candy(t1, "translate-expanded")(forms, candy(t1, "read.read-hole"), {}, True))
+    library = candy(t1, "expand.library-builtins")(None)
+    imports = candy(t1, "macro-imports")(None)
+    return cast(
+        str,
+        candy(t1, "translate-expanded")(
+            forms, candy(t1, "read.read-hole"), {}, True, library, imports
+        ),
+    )
 
 
 def test_quoting_in_macro_code(t1: ModuleType, tmp_path: Path) -> None:

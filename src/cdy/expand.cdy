@@ -9,7 +9,9 @@
 ;;; program.
 ;;;
 ;;; Every file but the prelude itself also imports the prelude's macros (`cond`, from
-;;; prelude_macros.cdy, which is kept next to the translator, like form.cdy).
+;;; prelude_macros.cdy, which is kept next to the translator, like form.cdy). They are
+;;; compiled and loaded once per translation, as the built-ins are read once (an Expander;
+;;; [[B62]], [[B66]]).
 
 (import form)
 (import read)
@@ -30,12 +32,26 @@
    (own (List Macro))
    (helpers (List (Tup String (List Form))))))
 
+;; What expanding needs, made once per translation (new-expander): the built-ins
+;; (read-builtins), how a macro program becomes Python (`compile`), and the prelude's
+;; macros, loaded (`prelude`), which every file but the prelude's own starts from.
+(deft Expander
+  ((builtins (Map String Builtin)) (compile (Fn ((List Form)) String)) (prelude Imports)))
+
+;; The Expander for `builtins` and `compile`, the prelude's macros loaded with them.
+(sig new-expander (Fn ((Map String Builtin) (Fn ((List Form)) String)) Expander))
+(defn new-expander (builtins compile)
+  (let ((bare (Expander builtins compile (Imports empty-list empty-list empty-map)))
+        (path (library-path "prelude_macros.cdy"))
+        (form (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))
+    (assoc bare prelude (import-file form bare empty-list (get bare prelude)))))
+
 ;; The program's forms with its defmacros and macro imports taken out and its macro calls
-;; expanded, and its macros. `compile` translates a macro program into Python.
+;; expanded, and its macros.
 (sig expand-program
-  (Fn ((List Form) (Fn ((List Form)) String)) (Tup (List Form) (Map String Macro))))
-(defn expand-program (forms compile)
-  (let ((done (expand-file forms false compile empty-list)))
+  (Fn ((List Form) Expander) (Tup (List Form) (Map String Macro))))
+(defn expand-program (forms ex)
+  (let ((done (expand-file forms false ex empty-list)))
     (Tup (get done forms) (get done macros))))
 
 (sig MACRO_HEADS (List String))
@@ -44,14 +60,9 @@
 ;; `forms` expanded. In a macro file (`macro-file`), the other forms are helpers, which can
 ;; use only the imported macros (the file's own are compiled with them). `loading` holds the
 ;; macro files being loaded, to catch a cycle.
-(sig expand-file (Fn ((List Form) Bool (Fn ((List Form)) String) (List String)) Expanded))
-(defn expand-file (forms macro-file compile loading)
-  (let ((imports
-          (import-all
-            (++ (prelude-import loading) (pick-forms forms (List "import-macros") true))
-            compile
-            loading
-            (Imports empty-list empty-list empty-map)))
+(sig expand-file (Fn ((List Form) Bool Expander (List String)) Expanded))
+(defn expand-file (forms macro-file ex loading)
+  (let ((imports (import-all (pick-forms forms (List "import-macros") true) ex loading (get ex prelude)))
         (imported (macro-map (get imports macros) empty-map))
         (defs (expand-defs (pick-forms forms (List "defmacro") true) imported))
         (rest (pick-forms forms MACRO_HEADS false))
@@ -59,21 +70,13 @@
         (own
           (if (= (len defs) 0)
             empty-list
-            (load-defs defs (++ (helper-forms (get imports helpers)) helpers) compile)))
+            (load-defs defs (++ (helper-forms (get imports helpers)) helpers) ex)))
         (macros (macro-map own imported)))
     (Expanded
       (if macro-file helpers (expand-all rest macros))
       macros
       own
       (get imports helpers))))
-
-;; (import-macros "path") for the prelude's macros, unless it is the prelude being loaded.
-(sig prelude-import (Fn ((List String)) (List Form)))
-(defn prelude-import (loading)
-  (let ((path (library-path "prelude_macros.cdy")))
-    (if (contains (path-resolve path) loading)
-      empty-list
-      (List (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))))
 
 ;; The forms whose heads are in `heads` (or, if `keep` is false, the others).
 (sig pick-forms (Fn ((List Form) (List String) Bool) (List Form)))
@@ -104,13 +107,13 @@
 ;; --- macro files ---
 
 ;; `start` with the macro files of the (import-macros "path") forms `forms` loaded.
-(sig import-all (Fn ((List Form) (Fn ((List Form)) String) (List String) Imports) Imports))
-(defn import-all (forms compile loading start)
-  (fold (fn (acc form) (import-file form compile loading acc)) start forms))
+(sig import-all (Fn ((List Form) Expander (List String) Imports) Imports))
+(defn import-all (forms ex loading start)
+  (fold (fn (acc form) (import-file form ex loading acc)) start forms))
 
 ;; `acc` with the macro file of `form` loaded, unless it was already.
-(sig import-file (Fn (Form (Fn ((List Form)) String) (List String) Imports) Imports))
-(defn import-file (form compile loading acc)
+(sig import-file (Fn (Form Expander (List String) Imports) Imports))
+(defn import-file (form ex loading acc)
   (let ((path (macro-path form))
         (key (path-resolve path)))
     (cond
@@ -118,7 +121,7 @@
       ((contains key loading)
         (fail (format "{(pos-text (form-pos form))}import-macros: {path} imports itself")))
       (else
-        (let ((done (expand-file (read-program path) true compile (++ loading (List key)))))
+        (let ((done (expand-file (read-program path) true ex (++ loading (List key)))))
           (Imports
             (++ (get acc macros) (get done own))
             (add-helpers (++ (get done helpers) (List (Tup key (get done forms)))) (get acc helpers))
@@ -152,9 +155,10 @@
 ;; --- compiling and loading macros ---
 
 ;; The macros `defs` define, compiled with the helper forms `helpers` and loaded.
-(sig load-defs (Fn ((List Form) (List Form) (Fn ((List Form)) String)) (List Macro)))
-(defn load-defs (defs helpers compile)
-  (let ((builtins (library-builtins nil))
+(sig load-defs (Fn ((List Form) (List Form) Expander) (List Macro)))
+(defn load-defs (defs helpers ex)
+  (let ((builtins (get ex builtins))
+        (compile (get ex compile))
         (checked (unique-names defs builtins empty-map))
         (form-forms (form-defs nil))
         (python (compile (++ form-forms helpers (macro-program defs builtins))))

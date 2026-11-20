@@ -5345,27 +5345,38 @@ class expand__Expanded(_cdy_NamedTuple):
         return hash((type(self), tuple(self)))
 cdy_rt.primitives.register_type(expand__Expanded, 'Expanded', (), (('List', 'form.Form'), ('Map', 'String', 'form.Macro'), ('List', 'form.Macro'), ('List', ('Tup', 'String', ('List', 'form.Form')))))
 
-def expand__expand_program(forms: tuple[form__Form, ...], compile_: _cdy_Callable[[tuple[form__Form, ...]], str]) -> tuple[tuple[form__Form, ...], _cdy_Mapping[str, form__Macro]]:
-    done = expand__expand_file(forms, False, compile_, ())
+class expand__Expander(_cdy_NamedTuple):
+    builtins: _cdy_Mapping[str, core__Builtin]
+    compile_: _cdy_Callable[[tuple[form__Form, ...]], str]
+    prelude: expand__Imports
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(expand__Expander, 'Expander', (), (('Map', 'String', 'core.Builtin'), 'Fn', 'expand.Imports'))
+
+def expand__new_expander(builtins: _cdy_Mapping[str, core__Builtin], compile_: _cdy_Callable[[tuple[form__Form, ...]], str]) -> expand__Expander:
+    bare = expand__Expander(builtins, compile_, expand__Imports((), (), {}))
+    path = include__library_path('prelude_macros.cdy')
+    form = form__Lst((form__Sym('import-macros', form__NOWHERE), form__Txt(path, form__NOWHERE)), form__NOWHERE)
+    return bare._replace(prelude=expand__import_file(form, bare, (), bare.prelude))
+
+def expand__expand_program(forms: tuple[form__Form, ...], ex: expand__Expander) -> tuple[tuple[form__Form, ...], _cdy_Mapping[str, form__Macro]]:
+    done = expand__expand_file(forms, False, ex, ())
     return (done.forms, done.macros)
 expand__MACRO_HEADS: tuple[str, ...] = ('defmacro', 'import-macros')
 
-def expand__expand_file(forms: tuple[form__Form, ...], macro_file: bool, compile_: _cdy_Callable[[tuple[form__Form, ...]], str], loading: tuple[str, ...]) -> expand__Expanded:
-    imports = expand__import_all((expand__prelude_import(loading) + expand__pick_forms(forms, ('import-macros',), True)), compile_, loading, expand__Imports((), (), {}))
-    _cdy_imported_8 = expand__macro_map(imports.macros, {})
-    defs = expand__expand_defs(expand__pick_forms(forms, ('defmacro',), True), _cdy_imported_8)
+def expand__expand_file(forms: tuple[form__Form, ...], macro_file: bool, ex: expand__Expander, loading: tuple[str, ...]) -> expand__Expanded:
+    imports = expand__import_all(expand__pick_forms(forms, ('import-macros',), True), ex, loading, ex.prelude)
+    _cdy_imported_13 = expand__macro_map(imports.macros, {})
+    defs = expand__expand_defs(expand__pick_forms(forms, ('defmacro',), True), _cdy_imported_13)
     rest = expand__pick_forms(forms, expand__MACRO_HEADS, False)
-    helpers = (expand__expand_all(rest, _cdy_imported_8) if macro_file else ())
-    own = (() if (len(defs) == 0) else expand__load_defs(defs, (expand__helper_forms(imports.helpers) + helpers), compile_))
-    macros = expand__macro_map(own, _cdy_imported_8)
+    helpers = (expand__expand_all(rest, _cdy_imported_13) if macro_file else ())
+    own = (() if (len(defs) == 0) else expand__load_defs(defs, (expand__helper_forms(imports.helpers) + helpers), ex))
+    macros = expand__macro_map(own, _cdy_imported_13)
     return expand__Expanded((helpers if macro_file else expand__expand_all(rest, macros)), macros, own, imports.helpers)
-
-def expand__prelude_import(loading: tuple[str, ...]) -> tuple[form__Form, ...]:
-    path = include__library_path('prelude_macros.cdy')
-    if cdy_rt.primitives.list_contains(cdy_rt.primitives.path_resolve(path), loading):
-        return ()
-    else:
-        return (form__Lst((form__Sym('import-macros', form__NOWHERE), form__Txt(path, form__NOWHERE)), form__NOWHERE),)
 
 def expand__pick_forms(forms: tuple[form__Form, ...], heads: tuple[str, ...], keep: bool) -> tuple[form__Form, ...]:
     def _cdy_t206(form: form__Form) -> bool:
@@ -5385,10 +5396,10 @@ def expand__macro_map(macros: tuple[form__Macro, ...], start: _cdy_Mapping[str, 
             return cdy_rt.primitives.map_set(acc, name, macro)
     return cdy_rt.primitives.list_fold(_cdy_t207, start, macros)
 
-def expand__import_all(forms: tuple[form__Form, ...], compile_: _cdy_Callable[[tuple[form__Form, ...]], str], loading: tuple[str, ...], start: expand__Imports) -> expand__Imports:
-    return cdy_rt.primitives.list_fold((lambda acc, form: expand__import_file(form, compile_, loading, acc)), start, forms)
+def expand__import_all(forms: tuple[form__Form, ...], ex: expand__Expander, loading: tuple[str, ...], start: expand__Imports) -> expand__Imports:
+    return cdy_rt.primitives.list_fold((lambda acc, form: expand__import_file(form, ex, loading, acc)), start, forms)
 
-def expand__import_file(form: form__Form, compile_: _cdy_Callable[[tuple[form__Form, ...]], str], loading: tuple[str, ...], acc: expand__Imports) -> expand__Imports:
+def expand__import_file(form: form__Form, ex: expand__Expander, loading: tuple[str, ...], acc: expand__Imports) -> expand__Imports:
     path = expand__macro_path(form)
     key = cdy_rt.primitives.path_resolve(path)
     if cdy_rt.primitives.map_has(acc.seen, key):
@@ -5396,7 +5407,7 @@ def expand__import_file(form: form__Form, compile_: _cdy_Callable[[tuple[form__F
     elif cdy_rt.primitives.list_contains(key, loading):
         return cdy_rt.primitives.fail((form__pos_text(form__form_pos(form)) + 'import-macros: ' + path + ' imports itself'))
     else:
-        done = expand__expand_file(include__read_program(path), True, compile_, (loading + (key,)))
+        done = expand__expand_file(include__read_program(path), True, ex, (loading + (key,)))
         return expand__Imports((acc.macros + done.own), expand__add_helpers((done.helpers + ((key, done.forms),)), acc.helpers), cdy_rt.primitives.map_set(acc.seen, key, True))
 
 def expand__macro_path(form: form__Form) -> str:
@@ -5434,8 +5445,9 @@ def expand__helper_forms(groups: tuple[tuple[str, tuple[form__Form, ...]], ...])
         return forms
     return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t211, groups))
 
-def expand__load_defs(defs: tuple[form__Form, ...], helpers: tuple[form__Form, ...], compile_: _cdy_Callable[[tuple[form__Form, ...]], str]) -> tuple[form__Macro, ...]:
-    builtins = expand__library_builtins(None)
+def expand__load_defs(defs: tuple[form__Form, ...], helpers: tuple[form__Form, ...], ex: expand__Expander) -> tuple[form__Macro, ...]:
+    builtins = ex.builtins
+    compile_ = ex.compile_
     checked = expand__unique_names(defs, builtins, {})
     form_forms = expand__form_defs(None)
     python = compile_((form_forms + helpers + expand__macro_program(defs, builtins)))
@@ -5614,29 +5626,29 @@ def expand__form_at(form: form__Form, pos: form__Pos) -> form__Form:
         v = _cdy_t223.name
         return form__Sym(v, pos)
     elif isinstance(_cdy_t223, form__Txt):
-        _cdy_v_161 = _cdy_t223.val
-        return form__Txt(_cdy_v_161, pos)
-    elif isinstance(_cdy_t223, form__IntLit):
-        _cdy_v_162 = _cdy_t223.val
-        return form__IntLit(_cdy_v_162, pos)
-    elif isinstance(_cdy_t223, form__LongLit):
-        _cdy_v_163 = _cdy_t223.val
-        return form__LongLit(_cdy_v_163, pos)
-    elif isinstance(_cdy_t223, form__ByteLit):
-        _cdy_v_164 = _cdy_t223.val
-        return form__ByteLit(_cdy_v_164, pos)
-    elif isinstance(_cdy_t223, form__FloatLit):
         _cdy_v_165 = _cdy_t223.val
-        return form__FloatLit(_cdy_v_165, pos)
-    elif isinstance(_cdy_t223, form__DoubleLit):
+        return form__Txt(_cdy_v_165, pos)
+    elif isinstance(_cdy_t223, form__IntLit):
         _cdy_v_166 = _cdy_t223.val
-        return form__DoubleLit(_cdy_v_166, pos)
-    elif isinstance(_cdy_t223, form__CharLit):
+        return form__IntLit(_cdy_v_166, pos)
+    elif isinstance(_cdy_t223, form__LongLit):
         _cdy_v_167 = _cdy_t223.val
-        return form__CharLit(_cdy_v_167, pos)
-    elif isinstance(_cdy_t223, form__BoolLit):
+        return form__LongLit(_cdy_v_167, pos)
+    elif isinstance(_cdy_t223, form__ByteLit):
         _cdy_v_168 = _cdy_t223.val
-        return form__BoolLit(_cdy_v_168, pos)
+        return form__ByteLit(_cdy_v_168, pos)
+    elif isinstance(_cdy_t223, form__FloatLit):
+        _cdy_v_169 = _cdy_t223.val
+        return form__FloatLit(_cdy_v_169, pos)
+    elif isinstance(_cdy_t223, form__DoubleLit):
+        _cdy_v_170 = _cdy_t223.val
+        return form__DoubleLit(_cdy_v_170, pos)
+    elif isinstance(_cdy_t223, form__CharLit):
+        _cdy_v_171 = _cdy_t223.val
+        return form__CharLit(_cdy_v_171, pos)
+    elif isinstance(_cdy_t223, form__BoolLit):
+        _cdy_v_172 = _cdy_t223.val
+        return form__BoolLit(_cdy_v_172, pos)
     else:
         return form
 
@@ -7530,18 +7542,21 @@ def translate_modules(modules: tuple[include__Module, ...], parse: _cdy_Callable
     builtins = expand__library_builtins(None)
     return python_of(check__type_check(program_tops(modules, parse, builtins), builtins), cdy_rt.primitives.at(modules, (len(modules) - 1)).stem)
 
+def expander(builtins: _cdy_Mapping[str, core__Builtin]) -> expand__Expander:
+    return expand__new_expander(builtins, compile_macros(builtins, macro_imports(None)))
+
 def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]], builtins: _cdy_Mapping[str, core__Builtin]) -> tuple[core__Top, ...]:
-    ready = expand_modules(modules)
+    ready = expand_modules(modules, expander(builtins))
     by_key = exports_by_key(ready)
     elsewhere = core__elsewhere_names(exports_of(ready))
     return analyse_modules(ready, by_key, elsewhere, builtins, parse)
 
-def expand_modules(modules: tuple[include__Module, ...]) -> tuple[Ready, ...]:
+def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -> tuple[Ready, ...]:
     def _cdy_t325(m: include__Module) -> Ready:
         if include__is_declaration(m.key):
             return Ready(m, (), {}, core__declared_exports(m.forms, m.stem))
         else:
-            _tup = expand__expand_program(m.forms, compile_macros)
+            _tup = expand__expand_program(m.forms, ex)
             forms = _tup[0]
             macros = _tup[1]
             return Ready(m, forms, macros, core__module_exports(forms, m.stem))
@@ -7562,11 +7577,11 @@ def analyse_modules(ready: tuple[Ready, ...], by_key: _cdy_Mapping[str, core__Ex
 def imported(imps: tuple[include__Imp, ...], by_key: _cdy_Mapping[str, core__Exports]) -> tuple[core__Import, ...]:
     return cdy_rt.primitives.list_map((lambda imp: core__Import(cdy_rt.primitives.map_get(by_key, imp.key), imp.pos, imp.only)), imps)
 
-def compile_macros(forms: tuple[form__Form, ...]) -> str:
-    return translate_expanded(forms, read__read_hole, {}, True)
+def compile_macros(builtins: _cdy_Mapping[str, core__Builtin], imports: tuple[core__Import, ...]) -> _cdy_Callable[[tuple[form__Form, ...]], str]:
+    return (lambda forms: translate_expanded(forms, read__read_hole, {}, True, builtins, imports))
 
-def translate_expanded(forms: tuple[form__Form, ...], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]], macros: _cdy_Mapping[str, form__Macro], quoting: bool) -> str:
-    return python_of(core__analyse_program(forms, macro_imports(None), expand__library_builtins(None), parse, macros, quoting), '')
+def translate_expanded(forms: tuple[form__Form, ...], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]], macros: _cdy_Mapping[str, form__Macro], quoting: bool, builtins: _cdy_Mapping[str, core__Builtin], imports: tuple[core__Import, ...]) -> str:
+    return python_of(core__analyse_program(forms, imports, builtins, parse, macros, quoting), '')
 
 def macro_imports(_: None) -> tuple[core__Import, ...]:
     path = include__library_path('translator.cdy')
