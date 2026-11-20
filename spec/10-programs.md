@@ -45,6 +45,31 @@ first
 (sig x Int) (def x 1) (def x 2) => defined more than once: x
 ```
 
+<a id="programs.top-do"></a>
+**A top-level `do`** (since `stdlib`) is its forms, spliced into the top level, so they
+may be definitions: a macro expands to one form, and this is how one defines several
+things (`deftest`, [[library.test]]). A `do` in an expression still can't hold one. A
+`defmacro`, `import` or `import-macros` can't be in it, since those are read before
+macros are expanded.
+
+```candy run
+(defmacro defsquare (name n)
+  (quasi (do (sig (unq name) Int) (def (unq name) (* (unq n) (unq n))))))
+(defsquare nine 3)
+(do (put "a") (sig x Int) (def x (+ nine 1)))
+(put x)
+```
+```expect
+a
+10
+```
+
+```candy errors
+(do (defmacro m (a) a)) => defmacro can't be in a top-level do: it is read before macros are expanded
+(do (import x)) => import can't be in a top-level do: it is read before macros are expanded
+(do (import-macros x)) => import-macros can't be in a top-level do: it is read before macros are expanded
+```
+
 <a id="programs.namespace"></a>
 **One namespace** (since `namespaces`): a module's types, values and variants share one
 namespace, *lasting*, so a type can't share its name with a value or a variant; a record's

@@ -1,8 +1,9 @@
 """Tests for the self-hosted translator (``self_host.py``, ``src/cdy/cdyc.cdy``).
 
 T1, the Candy translator built by the checked-in one (``bin``), is built once per test
-session. Each test program (``tst/cdy/t1/NAME.cdy``, ``tst/cdy/NAME.cdy`` and
-``tst/cdy/cdyc/NAME.cdy``) is translated by T1; the result must run and print ``NAME.out``,
+session. Each test program (``tst/cdy/t1/NAME.cdy``, ``tst/cdy/NAME.cdy``,
+``tst/cdy/cdyc/NAME.cdy`` and, the library modules' tests, ``tst/cdy/stdlib/NAME_test.cdy``)
+is translated by T1; the result must run, exit with 0 and print ``NAME.out``,
 and pass ``mypy --strict``. T1 itself must pass ``mypy --strict`` too: that type-checks the
 Candy translator's own code.
 
@@ -50,6 +51,7 @@ PROGRAMS = [
     *sorted((ROOT / "tst" / "cdy" / "t1").glob("*.cdy")),
     *sorted((ROOT / "tst" / "cdy").glob("*.cdy")),
     *sorted(CDYC_ONLY.glob("*.cdy")),
+    *sorted((ROOT / "tst" / "cdy" / "stdlib").glob("*.cdy")),
 ]
 IDS = [p.stem for p in PROGRAMS]
 TOP = "cdyc"  # the translator's top module, whose names have no prefix in Python

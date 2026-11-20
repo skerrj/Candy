@@ -1,0 +1,39 @@
+;;; The test module's macros (test.cdy; spec/60-library.md, library.test). They write the
+;;; module's names qualified, so a file using them imports it, by convention with no
+;;; names unqualified: (import test ()) (import-macros test_macros).
+
+;; (deftest name check+): defines `name`, a test.Test, whose checks are the `check`s (each
+;; a test.Check), made when the test runs. It is a top-level do of the sig and the def
+;; (programs.top-do).
+(defmacro deftest args
+  (if (or (< (len args) 2) (= (sym-name (at args 0)) ""))
+    (fail "expected (deftest name check ...)")
+    (quasi
+      (do
+        (sig (unq (at args 0)) test.Test)
+        (def (unq (at args 0))
+          (test.Test (unq (Txt (sym-name (at args 0)) NOWHERE)) (fn (_) (List (unq-sp (rest-of args))))))))))
+
+;; (check test): test.Pass if `test`, a Bool, is true, or else a test.Fail with its text
+;; and where it is.
+(defmacro check (test)
+  (quasi
+    (if (unq test)
+      test.Pass
+      (test.Fail (unq (Txt (form-text test) NOWHERE)) (unq (Txt (pos-text (form-pos test)) NOWHERE))))))
+
+;; `form` as a program writes it: `(= (len xs) 2)`. (A string's escapes aren't written
+;; back, *for now*: [[B214]].)
+(sig form-text (Fn (Form) String))
+(defn form-text (form)
+  (match form
+    ((Sym name _) name)
+    ((Lst items _) (++ "(" (join (map form-text items) " ") ")"))
+    ((Txt s _) (++ "\"" s "\""))
+    ((IntLit n _) (text n))
+    ((LongLit n _) (++ (text n) "l"))
+    ((ByteLit n _) (++ (text n) "b"))
+    ((FloatLit x _) (++ (text x) "f"))
+    ((DoubleLit x _) (text x))
+    ((CharLit c _) (++ "\\" (text c)))
+    ((BoolLit b _) (if b "true" "false"))))

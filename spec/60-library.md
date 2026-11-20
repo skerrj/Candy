@@ -587,3 +587,45 @@ apart with `match` ([[match.sum-types]]).
 (Ok 42) (Err "not a number: x")
 got 42 not a number: x
 ```
+
+<a id="library.test"></a>
+## Tests
+
+`test` (since `stdlib`) is a library module for tests written in Candy, with the macros
+`deftest` and `check` in the macro file `test_macros`; they write the module's names
+qualified, so a file using them imports it, by convention with no names unqualified:
+`(import test ())`, `(import-macros test_macros)`. `(deftest name check+)` defines `name`,
+a `test.Test` (a top-level `do` of its `sig` and its `def`, [[programs.top-do]]), whose
+checks are made when it runs. `(check test)`, of a `Bool`, is a `test.Check`: `test.Pass`,
+or `(test.Fail text pos)`, with the expression as the program writes it and where it is.
+`test.run` runs each test once, writes each failed check (where, the test, the
+expression) and a count, and gives 0 if every check passed, or else 1, for `main`'s exit
+status ([[programs.main]]). A failed check doesn't stop the others; a panic stops the run,
+as any panic does ([[library.errors]]). A program names its tests to `test.run`: no
+registry, *for now* ([[B215]]), since a module can't collect its own definitions; and a
+failed check's text doesn't write a string's escapes back (*for now*: [[B214]]).
+
+| Call | Type | Gives |
+|---|---|---|
+| `(deftest name check+)` | a macro | defines `name`, a `test.Test` |
+| `(check test)` | a macro | `test.Pass` if `test` is true, else a `test.Fail` |
+| `(test.run tests)` | `(Fn ((List test.Test)) Int)` | 0 if every check passed, else 1 |
+| `(test.failures name checks)` | `(Fn (String (List test.Check)) (List String))` | a line for each failed check |
+
+```candy run
+(import test ())
+(import-macros test_macros)
+(deftest adds (check (= (+ 1 2) 3)) (check (= (len (List 1 2)) 2)))
+(deftest compares (check (< 1 2)) (check (= (+ 1 1) 3)))
+(put (test.run (List adds compares)))
+```
+```expect
+line 4, column 42: compares: (= (+ 1 1) 3)
+tests: 2, checks: 4, failed: 1
+1
+```
+
+```candy errors
+(import-macros test_macros) (deftest t) => expected (deftest name check ...)
+(import-macros test_macros) (deftest (t) (check true)) => expected (deftest name check ...)
+```

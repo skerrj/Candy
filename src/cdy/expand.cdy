@@ -66,17 +66,41 @@
         (imported (macro-map (get imports macros) empty-map))
         (defs (expand-defs (pick-forms forms (List "defmacro") true) imported))
         (rest (pick-forms forms MACRO_HEADS false))
-        (helpers (if macro-file (expand-all rest imported) empty-list))
+        (helpers (if macro-file (splice-dos (expand-all rest imported)) empty-list))
         (own
           (if (= (len defs) 0)
             empty-list
             (load-defs defs (++ (helper-forms (get imports helpers)) helpers) ex)))
         (macros (macro-map own imported)))
     (Expanded
-      (if macro-file helpers (expand-all rest macros))
+      (if macro-file helpers (splice-dos (expand-all rest macros)))
       macros
       own
       (get imports helpers))))
+
+;; `forms`, a file's top level after expansion, with each `(do form*)` replaced by its
+;; forms, spliced in, a `do` among them too (programs.top-do): so a macro can define
+;; several things, `(do (sig f T) (defn f ...))`. A defmacro, import or import-macros
+;; can't be one of them, since those are read before macros are expanded.
+(sig splice-dos (Fn ((List Form)) (List Form)))
+(defn splice-dos (forms)
+  (concat
+    (map
+      (fn (form)
+        (let ((items (list-items form)))
+          (if (and (> (len items) 0) (= (sym-name (at items 0)) "do"))
+            (splice-dos (map spliceable (rest items)))
+            (List form))))
+      forms)))
+
+;; `form`, a top-level do's, unless it is read before expansion: an error.
+(sig spliceable (Fn (Form) Form))
+(defn spliceable (form)
+  (let ((items (list-items form))
+        (head (if (> (len items) 0) (sym-name (at items 0)) "")))
+    (if (contains head (List "defmacro" "import" "import-macros"))
+      (fail (format "{(pos-text (form-pos form))}{head} can't be in a top-level do: it is read before macros are expanded"))
+      form)))
 
 ;; The forms whose heads are in `heads` (or, if `keep` is false, the others).
 (sig pick-forms (Fn ((List Form) (List String) Bool) (List Form)))

@@ -1,0 +1,38 @@
+;; The test module's own tests (src/cdy/test.cdy, test_macros.cdy; spec/60-library.md,
+;; library.test). A failed check's line holds its file's path, which differs from one
+;; checkout to another, so this file's run has none: `fails` is checked, not run.
+(import test ())
+(import-macros test_macros)
+
+(deftest checks-pass (check (= (+ 1 2) 3)) (check (not false)))
+
+;; Two checks, the second failing.
+(deftest fails (check (= 1 1)) (check (= (+ 1 1) 3)))
+
+;; A check of every kind of literal, failing, for its text.
+(sig x Int)
+(def x 0)
+(deftest literals (check (= (Tup 1 2l 3b 1.5f 2.5 \a true "s" x) (Tup 0 2l 3b 1.5f 2.5 \a true "s" x))))
+
+(sig results (Fn (test.Test) (List test.Check)))
+(defn results (t) (let ((checks (get t checks))) (checks nil)))
+
+(deftest a-failure-has-its-text-and-place
+  (check (= (len (results fails)) 2))
+  (check (= (at (results fails) 0) test.Pass))
+  (check
+    (match (at (results fails) 1)
+      ((test.Fail text pos) (and (= text "(= (+ 1 1) 3)") (ends-with pos "test_test.cdy:10:39: ")))
+      (else false))))
+
+(deftest the-text-of-each-literal
+  (check
+    (match (at (results literals) 0)
+      ((test.Fail text _) (= text "(= (Tup 1 2l 3b 1.5f 2.5 \\a true \"s\" x) (Tup 0 2l 3b 1.5f 2.5 \\a true \"s\" x))"))
+      (else false))))
+
+(deftest failures-are-lines
+  (check (= (test.failures "t" (List test.Pass (test.Fail "(f)" "a.cdy:1:2: "))) (List "a.cdy:1:2: t: (f)"))))
+
+(sig main (Fn ((List String)) Int))
+(defn main (_) (test.run (List checks-pass a-failure-has-its-text-and-place the-text-of-each-literal failures-are-lines)))

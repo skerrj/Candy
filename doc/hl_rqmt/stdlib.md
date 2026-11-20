@@ -245,6 +245,23 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    `emit` name without a `Global`), for 49 lines of a program's Python and 2% of its
    time. No staging.
 3. **`test`:** `check`, `deftest`, `test.run`, with its own tests.
+
+   *Done (2026-11-19). As built:* `test.cdy` (`Check`, `Test`, `run`, `failures`) is an
+   ordinary library module, and `test_macros.cdy` (`deftest`, `check`, and `form-text`,
+   which writes a form back, its strings' escapes not, *for now*: [[B214]]) a library
+   macro file; both are in `LIBRARY` (`self_host.py`). The macros write `test.`-qualified
+   names, so a file imports `(import test ())`. `deftest` must define a name with its
+   `sig`, two top-level forms, and a macro gives one, so the owner chose a language rule
+   (2026-11-19): **a top-level `do` is its forms, spliced** (`splice-dos`, `expand.cdy`;
+   [[programs.top-do]]), Scheme's `begin`; a `defmacro`, `import` or `import-macros` in
+   one is an error, since those are read before expansion. `test.run` writes each failed
+   check as `{pos}{test}: {text}`, then `tests: N, checks: N, failed: N`, and gives 0 or
+   1. No registry ([[B215]], an idea). The rule: `library.test`;
+   `tst/cdy/stdlib/test_test.cdy` (new, in `test_output`'s programs) tests the module
+   with itself, without printing a failure, whose line holds its file's path. Checked
+   against `boot/85`'s `bin`: the same output but for the three programs with a
+   top-level `do` (`test_test.cdy` and the two spec examples), which it rejects ("sig is
+   only allowed at top level"). No staging.
 4. **`math`:** the four moved, and `abs`, `min`, `max`; nothing in the translator uses
    them.
 5. **`string`:** moved and renamed, `trim` and `lines`; the translator onto it.
