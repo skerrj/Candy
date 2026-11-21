@@ -15,6 +15,7 @@
 (import emit)
 (import check)
 (import translator)
+(import map ())
 
 ;; --- the whole translator: forms in, Python source out ---
 
@@ -61,7 +62,7 @@
 
 (sig exports-by-key (Fn ((List Ready)) (Map String Exports)))
 (defn exports-by-key (ready)
-  (fold (fn (m r) (map-set m (get (get r module) key) (get r exports))) empty-map ready))
+  (fold (fn (m r) (map.set m (get (get r module) key) (get r exports))) map.empty ready))
 
 (sig exports-of (Fn ((List Ready)) (List Exports)))
 (defn exports-of (ready) (map (fn (r) (get r exports)) ready))
@@ -89,14 +90,14 @@
 ;; Each import, with its module's exports.
 (sig imported (Fn ((List Imp) (Map String Exports)) (List Import)))
 (defn imported (imps by-key)
-  (map (fn (imp) (Import (map-get by-key (get imp key)) (get imp pos) (get imp only))) imps))
+  (map (fn (imp) (Import (map.at by-key (get imp key)) (get imp pos) (get imp only))) imps))
 
 ;; How a macro program (expand.cdy) becomes Python, with `builtins` and macro code's
 ;; `imports` (macro-imports), each read once per translation. It is macro code, so it can
 ;; quote.
 (sig compile-macros (Fn ((Map String Builtin) (List Import)) (Fn ((List Form)) String)))
 (defn compile-macros (builtins imports)
-  (fn (forms) (translate-expanded forms read-hole empty-map true builtins imports)))
+  (fn (forms) (translate-expanded forms read-hole map.empty true builtins imports)))
 
 ;; `forms`, one program with no imports and no macro calls left, as Python; `macros` are
 ;; the program's macros, `builtins` the built-ins, and `imports` what it imports
@@ -125,7 +126,7 @@
 (sig python-of (Fn ((List Top) String) String))
 (defn python-of (tops top)
   (let ((stmts (lower-program tops 0))
-        (globals (global-names tops (Env empty-map empty-map empty-map (generic-variants tops) py-spellings empty-map (deft-field-types tops) top)))
+        (globals (global-names tops (Env map.empty map.empty map.empty (generic-variants tops) py-spellings map.empty (deft-field-types tops) top)))
         (env (bind-locals (bound-locals stmts empty-list) globals)))
     (++ HEADER
        (emit-imports PY_IMPORTS)

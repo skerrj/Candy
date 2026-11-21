@@ -45,6 +45,7 @@ LIBRARY = (
     "prelude.cdy",
     "math.cdy",
     "string.cdy",
+    "map.cdy",
     "test.cdy",
     "test_macros.cdy",
 )

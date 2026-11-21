@@ -29,3 +29,7 @@ question 3).
   doesn't hold; the `List` type stays (rest parameters, `++`), but its operations could
   be an implicitly imported `list` declaration module, `system` the language alone.
   Decide at `io` ([[B95]]) or a second target.
+- **a module writing its own names qualified** (`m.x` inside `m`, as its importers write
+  it): built as `stdlib`'s step 6a, for `map.cdy` to call a `get` of its own past the
+  special form, and dropped for `map.at` (the HLD's step 6). Wanted again if a module's
+  name ever needs saying where another would shadow it.

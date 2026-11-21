@@ -15,9 +15,9 @@ them. A value prints as Candy shows it ([[library.show]]).
 
 `system.cdy` declares each built-in with a `sig` that has no definition: the runtime
 provides it, with that type. Only a declaration module (`system.cdy`, `translator.cdy`,
-`math.cdy`, `string.cdy`) may have a `sig` with no definition. A built-in's arity is its type's
+`math.cdy`, `string.cdy`, `map.cdy`) may have a `sig` with no definition. A built-in's arity is its type's
 (`40-expressions.md`). Lists, strings and maps each have their own operations (`len` a
-list's, `string.len` a string's, `map-size` a map's), *for now*, until interfaces let one
+list's, `string.len` a string's, `map.size` a map's), *for now*, until interfaces let one
 name work on each ([[B34]]). None is typed `Any`; only three of `translator`'s are, which
 take or give a host function (*for now*: [[B49]]).
 
@@ -32,7 +32,7 @@ the prelude's are marked.
 | output | [[library.put]], [[library.show]] | `put` (the prelude's, a macro), `put-line`, `text`, `show`, `put-err` |
 | files | [[library.files]] | `slurp`, `spit`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
 | lists | [[library.lists]], [[library.map-acc]], [[library.zip]], [[library.rest]], [[library.bounds]], [[library.maybe]] | `len`, `empty-list`, `at`, `slice`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find-index`, `contains`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`; the prelude's `rest`, `find`, `index-of`, `with-default` |
-| maps | [[library.maps]] | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size`; the prelude's `map-update` |
+| maps (the module `map`) | [[library.maps]] | `map.empty`, `map.at`, `map.has`, `map.set`, `map.keys`, `map.from`, `map.size`; in Candy, `map.update`, `map.values`, `map.at-or` |
 | strings (the module `string`) | [[library.strings]], [[library.bounds]] | `string.len`, `string.at`, `string.slice`, `string.contains`, `string.starts-with`, `string.ends-with`, `string.split`, `string.join`, `string.repeat`, `string.replace`, `string.to-int`, `string.to-float`, `string.code`, `string.hex-char`, `string.is-decimal`, `string.is-space`; in Candy, `string.trim`, `string.lines` |
 | math (the module `math`) | [[library.math]] | `math.PI`, `math.sin`, `math.cos`, `math.tan` |
 | the program | [[library.errors]], [[expr.unit]] | `fail`, `nil`; the prelude's `Result` |
@@ -319,36 +319,44 @@ a b 0 x
 <a id="library.maps"></a>
 ## Maps
 
-A map is typed `(Map k v)`, and immutable: `map-set` returns a new one. `map-from` makes
-one from a list of key-value tuples, the later of two equal keys winning; `map-keys`
-lists the keys in the order they were first added. The prelude's `map-update` replaces
-the value at a key, which must be in the map, by a function of it. A `map-get` of a key
-that isn't in the map stops with Python's error, not a panic (*for now*: [[B160]]); ask
-`map-has` first.
+`map` (since `stdlib`; before, its built-ins were `system`'s, as `empty-map`, `map-get`,
+`map-has`, `map-set`, `map-keys`, `map-from`, `map-size`, and `map-update` the prelude's)
+is a library module, a declaration module ([[programs.import]]). A map is typed
+`(Map k v)`, and immutable: `map.set` returns a new one. `map.at` gives the value at a
+key, as a list's and a string's `at` give the item at an index (`get` is the special form
+that reads a record's field). `map.from` makes one from a list of key-value tuples, the
+later of two equal keys winning; `map.keys` lists the keys in the order they were first
+added. `update`, `values` and `at-or` are Candy. A program imports it by convention with
+no names unqualified, `(import map ())`; the list function `map` is still the list's. A
+`map.at` of a key that isn't in the map stops with Python's error, not a panic (*for
+now*: [[B160]]); ask `map.has` first, or use `map.at-or`.
 
 | Call | Type | Gives |
 |---|---|---|
-| `empty-map` | `(Map k v)` | the map with no keys |
-| `(map-get m k)` | `(Fn ((Map k v) k) v)` | the value at `k`, which must be in `m` |
-| `(map-has m k)` | `(Fn ((Map k v) k) Bool)` | whether `k` is in `m` |
-| `(map-set m k v)` | `(Fn ((Map k v) k v) (Map k v))` | `m` with `v` at `k`, replacing any value there |
-| `(map-keys m)` | `(Fn ((Map k v)) (List k))` | the keys, in the order they were first added |
-| `(map-from pairs)` | `(Fn ((List (Tup k v))) (Map k v))` | the map of the pairs, the later of two equal keys winning |
-| `(map-size m)` | `(Fn ((Map k v)) Int)` | the number of keys |
-| `(map-update m k f)`, the prelude's | `(Fn ((Map k v) k (Fn (v) v)) (Map k v))` | `m` with `f` of the value at `k`, which must be in `m` |
+| `map.empty` | `(Map k v)` | the map with no keys |
+| `(map.at m k)` | `(Fn ((Map k v) k) v)` | the value at `k`, which must be in `m` |
+| `(map.has m k)` | `(Fn ((Map k v) k) Bool)` | whether `k` is in `m` |
+| `(map.set m k v)` | `(Fn ((Map k v) k v) (Map k v))` | `m` with `v` at `k`, replacing any value there |
+| `(map.keys m)` | `(Fn ((Map k v)) (List k))` | the keys, in the order they were first added |
+| `(map.from pairs)` | `(Fn ((List (Tup k v))) (Map k v))` | the map of the pairs, the later of two equal keys winning |
+| `(map.size m)` | `(Fn ((Map k v)) Int)` | the number of keys |
+| `(map.update m k f)` | `(Fn ((Map k v) k (Fn (v) v)) (Map k v))` | `m` with `f` of the value at `k`, which must be in `m` |
+| `(map.values m)` | `(Fn ((Map k v)) (List v))` | the values, in their keys' order |
+| `(map.at-or m k fallback)` | `(Fn ((Map k v) k v) v)` | the value at `k`, or `fallback` if `k` isn't in `m` |
 
 ```candy run
+(import map ())
 (import string ())
 (sig ages (Map String Int))
-(def ages (map-from (List (Tup "ann" 30) (Tup "bo" 4) (Tup "ann" 31))))
+(def ages (map.from (List (Tup "ann" 30) (Tup "bo" 4) (Tup "ann" 31))))
 
-(put (string.join (map-keys ages) " ") (map-get ages "ann"))
-(put (map-get (map-update ages "bo" (fn (n) (+ n 1))) "bo") (map-get ages "bo"))
-(put (map-get (map-set ages "cy" 7) "cy") (if (map-has ages "cy") "has cy" "no cy"))
-(put (map-size ages) (map-size (map-set ages "cy" 7)))
+(put (string.join (map.keys ages) " ") (map.at ages "ann"))
+(put (map.at (map.update ages "bo" (fn (n) (+ n 1))) "bo") (map.at ages "bo"))
+(put (map.at (map.set ages "cy" 7) "cy") (if (map.has ages "cy") "has cy" "no cy"))
+(put (map.size ages) (map.size (map.set ages "cy" 7)))
 (sig none (Map String Int))
-(def none empty-map)
-(put (map-size none) (map-keys none) (map-has none "ann"))
+(def none map.empty)
+(put (map.size none) (map.keys none) (map.has none "ann"))
 ```
 ```expect
 ann bo 31
@@ -356,6 +364,18 @@ ann bo 31
 7 no cy
 2 3
 0 (List) false
+```
+
+```candy run
+(import map ())
+(sig ages (Map String Int))
+(def ages (map.from (List (Tup "ann" 31) (Tup "bo" 4))))
+(put (map.values ages) (map.at-or ages "bo" 0) (map.at-or ages "cy" 0))
+(put (map (fn (n) (* n 2)) (map.values ages)))
+```
+```expect
+(List 31 4) 4 0
+(List 62 8)
 ```
 
 <a id="library.files"></a>
@@ -475,6 +495,7 @@ can't tell a `Char` from a `String`, the integer and float sizes apart, or a `Tu
 `List` (*for now*: [[B18]]).
 
 ```candy run
+(import map ())
 (deft Vec ((x Int) (y Int)))
 (deft Shape (Circle ((r Double))) (Dot))
 (deft (Tree a) (Leaf) (Node ((l (Tree a)) (v a) (r (Tree a)))))
@@ -482,7 +503,7 @@ can't tell a `Char` from a `String`, the integer and float sizes apart, or a `Tu
 (put 42 1500l 1b 3.14f 10.0 true nil)
 (put 1.0e20 -1.5e-5 1.0e20f (* 1.0e300 1.0e300))
 (put \a "text" (show \a) (show "say \"hi\""))
-(put (List 1 2) (Tup 1 "a") (rest (List 1)) (map-from (List (Tup "k" 1))))
+(put (List 1 2) (Tup 1 "a") (rest (List 1)) (map.from (List (Tup "k" 1))))
 (put (Vec 1 2) (Circle 1.0) Dot (Node Leaf 2 (Node Leaf 3 Leaf)))
 (put (find (fn (n) (> n 1)) (List 1 2)) (find (fn (n) (> n 5)) (List 1 2)))
 (put (format "a {(List true)} and {\"text\"}"))

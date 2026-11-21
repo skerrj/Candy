@@ -14,6 +14,7 @@
 (import syntax)
 (import translator)
 (import string ())
+(import map ())
 
 ;; --- modules ---
 
@@ -32,12 +33,12 @@
 ;; The modules of the program whose top file is at `path`; the top module is last.
 (sig read-modules (Fn (String) (List Module)))
 (defn read-modules (path)
-  (checked-stems (add-module path (path-resolve path) (read-source path (slurp path)) (path-dir path) empty-list (Mods empty-list empty-map))))
+  (checked-stems (add-module path (path-resolve path) (read-source path (slurp path)) (path-dir path) empty-list (Mods empty-list map.empty))))
 
 ;; The modules of the program `text`, whose imports are found in the current directory.
 (sig text-modules (Fn (String) (List Module)))
 (defn text-modules (text)
-  (checked-stems (add-module "" "" (read-source "" text) "." empty-list (Mods empty-list empty-map))))
+  (checked-stems (add-module "" "" (read-source "" text) "." empty-list (Mods empty-list map.empty))))
 
 ;; `acc` with the module at `path` (whose key is `key`) and its imports added; `stack` holds
 ;; the keys of the modules importing it, to catch a cycle.
@@ -45,7 +46,7 @@
 (defn add-module (path key forms dir stack acc)
   (let ((imports (++ (prelude-module key) (module-imports forms dir)))
         (inner
-          (load-imports imports (++ stack (List key)) (assoc acc seen (map-set (get acc seen) key true)))))
+          (load-imports imports (++ stack (List key)) (assoc acc seen (map.set (get acc seen) key true)))))
     (assoc inner done
       (++ (get inner done)
          (List (Module path key (path-stem path) (other-forms forms dir) (imp-list imports)))))))
@@ -97,7 +98,7 @@
         (cond
           ((contains key stack)
             (fail (format "{(pos-text (get imp pos))}import: cycle {(cycle-text stack key)}")))
-          ((map-has (get acc seen) key) acc)
+          ((map.has (get acc seen) key) acc)
           (else (add-module path key (read-source path (slurp path)) (path-dir path) stack acc)))))
     start
     imports))
@@ -118,7 +119,7 @@
 (sig checked-stems (Fn (Mods) (List Module)))
 (defn checked-stems (mods)
   (let ((modules (get mods done))
-        (checked (unique-stems (slice modules 0 (- (len modules) 1)) empty-map)))
+        (checked (unique-stems (slice modules 0 (- (len modules) 1)) map.empty)))
     modules))
 
 (sig unique-stems (Fn ((List Module) (Map String String)) Bool))
@@ -127,9 +128,9 @@
           (fold
             (fn (seen m)
               (let ((stem (get m stem)))
-                (if (map-has seen stem)
-                  (fail (format "import: two modules are named {stem}: {(map-get seen stem)} and {(get m path)}"))
-                  (map-set seen stem (get m path)))))
+                (if (map.has seen stem)
+                  (fail (format "import: two modules are named {stem}: {(map.at seen stem)} and {(get m path)}"))
+                  (map.set seen stem (get m path)))))
             start
             modules)))
     true))
@@ -142,12 +143,12 @@
 ;; The forms of the Candy file at `path`, with its imports included.
 (sig read-program (Fn (String) (List Form)))
 (defn read-program (path)
-  (get (include-file path (Incl empty-list empty-map)) done))
+  (get (include-file path (Incl empty-list map.empty)) done))
 
 ;; `forms` with their imports included, found in directory `dir`.
 (sig include-imports (Fn ((List Form) String) (List Form)))
 (defn include-imports (forms dir)
-  (get (include-forms forms dir (Incl empty-list empty-map)) done))
+  (get (include-forms forms dir (Incl empty-list map.empty)) done))
 
 ;; `acc` with the forms of the file at `path` added, unless it was included already. The
 ;; forms' positions name the file by `path`, as the user would write it (an import's is
@@ -156,12 +157,12 @@
 (sig include-file (Fn (String Incl) Incl))
 (defn include-file (path acc)
   (let ((key (path-resolve path)))
-    (if (map-has (get acc seen) key)
+    (if (map.has (get acc seen) key)
       acc
       (include-forms
         (read-source path (slurp path))
         (path-dir path)
-        (assoc acc seen (map-set (get acc seen) key true))))))
+        (assoc acc seen (map.set (get acc seen) key true))))))
 
 ;; `forms`, whose imports are found in directory `dir`. An import of a declaration module
 ;; adds nothing: macro code imports translator implicitly (cdyc.cdy, macro-imports).
@@ -238,7 +239,7 @@
       (let ((parts (string.split key ".")))
         (if (or (!= (len parts) 2) (= (at parts 0) "") (contains (at parts 0) acc)) acc (++ acc (List (at parts 0))))))
     empty-list
-    (map-keys py-spellings)))
+    (map.keys py-spellings)))
 
 ;; Whether `name` (an import's) is a declaration module's.
 (sig is-declaration-name (Fn (String) Bool))

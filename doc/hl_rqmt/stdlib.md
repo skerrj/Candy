@@ -43,8 +43,9 @@ built-ins; the prelude trimmed, and its costs fixed; and a `test` module.
   declaration modules for their built-ins, with Candy for what is built on them; a
   program imports one by name and uses it qualified, `(string.split s ",")`.
 - **Names without the prefix:** a module's operations are named for what they do,
-  `string.len`, `string.at`, `string.slice`, `string.contains`, `map.get`, `map.set`,
-  `map.keys`; the same verbs as the list's, until interfaces make them one ([[B34]]).
+  `string.len`, `string.at`, `string.slice`, `string.contains`, `map.at` (was `map.get`,
+  step 6), `map.set`, `map.keys`; the same verbs as the list's, until interfaces make
+  them one ([[B34]]).
 - **A `list` module** of what is built on the list built-ins, which stay in `system`
   (lists are everywhere: `len` 263 uses, `at` 296, `map` 86).
 - **The prelude trimmed** to what nearly every program uses: `Maybe` and `Result` with
@@ -121,9 +122,9 @@ or a declaration module may hold ordinary definitions too (Question 2).
   `split`, `join` (from `system`'s, which takes a list of strings), `repeat`, `replace`,
   `to-int`, `to-float`, `code` (`char-code`), `hex-char`, `is-decimal`, `is-space`
   (`isspace`); in Candy, `trim` and `lines`.
-- **`map`:** `empty`, `get`, `has`, `set`, `keys`, `from`, `size`; in Candy, `update`
-  (the prelude's `map-update`), `values` and `get-or` (a key's value, or a fallback). The
-  name: Question 4.
+- **`map`:** `empty`, `at`, `has`, `set`, `keys`, `from`, `size`; in Candy, `update`
+  (the prelude's `map-update`), `values` and `at-or` (a key's value, or a fallback). The
+  name: Question 4. (`get` and `get-or` until step 6: `get` is the special form.)
 - **`math`:** `PI`, `sin`, `cos`, `tan`; in Candy, `abs`, `min` and `max` (on a
   `comparable` or `number`).
 - **`list`:** Candy over `system`'s list built-ins: `last`, `sort` (a merge sort, on a
@@ -324,6 +325,20 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    `string`). The translator translates itself in 0.86 s, as before. No staging.
 6. **`map`:** moved and renamed, `update`, `values`, `get-or`; the translator onto it;
    the prelude's `map-update` gone.
+
+   *Done (2026-11-20). As built:* `map.cdy` (in `LIBRARY`) declares 7 built-ins, gone
+   from `system.cdy` (48 left): `empty`, `at`, `has`, `set`, `keys`, `from`, `size`; and
+   defines `update` (the prelude's `map-update`, gone), `values` and `at-or` in Candy.
+   The lookup is `at`, not `get`, and `get-or` is `at-or` to match (the owner, 2026-11-20;
+   Question 4, revised): `get` at a form's head is the special form, so `map.cdy`'s Candy
+   couldn't call a `get` of its own, which only `map.get` reached elsewhere. The
+   alternatives weighed: a module writing its own names qualified (`map.get` inside
+   `map.cdy`; built as a step 6a and dropped, `doc/brainstorm.md`), or a private alias
+   built-in (a hack). `spelling.py` keys them `map.`, each keeping its Python function
+   (`map_get`). The translator's modules import `(import map ())`, 312 calls renamed by
+   the step-5 script; the spec's examples too. The rule `library.maps`, rewritten for the
+   module, with `values` and `at-or`. Checked against `boot/90`'s `bin`: the same output
+   for all 107 programs. One commit, no staging.
 7. **`list`:** the Candy operations.
 8. **Docs:** CLAUDE.md, the epic's fifth branch *done*, `library.md`,
    `multi_target.md`; "Looking back".
@@ -354,6 +369,10 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    `map`), or `dict` (Elm's `Dict`, Python's `dict`)? **Proposed: `map`**: the qualifier
    and the function can't be confused in a form (`(map.get m k)`, `(map f xs)`).
    *Answer (2026-11-18, the owner): as proposed.*
+   *Revised (2026-11-20, the owner):* the module stays `map`, but its lookup is `map.at`,
+   not `map.get` (step 6): `get` at a form's head is the special form, so `map.cdy`'s
+   own Candy couldn't call its `get`, and `at` is the verb a list's and a string's lookup
+   already have, one for interfaces to make one ([[B34]]). `get-or` is `at-or` to match.
 5. **What the Candy parts hold:** the lists above, drawn from what programs write by
    hand (the translator has few: `char-text`, `indent`, `name-set`, `put-all`), kept
    small and grown as programs need them? **Proposed: as listed,** each with a rule and

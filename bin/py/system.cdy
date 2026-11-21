@@ -95,14 +95,5 @@
 (sig zip (Fn ((List a) (List b)) (List (Tup a b))))
 (sig contains (Fn (equatable (List equatable)) Bool))
 
-;; --- maps ---
-(sig empty-map (Map k v))
-(sig map-get (Fn ((Map k v) k) v))
-(sig map-has (Fn ((Map k v) k) Bool))
-(sig map-set (Fn ((Map k v) k v) (Map k v)))
-(sig map-keys (Fn ((Map k v)) (List k)))
-(sig map-from (Fn ((List (Tup k v))) (Map k v)))
-(sig map-size (Fn ((Map k v)) Int))
-
 ;; --- the program ---
 (sig fail (Fn (String) a))

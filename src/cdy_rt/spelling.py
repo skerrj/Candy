@@ -158,14 +158,15 @@ COLLECTION: Spellings = {
     "filter": primitive("list_filter"),
     "fold": primitive("list_fold"),
     "map-acc": primitive("list_map_acc"),
-    # Maps: ``map-set`` returns a new map.
-    "empty-map": value("{}"),
-    "map-get": primitive("map_get"),
-    "map-has": primitive("map_has"),
-    "map-set": primitive("map_set"),
-    "map-keys": primitive("map_keys"),
-    "map-from": primitive("map_from"),
-    "map-size": call("len"),
+    # The map module's built-ins (src/cdy/map.cdy), keyed ``map.``: ``map.set`` returns a
+    # new map. Each keeps its Python function from before (``map_get``).
+    "map.empty": value("{}"),
+    "map.at": primitive("map_get"),
+    "map.has": primitive("map_has"),
+    "map.set": primitive("map_set"),
+    "map.keys": primitive("map_keys"),
+    "map.from": primitive("map_from"),
+    "map.size": call("len"),
     # The library (doc/hl_rqmt/library.md): a list is the host's tuple, so its operations
     # are built-ins.
     "any": primitive("list_any"),

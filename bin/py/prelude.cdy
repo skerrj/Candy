@@ -2,10 +2,11 @@
 ;;; that every other file imports without saying so, kept next to the translator, like
 ;;; system.cdy. A file's own definitions win over the prelude's, as over any import.
 ;;;
-;;; The list, string and map operations are built-ins (system.cdy), since lists, strings
-;;; and maps are the host's (doc/hl_rqmt/library.md, "Built-in or prelude"); for lists it
-;;; is also speed, since Candy adds to a list by copying it. The prelude holds what is
-;;; built on top of them.
+;;; The list, string and map operations are built-ins (system.cdy, string.cdy, map.cdy),
+;;; since lists, strings and maps are the host's (doc/hl_rqmt/library.md, "Built-in or
+;;; prelude"); for lists it is also speed, since Candy adds to a list by copying it. The
+;;; prelude holds what nearly every program builds on them; what is built on strings and
+;;; maps alone is their modules'.
 
 ;; All of `xs` but the first item; the empty list's rest is empty, as `drop`'s.
 (sig rest (Fn ((List a)) (List a)))
@@ -29,7 +30,3 @@
 ;; `m`'s value, or `fallback` if it is None.
 (sig with-default (Fn (a (Maybe a)) a))
 (defn with-default (fallback m) (match m ((Some v) v) ((None) fallback)))
-
-;; `m` with the value at `key` replaced by `f` of it; `key` must be in `m`.
-(sig map-update (Fn ((Map k v) k (Fn (v) v)) (Map k v)))
-(defn map-update (m key f) (map-set m key (f (map-get m key))))

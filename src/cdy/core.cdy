@@ -6,6 +6,7 @@
 (import form)
 (import syntax)
 (import string ())
+(import map ())
 
 ;; --- types (from sig) ---
 
@@ -107,10 +108,10 @@
 (sig bind-local (Fn (Scope String Expr) Scope))
 (defn bind-local (scope name loc)
   (cond
-    ((map-has (get scope macros) name)
+    ((map.has (get scope macros) name)
       (fail (located scope (format "{name} is a macro, so it can't be bound"))))
     ((!= (name-error name) "") (fail (located scope (name-error name))))
-    (else (assoc scope env (map-set (get scope env) name loc)))))
+    (else (assoc scope env (map.set (get scope env) name loc)))))
 
 ;; --- qualified names (spec/10-programs.md, programs.qualified) ---
 
@@ -144,7 +145,7 @@
         (format "{name}: a number needs a digit before its . ({(number-hint name)})"))
       ((or (!= (len parts) 2) (= (at parts 0) "") (= (at parts 1) ""))
         (format "{name}: a qualified name is m.name, one . between a module (its file name, without its path) and a name"))
-      ((not (map-has (get scope qualifiers) (at parts 0)))
+      ((not (map.has (get scope qualifiers) (at parts 0)))
         (format "{name}: this file doesn't import a module {(at parts 0)}"))
       (else (format "{name}: {(at parts 0)} doesn't define {(at parts 1)}")))))
 
@@ -164,8 +165,8 @@
 ;; `(import string ())` leaves the list's `len` as it is (programs.import).
 (sig use-error (Fn (String Scope) String))
 (defn use-error (name scope)
-  (if (and (map-has (get scope names) name) (not (gives-way name scope)))
-    (match (map-get (get scope names) name)
+  (if (and (map.has (get scope names) name) (not (gives-way name scope)))
+    (match (map.at (get scope names) name)
       ((Clash modules)
         (let ((qualified (map (fn (m) (++ m (++ "." name))) modules)))
           (format "{name} is defined by {(string.join modules \" and \")}: write {(string.join qualified \" or \")}")))
@@ -183,7 +184,7 @@
 (defn gives-way (name scope)
   (let ((builtins (get scope builtins)))
     (and (or (is-everyones name builtins) (is-builtin-type name builtins))
-         (match (map-get (get scope names) name) ((Unlisted _) true) ((Private _) true) (else false)))))
+         (match (map.at (get scope names) name) ((Unlisted _) true) ((Private _) true) (else false)))))
 
 ;; What a top-level name is, in the one table of the names a module can write, by the name
 ;; as written (doc/hl_rqmt/namespaces.md, "One table of names"): types, values and variants
@@ -237,8 +238,8 @@
 ;; variant.
 (sig is-top-value (Fn (String Scope) Bool))
 (defn is-top-value (name scope)
-  (and (map-has (get scope names) name)
-       (match (map-get (get scope names) name)
+  (and (map.has (get scope names) name)
+       (match (map.at (get scope names) name)
          ((Value _ _) true)
          ((Record _ _ _) true)
          ((VariantOf _ _ _ _ _) true)
@@ -247,14 +248,14 @@
 ;; Whether `name` is a sum's own name, a type only.
 (sig is-sum (Fn (String Scope) Bool))
 (defn is-sum (name scope)
-  (and (map-has (get scope names) name)
-       (match (map-get (get scope names) name) ((Sum _ _ _ _) true) (else false))))
+  (and (map.has (get scope names) name)
+       (match (map.at (get scope names) name) ((Sum _ _ _ _) true) (else false))))
 
 ;; The number of type variables of the type `name` the module defines or imports, or -1.
 (sig type-arity (Fn (String Scope) Int))
 (defn type-arity (name scope)
-  (if (map-has (get scope names) name)
-    (match (map-get (get scope names) name)
+  (if (map.has (get scope names) name)
+    (match (map.at (get scope names) name)
       ((Record _ _ arity) arity)
       ((Sum _ _ arity _) arity)
       (else -1))
@@ -265,41 +266,41 @@
 ;; declares it; or "".
 (sig declared-name (Fn (String Scope) String))
 (defn declared-name (name scope)
-  (if (map-has (get scope names) name)
-    (match (map-get (get scope names) name) ((Declared m g) (builtin-key m g)) (else ""))
+  (if (map.has (get scope names) name)
+    (match (map.at (get scope names) name) ((Declared m g) (builtin-key m g)) (else ""))
     ""))
 
 ;; The module that defines `name`, when this one doesn't import it, or "".
 (sig elsewhere-module (Fn (String Scope) String))
 (defn elsewhere-module (name scope)
-  (if (map-has (get scope names) name)
-    (match (map-get (get scope names) name) ((Elsewhere stem) stem) (else ""))
+  (if (map.has (get scope names) name)
+    (match (map.at (get scope names) name) ((Elsewhere stem) stem) (else ""))
     ""))
 
 (sig is-variant (Fn (String Scope) Bool))
 (defn is-variant (name scope)
-  (and (map-has (get scope names) name)
-       (not (map-has (get scope env) name))
-       (match (map-get (get scope names) name) ((VariantOf _ _ _ _ _) true) (else false))))
+  (and (map.has (get scope names) name)
+       (not (map.has (get scope env) name))
+       (match (map.at (get scope names) name) ((VariantOf _ _ _ _ _) true) (else false))))
 
 (sig variant-fields (Fn (String Scope) (List String)))
 (defn variant-fields (name scope)
-  (if (map-has (get scope names) name)
-    (match (map-get (get scope names) name) ((VariantOf _ _ _ fields _) fields) (else empty-list))
+  (if (map.has (get scope names) name)
+    (match (map.at (get scope names) name) ((VariantOf _ _ _ fields _) fields) (else empty-list))
     empty-list))
 
 ;; The sum the variant `name` is of, or "" if it isn't a variant.
 (sig variant-sum (Fn (String Scope) String))
 (defn variant-sum (name scope)
-  (if (map-has (get scope names) name)
-    (match (map-get (get scope names) name) ((VariantOf _ _ sum _ _) sum) (else ""))
+  (if (map.has (get scope names) name)
+    (match (map.at (get scope names) name) ((VariantOf _ _ sum _ _) sum) (else ""))
     ""))
 
 ;; The variants of the sum that the variant `name` is of.
 (sig sibling-variants (Fn (String Scope) (List String)))
 (defn sibling-variants (name scope)
-  (if (map-has (get scope names) name)
-    (match (map-get (get scope names) name) ((VariantOf _ _ _ _ all) all) (else empty-list))
+  (if (map.has (get scope names) name)
+    (match (map.at (get scope names) name) ((VariantOf _ _ _ _ all) all) (else empty-list))
     empty-list))
 
 ;; --- expressions ---
@@ -319,7 +320,7 @@
 (sig resolve (Fn (String Scope) Expr))
 (defn resolve (name scope)
   (cond
-    ((map-has (get scope env) name) (at-use (map-get (get scope env) name) (get scope here)))
+    ((map.has (get scope env) name) (at-use (map.at (get scope env) name) (get scope here)))
     ((!= (use-error name scope) "") (fail (located scope (use-error name scope))))
     ((is-builtin-type (declared-name name scope) (get scope builtins))
       (fail (located scope (format "{name} is a type, not a value"))))
@@ -358,7 +359,7 @@
 ;; (`names` has none, or one another module defines: `Elsewhere`, say).
 (sig global-ref (Fn (String (Map String Entry)) (Tup String String)))
 (defn global-ref (name names)
-  (let ((e (if (map-has names name) (map-get names name) (Clash empty-list))))
+  (let ((e (if (map.has names name) (map.at names name) (Clash empty-list))))
     (if (= (entry-name e) "") (Tup SYSTEM name) (Tup (entry-module e) (entry-name e)))))
 
 ;; A top-level name's key, one string for the module that defines it and its name there:
@@ -374,7 +375,7 @@
 
 (sig is-special-head (Fn (String Scope) Bool))
 (defn is-special-head (name scope)
-  (and (not (map-has (get scope env) name))
+  (and (not (map.has (get scope env) name))
        (or (is-special name (get scope builtins)) (contains name BUILTIN_CONSTRUCTORS))))
 
 ;; The built-in types whose name is also their constructor, taking any number of items
@@ -404,7 +405,7 @@
 (defn check-call (callee count scope)
   (match callee
     ((Prim name _ _)
-      (let ((builtin (map-get (get scope builtins) name))
+      (let ((builtin (map.at (get scope builtins) name))
             (rest-of-type (match builtin ((Typed type _) (is-variadic type)) (else false)))
             (arity
               (match builtin
@@ -982,7 +983,7 @@
 ;; the types it lists, *lasting* (until interfaces, B34); a list as "List", of any items.
 (sig CONSTRAINTS (Map String (List String)))
 (def CONSTRAINTS
-  (map-from
+  (map.from
     (List
       (Tup "number" (List "Int" "Long" "Byte" "Float" "Double"))
       (Tup "integer" (List "Int" "Long" "Byte"))
@@ -1000,7 +1001,7 @@
 (defn constraint-of (name)
   (let ((parts (string.split name ":"))
         (base (if (= (len parts) 2) (at parts 1) (trim-digits name))))
-    (if (map-has CONSTRAINTS base) base "")))
+    (if (map.has CONSTRAINTS base) base "")))
 
 (sig trim-digits (Fn (String) String))
 (defn trim-digits (s)
@@ -1033,19 +1034,19 @@
             (add-names
               (variant-names (drop 2 items))
               (form-pos (at items 1))
-              (map-set (add-name (deft-name (at items 1)) (form-pos (at items 1)) acc) (deft-name (at items 1)) false)))
+              (map.set (add-name (deft-name (at items 1)) (form-pos (at items 1)) acc) (deft-name (at items 1)) false)))
           ((= head "deft") (add-name (deft-name (at items 1)) (form-pos (at items 1)) acc))
           (else acc))))
-    empty-map
+    map.empty
     forms))
 
 ;; Top-level names map to true for values, false for a sum's type name.
 ;; `pos` is where the name is defined, for the error.
 (sig add-name (Fn (String Pos (Map String Bool)) (Map String Bool)))
 (defn add-name (name pos acc)
-  (if (map-has acc name)
+  (if (map.has acc name)
     (fail (++ (pos-text pos) (format "defined more than once: {name}")))
-    (map-set acc name true)))
+    (map.set acc name true)))
 
 (sig add-names (Fn ((List String) Pos (Map String Bool)) (Map String Bool)))
 (defn add-names (names pos start)
@@ -1099,24 +1100,24 @@
 ;; system.cdy's.
 (sig is-everyones (Fn (String (Map String Builtin)) Bool))
 (defn is-everyones (name builtins)
-  (and (map-has builtins name) (match (map-get builtins name) ((Typed _ m) (= m "system")) (else false))))
+  (and (map.has builtins name) (match (map.at builtins name) ((Typed _ m) (= m "system")) (else false))))
 
 ;; A declaration module, other than system, that declares a built-in named `name`, seen
 ;; only by a file that imports it (translator); or "".
 (sig declaring-module (Fn (String (Map String Builtin)) String))
 (defn declaring-module (name builtins)
-  (let ((owner (fn (key) (match (map-get builtins key) ((Typed _ m) m) (else SYSTEM))))
-        (found (find (fn (key) (and (!= (owner key) SYSTEM) (= key (global-key (owner key) name)))) (map-keys builtins))))
+  (let ((owner (fn (key) (match (map.at builtins key) ((Typed _ m) m) (else SYSTEM))))
+        (found (find (fn (key) (and (!= (owner key) SYSTEM) (= key (global-key (owner key) name)))) (map.keys builtins))))
     (match found ((Some key) (owner key)) ((None) ""))))
 
 ;; Whether `name` is a built-in type (system.cdy's bodiless deft), which isn't a value.
 (sig is-builtin-type (Fn (String (Map String Builtin)) Bool))
 (defn is-builtin-type (name builtins)
-  (and (map-has builtins name) (match (map-get builtins name) ((BType _) true) (else false))))
+  (and (map.has builtins name) (match (map.at builtins name) ((BType _) true) (else false))))
 
 (sig is-special (Fn (String (Map String Builtin)) Bool))
 (defn is-special (name builtins)
-  (and (map-has builtins name) (match (map-get builtins name) ((Special) true) (else false))))
+  (and (map.has builtins name) (match (map.at builtins name) ((Special) true) (else false))))
 
 ;; The built-ins, from the forms of special.cdy (`decls`: the special forms) and of the
 ;; declaration modules (`files`, each a file's name and its forms: system.cdy first, each
@@ -1131,22 +1132,22 @@
             (fn (acc file) (let (((name forms) file)) (read-sigs name forms spellings acc)))
             (read-decls decls spellings)
             files))
-        (checked (all-declared (map-keys spellings) builtins (map (fn (f) (let (((name _) f)) name)) files))))
+        (checked (all-declared (map.keys spellings) builtins (map (fn (f) (let (((name _) f)) name)) files))))
     builtins))
 
 ;; The built-in `name`'s entry in `spellings`, the target's (spelling.py's Spelling: each
 ;; built-in's Python text, its kind, and an operator's value), each part "" if it has none.
 (sig spelling-py (Fn ((Map String (Tup String String String)) String) String))
 (defn spelling-py (spellings name)
-  (if (map-has spellings name) (let (((py _kind _value) (map-get spellings name))) py) ""))
+  (if (map.has spellings name) (let (((py _kind _value) (map.at spellings name))) py) ""))
 
 (sig spelling-kind (Fn ((Map String (Tup String String String)) String) String))
 (defn spelling-kind (spellings name)
-  (if (map-has spellings name) (let (((_py kind _value) (map-get spellings name))) kind) ""))
+  (if (map.has spellings name) (let (((_py kind _value) (map.at spellings name))) kind) ""))
 
 (sig spelling-value (Fn ((Map String (Tup String String String)) String) String))
 (defn spelling-value (spellings name)
-  (if (map-has spellings name) (let (((_py _kind value) (map-get spellings name))) value) ""))
+  (if (map.has spellings name) (let (((_py _kind value) (map.at spellings name))) value) ""))
 
 ;; The spelling kinds of each built-in class: an entry's kind must be one of its class's. A
 ;; special form has no entry (""): only the target's spellings are in spelling.py.
@@ -1179,14 +1180,14 @@
         (cond
           ((= class "")
             (fail (++ where "special.cdy: expected (special name) or (special name shape)")))
-          ((map-has acc name) (fail (format "{where}special.cdy: {name} is declared more than once")))
+          ((map.has acc name) (fail (format "{where}special.cdy: {name} is declared more than once")))
           ((not (contains (spelling-kind spellings name) (kinds-of class)))
             (fail
               (if (= class "special")
                 (format "{where}special.cdy: {name} is a special form, so spelling.py can't spell it")
                 (format "{where}special.cdy: {name} has no {class} entry in spelling.py"))))
-          (else (map-set acc name kind)))))
-    empty-map
+          (else (map.set acc name kind)))))
+    map.empty
     forms))
 
 ;; Whether `form` is a shape (syntax.cdy); an error if it isn't.
@@ -1217,10 +1218,10 @@
           ((= head "deft") (fail (++ where ": only system.cdy declares types")))
           ((and (= name "") (= file "system.cdy")) (fail (++ where ": expected (sig name Type) or (deft Name)")))
           ((= name "") (fail (++ where ": expected (sig name Type)")))
-          ((map-has acc key) (fail (format "{where}: {name} is already declared")))
+          ((map.has acc key) (fail (format "{where}: {name} is already declared")))
           ((not (contains (spelling-kind spellings key) (++ TYPED_KINDS OPERATOR_KINDS)))
             (fail (format "{where}: {key} has no Python mapping in spelling.py")))
-          (else (map-set acc key (Typed (analyse-type (at items 2)) (path-stem file)))))))
+          (else (map.set acc key (Typed (analyse-type (at items 2)) (path-stem file)))))))
     start
     (if (= file "system.cdy") all (declarations all))))
 
@@ -1242,7 +1243,7 @@
   (let ((items (list-items form))
         (head (if (> (len items) 0) (sym-name (at items 0)) "")))
     (cond
-      ((= head "sig") (not (and (= (len items) 3) (map-has defined (sym-name (at items 1))))))
+      ((= head "sig") (not (and (= (len items) 3) (map.has defined (sym-name (at items 1))))))
       ((= head "deft") (= (len items) 2))
       (else false))))
 
@@ -1260,10 +1261,10 @@
     (cond
       ((or (= name "") (is-lower name) (not (all-lower tvars)))
         (fail (++ where ": expected (deft Name) or (deft (Name a ...))")))
-      ((map-has acc name) (fail (format "{where}: {name} is already declared")))
+      ((map.has acc name) (fail (format "{where}: {name} is already declared")))
       ((not (contains (spelling-kind spellings name) TYPE_KINDS))
         (fail (format "{where}: {name} has no Python type in spelling.py")))
-      (else (map-set acc name (BType (len tvars)))))))
+      (else (map.set acc name (BType (len tvars)))))))
 
 ;; Whether every one of `forms` is a lowercase name (a type variable).
 (sig all-lower (Fn ((List Form)) Bool))
@@ -1279,7 +1280,7 @@
 (defn all-declared (names builtins files)
   (cond
     ((= (len names) 0) true)
-    ((not (map-has builtins (at names 0)))
+    ((not (map.has builtins (at names 0)))
       (fail (format "spelling.py: {(at names 0)} is declared in none of special.cdy, {(string.join files \", \")}")))
     (else (all-declared (rest names) builtins files))))
 
@@ -1293,12 +1294,12 @@
 (sig module-exports (Fn ((List Form) String) Exports))
 (defn module-exports (forms stem)
   (let ((names (module-names forms stem)))
-    (Exports stem names (private-names forms names empty-map))))
+    (Exports stem names (private-names forms names map.empty))))
 
 ;; What the declaration module `stem` declares among its `forms` (its declarations, each a
 ;; bodiless sig, as read-builtins checked): each a built-in, `Declared`.
 (sig declared-exports (Fn ((List Form) String) Exports))
-(defn declared-exports (forms stem) (Exports stem (declared-names (declarations forms) stem empty-map) empty-map))
+(defn declared-exports (forms stem) (Exports stem (declared-names (declarations forms) stem map.empty) map.empty))
 
 ;; What the declaration module `stem` exports: `own`, what its definitions define, with
 ;; what its `forms`' declarations declare, each `Declared`.
@@ -1311,7 +1312,7 @@
 (sig declared-names (Fn ((List Form) String (Map String Entry)) (Map String Entry)))
 (defn declared-names (forms stem start)
   (fold
-    (fn (acc form) (let ((name (sym-name (at (list-items form) 1)))) (map-set acc name (Declared stem name))))
+    (fn (acc form) (let ((name (sym-name (at (list-items form) 1)))) (map.set acc name (Declared stem name))))
     start
     forms))
 
@@ -1335,14 +1336,14 @@
         (where (pos-text (form-pos item))))
     (cond
       ((= name "") (fail (++ where "private: expected (private name ...)")))
-      ((not (map-has names name)) (fail (format "{where}private: {name} isn't defined in this file")))
-      ((map-has acc name) (fail (format "{where}private: {name} is listed twice")))
+      ((not (map.has names name)) (fail (format "{where}private: {name} isn't defined in this file")))
+      ((map.has acc name) (fail (format "{where}private: {name} is listed twice")))
       (else
-        (match (map-get names name)
+        (match (map.at names name)
           ((VariantOf _ _ sum _ _)
             (fail (format "{where}private: {name} is a variant, private only with its type: (private {sum})")))
-          ((Sum _ _ _ variants) (fold (fn (a v) (map-set a v true)) (map-set acc name true) variants))
-          (else (map-set acc name true)))))))
+          ((Sum _ _ _ variants) (fold (fn (a v) (map.set a v true)) (map.set acc name true) variants))
+          (else (map.set acc name true)))))))
 
 ;; The table of the names `forms` define (see module-exports). A name defined twice is an
 ;; error, at the second.
@@ -1358,7 +1359,7 @@
               (add-entry name (form-pos (at items 1)) (Value stem name) acc)))
           ((= head "deft") (add-deft items stem acc))
           (else acc))))
-    empty-map
+    map.empty
     forms))
 
 ;; `acc` with the deft `items` defines: a record, or a sum and its variants.
@@ -1384,8 +1385,8 @@
 (defn add-entry (name pos e acc)
   (cond
     ((!= (name-error name) "") (fail (++ (pos-text pos) (name-error name))))
-    ((map-has acc name) (fail (++ (pos-text pos) (format "defined more than once: {name}"))))
-    (else (map-set acc name e))))
+    ((map.has acc name) (fail (++ (pos-text pos) (format "defined more than once: {name}"))))
+    (else (map.set acc name e))))
 
 
 ;; `forms`, one program on its own (a macro program), its module "", which imports
@@ -1393,7 +1394,7 @@
 (sig analyse-program
   (Fn ((List Form) (List Import) (Map String Builtin) (Fn (String Pos) (List Form)) (Map String Macro) Bool) (List Top)))
 (defn analyse-program (forms imports builtins parse macros quoting)
-  (analyse-module forms (module-exports forms "") imports empty-map builtins parse macros quoting))
+  (analyse-module forms (module-exports forms "") imports map.empty builtins parse macros quoting))
 
 ;; An import, as analysis sees it: the imported module's exports, where the import is, and
 ;; the names it lists, if it lists any (include.cdy's Imp).
@@ -1406,16 +1407,16 @@
       (List Top)))
 (defn analyse-module (forms own imports elsewhere builtins parse macros quoting)
   (let ((names (with-own (with-imports imports (with-system builtins (elsewhere-entries elsewhere))) own))
-        (qualifiers (qualifiers-of imports (map-set empty-map SYSTEM true)))
-        (scope (Scope empty-map parse NOWHERE macros quoting names qualifiers builtins))
-        (prog (analyse-tops forms scope (Prog empty-list empty-map 0 (def-names forms) empty-map))))
+        (qualifiers (qualifiers-of imports (map.set map.empty SYSTEM true)))
+        (scope (Scope map.empty parse NOWHERE macros quoting names qualifiers builtins))
+        (prog (analyse-tops forms scope (Prog empty-list map.empty 0 (def-names forms) map.empty))))
     (rename-tops (get prog out) names)))
 
 ;; `start` with the qualifiers of `imports`, their stems. (A parameter, not a literal
 ;; empty-map: mypy types a fold's start by its shape, [[B184]].)
 (sig qualifiers-of (Fn ((List Import) (Map String Bool)) (Map String Bool)))
 (defn qualifiers-of (imports start)
-  (fold (fn (acc imp) (map-set acc (get (get imp exports) stem) true)) start imports))
+  (fold (fn (acc imp) (map.set acc (get (get imp exports) stem) true)) start imports))
 
 ;; `names` with the built-ins every file sees, system.cdy's, as `system.name`: each
 ;; `Declared`. Unqualified, a built-in is a name no entry has (resolve), so an import's or
@@ -1425,16 +1426,16 @@
   (fold
     (fn (acc name)
       (if (or (is-everyones name builtins) (is-builtin-type name builtins))
-        (map-set acc (++ SYSTEM (++ "." name)) (Declared SYSTEM name))
+        (map.set acc (++ SYSTEM (++ "." name)) (Declared SYSTEM name))
         acc))
     names
-    (map-keys builtins)))
+    (map.keys builtins)))
 
 ;; `elsewhere`'s names, each defined by another module (`Elsewhere`): the table a module's
 ;; imports and its own names are added to.
 (sig elsewhere-entries (Fn ((Map String String)) (Map String Entry)))
 (defn elsewhere-entries (elsewhere)
-  (fold (fn (acc name) (map-set acc name (Elsewhere (map-get elsewhere name)))) empty-map (map-keys elsewhere)))
+  (fold (fn (acc name) (map.set acc name (Elsewhere (map.at elsewhere name)))) map.empty (map.keys elsewhere)))
 
 ;; `names` with `imports` added: each name a module defines as m.name (`m` its stem), and
 ;; unqualified unless the import lists other names. Two imports that define the same name
@@ -1451,18 +1452,18 @@
         (qualified
           (fold
             (fn (acc name)
-              (map-set acc (++ stem (++ "." name))
-                (if (map-has (get ex privates) name) (Private stem) (map-get (get ex names) name))))
+              (map.set acc (++ stem (++ "." name))
+                (if (map.has (get ex privates) name) (Private stem) (map.at (get ex names) name))))
             start
-            (map-keys (get ex names)))))
+            (map.keys (get ex names)))))
     (fold
       (fn (acc name)
         (cond
-          ((map-has (get ex privates) name) (hidden-entry name (Private stem) acc))
-          ((contains name listed) (import-entry name (map-get (get ex names) name) stem acc))
+          ((map.has (get ex privates) name) (hidden-entry name (Private stem) acc))
+          ((contains name listed) (import-entry name (map.at (get ex names) name) stem acc))
           (else (hidden-entry name (Unlisted stem) acc))))
       qualified
-      (map-keys (get ex names)))))
+      (map.keys (get ex names)))))
 
 ;; The names `imp` makes unqualified: those it lists, each one its module defines and
 ;; doesn't keep private, once; or, listing none, all but the private ones.
@@ -1476,63 +1477,63 @@
             (let ((name (sym-name form))
                   (where (pos-text (form-pos form))))
               (cond
-                ((not (map-has (get ex names) name))
+                ((not (map.has (get ex names) name))
                   (fail (format "{where}import: {(get ex stem)} doesn't define {name}")))
-                ((map-has (get ex privates) name)
+                ((map.has (get ex privates) name)
                   (fail (format "{where}import: {name} is private to {(get ex stem)}")))
                 ((contains name acc) (fail (format "{where}import: {name} is listed twice")))
                 (else (++ acc (List name))))))
           empty-list
           forms))
-      ((None) (filter (fn (name) (not (map-has (get ex privates) name))) (map-keys (get ex names)))))))
+      ((None) (filter (fn (name) (not (map.has (get ex privates) name))) (map.keys (get ex names)))))))
 
 ;; `acc` with `name` as `e`, an import's name that isn't visible unqualified (`Unlisted` or
 ;; `Private`), for its error: unless another import or the file defines it.
 (sig hidden-entry (Fn (String Entry (Map String Entry)) (Map String Entry)))
 (defn hidden-entry (name e acc)
-  (if (map-has acc name)
-    (match (map-get acc name)
-      ((Elsewhere _) (map-set acc name e))
+  (if (map.has acc name)
+    (match (map.at acc name)
+      ((Elsewhere _) (map.set acc name e))
       (else acc))
-    (map-set acc name e)))
+    (map.set acc name e)))
 
 ;; `acc` with `name` imported from the module `stem` as `e`: a clash if another import
 ;; defines it.
 (sig import-entry (Fn (String Entry String (Map String Entry)) (Map String Entry)))
 (defn import-entry (name e stem acc)
-  (if (map-has acc name)
-    (let ((old (map-get acc name)))
+  (if (map.has acc name)
+    (let ((old (map.at acc name)))
       (match old
-        ((Elsewhere _) (map-set acc name e))
-        ((Unlisted _) (map-set acc name e))
-        ((Private _) (map-set acc name e))
-        ((Clash modules) (map-set acc name (if (contains stem modules) old (Clash (++ modules (List stem))))))
+        ((Elsewhere _) (map.set acc name e))
+        ((Unlisted _) (map.set acc name e))
+        ((Private _) (map.set acc name e))
+        ((Clash modules) (map.set acc name (if (contains stem modules) old (Clash (++ modules (List stem))))))
         (else
-          (map-set acc name (if (= (entry-module old) stem) e (Clash (List (entry-module old) stem)))))))
-    (map-set acc name e)))
+          (map.set acc name (if (= (entry-module old) stem) e (Clash (List (entry-module old) stem)))))))
+    (map.set acc name e)))
 
 ;; `names` with the module's own, which win over imported ones.
 (sig with-own (Fn ((Map String Entry) Exports) (Map String Entry)))
-(defn with-own (names own) (put-all (get own names) (map-keys (get own names)) names))
+(defn with-own (names own) (put-all (get own names) (map.keys (get own names)) names))
 
 ;; `acc` with the entries of `m` for `keys`.
 (sig put-all (Fn ((Map String a) (List String) (Map String a)) (Map String a)))
 (defn put-all (m keys start)
-  (fold (fn (acc key) (map-set acc key (map-get m key))) start keys))
+  (fold (fn (acc key) (map.set acc key (map.at m key))) start keys))
 
 ;; The names other modules define, each with its module's stem; not their private ones.
 (sig elsewhere-names (Fn ((List Exports)) (Map String String)))
 (defn elsewhere-names (exports)
   (fold
     (fn (acc ex)
-      (let ((public (filter (fn (name) (not (map-has (get ex privates) name))) (map-keys (get ex names)))))
+      (let ((public (filter (fn (name) (not (map.has (get ex privates) name))) (map.keys (get ex names)))))
         (put-all (stems-for public (get ex stem)) public acc)))
-    empty-map
+    map.empty
     exports))
 
 (sig stems-for (Fn ((List String) String) (Map String String)))
 (defn stems-for (names stem)
-  (fold (fn (acc name) (map-set acc name stem)) empty-map names))
+  (fold (fn (acc name) (map.set acc name stem)) map.empty names))
 
 ;; `tops` with the modules that define them and the types they use.
 (sig rename-tops (Fn ((List Top) (Map String Entry)) (List Top)))
@@ -1580,8 +1581,8 @@
     (fn (acc form)
       (let ((items (list-items form))
             (head (if (> (len items) 1) (sym-name (at items 0)) "")))
-        (if (or (= head "def") (= head "defn")) (map-set acc (sym-name (at items 1)) true) acc)))
-    empty-map
+        (if (or (= head "def") (= head "defn")) (map.set acc (sym-name (at items 1)) true) acc)))
+    map.empty
     forms))
 
 (sig analyse-tops (Fn ((List Form) Scope Prog) Prog))
@@ -1594,7 +1595,7 @@
 (defn add-top (prog top n) (assoc prog out (++ (get prog out) (List top)) n n))
 
 (sig mark-defined (Fn (Prog String) Prog))
-(defn mark-defined (prog name) (assoc prog defined (map-set (get prog defined) name true)))
+(defn mark-defined (prog name) (assoc prog defined (map.set (get prog defined) name true)))
 
 (sig analyse-top (Fn (Form Scope Prog) Prog))
 (defn analyse-top (form scope prog)
@@ -1602,7 +1603,7 @@
         (head (if (> (len items) 0) (sym-name (at items 0)) ""))
         (here (at-pos scope (form-pos form))))
     (cond
-      ((and (contains head (List "def" "defn")) (> (len items) 1) (map-has (get scope macros) (sym-name (at items 1))))
+      ((and (contains head (List "def" "defn")) (> (len items) 1) (map.has (get scope macros) (sym-name (at items 1))))
         (fail (located here (format "{(sym-name (at items 1))} is a macro, so it can't be defined"))))
       ((and (= head "deft") (> (len items) 1) (!= (macro-named (deft-names items) scope) ""))
         (fail (located here (format "{(macro-named (deft-names items) scope)} is a macro, so it can't be defined"))))
@@ -1624,7 +1625,7 @@
 ;; The first of `names` that is a macro's, or "".
 (sig macro-named (Fn ((List String) Scope) String))
 (defn macro-named (names scope)
-  (let ((found (filter (fn (name) (map-has (get scope macros) name)) names)))
+  (let ((found (filter (fn (name) (map.has (get scope macros) name)) names)))
     (if (= (len found) 0) "" (at found 0))))
 
 (sig top-sig (Fn ((List Form) Scope Prog) Prog))
@@ -1632,14 +1633,14 @@
   (let ((name (if (= (len items) 3) (sym-name (at items 1)) "")))
     (cond
       ((= name "") (fail (located scope "sig: expected (sig name Type)")))
-      ((not (map-has (get prog defs) name))
+      ((not (map.has (get prog defs) name))
         (fail (located scope (format "sig for {name}, but no def or defn of {name} in this file"))))
-      ((map-has (get prog defined) name) (fail (located scope (format "sig for {name} comes after its definition"))))
-      ((map-has (get prog sigs) name) (fail (located scope (format "more than one sig for {name}"))))
+      ((map.has (get prog defined) name) (fail (located scope (format "sig for {name} comes after its definition"))))
+      ((map.has (get prog sigs) name) (fail (located scope (format "more than one sig for {name}"))))
       (else
         (let ((t (analyse-type (at items 2)))
               (checked (check-sig-type t scope)))
-          (assoc prog sigs (map-set (get prog sigs) name t)))))))
+          (assoc prog sigs (map.set (get prog sigs) name t)))))))
 
 ;; A sig's type, checked: a function type's last argument may be `(Rest t)` (a rest
 ;; parameter, types.rest), and nothing else may.
@@ -1673,10 +1674,10 @@
                   (fail (located scope "(Rest t) is only for the last argument of a sig's function type")))
                 ((>= (type-arity name scope) 0) (type-arity name scope))
                 ((is-builtin-type (declared-name name scope) builtins)
-                  (match (map-get builtins (declared-name name scope)) ((BType n) n) (else 0)))
+                  (match (map.at builtins (declared-name name scope)) ((BType n) n) (else 0)))
                 ((!= (declared-name name scope) "") (fail (located scope (format "{name} is a value, not a type"))))
                 ((is-builtin-type name builtins)
-                  (match (map-get builtins name) ((BType n) n) (else 0)))
+                  (match (map.at builtins name) ((BType n) n) (else 0)))
                 ((!= (variant-sum name scope) "")
                   (fail (located scope (format "{name} is a variant of {(variant-sum name scope)}, not a type"))))
                 ((is-top-value name scope)
@@ -1795,8 +1796,8 @@
 
 (sig needs-sig (Fn (String Prog Scope) CType))
 (defn needs-sig (name prog scope)
-  (if (map-has (get prog sigs) name)
-    (map-get (get prog sigs) name)
+  (if (map.has (get prog sigs) name)
+    (map.at (get prog sigs) name)
     (fail (located scope (format "{name} needs a (sig {name} Type) before its definition")))))
 
 (sig top-def (Fn ((List Form) Scope Prog) Prog))

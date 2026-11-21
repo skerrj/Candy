@@ -19,6 +19,7 @@
 (import core)
 (import emit)
 (import translator)
+(import map ())
 
 ;; What a file's macro imports bring it: their macros, their helpers by file (each file's
 ;; once, and before the files that use them), and the files loaded so far.
@@ -41,7 +42,7 @@
 ;; The Expander for `builtins` and `compile`, the prelude's macros loaded with them.
 (sig new-expander (Fn ((Map String Builtin) (Fn ((List Form)) String)) Expander))
 (defn new-expander (builtins compile)
-  (let ((bare (Expander builtins compile (Imports empty-list empty-list empty-map)))
+  (let ((bare (Expander builtins compile (Imports empty-list empty-list map.empty)))
         (path (library-path "prelude_macros.cdy"))
         (form (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))
     (assoc bare prelude (import-file form bare empty-list (get bare prelude)))))
@@ -63,7 +64,7 @@
 (sig expand-file (Fn ((List Form) Bool Expander (List String)) Expanded))
 (defn expand-file (forms macro-file ex loading)
   (let ((imports (import-all (pick-forms forms (List "import-macros") true) ex loading (get ex prelude)))
-        (imported (macro-map (get imports macros) empty-map))
+        (imported (macro-map (get imports macros) map.empty))
         (defs (expand-defs (pick-forms forms (List "defmacro") true) imported))
         (rest (pick-forms forms MACRO_HEADS false))
         (helpers (if macro-file (splice-dos (expand-all rest imported)) empty-list))
@@ -122,9 +123,9 @@
   (fold
     (fn (acc macro)
       (let ((name (get macro name)))
-        (if (map-has acc name)
+        (if (map.has acc name)
           (fail (format "{(pos-text (get macro pos))}defmacro: {name} is already a macro"))
-          (map-set acc name macro))))
+          (map.set acc name macro))))
     start
     macros))
 
@@ -141,7 +142,7 @@
   (let ((path (macro-path form))
         (key (path-resolve path)))
     (cond
-      ((map-has (get acc seen) key) acc)
+      ((map.has (get acc seen) key) acc)
       ((contains key loading)
         (fail (format "{(pos-text (form-pos form))}import-macros: {path} imports itself")))
       (else
@@ -149,7 +150,7 @@
           (Imports
             (++ (get acc macros) (get done own))
             (add-helpers (++ (get done helpers) (List (Tup key (get done forms)))) (get acc helpers))
-            (map-set (get acc seen) key true)))))))
+            (map.set (get acc seen) key true)))))))
 
 ;; The path in (import-macros "path"), which include.cdy put there.
 (sig macro-path (Fn (Form) String))
@@ -183,10 +184,10 @@
 (defn load-defs (defs helpers ex)
   (let ((builtins (get ex builtins))
         (compile (get ex compile))
-        (checked (unique-names defs builtins empty-map))
+        (checked (unique-names defs builtins map.empty))
         (form-forms (form-defs nil))
         (python (compile (++ form-forms helpers (macro-program defs builtins))))
-        (loaded (load-macros python sym-name (mangled-names (map-keys (top-names form-forms))))))
+        (loaded (load-macros python sym-name (mangled-names (map.keys (top-names form-forms))))))
     (macro-list defs loaded)))
 
 ;; The built-ins, from special.cdy, system.cdy and the declaration modules (include.cdy),
@@ -204,7 +205,7 @@
 ;; The Python names of `names` (form.cdy's), which load-macros sets back to the translator's.
 (sig mangled-names (Fn ((List String)) (Map String Bool)))
 (defn mangled-names (names)
-  (fold (fn (m n) (map-set m (py-mangle n) true)) empty-map names))
+  (fold (fn (m n) (map.set m (py-mangle n) true)) map.empty names))
 
 ;; Form and its helpers, which macro code may use: form.cdy, read as it is (so it can't
 ;; use macros), without its import of translator, which macro code imports implicitly
@@ -284,9 +285,9 @@
           (fold
             (fn (seen d)
               (let ((name (sym-name (at (defmacro-items d builtins) 1))))
-                (if (map-has seen name)
+                (if (map.has seen name)
                   (fail (format "{(pos-text (form-pos d))}defmacro: {name} is defined twice"))
-                  (map-set seen name true))))
+                  (map.set seen name true))))
             start
             defs)))
     true))
@@ -300,7 +301,7 @@
             (name (sym-name (at items 1)))
             (params (at items 2))
             (arity (if (= (sym-name params) "") (len (list-items params)) -1))
-            (run (map-get loaded (py-mangle (macro-fn name)))))
+            (run (map.at loaded (py-mangle (macro-fn name)))))
         (Macro name arity run (form-pos d))))
     defs))
 
@@ -319,8 +320,8 @@
     ((Lst items pos)
       (let ((head (if (= (len items) 0) "" (sym-name (at items 0)))))
         (cond
-          ((map-has macros head)
-            (expand-form (expand-call (map-get macros head) (rest items) pos) macros))
+          ((map.has macros head)
+            (expand-form (expand-call (map.at macros head) (rest items) pos) macros))
           ((contains head (List "sig" "deft" "private" "import" "import-macros" "quo" "quasi")) form)
           ((= head "defn") (Lst (expand-after items 3 macros) pos))
           ((= head "fn") (Lst (expand-after items 2 macros) pos))

@@ -235,7 +235,7 @@ main: 0 argument(s)
 ## The prelude (since `system-prelude`)
 
 Every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: what is built
-on the built-ins (declared in `src/cdy/system.cdy`): `rest`, `map-update`, `Maybe`
+on the built-ins (declared in `src/cdy/system.cdy`): `rest`, `Maybe`
 with `find`, `index-of` and `with-default` ([[library.maybe]]), and `Result`
 ([[library.errors]]).
 Macro code doesn't get it ([[B52]]). A file's own definition of a

@@ -1,0 +1,34 @@
+;;; Map (doc/hl_rqmt/stdlib.md; spec/60-library.md, library.maps): a declaration module.
+;;; Its bodiless sigs are built-ins, which the target provides (spelling.py's `map.`
+;;; entries), named for what they do: `at` gives the value at a key, as a list's and a
+;;; string's `at` give the item at an index (`get` is the special form that reads a
+;;; record's field); the rest is Candy over them. A map is immutable: `set` gives a new
+;;; one. A program imports it by name, by convention with no names unqualified,
+;;; `(import map ())`, and writes `map.at`; the list function `map` is still the list's.
+
+;; --- the built-ins ---
+(sig empty (Map k v))
+;; The value at `key`, which must be in `m`.
+(sig at (Fn ((Map k v) k) v))
+(sig has (Fn ((Map k v) k) Bool))
+;; `m` with `key`'s value `v`, added or replaced.
+(sig set (Fn ((Map k v) k v) (Map k v)))
+;; The keys, in the order they were first added.
+(sig keys (Fn ((Map k v)) (List k)))
+;; The map of `pairs`, each (Tup key value); a later pair's key wins.
+(sig from (Fn ((List (Tup k v))) (Map k v)))
+(sig size (Fn ((Map k v)) Int))
+
+;; --- in Candy ---
+
+;; `m` with the value at `key` replaced by `f` of it; `key` must be in `m`.
+(sig update (Fn ((Map k v) k (Fn (v) v)) (Map k v)))
+(defn update (m key f) (set m key (f (at m key))))
+
+;; The values, in their keys' order.
+(sig values (Fn ((Map k v)) (List v)))
+(defn values (m) (map (fn (key) (at m key)) (keys m)))
+
+;; The value at `key`, or `fallback` if `key` isn't in `m`: `at`, or a fallback.
+(sig at-or (Fn ((Map k v) k v) v))
+(defn at-or (m key fallback) (if (has m key) (at m key) fallback))

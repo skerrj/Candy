@@ -74,9 +74,6 @@ def prelude__with_default[a](fallback: a, m: prelude__Maybe[a]) -> a:
     elif isinstance(_cdy_t0, prelude__None):
         return fallback
 
-def prelude__map_update[k, v](m: _cdy_Mapping[k, v], key: k, f: _cdy_Callable[[v], v]) -> _cdy_Mapping[k, v]:
-    return cdy_rt.primitives.map_set(m, key, f(cdy_rt.primitives.map_get(m, key)))
-
 class form__Pos(_cdy_NamedTuple):
     file: str
     line: int
@@ -754,6 +751,18 @@ def syntax__declared_shape(decls: tuple[form__Form, ...], name: str) -> tuple[sy
     else:
         form = found[0]
         return syntax__read_shape(form__list_items(form)[2], form__pos_text(form__form_pos(form)))
+
+def map__update[k, v](m: _cdy_Mapping[k, v], key: k, f: _cdy_Callable[[v], v]) -> _cdy_Mapping[k, v]:
+    return cdy_rt.primitives.map_set(m, key, f(cdy_rt.primitives.map_get(m, key)))
+
+def map__values[k, v](m: _cdy_Mapping[k, v]) -> tuple[v, ...]:
+    return cdy_rt.primitives.list_map((lambda key: cdy_rt.primitives.map_get(m, key)), cdy_rt.primitives.map_keys(m))
+
+def map__at_or[k, v](m: _cdy_Mapping[k, v], key: k, fallback: v) -> v:
+    if cdy_rt.primitives.map_has(m, key):
+        return cdy_rt.primitives.map_get(m, key)
+    else:
+        return fallback
 
 class include__Module(_cdy_NamedTuple):
     path: str

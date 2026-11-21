@@ -694,7 +694,8 @@ def test_a_declaration_module_holds_candy(t1_path: Path, tmp_path: Path) -> None
     declared.write_text(
         declared.read_text(encoding="utf-8")
         + '(sig shout (Fn (String) String))\n(defn shout (s) (++ s "!"))\n'
-        + "(sig spelled (Fn (String) Bool))\n(defn spelled (name) (map-has py-spellings name))\n",
+        + "(import map ())\n"
+        + "(sig spelled (Fn (String) Bool))\n(defn spelled (name) (map.has py-spellings name))\n",
         encoding="utf-8",
     )
     source = '(import translator)\n(put (shout "hi") (translator.shout "a") (spelled "len"))'
