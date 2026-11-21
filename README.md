@@ -81,7 +81,9 @@ See `doc/hl_rqmt/bootstrap.md`.
 ## Repository
 
 - `src/cdy/`: the translator, in Candy, with the library it reads (`special.cdy`,
-  `system.cdy`, `translator.cdy`, `prelude.cdy`, `form.cdy`, `prelude_macros.cdy`);
+  `system.cdy`, `translator.cdy`, `prelude.cdy`, `form.cdy`, `prelude_macros.cdy`) and
+  the standard library's modules (`math.cdy`, `string.cdy`, `map.cdy`, `list.cdy`,
+  `test.cdy`, `test_macros.cdy`);
 - `src/cdy_rt/`: the runtime generated Python imports;
 - `src/py_cdy/`: the Python driver (`main.py`, `self_host.py`);
 - `bin/`: the checked-in translators, one directory per target;

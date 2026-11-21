@@ -120,6 +120,12 @@ built-ins can be a declaration module of their own, a target extension (`py`, on
 in `DECLARATION_MODULES`, `include.cdy`), which a program imports by name: the mechanism
 for question 1's per-target files, not yet the layout.
 
+*Taken further on branch `stdlib`* (`doc/hl_rqmt/stdlib.md`): the declaration modules are
+the ones `spelling.py`'s keys name (`math.sin`, `string.len`), no list
+(`DECLARATION_MODULES` is gone), and each built-in is keyed by its module, so two modules
+may declare one name (`len`, `string.len`); a declaration module may hold Candy over its
+built-ins (`string.trim`). A target's spelling table so says which modules it provides.
+
 The open questions below are still open: there is one `system.cdy`, for Python.
 
 ### Open: abstracting `system.cdy` while allowing specifics

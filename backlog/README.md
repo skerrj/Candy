@@ -86,7 +86,7 @@ By kind, then priority.
 | [B210](B210-stdlib-step-5.md) | stdlib step 5: The `string` module | task | review | normal |
 | [B211](B211-stdlib-step-6.md) | stdlib step 6: The `map` module | task | review | normal |
 | [B212](B212-stdlib-step-7.md) | stdlib step 7: The `list` module | task | review | normal |
-| [B213](B213-stdlib-step-8.md) | stdlib step 8: docs | task | open | normal |
+| [B213](B213-stdlib-step-8.md) | stdlib step 8: docs | task | review | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea

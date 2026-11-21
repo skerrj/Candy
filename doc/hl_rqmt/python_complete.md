@@ -376,6 +376,13 @@ brackets:
    specified, `library.builtins` the index; `slurp` without a search ([[B54]]). The
    second half, `stdlib`, has the rest: the prelude trimmed, the standard library's
    modules, the I/O refactor, target extensions and `py`, `test` ([[B108]]).
+   *Done (tag `stdlib`, 2026-11-20; `stdlib.md`), the second half, but for `io`, `py`
+   and `parse`, later branches ([[B95]]; its Question 1):* the modules `math`, `string`
+   and `map`, declaration modules holding Candy too, their names without prefixes
+   (`string.len`, `map.at`; `system` 48 built-ins, [[B108]]), `list` (Candy) and `test`;
+   the declaration modules found from the spellings, each built-in keyed by its module;
+   the prelude's costs ([[B66]], [[B62]]: the expander made once); the prelude trimmed
+   (`map-update` is `map.update`).
 6. **`interpreter`:** the interpreter over typed Core, written once against the
    language as the branches before it leave it; the spec runs on both, and a
    difference is a gap in the spec or a bug in one of them. (S, checked)
@@ -588,7 +595,7 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B79]] `read_sexpr.cdy` types forms as `Any` | X | `collections` |
 | [[B40]] types and values share a namespace | S | `namespaces` (kept, a rule) |
 | [[B47]] only `(import m)` | L | `namespaces` (done) |
-| [[B108]] one flat namespace | L | `namespaces` (qualified names), `library-layers` (`system` a module), `stdlib` (the modules) |
+| [[B108]] one flat namespace | L | `namespaces` (qualified names), `library-layers` (`system` a module), `stdlib` (done: the modules) |
 | [[B65]] tests reach internals by Python names | X | `namespaces` (done) |
 | [[B11]] a variant named like a macro | D | `namespaces` (done) |
 | [[B49]] host objects untyped | T | `library-layers` (narrowed to the macros), `host-macros` or the `py` extension |

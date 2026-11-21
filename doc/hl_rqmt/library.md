@@ -126,6 +126,12 @@ one is rewritten. One line per type is simpler:
 
 ### What a program sees (decided: A now, B later)
 
+*Taken further on branch `stdlib`* (`doc/hl_rqmt/stdlib.md`): A, with the built-ins
+grouped into modules a program imports by name (`string`, `map`, `math`; `list` and
+`test` Candy), `system` the list built-ins, the operators, output and the files, and the
+prelude trimmed (`map-update` is `map.update`). B, the prelude re-exporting `system`, is
+still later; whether `system` is only the language is tabled (`stdlib.md`, Question 8).
+
 - **Now (A):** a program sees `system.cdy`'s primitives and the prelude, both implicitly.
   That needs nothing new.
 - **Later (B):** a program sees only the prelude. `system.cdy` is imported by the prelude,

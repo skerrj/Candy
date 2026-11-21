@@ -1,9 +1,10 @@
 # The standard library (HLD)
 
 **Status: accepted (2026-11-18), with the answers to its questions, as proposed
-(tasks [[B206]] to [[B213]]; Question 8 tabled); drafted 2026-11-17, for branch
-`stdlib`. Epic: `python_complete.md` (its fifth branch, `library`, the second half: the
-modules; the layering was `library_layers.md`).
+(tasks [[B206]] to [[B213]]; Question 8 tabled; Question 4 revised, 2026-11-20); drafted
+2026-11-17, for branch `stdlib`; steps 1 to 8 built (2026-11-20; steps 4 and 5 in two
+commits each), to review. Epic: `python_complete.md` (its fifth branch, `library`, the
+second half: the modules; the layering was `library_layers.md`).
 After tag `library-layers`.** The built-ins grouped into modules a program imports by
 name (`string`, `map`, `math`), their names without the prefixes that stand in for
 modules today (`str-len` is `string.len`); a `list` module of what is built on the list
@@ -350,6 +351,44 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    translator doesn't use these. Checked against `boot/91`'s `bin`. No staging.
 8. **Docs:** CLAUDE.md, the epic's fifth branch *done*, `library.md`,
    `multi_target.md`; "Looking back".
+
+   *Done (2026-11-20). As built:* CLAUDE.md's history (the branch), its list of the
+   library's files, "Modules" (a declaration module is one the spellings name; an
+   unlisted name gives way to a built-in) and "The library" (the modules, `test`, macro
+   code's `string`), and README's list of files; `python_complete.md`'s fifth branch
+   *done*, but for `io`, `py` and `parse` (Question 1), and its triage's [[B108]] row;
+   *taken further* notes in `library.md`'s "What a program sees" and `multi_target.md`
+   (the declaration modules from the spellings, a built-in keyed by its module). The
+   spec's rules came with their steps.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **A rename meets the rules a name was quietly relying on.** Moving `str-len` to
+  `string.len` broke on `len`: `(import string ())` gave the module's `len` the
+  unqualified name over the list's, which no one meant, and needed a rule (step 5a, an
+  unlisted name gives way to a built-in). Moving `map-get` met the special form `get`,
+  which no module's own Candy can call past; the answer was a better name (`map.at`, the
+  verb the list and the string already had), not a new rule (a module's own qualified
+  names, built and dropped). When a rename needs a rule, try another name first.
+- **The old `bin` decides how many commits a step is,** again (`library_layers.md`,
+  "Looking back"): it must read the new library with its own rules, so a step that
+  changes a rule the library then uses is two commits (4a and 4b, 5a and 5b), and the
+  comparison against the last `boot/NN` (`tmp/c7/cmp3.py`) finds which, by running it.
+- **A mechanical rename wants a tokenizer, not a regex,** and one that knows the
+  language's corners: char literals (`\)`, `\"`), comments, `format`'s holes inside
+  strings, an indented fence. Each one it missed showed up as a test, never silently,
+  because the spec's examples all run.
+- **The target already says what it provides.** Declaration modules found from the
+  spellings' keys, not a list nor a scan of the library, came back a second time
+  (`library-layers` had chosen a list); the spelling table is the one place that must
+  name every built-in anyway.
+- **A constraint variable has no literals** (`list.sum`'s empty list, `math.abs`'s
+  `(- x x)`; [[B216]]): generic numeric code in Candy will want them, or interfaces.
+- **A top-level `do`, spliced, let a macro define a `sig` and a `def` together**
+  (`deftest`), with no new form: the cheapest way to let a macro write several
+  definitions.
 
 ## Questions
 
