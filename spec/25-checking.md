@@ -24,7 +24,7 @@ type. Calling something that isn't a function is an error.
 ```
 
 ```candy errors
-(put (to-int 1)) => argument 1 of to-int: expected String, got Int
+(import string ()) (put (string.to-int 1)) => argument 1 of string.to-int: expected String, got Int
 (sig twice (Fn (Int) Int)) (defn twice (n) (* 2 n)) (put (twice "a")) => argument 1 of twice: expected Int, got String
 (sig one Int) (def one 1) (put (one 2)) => expected a function, got Int
 ```
@@ -82,8 +82,9 @@ checker infers it from how it is made and used. A local has one type, so a `fn` 
 `let` isn't generic (*for now*: [[B133]]); a top-level `defn` with a generic `sig` is.
 
 ```candy run
+(import string ())
 (put (let ((n 3) (m (* n n))) (+ m 1)))
-(put (join (map (fn (s) (++ s "!")) (List "hi")) ""))
+(put (string.join (map (fn (s) (++ s "!")) (List "hi")) ""))
 (put (let ((sq (fn (x) (* x x)))) (sq 3)))
 ```
 ```expect
@@ -260,9 +261,10 @@ type ([[types.constructors]]). (Until `collections`, such a tuple was accepted a
 and `tup` wrote both.)
 
 ```candy run
+(import string ())
 (sig names (List String))
 (def names (List "ann" "bo"))
-(put (len names) (join names ","))
+(put (len names) (string.join names ","))
 ```
 ```expect
 2 ann,bo
@@ -319,9 +321,10 @@ narrowed (the clause's names read its fields). A variant isn't a type a program 
 so where the local is passed or returned it is still of the sum.
 
 ```candy run
+(import string ())
 (deft S (A ((x Int) (id Int))) (B ((y String) (id Int))) (C))
 (sig f (Fn (S) Int))
-(defn f (s) (match s ((A _ _) (+ (get s x) (get s id))) ((B _ _) (str-len (get s y))) ((C) 0)))
+(defn f (s) (match s ((A _ _) (+ (get s x) (get s id))) ((B _ _) (string.len (get s y))) ((C) 0)))
 (sig bump (Fn (S) S))
 (defn bump (s) (match s ((A _ _) (assoc s x (+ (get s x) 1))) (else s)))
 (put (f (A 1 2)) (f (B "abc" 1)) (f C) (bump (A 1 2)) (bump C))
@@ -350,8 +353,9 @@ constraint on it, checked once its definition is: then the value's type must be 
 with the field, of the type the constraint found; one that met only `Any` is `Any`.
 
 ```candy run
+(import string ())
 (deft P ((name String)))
-(put (join (map (fn (p) (get p name)) (List (P "ann"))) ","))
+(put (string.join (map (fn (p) (get p name)) (List (P "ann"))) ","))
 ```
 ```expect
 ann

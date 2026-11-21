@@ -5,6 +5,7 @@
 
 (import form)
 (import syntax)
+(import string ())
 
 ;; --- types (from sig) ---
 
@@ -115,7 +116,7 @@
 
 ;; Whether `name` holds a `.`: a qualified name, m.name.
 (sig has-dot (Fn (String) Bool))
-(defn has-dot (name) (str-contains "." name))
+(defn has-dot (name) (string.contains "." name))
 
 ;; The error for defining `name`, or "": a name can't hold a `.`, which qualifies a name,
 ;; nor a `/`, reserved (spec/00-syntax.md, syntax.names), except the operator `/` itself.
@@ -123,20 +124,20 @@
 (defn name-error (name)
   (cond
     ((has-dot name) (format "{name}: a name can't hold a ., which qualifies a name with its module (m.name)"))
-    ((and (!= name "/") (str-contains "/" name)) (format "{name}: a name can't hold a /, which is reserved"))
+    ((and (!= name "/") (string.contains "/" name)) (format "{name}: a name can't hold a /, which is reserved"))
     (else "")))
 
 ;; `name` without its qualifier: `greet` for `util.greet`.
 (sig bare-name (Fn (String) String))
 (defn bare-name (name)
-  (let ((parts (split name ".")))
+  (let ((parts (string.split name ".")))
     (if (and (has-dot name) (= (len parts) 2)) (at parts 1) name)))
 
 ;; Why the qualified name `name` names nothing here, or "" if it isn't one: a qualified name
 ;; is m.name, one `.` between an imported module's qualifier and a name it defines.
 (sig qualified-error (Fn (String Scope) String))
 (defn qualified-error (name scope)
-  (let ((parts (split name ".")))
+  (let ((parts (string.split name ".")))
     (cond
       ((not (has-dot name)) "")
       ((!= (number-hint name) "")
@@ -151,9 +152,9 @@
 ;; means (`0.5`, `-0.5`), else "".
 (sig number-hint (Fn (String) String))
 (defn number-hint (name)
-  (let ((sign (if (starts-with name "-") "-" ""))
-        (body (substring name (str-len sign) (str-len name))))
-    (if (and (starts-with body ".") (> (str-len body) 1) (str-contains (substring body 1 2) "0123456789"))
+  (let ((sign (if (string.starts-with name "-") "-" ""))
+        (body (string.slice name (string.len sign) (string.len name))))
+    (if (and (string.starts-with body ".") (> (string.len body) 1) (string.contains (string.slice body 1 2) "0123456789"))
       (++ sign (++ "0" body))
       "")))
 
@@ -167,7 +168,7 @@
     (match (map-get (get scope names) name)
       ((Clash modules)
         (let ((qualified (map (fn (m) (++ m (++ "." name))) modules)))
-          (format "{name} is defined by {(join modules \" and \")}: write {(join qualified \" or \")}")))
+          (format "{name} is defined by {(string.join modules \" and \")}: write {(string.join qualified \" or \")}")))
       ((Unlisted m) (format "{name}: the import of {m} doesn't list it: write {m}.{name}"))
       ((Private m)
         (if (has-dot name)
@@ -609,8 +610,8 @@
 ;; literal text so far.
 (sig format-parts (Fn (String Pos Int String Scope Int (List FPart)) (Tup (List FPart) Int)))
 (defn format-parts (text where pos acc scope n parts)
-  (let ((c (if (< pos (str-len text)) (substring text pos (+ pos 1)) ""))
-        (next (if (< (+ pos 1) (str-len text)) (substring text (+ pos 1) (+ pos 2)) "")))
+  (let ((c (if (< pos (string.len text)) (string.slice text pos (+ pos 1)) ""))
+        (next (if (< (+ pos 1) (string.len text)) (string.slice text (+ pos 1) (+ pos 2)) "")))
     (cond
       ((= c "") (Tup (add-text parts acc) n))
       ((and (= c "{") (= next "{")) (format-parts text where (+ pos 2) (++ acc "{") scope n parts))
@@ -618,7 +619,7 @@
       ((= c "}") (fail (located scope "format: unmatched } (write }} for a brace)")))
       ((= c "{")
         (let ((end (hole-end text (+ pos 1) scope))
-              (forms ((get scope parse) (substring text (+ pos 1) end) (text-pos text (+ pos 1) where))))
+              (forms ((get scope parse) (string.slice text (+ pos 1) end) (text-pos text (+ pos 1) where))))
           (if (!= (len forms) 1)
             (fail (located scope "format: a {hole} must hold exactly one form"))
             (let (((e n1) (analyse-expr (at forms 0) scope n)))
@@ -632,20 +633,20 @@
 (defn text-pos (text pos where)
   (if (= (get where line) 0)
     where
-    (let ((before (substring text 0 pos))
-          (lines (split before "\n"))
+    (let ((before (string.slice text 0 pos))
+          (lines (string.split before "\n"))
           (last (at lines (- (len lines) 1))))
       (if (= (len lines) 1)
         (Pos (get where file) (get where line) (+ (get where col) 1 pos))
-        (Pos (get where file) (+ (get where line) (- (len lines) 1)) (+ (str-len last) 1))))))
+        (Pos (get where file) (+ (get where line) (- (len lines) 1)) (+ (string.len last) 1))))))
 
 ;; Where the hole starting at `pos` ends (its closing brace).
 (sig hole-end (Fn (String Int Scope) Int))
 (defn hole-end (text pos scope)
   (cond
-    ((>= pos (str-len text)) (fail (located scope "format: unmatched { (write {{ for a brace)")))
-    ((= (substring text pos (+ pos 1)) "}") pos)
-    ((= (substring text pos (+ pos 1)) "{") (fail (located scope "format: a {hole} can't hold a brace")))
+    ((>= pos (string.len text)) (fail (located scope "format: unmatched { (write {{ for a brace)")))
+    ((= (string.slice text pos (+ pos 1)) "}") pos)
+    ((= (string.slice text pos (+ pos 1)) "{") (fail (located scope "format: a {hole} can't hold a brace")))
     (else (hole-end text (+ pos 1) scope))))
 
 (sig add-text (Fn ((List FPart) String) (List FPart)))
@@ -742,7 +743,7 @@
     ((MatchE _ clauses default _ _)
       (let ((missing (missing-variants (sibling-variants (get (at clauses 0) variant) scope) clauses)))
         (if (and (= (len default) 0) (> (len missing) 0))
-          (fail (located scope (format "match on {sum}: no clause for {(join missing \", \")} (or add else)")))
+          (fail (located scope (format "match on {sum}: no clause for {(string.join missing \", \")} (or add else)")))
           m)))
     (else m)))
 
@@ -953,7 +954,7 @@
 
 (sig is-lower (Fn (String) Bool))
 (defn is-lower (name)
-  (and (> (str-len name) 0) (>= (substring name 0 1) "a") (<= (substring name 0 1) "z")))
+  (and (> (string.len name) 0) (>= (string.slice name 0 1) "a") (<= (string.slice name 0 1) "z")))
 
 (sig analyse-type (Fn (Form) CType))
 (defn analyse-type (form)
@@ -997,14 +998,14 @@
 ;; header: the checker's own encoding, not Candy syntax).
 (sig constraint-of (Fn (String) String))
 (defn constraint-of (name)
-  (let ((parts (split name ":"))
+  (let ((parts (string.split name ":"))
         (base (if (= (len parts) 2) (at parts 1) (trim-digits name))))
     (if (map-has CONSTRAINTS base) base "")))
 
 (sig trim-digits (Fn (String) String))
 (defn trim-digits (s)
-  (if (and (> (str-len s) 0) (contains (substring s (- (str-len s) 1) (str-len s)) (List "0" "1" "2" "3" "4" "5" "6" "7" "8" "9")))
-    (trim-digits (substring s 0 (- (str-len s) 1)))
+  (if (and (> (string.len s) 0) (contains (string.slice s (- (string.len s) 1) (string.len s)) (List "0" "1" "2" "3" "4" "5" "6" "7" "8" "9")))
+    (trim-digits (string.slice s 0 (- (string.len s) 1)))
     s))
 
 
@@ -1279,7 +1280,7 @@
   (cond
     ((= (len names) 0) true)
     ((not (map-has builtins (at names 0)))
-      (fail (format "spelling.py: {(at names 0)} is declared in none of special.cdy, {(join files \", \")}")))
+      (fail (format "spelling.py: {(at names 0)} is declared in none of special.cdy, {(string.join files \", \")}")))
     (else (all-declared (rest names) builtins files))))
 
 ;; --- modules (doc/hl_rqmt/modules.md) ---
@@ -1759,7 +1760,7 @@
 
 (sig is-upper (Fn (String) Bool))
 (defn is-upper (name)
-  (and (> (str-len name) 0) (>= (substring name 0 1) "A") (<= (substring name 0 1) "Z")))
+  (and (> (string.len name) 0) (>= (string.slice name 0 1) "A") (<= (string.slice name 0 1) "Z")))
 
 
 ;; The fields of `owner` ("deft V", or "deft S, variant A", for its errors).

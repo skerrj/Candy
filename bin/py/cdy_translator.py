@@ -281,6 +281,33 @@ class form__Macro(_cdy_NamedTuple):
         return hash((type(self), tuple(self)))
 cdy_rt.primitives.register_type(form__Macro, 'Macro', (), ('String', 'Int', 'Any', 'form.Pos'))
 
+def string__trim(s: str) -> str:
+    start = string__skip_space(s, 0, 1, len(s))
+    end = string__skip_space(s, (len(s) - 1), -1, -1)
+    if (start > end):
+        return ''
+    else:
+        return cdy_rt.primitives.substring(s, start, (end + 1))
+
+def string__skip_space(s: str, i: int, step: int, stop: int) -> int:
+    while True:
+        if ((i != stop) and string__space_at(s, i)):
+            i = (i + step)
+            continue
+        else:
+            return i
+
+def string__space_at(s: str, i: int) -> bool:
+    return cdy_rt.primitives.isspace(cdy_rt.primitives.substring(s, i, (i + 1)))
+
+def string__lines(s: str) -> tuple[str, ...]:
+    if (s == ''):
+        return ()
+    elif cdy_rt.primitives.ends_with(s, '\n'):
+        return cdy_rt.primitives.split(cdy_rt.primitives.substring(s, 0, (len(s) - 1)), '\n')
+    else:
+        return cdy_rt.primitives.split(s, '\n')
+
 def read__read_forms(text: str) -> tuple[form__Form, ...]:
     return read__read_all(read__Source('', (), form__NOWHERE), text, read__skip(text, 0), ())
 
@@ -7636,8 +7663,9 @@ def translate_expanded(forms: tuple[form__Form, ...], parse: _cdy_Callable[[str,
     return python_of(core__analyse_program(forms, imports, builtins, parse, macros, quoting), '')
 
 def macro_imports(_: None) -> tuple[core__Import, ...]:
-    path = include__library_path('translator.cdy')
-    return (core__Import(core__declared_exports(read__read_source(path, cdy_rt.primitives.slurp(path)), 'translator'), form__NOWHERE, prelude__None()),)
+    translator = include__library_path('translator.cdy')
+    string = include__library_path('string.cdy')
+    return (core__Import(core__declared_exports(read__read_source(translator, cdy_rt.primitives.slurp(translator)), 'translator'), form__NOWHERE, prelude__None()), core__Import(core__declared_exports(read__read_source(string, cdy_rt.primitives.slurp(string)), 'string'), form__NOWHERE, prelude__Some(())))
 
 def python_of(tops: tuple[core__Top, ...], top: str) -> str:
     stmts = lower__lower_program(tops, 0)

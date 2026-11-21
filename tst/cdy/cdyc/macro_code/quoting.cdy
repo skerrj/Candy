@@ -2,13 +2,14 @@
 ;; in macro code, so test_self_host.py translates this as macro code, with Form from the
 ;; translator's form.cdy, as a macro program has it.
 (import ../../../../src/cdy/form)
+(import string ())
 
 ;; A form written back as text.
 (sig show (Fn (Form) String))
 (defn show (form)
   (match form
     ((Sym name _) name)
-    ((Lst items _) (format "({(join (show-all items empty-list) \" \")})"))
+    ((Lst items _) (format "({(string.join (show-all items empty-list) \" \")})"))
     ((Txt val _) (format "\"{val}\""))
     ((IntLit val _) (format "{val}"))
     ((LongLit val _) (format "{val}l"))

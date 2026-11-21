@@ -13,6 +13,7 @@
 (import read)
 (import syntax)
 (import translator)
+(import string ())
 
 ;; --- modules ---
 
@@ -105,7 +106,7 @@
 (sig cycle-text (Fn ((List String) String) String))
 (defn cycle-text (stack key)
   (let ((cycle (drop (find-index (fn (k) (= k key)) stack) stack)))
-    (++ (join (map path-stem cycle) " -> ") " -> " (path-stem key))))
+    (++ (string.join (map path-stem cycle) " -> ") " -> " (path-stem key))))
 
 ;; `forms` without their imports; (import-macros name) as (import-macros "path").
 (sig other-forms (Fn ((List Form) String) (List Form)))
@@ -234,7 +235,7 @@
 (defn declaration-modules (_)
   (fold
     (fn (acc key)
-      (let ((parts (split key ".")))
+      (let ((parts (string.split key ".")))
         (if (or (!= (len parts) 2) (= (at parts 0) "") (contains (at parts 0) acc)) acc (++ acc (List (at parts 0))))))
     empty-list
     (map-keys py-spellings)))

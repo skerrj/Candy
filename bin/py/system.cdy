@@ -69,12 +69,11 @@
 (sig path-join (Fn (String String) String))
 (sig path-resolve (Fn (String) String))
 
-;; --- lists (a string's own operations are below; a tuple is taken apart by a pattern) ---
+;; --- lists (a string's own operations are string.cdy's; a tuple is taken apart by a pattern) ---
 (sig len (Fn ((List a)) Int))
 (sig empty-list (List a))
 (sig at (Fn ((List a) Int) a))
 (sig slice (Fn ((List a) Int Int) (List a)))
-(sig join (Fn ((List String) String) String))
 ;; Writable in Candy, but built in for speed: Candy adds to a list by copying it.
 (sig map (Fn ((Fn (a) b) (List a)) (List b)))
 (sig filter (Fn ((Fn (a) Bool) (List a)) (List a)))
@@ -104,24 +103,6 @@
 (sig map-keys (Fn ((Map k v)) (List k)))
 (sig map-from (Fn ((List (Tup k v))) (Map k v)))
 (sig map-size (Fn ((Map k v)) Int))
-
-;; --- strings ---
-(sig str-len (Fn (String) Int))
-(sig char-at (Fn (String Int) Char))
-(sig substring (Fn (String Int Int) String))
-;; Whether `part` is in `s`: (str-contains part s), as `contains` takes the list last.
-(sig str-contains (Fn (String String) Bool))
-(sig to-int (Fn (String) Int))
-(sig to-float (Fn (String) Double))
-(sig is-decimal (Fn (String) Bool))
-(sig hex-char (Fn (String) String))
-(sig char-code (Fn (String) Int))
-(sig starts-with (Fn (String String) Bool))
-(sig ends-with (Fn (String String) Bool))
-(sig split (Fn (String String) (List String)))
-(sig repeat (Fn (String Int) String))
-(sig replace (Fn (String String String) String))
-(sig isspace (Fn (String) Bool))
 
 ;; --- the program ---
 (sig fail (Fn (String) a))

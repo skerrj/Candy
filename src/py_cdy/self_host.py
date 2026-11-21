@@ -44,6 +44,7 @@ LIBRARY = (
     "translator.cdy",
     "prelude.cdy",
     "math.cdy",
+    "string.cdy",
     "test.cdy",
     "test_macros.cdy",
 )

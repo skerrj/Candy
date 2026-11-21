@@ -152,7 +152,6 @@ COLLECTION: Spellings = {
     # is a ``str``); ``primitives.at`` would type it as the join of the element types.
     "at": Spelling(f"{PRIMITIVES_MODULE}.at", "index"),
     "slice": primitive("slice_"),
-    "join": primitive("join"),
     # Writable in Candy (the prelude), but built in for speed: Candy adds to a list by
     # copying it, so its own map would take quadratic time.
     "map": primitive("list_map"),
@@ -181,22 +180,26 @@ COLLECTION: Spellings = {
     "contains": primitive("list_contains"),
 }
 
+# The string module's built-ins (src/cdy/string.cdy), keyed ``string.``. Each keeps its
+# Python function from before (``substring``, ``isspace``), which a translator before the
+# move still calls.
 STRING: Spellings = {
-    "str-len": call("len"),
-    "char-at": Spelling(f"{PRIMITIVES_MODULE}.char_at", "index"),
-    "substring": primitive("substring"),
-    "str-contains": primitive("str_contains"),
-    "to-int": primitive("to_int"),
-    "to-float": primitive("to_float"),
-    "is-decimal": primitive("is_decimal"),
-    "hex-char": primitive("hex_char"),
-    "starts-with": primitive("starts_with"),
-    "ends-with": primitive("ends_with"),
-    "split": primitive("split"),
-    "repeat": primitive("repeat"),
-    "char-code": call("ord"),
-    "replace": primitive("replace"),
-    "isspace": primitive("isspace"),
+    "string.len": call("len"),
+    "string.at": Spelling(f"{PRIMITIVES_MODULE}.char_at", "index"),
+    "string.slice": primitive("substring"),
+    "string.contains": primitive("str_contains"),
+    "string.to-int": primitive("to_int"),
+    "string.to-float": primitive("to_float"),
+    "string.is-decimal": primitive("is_decimal"),
+    "string.hex-char": primitive("hex_char"),
+    "string.starts-with": primitive("starts_with"),
+    "string.ends-with": primitive("ends_with"),
+    "string.split": primitive("split"),
+    "string.join": primitive("join"),
+    "string.repeat": primitive("repeat"),
+    "string.code": call("ord"),
+    "string.replace": primitive("replace"),
+    "string.is-space": primitive("isspace"),
 }
 
 # For the translator (translator.cdy's, so keyed ``translator.``): these spellings, which it

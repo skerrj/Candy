@@ -107,11 +107,17 @@
   (python-of (analyse-program forms imports builtins parse macros quoting) ""))
 
 ;; What macro code imports implicitly: translator, the library's (`gensym`, form.cdy,
-;; calls fresh-name).
+;; calls fresh-name); and string's built-ins, only qualified (`string.join`), as a program
+;; imports it by convention, `(import string ())`. A macro file's import of either adds
+;; nothing (include.cdy, include-forms). Only their built-ins: macro code doesn't get the
+;; library's Candy, as it doesn't get the prelude ([[B52]]).
 (sig macro-imports (Fn (Unit) (List Import)))
 (defn macro-imports (_)
-  (let ((path (library-path "translator.cdy")))
-    (List (Import (declared-exports (read-source path (slurp path)) "translator") NOWHERE None))))
+  (let ((translator (library-path "translator.cdy"))
+        (string (library-path "string.cdy")))
+    (List
+      (Import (declared-exports (read-source translator (slurp translator)) "translator") NOWHERE None)
+      (Import (declared-exports (read-source string (slurp string)) "string") NOWHERE (Some empty-list)))))
 
 ;; The definitions `tops` as a Python module, which first makes a panic stop the program
 ;; with its message (`stop_on_panic`; spec/60-library.md, library.errors); `top` is the

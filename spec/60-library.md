@@ -14,10 +14,10 @@ them. A value prints as Candy shows it ([[library.show]]).
 ## Built-ins
 
 `system.cdy` declares each built-in with a `sig` that has no definition: the runtime
-provides it, with that type. Only a declaration module (`system.cdy`, `translator.cdy`)
-may have a `sig` with no definition. A built-in's arity is its type's
+provides it, with that type. Only a declaration module (`system.cdy`, `translator.cdy`,
+`math.cdy`, `string.cdy`) may have a `sig` with no definition. A built-in's arity is its type's
 (`40-expressions.md`). Lists, strings and maps each have their own operations (`len` a
-list's, `str-len` a string's, `map-size` a map's), *for now*, until interfaces let one
+list's, `string.len` a string's, `map-size` a map's), *for now*, until interfaces let one
 name work on each ([[B34]]). None is typed `Any`; only three of `translator`'s are, which
 take or give a host function (*for now*: [[B49]]).
 
@@ -31,14 +31,15 @@ the prelude's are marked.
 | the operators | `40-expressions.md`: [[expr.arithmetic]], [[expr.append]], [[expr.comparisons]], [[expr.equality]], [[expr.logic]] | `+`, `-`, `*`, `/`, `quot`, `mod`, `++`, `=`, `!=`, `<`, `>`, `<=`, `>=`, `and`, `or`, `not` |
 | output | [[library.put]], [[library.show]] | `put` (the prelude's, a macro), `put-line`, `text`, `show`, `put-err` |
 | files | [[library.files]] | `slurp`, `spit`, `file-exists`, `make-dirs`, `path-stem`, `path-dir`, `path-join`, `path-resolve` |
-| lists | [[library.lists]], [[library.map-acc]], [[library.zip]], [[library.rest]], [[library.bounds]], [[library.maybe]] | `len`, `empty-list`, `at`, `slice`, `join`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find-index`, `contains`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`; the prelude's `rest`, `find`, `index-of`, `with-default` |
+| lists | [[library.lists]], [[library.map-acc]], [[library.zip]], [[library.rest]], [[library.bounds]], [[library.maybe]] | `len`, `empty-list`, `at`, `slice`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find-index`, `contains`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`; the prelude's `rest`, `find`, `index-of`, `with-default` |
 | maps | [[library.maps]] | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size`; the prelude's `map-update` |
-| strings | [[library.strings]], [[library.bounds]] | `str-len`, `char-at`, `substring`, `str-contains`, `starts-with`, `ends-with`, `split`, `repeat`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-decimal`, `isspace` |
+| strings (the module `string`) | [[library.strings]], [[library.bounds]] | `string.len`, `string.at`, `string.slice`, `string.contains`, `string.starts-with`, `string.ends-with`, `string.split`, `string.join`, `string.repeat`, `string.replace`, `string.to-int`, `string.to-float`, `string.code`, `string.hex-char`, `string.is-decimal`, `string.is-space`; in Candy, `string.trim`, `string.lines` |
 | math (the module `math`) | [[library.math]] | `math.PI`, `math.sin`, `math.cos`, `math.tan` |
 | the program | [[library.errors]], [[expr.unit]] | `fail`, `nil`; the prelude's `Result` |
 
 ```candy run
-(put (path-stem "dir/file.cdy") (to-int "7") (len (range 0 3)))
+(import string ())
+(put (path-stem "dir/file.cdy") (string.to-int "7") (len (range 0 3)))
 ```
 ```expect
 file 7 3
@@ -140,9 +141,10 @@ a `Tup` pattern ([[match.tup]]):
 `zip` pairs two lists' items into tuples, up to the shorter one's length:
 
 ```candy run
+(import string ())
 (sig pairs (List (Tup Int String)))
 (def pairs (zip (range 1 6) (List "a" "b" "c")))
-(put (len pairs) (join (map (fn (p) (let (((n s) p)) (format "{n}{s}"))) pairs) " "))
+(put (len pairs) (string.join (map (fn (p) (let (((n s) p)) (format "{n}{s}"))) pairs) " "))
 ```
 ```expect
 3 1a 2b 3c
@@ -163,9 +165,9 @@ as `drop`'s is:
 ## at and slice
 
 `(at xs i)` is the item at index `i` of a list, counting from 0, and `i` must be `0 <= i
-< (len xs)`; `(char-at s i)` is a string's `Char` at `i`, likewise. `(slice xs i j)` is
+< (len xs)`; `(string.at s i)` is a string's `Char` at `i`, likewise. `(slice xs i j)` is
 the items from index `i` up to, not including, `j`, and needs `0 <= i <= j <= (len xs)`;
-`(substring s i j)` is a string's, a string. Out of
+`(string.slice s i j)` is a string's, a string. Out of
 range is a panic, *lasting* ([[library.errors]]): the program stops, with `index out of
 range` in its message (for an index written as a number, the rest of the message is the
 target's, *for now*: [[B160]]). A negative index doesn't
@@ -178,21 +180,23 @@ shorter list; `(range a b)` is empty when `b <= a`; and `(repeat s n)` is `""` w
 is negative.
 
 ```candy run
+(import string ())
 (sig xs (List Int))
 (def xs (List 10 20 30))
 (sig i Int)
 (def i 2)
-(put (at xs 0) (at xs i) (slice xs 1 3) (slice xs 3 3) (char-at "abc" i) (substring "candy" 1 3))
+(put (at xs 0) (at xs i) (slice xs 1 3) (slice xs 3 3) (string.at "abc" i) (string.slice "candy" 1 3))
 ```
 ```expect
 10 30 (List 20 30) (List) c an
 ```
 
 ```candy run
+(import string ())
 (sig none (List Int))
 (def none empty-list)
 (put (take 5 (List 1 2)) (take -1 (List 1 2)) (drop 5 (List 1 2)) (drop -1 (List 1 2)))
-(put (rest none) (zip (List 1 2 3) (List "a")) (range 3 1) (str-len (repeat "ab" -1)))
+(put (rest none) (zip (List 1 2 3) (List "a")) (range 3 1) (string.len (string.repeat "ab" -1)))
 ```
 ```expect
 (List 1 2) (List) (List) (List 1 2)
@@ -216,10 +220,11 @@ index out of range
 ```
 
 ```candy panic
-(put (substring "abc" 2 4))
+(import string ())
+(put (string.slice "abc" 2 4))
 ```
 ```expect-panic
-substring: index out of range: 2 to 4, for length 3
+string.slice: index out of range: 2 to 4, for length 3
 ```
 
 ```candy panic
@@ -230,54 +235,63 @@ slice: index out of range: 2 to 1
 ```
 
 ```candy panic
+(import string ())
 (sig i Int)
 (def i 3)
-(put (char-at "abc" i))
+(put (string.at "abc" i))
 ```
 ```expect-panic
-char-at: index out of range: 3, for length 3
+string.at: index out of range: 3, for length 3
 ```
 
 <a id="library.strings"></a>
 ## Strings
 
-A string's own operations are `str-len`, `char-at` (a `Char`, [[syntax.chars]]),
-`substring` and `(str-contains part s)`, *for now* until interfaces ([[B34]]). The
-predicates on a whole string (`is-decimal`, `isspace`) are `false` for `""`.
-Text that isn't a number, to `to-int` or `to-float`, a `char-code` of a string that isn't
-one character, and a `split` on `""` stop with Python's error, not a panic (*for now*:
-[[B160]]).
+`string` (since `stdlib`; before, its built-ins were `system`'s, as `str-len`, `char-at`,
+`substring`, `str-contains`, `char-code`, `isspace` and the rest) is a library module, a
+declaration module ([[programs.import]]): a string's own operations, named for what they
+do, as a list's are (`string.len`, `string.at`, a `Char` ([[syntax.chars]]),
+`string.slice`), *for now* until interfaces ([[B34]]); and `trim` and `lines`, in Candy.
+A program imports it by convention with no names unqualified, `(import string ())`, so
+`len` is still the list's ([[programs.import]]). The predicates on a whole string
+(`is-decimal`, `is-space`) are `false` for `""`. Text that isn't a number, to `to-int` or
+`to-float`, a `code` of a string that isn't one character, and a `split` on `""` stop
+with Python's error, not a panic (*for now*: [[B160]]).
 
 | Call | Type | Gives |
 |---|---|---|
-| `(str-len s)` | `(Fn (String) Int)` | the number of characters |
-| `(char-at s i)` | `(Fn (String Int) Char)` | the character at `i`; out of range a panic ([[library.bounds]]) |
-| `(substring s i j)` | `(Fn (String Int Int) String)` | the characters from `i` up to `j`; out of range a panic |
-| `(str-contains part s)` | `(Fn (String String) Bool)` | whether `part` is in `s`; `true` for `""` |
-| `(starts-with s prefix)` | `(Fn (String String) Bool)` | whether `s` starts with `prefix` |
-| `(ends-with s suffix)` | `(Fn (String String) Bool)` | whether `s` ends with `suffix` |
-| `(split s sep)` | `(Fn (String String) (List String))` | the parts of `s` between each `sep`, empty ones too; `(List s)` when there is none |
-| `(repeat s n)` | `(Fn (String Int) String)` | `s` `n` times over; `""` when `n` isn't positive |
-| `(replace s old new)` | `(Fn (String String String) String)` | `s` with its first `old` replaced by `new` |
-| `(to-int s)` | `(Fn (String) Int)` | the integer `s` writes, a sign allowed |
-| `(to-float s)` | `(Fn (String) Double)` | the number `s` writes |
-| `(char-code s)` | `(Fn (String) Int)` | the code of the one character in `s` |
-| `(hex-char s)` | `(Fn (String) String)` | the character whose code `s` writes in hexadecimal |
-| `(is-decimal s)` | `(Fn (String) Bool)` | whether `s` is all decimal digits |
-| `(isspace s)` | `(Fn (String) Bool)` | whether `s` is all whitespace |
+| `(string.len s)` | `(Fn (String) Int)` | the number of characters |
+| `(string.at s i)` | `(Fn (String Int) Char)` | the character at `i`; out of range a panic ([[library.bounds]]) |
+| `(string.slice s i j)` | `(Fn (String Int Int) String)` | the characters from `i` up to `j`; out of range a panic |
+| `(string.contains part s)` | `(Fn (String String) Bool)` | whether `part` is in `s`; `true` for `""` |
+| `(string.starts-with s prefix)` | `(Fn (String String) Bool)` | whether `s` starts with `prefix` |
+| `(string.ends-with s suffix)` | `(Fn (String String) Bool)` | whether `s` ends with `suffix` |
+| `(string.split s sep)` | `(Fn (String String) (List String))` | the parts of `s` between each `sep`, empty ones too; `(List s)` when there is none |
+| `(string.join parts sep)` | `(Fn ((List String) String) String)` | the strings `parts`, `sep` between each two |
+| `(string.repeat s n)` | `(Fn (String Int) String)` | `s` `n` times over; `""` when `n` isn't positive |
+| `(string.replace s old new)` | `(Fn (String String String) String)` | `s` with its first `old` replaced by `new` |
+| `(string.to-int s)` | `(Fn (String) Int)` | the integer `s` writes, a sign allowed |
+| `(string.to-float s)` | `(Fn (String) Double)` | the number `s` writes |
+| `(string.code s)` | `(Fn (String) Int)` | the code of the one character in `s` |
+| `(string.hex-char s)` | `(Fn (String) String)` | the character whose code `s` writes in hexadecimal |
+| `(string.is-decimal s)` | `(Fn (String) Bool)` | whether `s` is all decimal digits |
+| `(string.is-space s)` | `(Fn (String) Bool)` | whether `s` is all whitespace |
+| `(string.trim s)` | `(Fn (String) String)` | `s` without the whitespace at its start and end |
+| `(string.lines s)` | `(Fn (String) (List String))` | `s`'s lines, without their newlines; a last newline ends a line, and `""` has none |
 
 ```candy run
+(import string ())
 (sig yes (Fn (Bool) String))
 (defn yes (b) (if b "yes" "no"))
 
-(put (yes (starts-with "candy" "can")) (yes (starts-with "candy" "dy")) (yes (starts-with "" "")))
-(put (yes (ends-with "candy" "dy")) (yes (ends-with "candy" "can")))
-(put (join (split "a,b,,c" ",") "|") (len (split "a,b,,c" ",")) (len (split "abc" ",")))
-(put (repeat "ab" 3) (str-len (repeat "ab" 0)))
-(put (to-int "42") (char-code "A") (substring "candy" 1 3))
-(put (str-len "candy") (char-at "candy" 0) (= (char-at "candy" 0) \c) (str-contains "and" "candy"))
-(put (replace "a-b-c" "-" "+") (to-int "-7") (to-float "2.5") (hex-char "41"))
-(put (is-decimal "123") (is-decimal "") (is-decimal "1a") (isspace " \t") (isspace ""))
+(put (yes (string.starts-with "candy" "can")) (yes (string.starts-with "candy" "dy")) (yes (string.starts-with "" "")))
+(put (yes (string.ends-with "candy" "dy")) (yes (string.ends-with "candy" "can")))
+(put (string.join (string.split "a,b,,c" ",") "|") (len (string.split "a,b,,c" ",")) (len (string.split "abc" ",")))
+(put (string.repeat "ab" 3) (string.len (string.repeat "ab" 0)))
+(put (string.to-int "42") (string.code "A") (string.slice "candy" 1 3))
+(put (string.len "candy") (string.at "candy" 0) (= (string.at "candy" 0) \c) (string.contains "and" "candy"))
+(put (string.replace "a-b-c" "-" "+") (string.to-int "-7") (string.to-float "2.5") (string.hex-char "41"))
+(put (string.is-decimal "123") (string.is-decimal "") (string.is-decimal "1a") (string.is-space " \t") (string.is-space ""))
 ```
 ```expect
 yes no yes
@@ -288,6 +302,18 @@ ababab 0
 5 c true true
 a+b-c -7 2.5 A
 true false false true false
+```
+
+```candy run
+(import string ())
+(put (string.trim "  a b \n") (string.len (string.trim " \t")) (string.trim "x"))
+(put (string.lines "a\nb\n") (string.lines "a\n\nb") (string.lines ""))
+(put (len (List 1 2)) (string.len "abc"))
+```
+```expect
+a b 0 x
+(List "a" "b") (List "a" "" "b") (List)
+2 3
 ```
 
 <a id="library.maps"></a>
@@ -312,10 +338,11 @@ that isn't in the map stops with Python's error, not a panic (*for now*: [[B160]
 | `(map-update m k f)`, the prelude's | `(Fn ((Map k v) k (Fn (v) v)) (Map k v))` | `m` with `f` of the value at `k`, which must be in `m` |
 
 ```candy run
+(import string ())
 (sig ages (Map String Int))
 (def ages (map-from (List (Tup "ann" 30) (Tup "bo" 4) (Tup "ann" 31))))
 
-(put (join (map-keys ages) " ") (map-get ages "ann"))
+(put (string.join (map-keys ages) " ") (map-get ages "ann"))
 (put (map-get (map-update ages "bo" (fn (n) (+ n 1))) "bo") (map-get ages "bo"))
 (put (map-get (map-set ages "cy" 7) "cy") (if (map-has ages "cy") "has cy" "no cy"))
 (put (map-size ages) (map-size (map-set ages "cy" 7)))
@@ -409,10 +436,11 @@ after its escapes, so a form in a hole writes a `"` as `\"`, can't use a char li
 (`00-syntax.md`), and can't hold a brace (so no `format` inside a hole).
 
 ```candy run
+(import string ())
 (sig n Int)
 (def n 6)
 (put (format "{n} times 7 is {(* n 7)}, in {{braces}}"))
-(put (format "{(str-len \"four\")}"))
+(put (format "{(string.len \"four\")}"))
 ```
 ```expect
 6 times 7 is 42, in {braces}
@@ -578,7 +606,8 @@ candy: half: 3 is odd
 ```
 
 ```candy panic
-(put (str-len (slurp "no/such/file.cdy")))
+(import string ())
+(put (string.len (slurp "no/such/file.cdy")))
 ```
 ```expect-panic
 candy: slurp: can't read no/such/file.cdy
@@ -589,9 +618,10 @@ a))) (Err ((err e))))`, either `(Ok v)`, with an `a`, or `(Err err)`, with an `e
 apart with `match` ([[match.sum-types]]).
 
 ```candy run
+(import string ())
 (sig parse-number (Fn (String) (Result Int String)))
 (defn parse-number (s)
-  (if (is-decimal s) (Ok (to-int s)) (Err (format "not a number: {s}"))))
+  (if (string.is-decimal s) (Ok (string.to-int s)) (Err (format "not a number: {s}"))))
 (sig describe (Fn ((Result Int String)) String))
 (defn describe (r) (match r ((Ok v) (format "got {v}")) ((Err err) err)))
 (put (parse-number "42") (parse-number "x"))

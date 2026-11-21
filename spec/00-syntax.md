@@ -132,7 +132,7 @@ overflows isn't checked, and a `Float` is 64 bits on Python (*for now*: [[B22]])
 <a id="syntax.chars"></a>
 A char is `\` and exactly one character, which may be a delimiter's (`\(` is the char
 `(`), then a delimiter. A `Char` is its own type, never a `String` (*lasting*; Python
-spells both `str`, a target's choice); `char-at` reads one from a string
+spells both `str`, a target's choice); `string.at` reads one from a string
 ([[library.strings]]):
 
 ```candy run

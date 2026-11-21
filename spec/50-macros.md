@@ -47,11 +47,12 @@ built-ins, since it imports `translator` implicitly (`gensym` calls `fresh-name`
 by Candy or by mypy (*for now*: [[B42]]).
 
 ```candy run
+(import string ())
 (defmacro name-of (s) (Txt (sym-name s) NOWHERE))
 (defmacro swap (call) (let ((items (list-items call))) (Lst (reverse items) NOWHERE)))
 
 (put (name-of hello))
-(put (swap ("abc" str-len)))
+(put (swap ("abc" string.len)))
 ```
 ```expect
 hello

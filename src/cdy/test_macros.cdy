@@ -28,7 +28,7 @@
 (defn form-text (form)
   (match form
     ((Sym name _) name)
-    ((Lst items _) (++ "(" (join (map form-text items) " ") ")"))
+    ((Lst items _) (++ "(" (string.join (map form-text items) " ") ")"))
     ((Txt s _) (++ "\"" s "\""))
     ((IntLit n _) (text n))
     ((LongLit n _) (++ (text n) "l"))

@@ -6,6 +6,7 @@
 (import form)
 (import core)
 (import lower)
+(import string ())
 
 ;; Python names: top-level names (by key, core.cdy's global-key -> Python name), locals
 ;; (Local id -> Python name), and the Python names already taken where new locals are
@@ -32,7 +33,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ")
 
 (sig comma-join (Fn ((List String)) String))
-(defn comma-join (strs) (join strs ", "))
+(defn comma-join (strs) (string.join strs ", "))
 
 (sig line (Fn (Int String) String))
 (defn line (level text) (++ (indent level) text "\n"))
@@ -103,20 +104,20 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (sig py-mangle (Fn (String) String))
 (defn py-mangle (name)
   (let ((out (mangle-chars name 0 "")))
-    (if (or (map-has PY_RESERVED out) (starts-with out "_cdy_")) (++ out "_") out)))
+    (if (or (map-has PY_RESERVED out) (string.starts-with out "_cdy_")) (++ out "_") out)))
 
 (sig mangle-chars (Fn (String Int String) String))
 (defn mangle-chars (name i acc)
-  (if (= i (str-len name))
+  (if (= i (string.len name))
     acc
-    (mangle-chars name (+ i 1) (++ acc (mangle-char (substring name i (+ i 1)))))))
+    (mangle-chars name (+ i 1) (++ acc (mangle-char (string.slice name i (+ i 1)))))))
 
 (sig mangle-char (Fn (String) String))
 (defn mangle-char (ch)
   (cond
     ((or (<= "a" ch "z") (<= "A" ch "Z") (<= "0" ch "9") (= ch "_")) ch)
     ((map-has MANGLED ch) (map-get MANGLED ch))
-    (else (++ "_u" (hex (char-code ch) 4)))))
+    (else (++ "_u" (hex (string.code ch) 4)))))
 
 (sig HEX_DIGITS String)
 (def HEX_DIGITS "0123456789abcdef")
@@ -124,7 +125,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ;; `n` (not negative) in lower-case hexadecimal, with at least `width` digits.
 (sig hex (Fn (Int Int) String))
 (defn hex (n width)
-  (let ((digit (substring HEX_DIGITS (- n (* 16 (quot n 16))) (+ (- n (* 16 (quot n 16))) 1))))
+  (let ((digit (string.slice HEX_DIGITS (- n (* 16 (quot n 16))) (+ (- n (* 16 (quot n 16))) 1))))
     (if (and (< n 16) (<= width 1)) digit (++ (hex (quot n 16) (- width 1)) digit))))
 
 ;; The string `s` as a Python literal, as Python's repr writes it: in single quotes, or in
@@ -133,18 +134,18 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ;; leaves other characters as they are (backlog [[B74]]).
 (sig py-str (Fn (String) String))
 (defn py-str (s)
-  (let ((q (if (and (str-contains "'" s) (not (str-contains "\"" s))) "\"" "'")))
+  (let ((q (if (and (string.contains "'" s) (not (string.contains "\"" s))) "\"" "'")))
     (++ q (escape-chars s q 0 "") q)))
 
 (sig escape-chars (Fn (String String Int String) String))
 (defn escape-chars (s q i acc)
-  (if (= i (str-len s))
+  (if (= i (string.len s))
     acc
-    (escape-chars s q (+ i 1) (++ acc (escape-char (substring s i (+ i 1)) q)))))
+    (escape-chars s q (+ i 1) (++ acc (escape-char (string.slice s i (+ i 1)) q)))))
 
 (sig escape-char (Fn (String String) String))
 (defn escape-char (ch q)
-  (let ((code (char-code ch)))
+  (let ((code (string.code ch)))
     (cond
       ((or (= ch q) (= ch "\\")) (++ "\\" ch))
       ((= ch "\n") "\\n")
@@ -206,7 +207,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ;; `util.greet`) is `greet (from module util)`, the top module's just its name.
 (sig candy-name (Fn (String Env) String))
 (defn candy-name (key env)
-  (let ((parts (split key "."))
+  (let ((parts (string.split key "."))
         (name (at parts (- (len parts) 1))))
     (if (or (= (len parts) 1) (= (at parts 0) (get env top))) name (format "{name} (from module {(at parts 0)})"))))
 
@@ -381,7 +382,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (defn emit-format (parts pos env)
   (if (= (len parts) 0)
     "''"
-    (format "({(join (emit-parts parts pos env) \" + \")})")))
+    (format "({(string.join (emit-parts parts pos env) \" + \")})")))
 
 (sig emit-parts (Fn ((List FPart) Pos Env) (List String)))
 (defn emit-parts (parts pos env)
@@ -430,7 +431,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
           (else (format "({(comma-join (++ (List shown) (map (fn (a) (show-type a pos env)) args)))})")))))
     ((TFn _ _) (fail (++ (pos-text pos) "show: a function can't be shown")))
     ((TVar name)
-      (let ((shown (if (starts-with name "?") (++ "t" (substring name 1 (str-len name))) name)))
+      (let ((shown (if (string.starts-with name "?") (++ "t" (string.slice name 1 (string.len name))) name)))
         (fail (++ (pos-text pos) (format "show: can't show a value of type {shown}, a type variable")))))))
 
 ;; The name of module `m`'s type `name` as cdy_rt's show reads it: a built-in's its own
@@ -544,7 +545,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
         (py (spelling-py (get env spellings) name))
         (op (++ " " py " ")))
     (cond
-      ((contains kind (List "binop" "compare" "boolop")) (format "({(join strs op)})"))
+      ((contains kind (List "binop" "compare" "boolop")) (format "({(string.join strs op)})"))
       ((= kind "unary") (format "({py} {(at strs 0)})"))
       ((and (= kind "index") (is-index-literal (at args 1))) (format "{(at strs 0)}[{(at strs 1)}]"))
       (else (format "{py}({(comma-join strs)})")))))
@@ -557,7 +558,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
   (match t
     ((TVar name)
       (cond
-        ((starts-with name "?") "_cdy_Any")
+        ((string.starts-with name "?") "_cdy_Any")
         ((= (constraint-of name) "integer") "int")
         ((= (constraint-of name) "float") "float")
         (else (py-mangle name))))
@@ -577,7 +578,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 (sig emit-tcon (Fn (String (List String) (Map String (Tup String String String))) String))
 (defn emit-tcon (name args spellings)
   (cond
-    ((= (spelling-kind spellings name) "type") (replace (spelling-py spellings name) "{}" (comma-join args)))
+    ((= (spelling-kind spellings name) "type") (string.replace (spelling-py spellings name) "{}" (comma-join args)))
     ((= name "Tup") (format "tuple[{(comma-join args)}]"))
     ((= (len args) 0) (py-mangle name))
     (else (format "{(py-mangle name)}[{(comma-join args)}]"))))
@@ -610,7 +611,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     ((SSum m name tvars variants)
       (++ (emit-variants m name variants tvars level env)
          (line level
-           (format "type {(global-py m name env)}{(type-params tvars)} = {(join (variant-refs m variants tvars env) \" | \")}"))))
+           (format "type {(global-py m name env)}{(type-params tvars)} = {(string.join (variant-refs m variants tvars env) \" | \")}"))))
     ((SMatch temp subject cases default)
       (let ((t (emit-expr temp env))
             (val (emit-expr subject env))
@@ -713,7 +714,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 
 (sig emit-record-fields (Fn ((List (Tup String CType)) Int Env) String))
 (defn emit-record-fields (fields level env)
-  (join (map (fn (ft) (let (((f t) ft)) (line level (format "{(py-mangle f)}: {(emit-type t env)}")))) fields) ""))
+  (string.join (map (fn (ft) (let (((f t) ft)) (line level (format "{(py-mangle f)}: {(emit-type t env)}")))) fields) ""))
 
 ;; Fail unless a record's or variant's fields are Python fields: no two are one Python name,
 ;; and none starts with `_`, which NamedTuple forbids (for now, a leak: B113). `owner` names
@@ -729,7 +730,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
                 (cond
                   ((map-has seen py)
                     (fail (format "{owner}: fields {(map-get seen py)} and {f} are one name in Python ({py})")))
-                  ((= (substring py 0 1) "_")
+                  ((= (string.slice py 0 1) "_")
                     (fail (format "{owner}: field {f} can't start with _ in Python ({py})")))
                   (else (map-set seen py f)))))
             start
@@ -753,7 +754,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ;; `eq-methods`.
 (sig emit-variants (Fn (String String (List Variant) (List String) Int Env) String))
 (defn emit-variants (module sum variants tvars level env)
-  (join
+  (string.join
     (map
       (fn (v)
         (let ((checked (check-py-fields (format "deft {(candy-name (global-key module sum) env)}, variant {(get v name)}") (get v fields) empty-map))
@@ -818,7 +819,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ;; `Some[Any]`, so the field it reads is Any.
 (sig emit-binds (Fn ((List (Tup String Expr)) String String Int Env) String))
 (defn emit-binds (binds variant subj level env)
-  (join
+  (string.join
     (map
       (fn (b)
         (let (((f loc) b)
@@ -828,7 +829,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
     ""))
 
 (sig emit-stmts (Fn ((List Stmt) Int Env) String))
-(defn emit-stmts (stmts level env) (join (map (fn (st) (emit-stmt st level env)) stmts) ""))
+(defn emit-stmts (stmts level env) (string.join (map (fn (st) (emit-stmt st level env)) stmts) ""))
 
 (sig emit-block (Fn ((List Stmt) Int Env) String))
 (defn emit-block (stmts level env)
@@ -871,7 +872,7 @@ from typing import Any as _cdy_Any, NamedTuple as _cdy_NamedTuple, cast as _cdy_
 ;; --- module ---
 
 (sig emit-imports (Fn ((List String)) String))
-(defn emit-imports (modules) (join (map (fn (m) (format "import {m}\n")) modules) ""))
+(defn emit-imports (modules) (string.join (map (fn (m) (format "import {m}\n")) modules) ""))
 
 ;; Run `main` when the module is run, not imported (see has-main in core.cdy).
 (sig emit-main (Fn (Env) String))

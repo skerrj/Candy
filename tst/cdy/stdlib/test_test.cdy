@@ -2,6 +2,7 @@
 ;; library.test). A failed check's line holds its file's path, which differs from one
 ;; checkout to another, so this file's run has none: `fails` is checked, not run.
 (import test ())
+(import string ())
 (import-macros test_macros)
 
 (deftest checks-pass (check (= (+ 1 2) 3)) (check (not false)))
@@ -22,7 +23,7 @@
   (check (= (at (results fails) 0) test.Pass))
   (check
     (match (at (results fails) 1)
-      ((test.Fail text pos) (and (= text "(= (+ 1 1) 3)") (ends-with pos "test_test.cdy:10:39: ")))
+      ((test.Fail text pos) (and (= text "(= (+ 1 1) 3)") (string.ends-with pos "test_test.cdy:11:39: ")))
       (else false))))
 
 (deftest the-text-of-each-literal

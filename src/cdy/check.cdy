@@ -13,6 +13,7 @@
 
 (import form)
 (import core)
+(import string ())
 
 ;; What the checker knows, read-only while it checks a definition, each top-level name by
 ;; its key (core.cdy's global-key, `util.Shape`): each global's type, each record's and
@@ -65,7 +66,7 @@
 ;; `args`. No name holds a `.`, so the key splits back into its module and name.
 (sig key-tcon (Fn (String (List CType)) CType))
 (defn key-tcon (key args)
-  (let ((parts (split key ".")))
+  (let ((parts (string.split key ".")))
     (if (= (len parts) 2) (TCon (at parts 0) (at parts 1) args) (TCon "" key args))))
 
 ;; --- the program ---
@@ -862,7 +863,7 @@
 (sig typed (Fn (Expr CType St) St))
 (defn typed (e t st)
   (let ((key (tvar-name (get e t))))
-    (if (starts-with key "?e") (assoc st types (map-set (get st types) key t)) st)))
+    (if (string.starts-with key "?e") (assoc st types (map-set (get st types) key t)) st)))
 
 ;; Each of `es` recorded with the type at its index in `ts`.
 (sig typed-all (Fn ((List Expr) (List CType) St) St))
@@ -1006,7 +1007,7 @@
 ;; Whether a type variable is one the checker made (?N, or ?N:number for a constraint
 ;; variable's), which unification may solve; a sig's (a) is rigid.
 (sig is-flexible (Fn (String) Bool))
-(defn is-flexible (name) (starts-with name "?"))
+(defn is-flexible (name) (string.starts-with name "?"))
 
 ;; `t` with its solved variables followed, at the top.
 (sig prune (Fn (CType (Map String CType)) CType))
@@ -1333,16 +1334,16 @@
     ((TCon _ name args)
       (if (= (len args) 0)
         name
-        (format "({name} {(join (map (fn (a) (show a subst)) args) \" \")})")))
-    ((TFn params ret) (format "(Fn ({(join (map (fn (p) (show p subst)) params) \" \")}) {(show ret subst)})"))
+        (format "({name} {(string.join (map (fn (a) (show a subst)) args) \" \")})")))
+    ((TFn params ret) (format "(Fn ({(string.join (map (fn (p) (show p subst)) params) \" \")}) {(show ret subst)})"))
     ((TVar name)
       (cond
         ((not (is-flexible name)) name)
         ((!= (constraint-of name) "") (constraint-of name))
-        (else (++ "t" (substring name 1 (str-len name))))))))
+        (else (++ "t" (string.slice name 1 (string.len name))))))))
 
 ;; A top-level name's key (global-key) as the program wrote it: util.greet is greet.
 (sig shown-name (Fn (String) String))
 (defn shown-name (key)
-  (let ((parts (split key ".")))
+  (let ((parts (string.split key ".")))
     (at parts (- (len parts) 1))))

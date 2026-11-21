@@ -305,6 +305,23 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    defines `len`, which `import_list.cdy`, importing it with `()`, doesn't see
    unqualified. Checked against `boot/88`'s `bin`: the same output but for
    `import_list.cdy`, which it rejects. No staging.
+
+   *5b done (2026-11-20). As built:* `string.cdy` (in `LIBRARY`) declares 16 built-ins,
+   gone from `system.cdy` (55 left), `join` among them: `len`, `at`, `slice`,
+   `contains`, `starts-with`, `ends-with`, `split`, `join`, `repeat`, `replace`,
+   `to-int`, `to-float`, `is-decimal`, `code` (was `char-code`), `hex-char`, `is-space`
+   (was `isspace`); and defines `trim` and `lines` in Candy, its helpers private.
+   `spelling.py` keys them `string.`, each keeping its Python function, which `bin`
+   before calls (`substring`, `isspace`); the panics name them as a program does
+   (`string.slice: index out of range`). The translator's modules import `(import
+   string ())`, 128 calls renamed by a script that skips strings (but for `format`'s
+   holes), comments and char literals, as are the spec's examples and the test
+   programs. Macro code imports `string` implicitly, qualified only (`macro-imports`,
+   `cdyc.cdy`), for `test_macros.cdy`'s `string.join`; only its built-ins, as macro code
+   gets no Candy from the library ([[B52]]). The rule `library.strings`, rewritten for
+   the module, with `trim` and `lines`. Checked against `boot/89`'s `bin`: the same
+   output but for the two programs using `test_macros` (`boot/89`'s macro code has no
+   `string`). The translator translates itself in 0.86 s, as before. No staging.
 6. **`map`:** moved and renamed, `update`, `values`, `get-or`; the translator onto it;
    the prelude's `map-update` gone.
 7. **`list`:** the Candy operations.

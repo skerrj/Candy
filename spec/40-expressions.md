@@ -25,7 +25,8 @@ be passed, or bound to another meaning. A built-in's arity comes from its type
 number of arguments, and writes them with a space between.
 
 ```candy run
-(put (str-len "four") (+ 1 2))
+(import string ())
+(put (string.len "four") (+ 1 2))
 ```
 ```expect
 4 3

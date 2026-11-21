@@ -8,6 +8,8 @@
 ;;;   (sig main (Fn ((List String)) Int))
 ;;;   (defn main (_) (test.run (List adds)))
 
+(import string ())
+
 ;; A check's result: it passed, or it failed, with the text of its expression and where
 ;; that is ("file:line:col: ").
 (deft Check (Pass) (Fail ((text String) (pos String))))
@@ -24,7 +26,7 @@
         (failed (concat (map (fn (r) (let (((name checks) r)) (failures name checks))) results)))
         (count (fold (fn (n r) (let (((_name checks) r)) (+ n (len checks)))) 0 results)))
     (do
-      (put-line (join (++ failed (List (format "tests: {(len tests)}, checks: {count}, failed: {(len failed)}"))) "\n"))
+      (put-line (string.join (++ failed (List (format "tests: {(len tests)}, checks: {count}, failed: {(len failed)}"))) "\n"))
       (if (= (len failed) 0) 0 1))))
 
 ;; A line for each of `checks` that failed, in the test `name`: where, the test, and the

@@ -1,0 +1,61 @@
+;;; String (doc/hl_rqmt/stdlib.md; spec/60-library.md, library.strings): a declaration
+;;; module. Its bodiless sigs are built-ins, which the target provides (spelling.py's
+;;; `string.` entries), named for what they do, as a list's are (`len`, `at`, `slice`); the
+;;; rest is Candy over them. A program imports it by name, by convention with no names
+;;; unqualified, `(import string ())`, and writes `string.len`, since unqualified its `len`
+;;; would shadow the list's (programs.shadowing). Here its own names are unqualified, and
+;;; the list's are `system.len` and so on.
+
+;; --- the built-ins ---
+(sig len (Fn (String) Int))
+;; The character at `i`, a Char.
+(sig at (Fn (String Int) Char))
+;; The characters from `start` up to `end`.
+(sig slice (Fn (String Int Int) String))
+;; Whether `part` is in `s`: (contains part s), as the list's `contains` takes the list last.
+(sig contains (Fn (String String) Bool))
+(sig starts-with (Fn (String String) Bool))
+(sig ends-with (Fn (String String) Bool))
+(sig split (Fn (String String) (List String)))
+;; The strings `parts`, `sep` between each two.
+(sig join (Fn ((List String) String) String))
+(sig repeat (Fn (String Int) String))
+(sig replace (Fn (String String String) String))
+(sig to-int (Fn (String) Int))
+(sig to-float (Fn (String) Double))
+(sig is-decimal (Fn (String) Bool))
+;; A one-character string's code point.
+(sig code (Fn (String) Int))
+(sig hex-char (Fn (String) String))
+;; Whether `s` is whitespace, all of it, and not empty.
+(sig is-space (Fn (String) Bool))
+
+;; --- in Candy ---
+
+(private skip-space space-at)
+
+;; `s` without the whitespace at its start and its end.
+(sig trim (Fn (String) String))
+(defn trim (s)
+  (let ((start (skip-space s 0 1 (len s)))
+        (end (skip-space s (- (len s) 1) -1 -1)))
+    (if (> start end) "" (slice s start (+ end 1)))))
+
+;; The index of the first character, from `i` by `step`, that isn't whitespace; `stop` if
+;; there is none before it.
+(sig skip-space (Fn (String Int Int Int) Int))
+(defn skip-space (s i step stop)
+  (if (and (!= i stop) (space-at s i)) (skip-space s (+ i step) step stop) i))
+
+;; Whether the character at `i` is whitespace.
+(sig space-at (Fn (String Int) Bool))
+(defn space-at (s i) (is-space (slice s i (+ i 1))))
+
+;; `s`'s lines, each without its newline; a last newline ends a line, rather than starting
+;; an empty one, and "" has none.
+(sig lines (Fn (String) (List String)))
+(defn lines (s)
+  (cond
+    ((= s "") empty-list)
+    ((ends-with s "\n") (split (slice s 0 (- (len s) 1)) "\n"))
+    (else (split s "\n"))))
