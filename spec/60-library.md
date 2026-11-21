@@ -34,7 +34,7 @@ the prelude's are marked.
 | lists | [[library.lists]], [[library.map-acc]], [[library.zip]], [[library.rest]], [[library.bounds]], [[library.maybe]] | `len`, `empty-list`, `at`, `slice`, `join`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find-index`, `contains`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`; the prelude's `rest`, `find`, `index-of`, `with-default` |
 | maps | [[library.maps]] | `empty-map`, `map-get`, `map-has`, `map-set`, `map-keys`, `map-from`, `map-size`; the prelude's `map-update` |
 | strings | [[library.strings]], [[library.bounds]] | `str-len`, `char-at`, `substring`, `str-contains`, `starts-with`, `ends-with`, `split`, `repeat`, `replace`, `to-int`, `to-float`, `char-code`, `hex-char`, `is-decimal`, `isspace` |
-| math | [[library.math]] | `PI`, `sin`, `cos`, `tan` |
+| math (the module `math`) | [[library.math]] | `math.PI`, `math.sin`, `math.cos`, `math.tan` |
 | the program | [[library.errors]], [[expr.unit]] | `fail`, `nil`; the prelude's `Result` |
 
 ```candy run
@@ -369,20 +369,34 @@ output/spec/note.txt true
 <a id="library.math"></a>
 ## Math
 
-`PI` and the trigonometric functions are on `Double`s, an angle in radians.
+`math` (since `stdlib`; before, `PI` and the trigonometric functions were `system`'s) is a
+library module, a declaration module ([[programs.import]]): `PI` and the trigonometric
+functions are built-ins, on `Double`s, an angle in radians; `abs`, `min` and `max` are
+Candy, on any number or any comparable type. A program imports it by name, by convention
+with no names unqualified, `(import math ())`, and writes `math.sin`.
 
 | Call | Type | Gives |
 |---|---|---|
-| `PI` | `Double` | π, as near as a `Double` is |
-| `(sin x)`, `(cos x)`, `(tan x)` | `(Fn (Double) Double)` | the sine, cosine and tangent of `x` |
+| `math.PI` | `Double` | π, as near as a `Double` is |
+| `(math.sin x)`, `(math.cos x)`, `(math.tan x)` | `(Fn (Double) Double)` | the sine, cosine and tangent of `x` |
+| `(math.abs x)` | `(Fn (number) number)` | `x` without its sign |
+| `(math.min a b)`, `(math.max a b)` | `(Fn (comparable comparable) comparable)` | the smaller, the larger (`a` if they are equal) |
 
 ```candy run
-(put PI (sin 0.0) (cos 0.0) (tan 0.0))
-(put (< (- 1.0 (sin (/ PI 2.0))) 1.0e-9))
+(import math ())
+(put math.PI (math.sin 0.0) (math.cos 0.0) (math.tan 0.0))
+(put (< (- 1.0 (math.sin (/ math.PI 2.0))) 1.0e-9))
+(put (math.abs -3) (math.abs 2.5) (math.min 3 1) (math.max "a" "b"))
 ```
 ```expect
 3.141592653589793 0.0 1.0 0.0
 true
+3 2.5 1 b
+```
+
+```candy errors
+(put (sin 0.0)) => sin is declared by math, which this file doesn't import: (import math)
+(import math ()) (put (math.abs "a")) => expected
 ```
 
 <a id="library.format"></a>

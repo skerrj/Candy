@@ -100,11 +100,12 @@ TYPES: Spellings = {
     "Map": type_("_cdy_Mapping[{}]"),
 }
 
+# The math module's built-ins (src/cdy/math.cdy), keyed ``math.``; and the operators.
 MATH: Spellings = {
-    "PI": value("math.pi"),
-    "sin": call("math.sin"),
-    "cos": call("math.cos"),
-    "tan": call("math.tan"),
+    "math.PI": value("math.pi"),
+    "math.sin": call("math.sin"),
+    "math.cos": call("math.cos"),
+    "math.tan": call("math.tan"),
     "+": operator("+", "binop", "add"),
     "++": operator("+", "binop", "append"),  # strings or lists (tuples)
     "-": operator("-", "binop", "sub"),

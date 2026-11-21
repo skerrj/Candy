@@ -47,12 +47,6 @@
 (sig or (Fn (Bool Bool (Rest Bool)) Bool))
 (sig not (Fn (Bool) Bool))
 
-;; --- math ---
-(sig PI Double)
-(sig sin (Fn (Double) Double))
-(sig cos (Fn (Double) Double))
-(sig tan (Fn (Double) Double))
-
 ;; --- values ---
 (sig nil Unit)
 

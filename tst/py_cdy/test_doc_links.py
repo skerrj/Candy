@@ -124,8 +124,10 @@ def test_every_stable_rule_has_an_example(path: str) -> None:
 
 
 def builtin_names(text: str) -> tuple[str, ...]:
-    """The names a declaration module's bodiless ``sig``s declare."""
-    return tuple(re.findall(r"^\(sig (\S+)", text, re.MULTILINE))
+    """The names a declaration module's bodiless ``sig``s declare: each ``sig`` of a name it
+    doesn't define (the rest of it is Candy, ``core.cdy``'s ``declarations``)."""
+    defined = set(re.findall(r"^\(defn? (\S+)", text, re.MULTILINE))
+    return tuple(n for n in re.findall(r"^\(sig (\S+)", text, re.MULTILINE) if n not in defined)
 
 
 def unexampled(names: tuple[str, ...], spec: dict[str, str]) -> list[str]:
@@ -184,6 +186,7 @@ def test_builtin_checks_catch_a_missing_one() -> None:
     )
     assert unindexed(("len", "at"), text) == ["at"]
     assert unexampled(("len", "at"), {"f.md": text}) == ["at"]
+    assert builtin_names("(sig a Int)\n(sig f (Fn (Int) Int))\n(defn f (x) x)\n") == ("a",)
 
 
 def test_renamed_ids_keep_an_alias() -> None:

@@ -612,7 +612,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig slurp (Fn (String) String))\n", ""),
-            "spelling.py: slurp is declared in none of special.cdy, system.cdy, translator.cdy",
+            "spelling.py: slurp is declared in none of special.cdy, system.cdy",
         ),
         (
             "system.cdy",
@@ -625,7 +625,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(deft Bool)\n", ""),
-            "spelling.py: Bool is declared in none of special.cdy, system.cdy, translator.cdy",
+            "spelling.py: Bool is declared in none of special.cdy, system.cdy",
         ),
         ("system.cdy", ("", "(deft Nope)\n"), "system.cdy: Nope has no Python type in spelling.py"),
         ("system.cdy", ("", "(deft (List a))\n"), "system.cdy: List is already declared"),
@@ -637,15 +637,13 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig not (Fn (Bool) Bool))\n", ""),
-            "spelling.py: not is declared in none of special.cdy, system.cdy, translator.cdy",
+            "spelling.py: not is declared in none of special.cdy, system.cdy",
         ),
         (
             "translator.cdy",
             ("(sig fresh-name (Fn (String) String))\n", ""),
-            (
-                "spelling.py: translator.fresh-name is declared in none of special.cdy, "
-                "system.cdy, translator.cdy"
-            ),
+            # The declaration modules follow, each with a spelling (include.cdy).
+            "spelling.py: translator.fresh-name is declared in none of special.cdy, system.cdy",
         ),
         (
             # Keyed by its module, a built-in may have a system one's name

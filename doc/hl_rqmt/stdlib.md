@@ -280,6 +280,17 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    still imports no prelude, and macro code sees only `translator`'s built-ins. The rule:
    `programs.import`; `test_a_declaration_module_holds_candy`. Checked against
    `boot/86`'s `bin`: the same output for all 105 programs. No staging.
+
+   *4b done (2026-11-19). As built:* `math.cdy` (in `LIBRARY`) declares `PI`, `sin`,
+   `cos` and `tan`, gone from `system.cdy` (71 built-ins left), spelled `math.PI` and so
+   on in `spelling.py`; and defines `abs` (on a `number`: `(- x x)` is its zero, as a
+   literal `0` would be an `Int`), `min` and `max` (on a `comparable`). The rule
+   `library.math`, rewritten for the module; a program that writes `sin` unimported is
+   told "sin is declared by math, which this file doesn't import". The index test counts
+   only bodiless `sig`s as built-ins (`builtin_names`); `test_library_errors` matches the
+   list of declaration modules up to `system.cdy`, as each new one joins it.
+   `tst/cdy/t1/basics.cdy` imports `math` for `math.PI`. Checked against `boot/87`'s
+   `bin`: the same output for all 105 programs. No staging.
 5. **`string`:** moved and renamed, `trim` and `lines`; the translator onto it.
 6. **`map`:** moved and renamed, `update`, `values`, `get-or`; the translator onto it;
    the prelude's `map-update` gone.
