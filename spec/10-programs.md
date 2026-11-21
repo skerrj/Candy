@@ -285,7 +285,10 @@ and `deft` with its variants) becomes visible, unqualified, and as `m.name` too
 
 `(import name (a b))` (since `namespaces`) makes only the names it lists unqualified; the
 module's other names are reached as `m.name` ("b: the import of m doesn't list it: write
-m.b"), and `(import name ())` makes none unqualified. Each listed name must be one the
+m.b"), and `(import name ())` makes none unqualified. A name the import leaves
+unqualified-only (or that the module keeps private) gives way to a built-in of the same
+name (since `stdlib`): with `(import lib/tags ())`, `len` is still the list's, and
+`tags.len` the one `tags` defines (`import_list.cdy`). Each listed name must be one the
 module defines ("import: m doesn't define c"), listed once. The two forms are `import`'s
 shape, declared in `special.cdy` as `(special import (ModName (Opt (List Name))))`, a
 module path and, optionally, a list of names; a form that doesn't fit it is an error

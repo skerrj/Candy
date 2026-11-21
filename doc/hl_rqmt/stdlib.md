@@ -292,6 +292,19 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    `tst/cdy/t1/basics.cdy` imports `math` for `math.PI`. Checked against `boot/87`'s
    `bin`: the same output for all 105 programs. No staging.
 5. **`string`:** moved and renamed, `trim` and `lines`; the translator onto it.
+
+   Two commits: with `(import string ())`, an unqualified `len` was an error ("len: the
+   import of string doesn't list it"), not the list's, so Question 3's convention didn't
+   work yet; and the translator's own source needs the fix, which the last `bin` must
+   have. So 5a makes a name an import doesn't make unqualified give way to a built-in,
+   and 5b moves `string`.
+
+   *5a done (2026-11-20). As built:* `use-error` (`core.cdy`) gives no error for an
+   `Unlisted` or `Private` name that is a built-in every file sees (`gives-way`), and
+   `resolve` goes on to the built-in. The rule: `programs.import`; `lib/tags.cdy`
+   defines `len`, which `import_list.cdy`, importing it with `()`, doesn't see
+   unqualified. Checked against `boot/88`'s `bin`: the same output but for
+   `import_list.cdy`, which it rejects. No staging.
 6. **`map`:** moved and renamed, `update`, `values`, `get-or`; the translator onto it;
    the prelude's `map-update` gone.
 7. **`list`:** the Candy operations.

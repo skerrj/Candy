@@ -1,7 +1,7 @@
 # B210: stdlib step 5: The `string` module
 
 kind: task
-state: open
+state: in-progress
 priority: normal
 found: stdlib, 2026-11-18
 fixed:
@@ -13,3 +13,5 @@ Step 5 of `doc/hl_rqmt/stdlib.md`. Moved and renamed, `trim` and `lines`; the tr
 ## Notes
 
 - 2026-11-18, Claude: filed on the HLD's acceptance (the owner, 2026-11-18).
+- 2026-11-20, Claude: two commits (the HLD's step 5): 5a, an unlisted name giving way to
+  a built-in, built; 5b, `string` moved.

@@ -158,10 +158,12 @@
       "")))
 
 ;; The error for using `name`, which two imports define (unqualified), an import doesn't
-;; list (unqualified), or its module keeps private; or "".
+;; list (unqualified), or its module keeps private; or "". A name an import doesn't make
+;; unqualified (unlisted or private) gives way to a built-in every file sees, so
+;; `(import string ())` leaves the list's `len` as it is (programs.import).
 (sig use-error (Fn (String Scope) String))
 (defn use-error (name scope)
-  (if (map-has (get scope names) name)
+  (if (and (map-has (get scope names) name) (not (gives-way name scope)))
     (match (map-get (get scope names) name)
       ((Clash modules)
         (let ((qualified (map (fn (m) (++ m (++ "." name))) modules)))
@@ -173,6 +175,14 @@
           (format "{name} is private to {m}")))
       (else ""))
     ""))
+
+;; Whether `name` is an import's that it doesn't make unqualified, and a built-in's every
+;; file sees, which it gives way to.
+(sig gives-way (Fn (String Scope) Bool))
+(defn gives-way (name scope)
+  (let ((builtins (get scope builtins)))
+    (and (or (is-everyones name builtins) (is-builtin-type name builtins))
+         (match (map-get (get scope names) name) ((Unlisted _) true) ((Private _) true) (else false)))))
 
 ;; What a top-level name is, in the one table of the names a module can write, by the name
 ;; as written (doc/hl_rqmt/namespaces.md, "One table of names"): types, values and variants
