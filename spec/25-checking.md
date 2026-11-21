@@ -149,7 +149,9 @@ each use of a constraint variable is one type in a `sig`: `(Fn (number number) n
 takes two numbers of one type. A second, independent one is numbered: `number2`,
 `comparable2`. A program's own `sig` can use them, so a generic function can add or
 compare its arguments; inside its body, a `number` is one unknown number type, so it
-isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error).
+isn't an `Int` (a literal is, so `(+ x 1)` on a `number` is an error). So a `number`'s
+body can't write its zero or one: `math.abs` writes `(- x x)`, and `list.sum` of an empty
+list is a panic, since it starts from the first item (*for now*: [[B216]]).
 
 `equatable` is what `=` and `!=` take ([[expr.equality]]), and the built-ins that compare
 (`contains`, the prelude's `index-of`): a function, a list of them, or a

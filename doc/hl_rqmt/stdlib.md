@@ -340,6 +340,14 @@ in the runtime (a renamed built-in keeps its Python function: `map_get` stays
    module, with `values` and `at-or`. Checked against `boot/90`'s `bin`: the same output
    for all 107 programs. One commit, no staging.
 7. **`list`:** the Candy operations.
+
+   *Done (2026-11-20). As built:* `list.cdy` (in `LIBRARY`), an ordinary library module,
+   all Candy: `last`, `sort` (a stable merge sort, its tail-recursive merge a loop, each
+   merge copying its list as it grows, [[B69]]), `sum`, `flat-map`, `partition`, its
+   helper `merge` private. `sum` starts from the first item, so the empty list's is a
+   panic (a `number` type variable has no zero: [[B216]], new). The rule `library.list`,
+   with the index's row. Nothing else moves: the list built-ins stay `system`'s, and the
+   translator doesn't use these. Checked against `boot/91`'s `bin`. No staging.
 8. **Docs:** CLAUDE.md, the epic's fifth branch *done*, `library.md`,
    `multi_target.md`; "Looking back".
 

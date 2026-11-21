@@ -34,6 +34,7 @@ the prelude's are marked.
 | lists | [[library.lists]], [[library.map-acc]], [[library.zip]], [[library.rest]], [[library.bounds]], [[library.maybe]] | `len`, `empty-list`, `at`, `slice`, `map`, `filter`, `fold`, `map-acc`, `any`, `all`, `find-index`, `contains`, `reverse`, `range`, `take`, `drop`, `concat`, `zip`; the prelude's `rest`, `find`, `index-of`, `with-default` |
 | maps (the module `map`) | [[library.maps]] | `map.empty`, `map.at`, `map.has`, `map.set`, `map.keys`, `map.from`, `map.size`; in Candy, `map.update`, `map.values`, `map.at-or` |
 | strings (the module `string`) | [[library.strings]], [[library.bounds]] | `string.len`, `string.at`, `string.slice`, `string.contains`, `string.starts-with`, `string.ends-with`, `string.split`, `string.join`, `string.repeat`, `string.replace`, `string.to-int`, `string.to-float`, `string.code`, `string.hex-char`, `string.is-decimal`, `string.is-space`; in Candy, `string.trim`, `string.lines` |
+| lists' Candy (the module `list`) | [[library.list]] | none: `list.last`, `list.sort`, `list.sum`, `list.flat-map`, `list.partition` are Candy |
 | math (the module `math`) | [[library.math]] | `math.PI`, `math.sin`, `math.cos`, `math.tan` |
 | the program | [[library.errors]], [[expr.unit]] | `fail`, `nil`; the prelude's `Result` |
 
@@ -148,6 +149,49 @@ a `Tup` pattern ([[match.tup]]):
 ```
 ```expect
 3 1a 2b 3c
+```
+
+<a id="library.list"></a>
+## The list module
+
+`list` (since `stdlib`) is a library module of Candy built on the list built-ins, which
+stay `system`'s (lists are everywhere); an ordinary module, with no built-ins of its own.
+A program imports it by convention with no names unqualified, `(import list ())`.
+
+| Call | Type | Gives |
+|---|---|---|
+| `(list.last xs)` | `(Fn ((List a)) a)` | the last item; the empty list's a panic, as `at`'s ([[library.bounds]]) |
+| `(list.sort xs)` | `(Fn ((List comparable)) (List comparable))` | the items smallest first, equal ones in their order (a merge sort) |
+| `(list.sum xs)` | `(Fn ((List number)) number)` | the items added; the empty list's a panic ("list.sum: the list is empty") |
+| `(list.flat-map f xs)` | `(Fn ((Fn (a) (List b)) (List a)) (List b))` | `f` of each item, a list each, joined |
+| `(list.partition keep xs)` | `(Fn ((Fn (a) Bool) (List a)) (Tup (List a) (List a)))` | the items `keep` is true of, and the others |
+
+`sum` needs an item, since a type variable's number type has no zero of its own to start
+from (a literal `0` is an `Int`; *for now*: [[B216]]). Each of `sort`'s merges copies its
+list as it grows (*for now*: [[B69]]).
+
+```candy run
+(import list ())
+(put (list.sort (List 3 1 2 5 4 1)) (list.sort (List "b" "a" "c")) (list.sort (List 2.5 1.0)))
+(put (list.last (List 1 2 3)) (list.sum (List 1 2 3)) (list.sum (List 1.5 2.0)))
+(put (list.flat-map (fn (x) (List x x)) (List 1 2)) (list.partition (fn (x) (> x 1)) (List 1 2 3)))
+(put (len (list.sort (reverse (range 0 500)))) (list.last (list.sort (reverse (range 0 500)))))
+```
+```expect
+(List 1 1 2 3 4 5) (List "a" "b" "c") (List 1.0 2.5)
+3 6 3.5
+(List 1 1 2 2) (Tup (List 2 3) (List 1))
+500 499
+```
+
+```candy panic
+(import list ())
+(sig none (List Int))
+(def none empty-list)
+(put (list.sum none))
+```
+```expect-panic
+list.sum: the list is empty
 ```
 
 <a id="library.rest"></a>
