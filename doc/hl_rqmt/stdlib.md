@@ -3,8 +3,8 @@
 **Status: accepted (2026-11-18), with the answers to its questions, as proposed
 (tasks [[B206]] to [[B213]]; Question 8 tabled; Question 4 revised, 2026-11-20); drafted
 2026-11-17, for branch `stdlib`; steps 1 to 8 built (2026-11-20; steps 4 and 5 in two
-commits each), to review. Epic: `python_complete.md` (its fifth branch, `library`, the
-second half: the modules; the layering was `library_layers.md`).
+commits each), reviewed (2026-11-21): done. Epic: `python_complete.md` (its fifth
+branch, `library`, the second half: the modules; the layering was `library_layers.md`).
 After tag `library-layers`.** The built-ins grouped into modules a program imports by
 name (`string`, `map`, `math`), their names without the prefixes that stand in for
 modules today (`str-len` is `string.len`); a `list` module of what is built on the list

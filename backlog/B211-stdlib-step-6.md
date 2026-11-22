@@ -1,7 +1,7 @@
 # B211: stdlib step 6: The `map` module
 
 kind: task
-state: review
+state: done
 priority: normal
 found: stdlib, 2026-11-18
 fixed: stdlib, 2026-11-20
@@ -16,3 +16,4 @@ Step 6 of `doc/hl_rqmt/stdlib.md`. Moved and renamed, `update`, `values`, `get-o
 - 2026-11-20, the owner: the lookup `map.at`, not `map.get` (`get` is the special form),
   and `get-or` `at-or` to match; a module's own qualified names (a 6a) dropped.
 - 2026-11-20, Claude: built (the HLD's step 6, "Done").
+- 2026-11-21, the owner: ticked in review.

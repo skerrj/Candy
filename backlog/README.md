@@ -79,14 +79,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B206](B206-stdlib-step-1.md) | stdlib step 1: Declaration modules from the spellings, built-ins keyed by module | task | review | normal |
-| [B207](B207-stdlib-step-2.md) | stdlib step 2: The prelude's costs | task | review | normal |
-| [B208](B208-stdlib-step-3.md) | stdlib step 3: The `test` module | task | review | normal |
-| [B209](B209-stdlib-step-4.md) | stdlib step 4: The `math` module | task | review | normal |
-| [B210](B210-stdlib-step-5.md) | stdlib step 5: The `string` module | task | review | normal |
-| [B211](B211-stdlib-step-6.md) | stdlib step 6: The `map` module | task | review | normal |
-| [B212](B212-stdlib-step-7.md) | stdlib step 7: The `list` module | task | review | normal |
-| [B213](B213-stdlib-step-8.md) | stdlib step 8: docs | task | review | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -142,7 +134,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [library.list](../spec/60-library.md#library.list): [B216](B216-number-zero.md)
 - [library.lists](../spec/60-library.md#library.lists): [B34](B34-no-collection.md), [B184](B184-empty-start-fails-mypy.md)
 - [library.map-acc](../spec/60-library.md#library.map-acc): [B184](B184-empty-start-fails-mypy.md)
-- [library.math](../spec/60-library.md#library.math): [B209](B209-stdlib-step-4.md), [B216](B216-number-zero.md)
+- [library.math](../spec/60-library.md#library.math): [B216](B216-number-zero.md)
 - [library.show](../spec/60-library.md#library.show): [B158](B158-float-infinity-nan.md)
 - [library.strings](../spec/60-library.md#library.strings): [B34](B34-no-collection.md)
 - [library.test](../spec/60-library.md#library.test): [B214](B214-check-text-escapes.md), [B215](B215-test-registry.md)
@@ -156,7 +148,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [match.form](../spec/30-match.md#match.form): [B56](B56-match-temporary.md), [B55](B55-match-isinstance.md)
 - [match.sum-types](../spec/30-match.md#match.sum-types): [B29](B29-records-are-tuples.md), [B136](B136-patterns-without-every-field.md)
 - [match.tup](../spec/30-match.md#match.tup): [B17](B17-tup-destructuring.md)
-- [programs.import](../spec/10-programs.md#programs.import): [B108](B108-flat-builtins.md), [B187](B187-alias.md), [B206](B206-stdlib-step-1.md), [B44](B44-macro-cant-make-import.md)
+- [programs.import](../spec/10-programs.md#programs.import): [B108](B108-flat-builtins.md), [B187](B187-alias.md), [B44](B44-macro-cant-make-import.md)
 - [programs.prelude](../spec/10-programs.md#programs.prelude): [B52](B52-macro-code-no-prelude.md), [B68](B68-whole-prelude.md)
 - [programs.qualified](../spec/10-programs.md#programs.qualified): [B195](B195-field-syntax-dot.md), [B197](B197-builtins-module.md)
 - [syntax.comments](../spec/00-syntax.md#syntax.comments): [B94](B94-doc-strings.md)
@@ -309,3 +301,11 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B203](B203-library-layers-step-5.md) | library-layers step 5: `slurp` without a search | task | done | normal |
 | [B204](B204-library-layers-step-6.md) | library-layers step 6: each built-in specified | task | done | normal |
 | [B205](B205-library-layers-step-7.md) | library-layers step 7: docs | task | done | normal |
+| [B206](B206-stdlib-step-1.md) | stdlib step 1: Declaration modules from the spellings, built-ins keyed by module | task | done | normal |
+| [B207](B207-stdlib-step-2.md) | stdlib step 2: The prelude's costs | task | done | normal |
+| [B208](B208-stdlib-step-3.md) | stdlib step 3: The `test` module | task | done | normal |
+| [B209](B209-stdlib-step-4.md) | stdlib step 4: The `math` module | task | done | normal |
+| [B210](B210-stdlib-step-5.md) | stdlib step 5: The `string` module | task | done | normal |
+| [B211](B211-stdlib-step-6.md) | stdlib step 6: The `map` module | task | done | normal |
+| [B212](B212-stdlib-step-7.md) | stdlib step 7: The `list` module | task | done | normal |
+| [B213](B213-stdlib-step-8.md) | stdlib step 8: docs | task | done | normal |

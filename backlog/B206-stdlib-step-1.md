@@ -1,7 +1,7 @@
 # B206: stdlib step 1: Declaration modules from the spellings, built-ins keyed by module
 
 kind: task
-state: review
+state: done
 priority: normal
 found: stdlib, 2026-11-18
 fixed: stdlib, 2026-11-18
@@ -21,3 +21,4 @@ Step 1 of `doc/hl_rqmt/stdlib.md`. `DECLARATION_MODULES` gone; `Builtin` and the
   ```text
   # B206: stdlib step 1: Declaration modules by what they hold, built-ins keyed by module
   ```
+- 2026-11-21, the owner: ticked in review.
