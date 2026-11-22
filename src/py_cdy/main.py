@@ -1,24 +1,29 @@
-"""Command-line entry point: ``python src/py_cdy/main.py FILE.cdy [--run] [--translator T]``.
+"""Command-line entry point: ``python src/py_cdy/main.py FILE.cdy [--run | --interpret]
+[--translator T]``.
 
 Modelled on schmuz's ``src/py_smz/main.py``: like its ``run_2_out``, it translates a Candy
 file to ``output/<name>.py``; with ``--run`` it then runs that file, like ``run_as_main``.
 The checked-in translator ``bin/py/cdy_translator.py`` does the translating; with
 ``--translator t1``, the Candy translator freshly built by it does (``self_host.py``).
 Either includes the file's imports. (The Python translator, frozen at tag ``self-host-py``,
-is no longer here: ``doc/hl_rqmt/bootstrap.md``.)
+is no longer here: ``doc/hl_rqmt/bootstrap.md``.) With ``--interpret``, the translator's
+interpreter runs the file instead (``interp.cdy``; ``doc/hl_rqmt/interpreter.md``).
 """
 
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
+from typing import cast
 
 from cdy_rt.primitives import CandyFail
-from self_host import translate_bin, translate_t1
+from self_host import BIN_PATH, build_t1, load, translate_bin, translate_t1
 
 OUTPUT_DIR = Path("output")
-USAGE = "usage: main.py FILE.cdy [--run] [--translator bin|t1]"
+USAGE = "usage: main.py FILE.cdy [--run | --interpret] [--translator bin|t1]"
 
 TRANSLATORS = {"bin": translate_bin, "t1": translate_t1}
+MODULES = {"bin": lambda: load(BIN_PATH), "t1": lambda: load(build_t1())}
 
 
 def out_path(name: str) -> Path:
@@ -35,6 +40,12 @@ def translate_file(name: str, translator: str = "bin") -> Path:
     return out
 
 
+def interpret_file(name: str, translator: str = "bin") -> int:
+    """Run the Candy file ``name`` on the translator's interpreter; its exit status."""
+    module: ModuleType = MODULES[translator]()
+    return cast(int, module.interpret_file(name, ()))
+
+
 def main(args: list[str]) -> int:
     """Translate the file named in ``args`` and, with ``--run``, run the result."""
     rest = list(args)
@@ -43,10 +54,16 @@ def main(args: list[str]) -> int:
         at = rest.index("--translator")
         translator = rest[at + 1] if at + 1 < len(rest) else ""
         del rest[at : at + 2]
-    files = [a for a in rest if a != "--run"]
+    files = [a for a in rest if a not in ("--run", "--interpret")]
     if len(files) != 1 or len(rest) - len(files) > 1 or translator not in TRANSLATORS:
         print(USAGE, file=sys.stderr)
         return 2
+    if "--interpret" in rest:
+        try:
+            return interpret_file(files[0], translator)
+        except (OSError, CandyFail) as err:
+            print(f"candy: {err}", file=sys.stderr)
+            return 1
     try:
         out = translate_file(files[0], translator)
     except (FileNotFoundError, CandyFail) as err:

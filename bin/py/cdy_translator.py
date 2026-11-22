@@ -7613,6 +7613,686 @@ def check__shown_name(key: str) -> str:
     parts = cdy_rt.primitives.split(key, '.')
     return cdy_rt.primitives.at(parts, (len(parts) - 1))
 
+class interp__VInt(_cdy_NamedTuple):
+    n: int
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VInt, 'VInt', (), ('Int',))
+
+class interp__VLong(_cdy_NamedTuple):
+    n: int
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VLong, 'VLong', (), ('Int',))
+
+class interp__VByte(_cdy_NamedTuple):
+    n: int
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VByte, 'VByte', (), ('Int',))
+
+class interp__VFloat(_cdy_NamedTuple):
+    x: float
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VFloat, 'VFloat', (), ('Double',))
+
+class interp__VDouble(_cdy_NamedTuple):
+    x: float
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VDouble, 'VDouble', (), ('Double',))
+
+class interp__VBool(_cdy_NamedTuple):
+    b: bool
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VBool, 'VBool', (), ('Bool',))
+
+class interp__VChar(_cdy_NamedTuple):
+    c: str
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VChar, 'VChar', (), ('Char',))
+
+class interp__VStr(_cdy_NamedTuple):
+    s: str
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VStr, 'VStr', (), ('String',))
+
+class interp__VUnit(_cdy_NamedTuple):
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VUnit, 'VUnit', (), ())
+
+class interp__VList(_cdy_NamedTuple):
+    items: tuple[interp__Value, ...]
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VList, 'VList', (), (('List', 'interp.Value'),))
+
+class interp__VTup(_cdy_NamedTuple):
+    items: tuple[interp__Value, ...]
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VTup, 'VTup', (), (('List', 'interp.Value'),))
+
+class interp__VMap(_cdy_NamedTuple):
+    m: _cdy_Mapping[interp__Value, interp__Value]
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VMap, 'VMap', (), (('Map', 'interp.Value', 'interp.Value'),))
+
+class interp__VRec(_cdy_NamedTuple):
+    module: str
+    name: str
+    fields: tuple[tuple[str, interp__Value], ...]
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VRec, 'VRec', (), ('String', 'String', ('List', ('Tup', 'String', 'interp.Value'))))
+
+class interp__VFn(_cdy_NamedTuple):
+    params: tuple[core__Expr, ...]
+    body: core__Expr
+    env: _cdy_Mapping[int, interp__Value]
+    name: str
+    rest: bool
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VFn, 'VFn', (), (('List', 'core.Expr'), 'core.Expr', ('Map', 'Int', 'interp.Value'), 'String', 'Bool'))
+
+class interp__VCtor(_cdy_NamedTuple):
+    module: str
+    name: str
+    fields: tuple[str, ...]
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VCtor, 'VCtor', (), ('String', 'String', ('List', 'String')))
+
+class interp__VPrim(_cdy_NamedTuple):
+    key: str
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__VPrim, 'VPrim', (), ('String',))
+type interp__Value = interp__VInt | interp__VLong | interp__VByte | interp__VFloat | interp__VDouble | interp__VBool | interp__VChar | interp__VStr | interp__VUnit | interp__VList | interp__VTup | interp__VMap | interp__VRec | interp__VFn | interp__VCtor | interp__VPrim
+
+class interp__Ctx(_cdy_NamedTuple):
+    globals_: _cdy_Mapping[str, interp__Value]
+    builtins: _cdy_Mapping[str, _cdy_Callable[[_cdy_Callable[[interp__Value, tuple[interp__Value, ...]], interp__Value], tuple[interp__Value, ...]], interp__Value]]
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(interp__Ctx, 'Ctx', (), (('Map', 'String', 'interp.Value'), ('Map', 'String', 'Fn')))
+
+def interp__interpret(tops: tuple[core__Top, ...], top: str, args: tuple[str, ...]) -> int:
+    cx = cdy_rt.primitives.list_fold(interp__run_top, interp__Ctx({}, interp__BUILTINS), tops)
+    if core__has_main(tops, top):
+        _cdy_t329: object = interp__apply(cx, interp__global(cx, top, 'main'), (interp__VList(cdy_rt.primitives.list_map((lambda a: interp__VStr(a)), args)),))
+        if isinstance(_cdy_t329, interp__VInt):
+            n = _cdy_t329.n
+            return n
+        else:
+            return cdy_rt.primitives.fail('internal error: interp: main gave no Int')
+    else:
+        return 0
+
+def interp__run_top(cx: interp__Ctx, t: core__Top) -> interp__Ctx:
+    _cdy_t330: object = t
+    if isinstance(_cdy_t330, core__TDeft):
+        module = _cdy_t330.module
+        name = _cdy_t330.name
+        fields = _cdy_t330.fields
+        return interp__define(cx, module, name, interp__constructor(module, name, fields))
+    elif isinstance(_cdy_t330, core__TDeftSum):
+        _cdy_module_11 = _cdy_t330.module
+        variants = _cdy_t330.variants
+        return cdy_rt.primitives.list_fold((lambda c, v: interp__define(c, _cdy_module_11, v.name, interp__constructor(_cdy_module_11, v.name, v.fields))), cx, variants)
+    elif isinstance(_cdy_t330, core__TDef):
+        _cdy_module_15 = _cdy_t330.module
+        _cdy_name_16 = _cdy_t330.name
+        init = _cdy_t330.init
+        return interp__define(cx, _cdy_module_15, _cdy_name_16, interp__eval(cx, {}, init))
+    elif isinstance(_cdy_t330, core__TDefn):
+        _cdy_module_18 = _cdy_t330.module
+        _cdy_name_19 = _cdy_t330.name
+        params = _cdy_t330.params
+        body = _cdy_t330.body
+        ty = _cdy_t330.t
+        return interp__define(cx, _cdy_module_18, _cdy_name_19, interp__VFn(params, body, {}, core__global_key(_cdy_module_18, _cdy_name_19), core__is_variadic(ty)))
+    else:
+        assert isinstance(_cdy_t330, core__TExpr)
+        expr = _cdy_t330.expr
+        interp__eval(cx, {}, expr)
+        return cx
+
+def interp__define(cx: interp__Ctx, module: str, name: str, v: interp__Value) -> interp__Ctx:
+    return cx._replace(globals_=cdy_rt.primitives.map_set(cx.globals_, core__global_key(module, name), v))
+
+def interp__constructor(module: str, name: str, fields: tuple[tuple[str, core__CType], ...]) -> interp__Value:
+    def _cdy_t331(f: tuple[str, core__CType]) -> str:
+        _tup = f
+        field = _tup[0]
+        _t = _tup[1]
+        return field
+    return interp__VCtor(module, name, cdy_rt.primitives.list_map(_cdy_t331, fields))
+
+def interp__global(cx: interp__Ctx, module: str, name: str) -> interp__Value:
+    key = core__global_key(module, name)
+    if cdy_rt.primitives.map_has(cx.globals_, key):
+        return cdy_rt.primitives.map_get(cx.globals_, key)
+    else:
+        return cdy_rt.primitives.fail(('internal error: interp: ' + key + " isn't defined yet"))
+
+def interp__eval(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], e: core__Expr) -> interp__Value:
+    _cdy_t332: object = e
+    if isinstance(_cdy_t332, core__Lit):
+        form = _cdy_t332.form
+        return interp__literal(form)
+    elif isinstance(_cdy_t332, core__Local):
+        id_ = _cdy_t332.id_
+        return cdy_rt.primitives.map_get(env, id_)
+    elif isinstance(_cdy_t332, core__Global):
+        module = _cdy_t332.module
+        name = _cdy_t332.name
+        return interp__global(cx, module, name)
+    elif isinstance(_cdy_t332, core__Prim):
+        _cdy_name_46 = _cdy_t332.name
+        return interp__prim_value(_cdy_name_46)
+    elif isinstance(_cdy_t332, core__Call):
+        callee = _cdy_t332.callee
+        args = _cdy_t332.args
+        return interp__eval_call(cx, env, callee, args)
+    elif isinstance(_cdy_t332, core__If):
+        test = _cdy_t332.test
+        then = _cdy_t332.then
+        other = _cdy_t332.other
+        if interp__truth(interp__eval(cx, env, test)):
+            return interp__eval(cx, env, then)
+        else:
+            return interp__eval(cx, env, other)
+    elif isinstance(_cdy_t332, core__Do):
+        body = _cdy_t332.body
+        vals = cdy_rt.primitives.list_map((lambda x: interp__eval(cx, env, x)), body)
+        return cdy_rt.primitives.at(vals, (len(vals) - 1))
+    elif isinstance(_cdy_t332, core__Lambda):
+        params = _cdy_t332.params
+        _cdy_body_56 = _cdy_t332.body
+        return interp__VFn(params, _cdy_body_56, env, '', False)
+    elif isinstance(_cdy_t332, core__Tuple):
+        items = _cdy_t332.items
+        return interp__VTup(cdy_rt.primitives.list_map((lambda x: interp__eval(cx, env, x)), items))
+    elif isinstance(_cdy_t332, core__ListOf):
+        _cdy_items_59 = _cdy_t332.items
+        return interp__VList(cdy_rt.primitives.list_map((lambda x: interp__eval(cx, env, x)), _cdy_items_59))
+    elif isinstance(_cdy_t332, core__Fmt):
+        parts = _cdy_t332.parts
+        return interp__VStr(cdy_rt.primitives.join(cdy_rt.primitives.list_map((lambda p: interp__part_text(cx, env, p)), parts), ''))
+    elif isinstance(_cdy_t332, core__Field):
+        obj = _cdy_t332.obj
+        field = _cdy_t332.field
+        return interp__field_of(interp__eval(cx, env, obj), field)
+    elif isinstance(_cdy_t332, core__Assoc):
+        _cdy_obj_65 = _cdy_t332.obj
+        fields = _cdy_t332.fields
+        def _cdy_t333(v: interp__Value, f: tuple[str, core__Expr]) -> interp__Value:
+            _tup = f
+            _cdy_name_70 = _tup[0]
+            x = _tup[1]
+            return interp__with_field(v, _cdy_name_70, interp__eval(cx, env, x))
+        return cdy_rt.primitives.list_fold(_cdy_t333, interp__eval(cx, env, _cdy_obj_65), fields)
+    elif isinstance(_cdy_t332, core__MatchE):
+        subject = _cdy_t332.subject
+        clauses = _cdy_t332.clauses
+        default = _cdy_t332.default
+        return interp__eval_match(cx, env, interp__eval(cx, env, subject), clauses, default)
+    else:
+        assert isinstance(_cdy_t332, core__Temp)
+        return cdy_rt.primitives.fail('internal error: interp: a Temp, which only lower makes')
+
+def interp__eval_call(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], callee: core__Expr, args: tuple[core__Expr, ...]) -> interp__Value:
+    if interp__is_prim(callee, 'and'):
+        return interp__VBool(interp__all_true(cx, env, args, 0))
+    elif interp__is_prim(callee, 'or'):
+        return interp__VBool(interp__any_true(cx, env, args, 0))
+    else:
+        vals = cdy_rt.primitives.list_map((lambda a: interp__eval(cx, env, a)), args)
+        _cdy_t334: object = callee
+        if isinstance(_cdy_t334, core__Lambda):
+            params = _cdy_t334.params
+            body = _cdy_t334.body
+            return interp__eval(cx, interp__bind_params(env, params, vals, False), body)
+        else:
+            return interp__apply(cx, interp__eval(cx, env, callee), vals)
+
+def interp__is_prim(e: core__Expr, name: str) -> bool:
+    _cdy_t335: object = e
+    if isinstance(_cdy_t335, core__Prim):
+        n = _cdy_t335.name
+        return (n == name)
+    else:
+        return False
+
+def interp__all_true(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], args: tuple[core__Expr, ...], i: int) -> bool:
+    while True:
+        if (i == len(args)):
+            return True
+        elif interp__truth(interp__eval(cx, env, cdy_rt.primitives.at(args, i))):
+            i = (i + 1)
+            continue
+        else:
+            return False
+
+def interp__any_true(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], args: tuple[core__Expr, ...], i: int) -> bool:
+    while True:
+        if (i == len(args)):
+            return False
+        elif interp__truth(interp__eval(cx, env, cdy_rt.primitives.at(args, i))):
+            return True
+        else:
+            i = (i + 1)
+            continue
+
+def interp__apply(cx: interp__Ctx, f: interp__Value, args: tuple[interp__Value, ...]) -> interp__Value:
+    _cdy_t336: object = f
+    if isinstance(_cdy_t336, interp__VFn):
+        params = _cdy_t336.params
+        body = _cdy_t336.body
+        env = _cdy_t336.env
+        rest = _cdy_t336.rest
+        return interp__eval(cx, interp__bind_params(env, params, args, rest), body)
+    elif isinstance(_cdy_t336, interp__VCtor):
+        module = _cdy_t336.module
+        name = _cdy_t336.name
+        fields = _cdy_t336.fields
+        return interp__VRec(module, name, cdy_rt.primitives.list_zip(fields, args))
+    elif isinstance(_cdy_t336, interp__VPrim):
+        key = _cdy_t336.key
+        return interp__call_builtin(cx, key, args)
+    else:
+        return cdy_rt.primitives.fail("internal error: interp: a call of a value that isn't a function")
+
+def interp__bind_params(env: _cdy_Mapping[int, interp__Value], params: tuple[core__Expr, ...], args: tuple[interp__Value, ...], rest: bool) -> _cdy_Mapping[int, interp__Value]:
+    fixed = ((len(params) - 1) if rest else len(params))
+    def _cdy_t337(m: _cdy_Mapping[int, interp__Value], pv: tuple[core__Expr, interp__Value]) -> _cdy_Mapping[int, interp__Value]:
+        _tup = pv
+        p = _tup[0]
+        v = _tup[1]
+        return cdy_rt.primitives.map_set(m, interp__local_id(p), v)
+    bound = cdy_rt.primitives.list_fold(_cdy_t337, env, cdy_rt.primitives.list_zip(cdy_rt.primitives.list_take(fixed, params), args))
+    if rest:
+        return cdy_rt.primitives.map_set(bound, interp__local_id(cdy_rt.primitives.at(params, fixed)), interp__VList(cdy_rt.primitives.list_drop(fixed, args)))
+    else:
+        return bound
+
+def interp__local_id(e: core__Expr) -> int:
+    _cdy_t338: object = e
+    if isinstance(_cdy_t338, core__Local):
+        id_ = _cdy_t338.id_
+        return id_
+    else:
+        return cdy_rt.primitives.fail("internal error: interp: a parameter that isn't a Local")
+
+def interp__call_builtin(cx: interp__Ctx, key: str, args: tuple[interp__Value, ...]) -> interp__Value:
+    if cdy_rt.primitives.map_has(cx.builtins, key):
+        return cdy_rt.primitives.map_get(cx.builtins, key)((lambda f, xs: interp__apply(cx, f, xs)), args)
+    else:
+        return cdy_rt.primitives.fail(('internal error: interp: no built-in ' + key))
+
+def interp__prim_value(name: str) -> interp__Value:
+    if (name == 'nil'):
+        return interp__VUnit()
+    elif (name == 'empty-list'):
+        return interp__VList(())
+    elif (name == 'map.empty'):
+        return interp__VMap({})
+    else:
+        return interp__VPrim(name)
+
+def interp__truth(v: interp__Value) -> bool:
+    _cdy_t339: object = v
+    if isinstance(_cdy_t339, interp__VBool):
+        b = _cdy_t339.b
+        return b
+    else:
+        return cdy_rt.primitives.fail("internal error: interp: a test that isn't a Bool")
+
+def interp__literal(form: form__Form) -> interp__Value:
+    _cdy_t340: object = form
+    if isinstance(_cdy_t340, form__IntLit):
+        n = _cdy_t340.val
+        return interp__VInt(n)
+    elif isinstance(_cdy_t340, form__LongLit):
+        _cdy_n_128 = _cdy_t340.val
+        return interp__VLong(_cdy_n_128)
+    elif isinstance(_cdy_t340, form__ByteLit):
+        _cdy_n_129 = _cdy_t340.val
+        return interp__VByte(_cdy_n_129)
+    elif isinstance(_cdy_t340, form__FloatLit):
+        x = _cdy_t340.val
+        return interp__VFloat(x)
+    elif isinstance(_cdy_t340, form__DoubleLit):
+        _cdy_x_131 = _cdy_t340.val
+        return interp__VDouble(_cdy_x_131)
+    elif isinstance(_cdy_t340, form__BoolLit):
+        b = _cdy_t340.val
+        return interp__VBool(b)
+    elif isinstance(_cdy_t340, form__CharLit):
+        c = _cdy_t340.val
+        return interp__VChar(c)
+    elif isinstance(_cdy_t340, form__Txt):
+        s = _cdy_t340.val
+        return interp__VStr(s)
+    else:
+        return cdy_rt.primitives.fail("internal error: interp: a literal that isn't one")
+
+def interp__part_text(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], p: core__FPart) -> str:
+    _cdy_t341: object = p
+    if isinstance(_cdy_t341, core__FText):
+        s = _cdy_t341.text
+        return s
+    else:
+        assert isinstance(_cdy_t341, core__FHole)
+        x = _cdy_t341.expr
+        return interp__text_of(interp__eval(cx, env, x))
+
+def interp__field_of(v: interp__Value, field: str) -> interp__Value:
+    _cdy_t342: object = v
+    if isinstance(_cdy_t342, interp__VRec):
+        fields = _cdy_t342.fields
+        def _cdy_t343(f: tuple[str, interp__Value]) -> bool:
+            _cdy__tup_144 = f
+            name = _cdy__tup_144[0]
+            _v = _cdy__tup_144[1]
+            return (name == field)
+        i = cdy_rt.primitives.list_find_index(_cdy_t343, fields)
+        if (i < 0):
+            return cdy_rt.primitives.fail(('internal error: interp: no field ' + field))
+        else:
+            _tup = cdy_rt.primitives.at(fields, i)
+            _name = _tup[0]
+            x = _tup[1]
+            return x
+    else:
+        return cdy_rt.primitives.fail(('internal error: interp: a field ' + field + " of a value that isn't a record"))
+
+def interp__with_field(v: interp__Value, field: str, x: interp__Value) -> interp__Value:
+    _cdy_t344: object = v
+    if isinstance(_cdy_t344, interp__VRec):
+        module = _cdy_t344.module
+        name = _cdy_t344.name
+        fields = _cdy_t344.fields
+        def _cdy_t345(f: tuple[str, interp__Value]) -> tuple[str, interp__Value]:
+            _tup = f
+            n = _tup[0]
+            _v = _tup[1]
+            if (n == field):
+                return (n, x)
+            else:
+                return f
+        return interp__VRec(module, name, cdy_rt.primitives.list_map(_cdy_t345, fields))
+    else:
+        return cdy_rt.primitives.fail(('internal error: interp: assoc ' + field + " on a value that isn't a record"))
+
+def interp__eval_match(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], v: interp__Value, clauses: tuple[core__Clause, ...], default: tuple[core__Expr, ...]) -> interp__Value:
+    _cdy_t346: object = v
+    if isinstance(_cdy_t346, interp__VRec):
+        module = _cdy_t346.module
+        name = _cdy_t346.name
+        i = cdy_rt.primitives.list_find_index((lambda _cdy_c_168: ((_cdy_c_168.module == module) and (_cdy_c_168.variant == name))), clauses)
+        if (i >= 0):
+            c = cdy_rt.primitives.at(clauses, i)
+            def _cdy_t347(m: _cdy_Mapping[int, interp__Value], b: tuple[str, core__Expr]) -> _cdy_Mapping[int, interp__Value]:
+                _tup = b
+                field = _tup[0]
+                loc = _tup[1]
+                return cdy_rt.primitives.map_set(m, interp__local_id(loc), interp__field_of(v, field))
+            return interp__eval(cx, cdy_rt.primitives.list_fold(_cdy_t347, env, c.binds), c.body)
+        elif (len(default) == 1):
+            return interp__eval(cx, env, default[0])
+        else:
+            return cdy_rt.primitives.fail('internal error: interp: no clause matches')
+    else:
+        return cdy_rt.primitives.fail("internal error: interp: a match on a value that isn't a variant")
+
+def interp__fold_num(fi: _cdy_Callable[[int, int], int], fd: _cdy_Callable[[float, float], float], args: tuple[interp__Value, ...]) -> interp__Value:
+    def _cdy_t349(a: interp__Value, b: interp__Value) -> interp__Value:
+        _cdy_t348: object = a
+        if isinstance(_cdy_t348, interp__VInt):
+            x = _cdy_t348.n
+            return interp__VInt(fi(x, interp__int_of(b)))
+        elif isinstance(_cdy_t348, interp__VLong):
+            _cdy_x_182 = _cdy_t348.n
+            return interp__VLong(fi(_cdy_x_182, interp__long_of(b)))
+        elif isinstance(_cdy_t348, interp__VByte):
+            _cdy_x_183 = _cdy_t348.n
+            return interp__VByte(fi(_cdy_x_183, interp__byte_of(b)))
+        elif isinstance(_cdy_t348, interp__VFloat):
+            _cdy_x_184 = _cdy_t348.x
+            return interp__VFloat(fd(_cdy_x_184, interp__float_of(b)))
+        elif isinstance(_cdy_t348, interp__VDouble):
+            _cdy_x_185 = _cdy_t348.x
+            return interp__VDouble(fd(_cdy_x_185, interp__double_of(b)))
+        else:
+            return cdy_rt.primitives.fail("internal error: interp: arithmetic on a value that isn't a number")
+    return cdy_rt.primitives.list_fold(_cdy_t349, args[0], cdy_rt.primitives.list_drop(1, args))
+
+def interp__chain(ok: _cdy_Callable[[interp__Value, interp__Value], bool], args: tuple[interp__Value, ...]) -> bool:
+    return cdy_rt.primitives.list_all((lambda i: ok(cdy_rt.primitives.at(args, i), cdy_rt.primitives.at(args, (i + 1)))), cdy_rt.primitives.list_range(0, (len(args) - 1)))
+
+def interp__compare(a: interp__Value, b: interp__Value) -> int:
+    _cdy_t350: object = a
+    if isinstance(_cdy_t350, interp__VInt):
+        x = _cdy_t350.n
+        return interp__order(x, interp__int_of(b))
+    elif isinstance(_cdy_t350, interp__VLong):
+        _cdy_x_192 = _cdy_t350.n
+        return interp__order(_cdy_x_192, interp__long_of(b))
+    elif isinstance(_cdy_t350, interp__VByte):
+        _cdy_x_193 = _cdy_t350.n
+        return interp__order(_cdy_x_193, interp__byte_of(b))
+    elif isinstance(_cdy_t350, interp__VFloat):
+        _cdy_x_194 = _cdy_t350.x
+        return interp__order(_cdy_x_194, interp__float_of(b))
+    elif isinstance(_cdy_t350, interp__VDouble):
+        _cdy_x_195 = _cdy_t350.x
+        return interp__order(_cdy_x_195, interp__double_of(b))
+    elif isinstance(_cdy_t350, interp__VStr):
+        _cdy_x_196 = _cdy_t350.s
+        return interp__order(_cdy_x_196, interp__str_of(b))
+    elif isinstance(_cdy_t350, interp__VChar):
+        _cdy_x_197 = _cdy_t350.c
+        return interp__order(_cdy_x_197, interp__char_of(b))
+    else:
+        return cdy_rt.primitives.fail("internal error: interp: a comparison of values that aren't comparable")
+
+def interp__order[comparable: (int, float, str)](x: comparable, y: comparable) -> int:
+    if (x < y):
+        return -1
+    elif (x > y):
+        return 1
+    else:
+        return 0
+
+def interp__append(a: interp__Value, b: interp__Value) -> interp__Value:
+    _cdy_t351: object = a
+    if isinstance(_cdy_t351, interp__VStr):
+        x = _cdy_t351.s
+        return interp__VStr((x + interp__str_of(b)))
+    elif isinstance(_cdy_t351, interp__VList):
+        _cdy_x_203 = _cdy_t351.items
+        return interp__VList((_cdy_x_203 + interp__list_of(b)))
+    else:
+        return cdy_rt.primitives.fail("internal error: interp: ++ on a value that isn't a string or a list")
+
+def interp__text_of(v: interp__Value) -> str:
+    _cdy_t352: object = v
+    if isinstance(_cdy_t352, interp__VStr):
+        s = _cdy_t352.s
+        return s
+    elif isinstance(_cdy_t352, interp__VChar):
+        c = _cdy_t352.c
+        return c
+    elif isinstance(_cdy_t352, interp__VInt):
+        n = _cdy_t352.n
+        return str(n)
+    elif isinstance(_cdy_t352, interp__VBool):
+        b = _cdy_t352.b
+        if b:
+            return 'true'
+        else:
+            return 'false'
+    elif isinstance(_cdy_t352, interp__VUnit):
+        return 'nil'
+    else:
+        return cdy_rt.primitives.fail("internal error: interp: text of this value is step 2's")
+
+def interp__int_of(v: interp__Value) -> int:
+    _cdy_t353: object = v
+    if isinstance(_cdy_t353, interp__VInt):
+        n = _cdy_t353.n
+        return n
+    else:
+        return cdy_rt.primitives.fail('internal error: interp: expected an Int')
+
+def interp__long_of(v: interp__Value) -> int:
+    _cdy_t354: object = v
+    if isinstance(_cdy_t354, interp__VLong):
+        n = _cdy_t354.n
+        return n
+    else:
+        return cdy_rt.primitives.fail('internal error: interp: expected a Long')
+
+def interp__byte_of(v: interp__Value) -> int:
+    _cdy_t355: object = v
+    if isinstance(_cdy_t355, interp__VByte):
+        n = _cdy_t355.n
+        return n
+    else:
+        return cdy_rt.primitives.fail('internal error: interp: expected a Byte')
+
+def interp__float_of(v: interp__Value) -> float:
+    _cdy_t356: object = v
+    if isinstance(_cdy_t356, interp__VFloat):
+        x = _cdy_t356.x
+        return x
+    else:
+        return cdy_rt.primitives.fail('internal error: interp: expected a Float')
+
+def interp__double_of(v: interp__Value) -> float:
+    _cdy_t357: object = v
+    if isinstance(_cdy_t357, interp__VDouble):
+        x = _cdy_t357.x
+        return x
+    else:
+        return cdy_rt.primitives.fail('internal error: interp: expected a Double')
+
+def interp__str_of(v: interp__Value) -> str:
+    _cdy_t358: object = v
+    if isinstance(_cdy_t358, interp__VStr):
+        s = _cdy_t358.s
+        return s
+    else:
+        return cdy_rt.primitives.fail('internal error: interp: expected a String')
+
+def interp__char_of(v: interp__Value) -> str:
+    _cdy_t359: object = v
+    if isinstance(_cdy_t359, interp__VChar):
+        c = _cdy_t359.c
+        return c
+    else:
+        return cdy_rt.primitives.fail('internal error: interp: expected a Char')
+
+def interp__items_of(v: interp__Value) -> tuple[interp__Value, ...]:
+    _cdy_t360: object = v
+    if isinstance(_cdy_t360, interp__VList):
+        xs = _cdy_t360.items
+        return xs
+    elif isinstance(_cdy_t360, interp__VTup):
+        _cdy_xs_225 = _cdy_t360.items
+        return _cdy_xs_225
+    else:
+        return cdy_rt.primitives.fail('internal error: interp: expected a List or a Tup')
+
+def interp__list_of(v: interp__Value) -> tuple[interp__Value, ...]:
+    _cdy_t361: object = v
+    if isinstance(_cdy_t361, interp__VList):
+        xs = _cdy_t361.items
+        return xs
+    else:
+        return cdy_rt.primitives.fail('internal error: interp: expected a List')
+def _cdy_t362(_call: _cdy_Callable[[interp__Value, tuple[interp__Value, ...]], interp__Value], args: tuple[interp__Value, ...]) -> interp__Value:
+    print(interp__str_of(args[0]))
+    return interp__VUnit()
+interp__BUILTINS: _cdy_Mapping[str, _cdy_Callable[[_cdy_Callable[[interp__Value, tuple[interp__Value, ...]], interp__Value], tuple[interp__Value, ...]], interp__Value]] = cdy_rt.primitives.map_from((('put-line', _cdy_t362), ('text', (lambda _call, args: interp__VStr(interp__text_of(args[0])))), ('+', (lambda _call, args: interp__fold_num((lambda a, b: (a + b)), (lambda a, b: (a + b)), args))), ('-', (lambda _call, args: interp__fold_num((lambda a, b: (a - b)), (lambda a, b: (a - b)), args))), ('*', (lambda _call, args: interp__fold_num((lambda a, b: (a * b)), (lambda a, b: (a * b)), args))), ('++', (lambda _call, args: cdy_rt.primitives.list_fold(interp__append, args[0], cdy_rt.primitives.list_drop(1, args)))), ('=', (lambda _call, args: interp__VBool(interp__chain((lambda a, b: (a == b)), args)))), ('!=', (lambda _call, args: interp__VBool(interp__chain((lambda a, b: (a != b)), args)))), ('<', (lambda _call, args: interp__VBool(interp__chain((lambda a, b: (interp__compare(a, b) < 0)), args)))), ('>', (lambda _call, args: interp__VBool(interp__chain((lambda a, b: (interp__compare(a, b) > 0)), args)))), ('<=', (lambda _call, args: interp__VBool(interp__chain((lambda a, b: (interp__compare(a, b) <= 0)), args)))), ('>=', (lambda _call, args: interp__VBool(interp__chain((lambda a, b: (interp__compare(a, b) >= 0)), args)))), ('not', (lambda _call, args: interp__VBool((not interp__truth(args[0]))))), ('at', (lambda _call, args: cdy_rt.primitives.at(interp__items_of(args[0]), interp__int_of(args[1])))), ('len', (lambda _call, args: interp__VInt(len(interp__list_of(args[0]))))), ('fold', (lambda call, args: cdy_rt.primitives.list_fold((lambda acc, x: call(args[0], (acc, x))), args[1], interp__list_of(args[2])))), ('and', (lambda _call, args: interp__VBool(cdy_rt.primitives.list_all((lambda a: interp__truth(a)), args)))), ('or', (lambda _call, args: interp__VBool(cdy_rt.primitives.list_any((lambda a: interp__truth(a)), args))))))
+
 class Ready(_cdy_NamedTuple):
     module: include__Module
     forms: tuple[form__Form, ...]
@@ -7640,7 +8320,7 @@ def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str
     return analyse_modules(ready, by_key, elsewhere, builtins, parse)
 
 def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -> tuple[Ready, ...]:
-    def _cdy_t329(m: include__Module) -> Ready:
+    def _cdy_t363(m: include__Module) -> Ready:
         declaring = include__is_declaration(m.key)
         all_ = m.forms
         _tup = expand__expand_program((core__definitions(all_) if declaring else all_), ex)
@@ -7648,7 +8328,7 @@ def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -
         macros = _tup[1]
         own = core__module_exports(forms, m.stem)
         return Ready(m, forms, macros, (core__with_declared(own, all_, m.stem) if declaring else own))
-    return cdy_rt.primitives.list_map(_cdy_t329, modules)
+    return cdy_rt.primitives.list_map(_cdy_t363, modules)
 
 def exports_by_key(ready: tuple[Ready, ...]) -> _cdy_Mapping[str, core__Exports]:
     return cdy_rt.primitives.list_fold((lambda m, r: cdy_rt.primitives.map_set(m, r.module.key, r.exports)), {}, ready)
@@ -7657,10 +8337,10 @@ def exports_of(ready: tuple[Ready, ...]) -> tuple[core__Exports, ...]:
     return cdy_rt.primitives.list_map((lambda r: r.exports), ready)
 
 def analyse_modules(ready: tuple[Ready, ...], by_key: _cdy_Mapping[str, core__Exports], elsewhere: _cdy_Mapping[str, str], builtins: _cdy_Mapping[str, core__Builtin], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]]) -> tuple[core__Top, ...]:
-    def _cdy_t330(r: Ready) -> tuple[core__Top, ...]:
+    def _cdy_t364(r: Ready) -> tuple[core__Top, ...]:
         macros = r.macros
         return core__analyse_module(r.forms, r.exports, imported(r.module.imports, by_key), elsewhere, builtins, (lambda text, where: expand__expand_all(parse(text, where), macros)), macros, False)
-    return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t330, ready))
+    return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t364, ready))
 
 def imported(imps: tuple[include__Imp, ...], by_key: _cdy_Mapping[str, core__Exports]) -> tuple[core__Import, ...]:
     return cdy_rt.primitives.list_map((lambda imp: core__Import(cdy_rt.primitives.map_get(by_key, imp.key), imp.pos, imp.only)), imps)
@@ -7687,10 +8367,21 @@ def translate_text(text: str) -> str:
 
 def translate_file(path: str) -> str:
     return translate_modules(include__read_modules(path), read__read_hole)
-USAGE: str = 'usage: cdy_translator.py FILE.cdy [OUT.py]'
+
+def interpret_file(path: str, args: tuple[str, ...]) -> int:
+    modules = include__read_modules(path)
+    builtins = expand__library_builtins(None)
+    return interp__interpret(check__type_check(program_tops(modules, read__read_hole, builtins), builtins), cdy_rt.primitives.at(modules, (len(modules) - 1)).stem, args)
+USAGE: str = 'usage: cdy_translator.py FILE.cdy [OUT.py] | --interpret FILE.cdy [ARG ...]'
 
 def main(args: tuple[str, ...]) -> int:
-    if ((len(args) == 0) or (len(args) > 2)):
+    if ((len(args) > 0) and (args[0] == '--interpret')):
+        if (len(args) < 2):
+            cdy_rt.primitives.put_err(USAGE)
+            return 2
+        else:
+            return interpret_file(args[1], cdy_rt.primitives.list_drop(2, args))
+    elif ((len(args) == 0) or (len(args) > 2)):
         cdy_rt.primitives.put_err(USAGE)
         return 2
     else:

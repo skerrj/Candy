@@ -1,0 +1,365 @@
+;;; interp: the interpreter (doc/hl_rqmt/interpreter.md), a tree-walker over typed Core,
+;;; the second implementation of Candy beside the Python target. It runs a program the
+;;; front end has read, expanded, analysed and checked (cdyc.cdy's interpret-file), with
+;;; values of its own, so that what a program means is written here from the spec, not
+;;; borrowed from the Python the target writes; only leaf work on host data is handed to
+;;; the host's built-ins (Question 7).
+
+(import form)
+(import core)
+(import map ())
+(import string ())
+
+;; --- values ---
+
+;; A value as the interpreter holds it. Each size of number is its own variant, so a value
+;; knows its type (`show` by the value, Question 3); a Long or a Byte holds an Int, and a
+;; Float a Double, as a literal form does (form.cdy), since Candy has no conversion between
+;; the number types, and the host's arithmetic doesn't check a size (*for now*: [[B22]]). A record and a variant are one kind,
+;; named by their module and name, their fields by name. A function is a closure over the
+;; locals it sees (`env`), or a built-in by its key (`len`, `string.len`); a constructor is
+;; a record's or variant's.
+(deft Value
+  (VInt ((n Int)))
+  (VLong ((n Int)))
+  (VByte ((n Int)))
+  (VFloat ((x Double)))
+  (VDouble ((x Double)))
+  (VBool ((b Bool)))
+  (VChar ((c Char)))
+  (VStr ((s String)))
+  (VUnit)
+  (VList ((items (List Value))))
+  (VTup ((items (List Value))))
+  (VMap ((m (Map Value Value))))
+  (VRec ((module String) (name String) (fields (List (Tup String Value)))))
+  (VFn ((params (List Expr)) (body Expr) (env (Map Int Value)) (name String) (rest Bool)))
+  (VCtor ((module String) (name String) (fields (List String))))
+  (VPrim ((key String))))
+
+;; What a run sees: the globals so far, by their key (`util.greet`, global-key), and the
+;; built-ins, by theirs. A built-in takes the function that applies a value to arguments,
+;; for the ones that call a function they are given, and its arguments.
+(deft Ctx
+  ((globals (Map String Value))
+   (builtins (Map String (Fn ((Fn (Value (List Value)) Value) (List Value)) Value)))))
+
+;; --- running a program ---
+
+;; Runs `tops`, the checked definitions of a program whose top module is `top`, in order,
+;; then its `main`, if it has one, with `args`; gives the exit status: `main`'s result, or 0.
+(sig interpret (Fn ((List Top) String (List String)) Int))
+(defn interpret (tops top args)
+  (let ((cx (fold run-top (Ctx map.empty BUILTINS) tops)))
+    (if (has-main tops top)
+      (match (apply cx (global cx top "main") (List (VList (map (fn (a) (VStr a)) args))))
+        ((VInt n) n)
+        (else (fail "internal error: interp: main gave no Int")))
+      0)))
+
+;; `cx` with the top-level form `t` run: a type's constructors, a def's value, a defn's
+;; function, an expression's effects.
+(sig run-top (Fn (Ctx Top) Ctx))
+(defn run-top (cx t)
+  (match t
+    ((TDeft module name _ fields) (define cx module name (constructor module name fields)))
+    ((TDeftSum module _ _ variants)
+      (fold
+        (fn (c v) (define c module (get v name) (constructor module (get v name) (get v fields))))
+        cx
+        variants))
+    ((TDef module name init _ _) (define cx module name (eval cx map.empty init)))
+    ((TDefn module name params body ty _)
+      (define cx module name (VFn params body map.empty (global-key module name) (is-variadic ty))))
+    ((TExpr expr) (do (eval cx map.empty expr) cx))))
+
+(sig define (Fn (Ctx String String Value) Ctx))
+(defn define (cx module name v) (assoc cx globals (map.set (get cx globals) (global-key module name) v)))
+
+;; A record's or variant's constructor; one with no fields too, since Core writes its value,
+;; `Dot`, as a call with no arguments.
+(sig constructor (Fn (String String (List (Tup String CType))) Value))
+(defn constructor (module name fields)
+  (VCtor module name (map (fn (f) (let (((field _t) f)) field)) fields)))
+
+(sig global (Fn (Ctx String String) Value))
+(defn global (cx module name)
+  (let ((key (global-key module name)))
+    (if (map.has (get cx globals) key)
+      (map.at (get cx globals) key)
+      (fail (format "internal error: interp: {key} isn't defined yet")))))
+
+;; --- evaluation ---
+
+;; The value of `e`, with the locals `env`, by their Core ids.
+(sig eval (Fn (Ctx (Map Int Value) Expr) Value))
+(defn eval (cx env e)
+  (match e
+    ((Lit form _) (literal form))
+    ((Local _ id _ _) (map.at env id))
+    ((Global module name _ _) (global cx module name))
+    ((Prim name _ _) (prim-value name))
+    ((Call callee args _ _) (eval-call cx env callee args))
+    ((If test then other _ _) (if (truth (eval cx env test)) (eval cx env then) (eval cx env other)))
+    ;; Each form in order, the last one's value. (Not a fold from VUnit, which mypy would
+    ;; type as that variant alone, B184.)
+    ((Do body _ _) (let ((vals (map (fn (x) (eval cx env x)) body))) (at vals (- (len vals) 1))))
+    ((Lambda params body _ _) (VFn params body env "" false))
+    ((Tuple items _ _) (VTup (map (fn (x) (eval cx env x)) items)))
+    ((ListOf items _ _) (VList (map (fn (x) (eval cx env x)) items)))
+    ((Fmt parts _ _) (VStr (string.join (map (fn (p) (part-text cx env p)) parts) "")))
+    ((Field obj field _ _) (field-of (eval cx env obj) field))
+    ((Assoc obj fields _ _)
+      (fold
+        (fn (v f) (let (((name x) f)) (with-field v name (eval cx env x))))
+        (eval cx env obj)
+        fields))
+    ((MatchE subject clauses default _ _) (eval-match cx env (eval cx env subject) clauses default))
+    ((Temp _ _) (fail "internal error: interp: a Temp, which only lower makes"))))
+
+;; A call: `and` and `or` evaluate their arguments only as far as they must; an applied
+;; `fn` (a let, a pattern) binds its parameters where it is; anything else is applied.
+(sig eval-call (Fn (Ctx (Map Int Value) Expr (List Expr)) Value))
+(defn eval-call (cx env callee args)
+  (cond
+    ((is-prim callee "and") (VBool (all-true cx env args 0)))
+    ((is-prim callee "or") (VBool (any-true cx env args 0)))
+    (else
+      (let ((vals (map (fn (a) (eval cx env a)) args)))
+        (match callee
+          ((Lambda params body _ _) (eval cx (bind-params env params vals false) body))
+          (else (apply cx (eval cx env callee) vals)))))))
+
+(sig is-prim (Fn (Expr String) Bool))
+(defn is-prim (e name)
+  (match e
+    ((Prim n _ _) (= n name))
+    (else false)))
+
+(sig all-true (Fn (Ctx (Map Int Value) (List Expr) Int) Bool))
+(defn all-true (cx env args i)
+  (cond
+    ((= i (len args)) true)
+    ((truth (eval cx env (at args i))) (all-true cx env args (+ i 1)))
+    (else false)))
+
+(sig any-true (Fn (Ctx (Map Int Value) (List Expr) Int) Bool))
+(defn any-true (cx env args i)
+  (cond
+    ((= i (len args)) false)
+    ((truth (eval cx env (at args i))) true)
+    (else (any-true cx env args (+ i 1)))))
+
+;; `f` applied to `args`.
+(sig apply (Fn (Ctx Value (List Value)) Value))
+(defn apply (cx f args)
+  (match f
+    ((VFn params body env _ rest) (eval cx (bind-params env params args rest) body))
+    ((VCtor module name fields) (VRec module name (zip fields args)))
+    ((VPrim key) (call-builtin cx key args))
+    (else (fail "internal error: interp: a call of a value that isn't a function"))))
+
+;; `env` with `params`, Locals, bound to `args`; a rest parameter, the last, to the list of
+;; the arguments from its place on.
+(sig bind-params (Fn ((Map Int Value) (List Expr) (List Value) Bool) (Map Int Value)))
+(defn bind-params (env params args rest)
+  (let ((fixed (if rest (- (len params) 1) (len params)))
+        (bound (fold (fn (m pv) (let (((p v) pv)) (map.set m (local-id p) v))) env (zip (take fixed params) args))))
+    (if rest
+      (map.set bound (local-id (at params fixed)) (VList (drop fixed args)))
+      bound)))
+
+(sig local-id (Fn (Expr) Int))
+(defn local-id (e)
+  (match e
+    ((Local _ id _ _) id)
+    (else (fail "internal error: interp: a parameter that isn't a Local"))))
+
+(sig call-builtin (Fn (Ctx String (List Value)) Value))
+(defn call-builtin (cx key args)
+  (if (map.has (get cx builtins) key)
+    ((map.at (get cx builtins) key) (fn (f xs) (apply cx f xs)) args)
+    (fail (format "internal error: interp: no built-in {key}"))))
+
+;; A built-in that is a value, not a function: `nil`, `empty-list`, `map.empty`,
+;; `math.PI`; any other is a function, a VPrim.
+(sig prim-value (Fn (String) Value))
+(defn prim-value (name)
+  (cond
+    ((= name "nil") VUnit)
+    ((= name "empty-list") (VList empty-list))
+    ((= name "map.empty") (VMap map.empty))
+    (else (VPrim name))))
+
+(sig truth (Fn (Value) Bool))
+(defn truth (v)
+  (match v
+    ((VBool b) b)
+    (else (fail "internal error: interp: a test that isn't a Bool"))))
+
+;; A literal's value.
+(sig literal (Fn (Form) Value))
+(defn literal (form)
+  (match form
+    ((IntLit n _) (VInt n))
+    ((LongLit n _) (VLong n))
+    ((ByteLit n _) (VByte n))
+    ((FloatLit x _) (VFloat x))
+    ((DoubleLit x _) (VDouble x))
+    ((BoolLit b _) (VBool b))
+    ((CharLit c _) (VChar c))
+    ((Txt s _) (VStr s))
+    (else (fail "internal error: interp: a literal that isn't one"))))
+
+;; A format string's part as `text` writes it.
+(sig part-text (Fn (Ctx (Map Int Value) FPart) String))
+(defn part-text (cx env p)
+  (match p
+    ((FText s) s)
+    ((FHole x) (text-of (eval cx env x)))))
+
+;; A record's or variant's field.
+(sig field-of (Fn (Value String) Value))
+(defn field-of (v field)
+  (match v
+    ((VRec _ _ fields)
+      (let ((i (find-index (fn (f) (let (((name _v) f)) (= name field))) fields)))
+        (if (< i 0)
+          (fail (format "internal error: interp: no field {field}"))
+          (let (((_name x) (at fields i))) x))))
+    (else (fail (format "internal error: interp: a field {field} of a value that isn't a record")))))
+
+;; A record or variant with its field `field` replaced by `x`.
+(sig with-field (Fn (Value String Value) Value))
+(defn with-field (v field x)
+  (match v
+    ((VRec module name fields)
+      (VRec module name (map (fn (f) (let (((n _v) f)) (if (= n field) (Tup n x) f))) fields)))
+    (else (fail (format "internal error: interp: assoc {field} on a value that isn't a record")))))
+
+;; The clause of `clauses` whose variant `v` is, its fields bound; else `default`'s.
+(sig eval-match (Fn (Ctx (Map Int Value) Value (List Clause) (List Expr)) Value))
+(defn eval-match (cx env v clauses default)
+  (match v
+    ((VRec module name _)
+      (let ((i (find-index (fn (c) (and (= (get c module) module) (= (get c variant) name))) clauses)))
+        (cond
+          ((>= i 0)
+            (let ((c (at clauses i)))
+              (eval
+                cx
+                (fold (fn (m b) (let (((field loc) b)) (map.set m (local-id loc) (field-of v field)))) env (get c binds))
+                (get c body))))
+          ((= (len default) 1) (eval cx env (at default 0)))
+          (else (fail "internal error: interp: no clause matches")))))
+    (else (fail "internal error: interp: a match on a value that isn't a variant"))))
+
+;; --- the built-ins (step 1: what `put` and the operators need; doc/hl_rqmt/interpreter.md) ---
+
+;; The numbers `args`, all of one type, folded left by its operation: `fi` on the integers'
+;; Ints, `fd` on the floats' Doubles.
+(sig fold-num (Fn ((Fn (Int Int) Int) (Fn (Double Double) Double) (List Value)) Value))
+(defn fold-num (fi fd args)
+  (fold
+    (fn (a b)
+      (match a
+        ((VInt x) (VInt (fi x (int-of b))))
+        ((VLong x) (VLong (fi x (long-of b))))
+        ((VByte x) (VByte (fi x (byte-of b))))
+        ((VFloat x) (VFloat (fd x (float-of b))))
+        ((VDouble x) (VDouble (fd x (double-of b))))
+        (else (fail "internal error: interp: arithmetic on a value that isn't a number"))))
+    (at args 0)
+    (drop 1 args)))
+
+;; Whether `ok` holds of each two neighbours of `args`: a comparison chains.
+(sig chain (Fn ((Fn (Value Value) Bool) (List Value)) Bool))
+(defn chain (ok args) (all (fn (i) (ok (at args i) (at args (+ i 1)))) (range 0 (- (len args) 1))))
+
+;; -1, 0 or 1, as `a` is less than, equal to or greater than `b`, both comparable and of
+;; one type.
+(sig compare (Fn (Value Value) Int))
+(defn compare (a b)
+  (match a
+    ((VInt x) (order x (int-of b)))
+    ((VLong x) (order x (long-of b)))
+    ((VByte x) (order x (byte-of b)))
+    ((VFloat x) (order x (float-of b)))
+    ((VDouble x) (order x (double-of b)))
+    ((VStr x) (order x (str-of b)))
+    ((VChar x) (order x (char-of b)))
+    (else (fail "internal error: interp: a comparison of values that aren't comparable"))))
+
+(sig order (Fn (comparable comparable) Int))
+(defn order (x y) (cond ((< x y) -1) ((> x y) 1) (else 0)))
+
+;; Two strings or two lists, appended.
+(sig append (Fn (Value Value) Value))
+(defn append (a b)
+  (match a
+    ((VStr x) (VStr (++ x (str-of b))))
+    ((VList x) (VList (++ x (list-of b))))
+    (else (fail "internal error: interp: ++ on a value that isn't a string or a list"))))
+
+;; A value's text, as `put` writes it (step 1: the literals only).
+(sig text-of (Fn (Value) String))
+(defn text-of (v)
+  (match v
+    ((VStr s) s)
+    ((VChar c) (text c))
+    ((VInt n) (text n))
+    ((VBool b) (if b "true" "false"))
+    ((VUnit) "nil")
+    (else (fail "internal error: interp: text of this value is step 2's"))))
+
+;; --- a value's host datum ---
+
+(sig int-of (Fn (Value) Int))
+(defn int-of (v) (match v ((VInt n) n) (else (fail "internal error: interp: expected an Int"))))
+(sig long-of (Fn (Value) Int))
+(defn long-of (v) (match v ((VLong n) n) (else (fail "internal error: interp: expected a Long"))))
+(sig byte-of (Fn (Value) Int))
+(defn byte-of (v) (match v ((VByte n) n) (else (fail "internal error: interp: expected a Byte"))))
+(sig float-of (Fn (Value) Double))
+(defn float-of (v) (match v ((VFloat x) x) (else (fail "internal error: interp: expected a Float"))))
+(sig double-of (Fn (Value) Double))
+(defn double-of (v) (match v ((VDouble x) x) (else (fail "internal error: interp: expected a Double"))))
+(sig str-of (Fn (Value) String))
+(defn str-of (v) (match v ((VStr s) s) (else (fail "internal error: interp: expected a String"))))
+(sig char-of (Fn (Value) Char))
+(defn char-of (v) (match v ((VChar c) c) (else (fail "internal error: interp: expected a Char"))))
+;; A list's or a tuple's items.
+(sig items-of (Fn (Value) (List Value)))
+(defn items-of (v)
+  (match v
+    ((VList xs) xs)
+    ((VTup xs) xs)
+    (else (fail "internal error: interp: expected a List or a Tup"))))
+(sig list-of (Fn (Value) (List Value)))
+(defn list-of (v) (match v ((VList xs) xs) (else (fail "internal error: interp: expected a List"))))
+
+;; The table of built-ins, last: a def may use only what is defined before it.
+(sig BUILTINS (Map String (Fn ((Fn (Value (List Value)) Value) (List Value)) Value)))
+(def BUILTINS
+  (map.from
+    (List
+      (Tup "put-line" (fn (_call args) (do (put-line (str-of (at args 0))) VUnit)))
+      (Tup "text" (fn (_call args) (VStr (text-of (at args 0)))))
+      (Tup "+" (fn (_call args) (fold-num (fn (a b) (+ a b)) (fn (a b) (+ a b)) args)))
+      (Tup "-" (fn (_call args) (fold-num (fn (a b) (- a b)) (fn (a b) (- a b)) args)))
+      (Tup "*" (fn (_call args) (fold-num (fn (a b) (* a b)) (fn (a b) (* a b)) args)))
+      (Tup "++" (fn (_call args) (fold append (at args 0) (drop 1 args))))
+      (Tup "=" (fn (_call args) (VBool (chain (fn (a b) (= a b)) args))))
+      (Tup "!=" (fn (_call args) (VBool (chain (fn (a b) (!= a b)) args))))
+      (Tup "<" (fn (_call args) (VBool (chain (fn (a b) (< (compare a b) 0)) args))))
+      (Tup ">" (fn (_call args) (VBool (chain (fn (a b) (> (compare a b) 0)) args))))
+      (Tup "<=" (fn (_call args) (VBool (chain (fn (a b) (<= (compare a b) 0)) args))))
+      (Tup ">=" (fn (_call args) (VBool (chain (fn (a b) (>= (compare a b) 0)) args))))
+      (Tup "not" (fn (_call args) (VBool (not (truth (at args 0))))))
+      ;; A Tup pattern reads its items with `at` (core.cdy, destructure), so `at` takes a
+      ;; tuple too, which a program can't give it.
+      (Tup "at" (fn (_call args) (at (items-of (at args 0)) (int-of (at args 1)))))
+      (Tup "len" (fn (_call args) (VInt (len (list-of (at args 0))))))
+      (Tup "fold" (fn (call args) (fold (fn (acc x) (call (at args 0) (List acc x))) (at args 1) (list-of (at args 2)))))
+      (Tup "and" (fn (_call args) (VBool (all (fn (a) (truth a)) args))))
+      (Tup "or" (fn (_call args) (VBool (any (fn (a) (truth a)) args)))))))

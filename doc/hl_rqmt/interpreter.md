@@ -175,6 +175,24 @@ New translator code in the language `bin` already reads, no new built-in: no sta
 1. **Values and the evaluator:** `Value`, the environment, `eval` and `apply` for every
    Core expression and top-level form, `main`; the built-ins only `put` and the
    operators need; the driver's way in (Question 2); a first test.
+   *Done (2026-11-21). As built:* `interp.cdy`, imported by `cdyc.cdy`: `Value` as
+   proposed, but a `Long` and a `Byte` hold an `Int`, and a `Float` a `Double`, as a
+   literal form does (`form.cdy`), since Candy has no conversion between the number
+   types ([[B22]]); a `VCtor` for every record and variant, a fieldless one too, since
+   Core writes `Dot` as a call with no arguments; and a `Ctx` of the globals and the
+   built-ins. `interpret` runs the top-level forms in order, then `main`; `eval` covers
+   every `Expr` (a `Temp` an internal error), an applied `fn` bound where it is, `and`
+   and `or` short-circuit. The built-ins so far are those `put` and the operators need,
+   with `at` (a `Tup` pattern's, so it takes a tuple too), `len` and `fold`; each takes
+   the function that applies a value, for the ones that call one. The flag:
+   `cdy_translator.py --interpret FILE [ARGS]` (`interpret-file`), and `main.py FILE
+   --interpret`. Tests: `test_interp.py` (a program of every kind of expression and
+   form, in-process, by the flag and against the Python target), `test_main.py`'s
+   `test_main_interpret`. A `Do` folded from `VUnit` failed T2's `mypy --strict`, the
+   start typed as that variant alone: [[B184]]'s mechanism, noted there, and avoided.
+   Checked against `boot/92`'s `bin`: the same output for all 108 programs. `bin` grows
+   from 7707 lines to 8398, and the translator translates itself in 1.0 s, from 0.86 s,
+   for the interpreter's own lines. No staging.
 2. **The built-ins:** every one, its table checked against the declarations both ways;
    `=`, ordering, `show`, `text`, bounds written from the spec.
 3. **Tail calls and panics:** self tail calls as a loop; the panics' messages and exit

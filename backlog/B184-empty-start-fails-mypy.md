@@ -45,3 +45,8 @@ the spec's files only), so it is a plain `candy` block, not run; once fixed, it 
   [[B178]]): `solve-each`'s `fold` from `(Tup start empty-list)` and `check-order`'s
   `map-acc` from `empty-map` failed T2's `mypy --strict`. Worked around as above; the
   repro fails only at mypy (it prints the right thing).
+- 2026-11-21, Claude: seen with a variant too (interpreter step 1): `(fold (fn (_v x)
+  (eval cx env x)) VUnit body)`, its `fn` giving the sum `Value`, fails `mypy --strict`,
+  which types the start `VUnit()` as that variant's class alone. The same fix would do
+  (the start written with the checker's type); `interp.cdy`'s `Do` avoids it, taking
+  the last of a `map`.

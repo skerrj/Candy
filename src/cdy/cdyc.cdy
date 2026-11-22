@@ -4,7 +4,7 @@
 ;;; source). The checked-in
 ;;; build is bin/py/cdy_translator.py; it rebuilds itself from this file (see bin/README.md).
 ;;; Run it to translate a file: python bin/py/cdy_translator.py FILE.cdy [OUT.py] (`main`,
-;;; at the end).
+;;; at the end); or, with --interpret, to run one on the interpreter (interp.cdy).
 
 (import form)
 (import read)
@@ -14,6 +14,7 @@
 (import lower)
 (import emit)
 (import check)
+(import interp)
 (import translator)
 (import map ())
 
@@ -143,21 +144,37 @@
 (sig translate-file (Fn (String) String))
 (defn translate-file (path) (translate-modules (read-modules path) read-hole))
 
+
+;; Runs the Candy file at `path` on the interpreter (interp.cdy), with `args` for its
+;; `main`, after the front end has read, expanded, analysed and checked it as for a
+;; translation; gives the exit status (doc/hl_rqmt/interpreter.md).
+(sig interpret-file (Fn (String (List String)) Int))
+(defn interpret-file (path args)
+  (let ((modules (read-modules path))
+        (builtins (library-builtins nil)))
+    (interpret
+      (type-check (program-tops modules read-hole builtins) builtins)
+      (get (at modules (- (len modules) 1)) stem)
+      args)))
+
 ;; --- the driver ---
 
 (sig USAGE String)
-(def USAGE "usage: cdy_translator.py FILE.cdy [OUT.py]")
+(def USAGE "usage: cdy_translator.py FILE.cdy [OUT.py] | --interpret FILE.cdy [ARG ...]")
 
 ;; Translate FILE.cdy into OUT.py, by default output/FILE.py (as py_cdy/main.py does).
 (sig main (Fn ((List String)) Int))
 (defn main (args)
-  (if (or (= (len args) 0) (> (len args) 2))
-    (do (put-err USAGE) 2)
-    (let ((src (at args 0))
-          (out (if (= (len args) 2) (at args 1) (path-join "output" (++ (path-stem src) ".py"))))
-          (python (translate-file src)))
-      (do
-        (make-dirs (path-dir out))
-        (spit out python)
-        (put-err (format "candy: {src} -> {out}"))
-        0))))
+  (cond
+    ((and (> (len args) 0) (= (at args 0) "--interpret"))
+      (if (< (len args) 2) (do (put-err USAGE) 2) (interpret-file (at args 1) (drop 2 args))))
+    ((or (= (len args) 0) (> (len args) 2)) (do (put-err USAGE) 2))
+    (else
+      (let ((src (at args 0))
+            (out (if (= (len args) 2) (at args 1) (path-join "output" (++ (path-stem src) ".py"))))
+            (python (translate-file src)))
+        (do
+          (make-dirs (path-dir out))
+          (spit out python)
+          (put-err (format "candy: {src} -> {out}"))
+          0)))))
