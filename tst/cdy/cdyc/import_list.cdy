@@ -1,7 +1,8 @@
 ;; A name list (spec/10-programs.md, programs.import): (import m (a b)) makes only the names
 ;; it lists unqualified, and the module's others are reached as m.name. lib/shapes and
 ;; lib/tags both define `label`, but only one import lists it, so it isn't a clash; (import
-;; m ()) makes no name unqualified.
+;; m ()) makes no name unqualified. lib/tags defines `len` too, which, unlisted, gives way
+;; to the system's.
 (import lib/shapes (Shape Circle area label))
 (import lib/tags ())
 
@@ -11,3 +12,4 @@
 (put label tags.label (area (Circle 1.0)) (area sq))
 (put (match sq ((Circle _) "circle") ((shapes.Square s) (format "square {s}"))))
 (put (get (shapes.origin nil) y) (tags.tag nil))
+(put (len (List 1 2)) (tags.len "x"))

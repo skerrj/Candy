@@ -4,5 +4,10 @@
 (sig tag (Fn (Unit) String))
 (defn tag (_) label)
 
+;; A name the system has too: an importer that doesn't list it still gets the system's
+;; (import_list.cdy).
+(sig len (Fn (String) Int))
+(defn len (s) 99)
+
 (sig main (Fn ((List String)) Int))
 (defn main (args) 1)

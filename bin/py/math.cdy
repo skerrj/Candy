@@ -1,0 +1,25 @@
+;;; Math (doc/hl_rqmt/stdlib.md; spec/60-library.md, library.math): a declaration module.
+;;; Its bodiless sigs are built-ins, which the target provides (spelling.py's `math.`
+;;; entries); the rest is Candy over them and the operators. A program imports it by name,
+;;; by convention with no names unqualified, `(import math ())`, and writes `math.sin`.
+
+;; --- the built-ins: on Doubles, an angle in radians ---
+(sig PI Double)
+(sig sin (Fn (Double) Double))
+(sig cos (Fn (Double) Double))
+(sig tan (Fn (Double) Double))
+
+;; --- in Candy ---
+
+;; `x` without its sign. (`(- x x)` is a zero of `x`'s type, as a literal 0 would be an
+;; Int.)
+(sig abs (Fn (number) number))
+(defn abs (x) (if (< x (- x x)) (- (- x x) x) x))
+
+;; The smaller of `a` and `b` (`a` if they are equal).
+(sig min (Fn (comparable comparable) comparable))
+(defn min (a b) (if (< b a) b a))
+
+;; The larger of `a` and `b` (`a` if they are equal).
+(sig max (Fn (comparable comparable) comparable))
+(defn max (a b) (if (> b a) b a))

@@ -1,0 +1,39 @@
+;;; Test: tests written in Candy (doc/hl_rqmt/stdlib.md; spec/60-library.md, library.test).
+;;; A test is a name and a function giving its checks, each a Check; test_macros.cdy's
+;;; `deftest` and `check` write them. A program names its tests to `run`, from its `main`:
+;;;
+;;;   (import test ())
+;;;   (import-macros test_macros)
+;;;   (deftest adds (check (= (+ 1 2) 3)))
+;;;   (sig main (Fn ((List String)) Int))
+;;;   (defn main (_) (test.run (List adds)))
+
+(import string ())
+
+;; A check's result: it passed, or it failed, with the text of its expression and where
+;; that is ("file:line:col: ").
+(deft Check (Pass) (Fail ((text String) (pos String))))
+
+;; A test: its name, and its checks, made when it runs.
+(deft Test ((name String) (checks (Fn (Unit) (List Check)))))
+
+;; Runs `tests`, each once, and writes each failed check, then a count; gives 0 if every
+;; check passed, or else 1, `main`'s exit status. A check that fails doesn't stop the
+;; others; a panic stops the run, as any panic does (*lasting*: a panic is a bug).
+(sig run (Fn ((List Test)) Int))
+(defn run (tests)
+  (let ((results (map (fn (t) (let ((checks (get t checks))) (Tup (get t name) (checks nil)))) tests))
+        (failed (concat (map (fn (r) (let (((name checks) r)) (failures name checks))) results)))
+        (count (fold (fn (n r) (let (((_name checks) r)) (+ n (len checks)))) 0 results)))
+    (do
+      (put-line (string.join (++ failed (List (format "tests: {(len tests)}, checks: {count}, failed: {(len failed)}"))) "\n"))
+      (if (= (len failed) 0) 0 1))))
+
+;; A line for each of `checks` that failed, in the test `name`: where, the test, and the
+;; expression.
+(sig failures (Fn (String (List Check)) (List String)))
+(defn failures (name checks)
+  (concat
+    (map
+      (fn (c) (match c ((Fail text pos) (List (format "{pos}{name}: {text}"))) (else empty-list)))
+      checks)))

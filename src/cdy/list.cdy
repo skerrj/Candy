@@ -1,0 +1,45 @@
+;;; List (doc/hl_rqmt/stdlib.md; spec/60-library.md, library.list): what is built on the
+;;; list built-ins, which stay system's, since lists are everywhere. An ordinary library
+;;; module, all Candy. A program imports it by name, by convention with no names
+;;; unqualified, `(import list ())`, and writes `list.sort`.
+
+(private merge)
+
+;; The last item of `xs`; the empty list's is a panic, as `at`'s out of range.
+(sig last (Fn ((List a)) a))
+(defn last (xs) (at xs (- (len xs) 1)))
+
+;; `xs` in order, smallest first; equal items keep their order (a merge sort). Each merge
+;; copies its list as it grows (*for now*: B69).
+(sig sort (Fn ((List comparable)) (List comparable)))
+(defn sort (xs)
+  (if (< (len xs) 2)
+    xs
+    (let ((half (quot (len xs) 2)))
+      (merge (sort (take half xs)) (sort (drop half xs)) 0 0 empty-list))))
+
+;; `acc` with the sorted `xs` from `i` and `ys` from `j` merged after it, an `xs` item
+;; first of two equal ones.
+(sig merge (Fn ((List comparable) (List comparable) Int Int (List comparable)) (List comparable)))
+(defn merge (xs ys i j acc)
+  (cond
+    ((= i (len xs)) (++ acc (drop j ys)))
+    ((= j (len ys)) (++ acc (drop i xs)))
+    ((< (at ys j) (at xs i)) (merge xs ys i (+ j 1) (++ acc (List (at ys j)))))
+    (else (merge xs ys (+ i 1) j (++ acc (List (at xs i)))))))
+
+;; The sum of `xs`, which must have an item: a number type has no zero of its own to start
+;; from (a literal 0 is an Int; *for now*: B216).
+(sig sum (Fn ((List number)) number))
+(defn sum (xs)
+  (if (= (len xs) 0)
+    (fail "list.sum: the list is empty")
+    (fold + (at xs 0) (drop 1 xs))))
+
+;; `f` of each item, a list each, joined into one.
+(sig flat-map (Fn ((Fn (a) (List b)) (List a)) (List b)))
+(defn flat-map (f xs) (concat (map f xs)))
+
+;; The items `keep` is true of, and the others, each in their order.
+(sig partition (Fn ((Fn (a) Bool) (List a)) (Tup (List a) (List a))))
+(defn partition (keep xs) (Tup (filter keep xs) (filter (fn (x) (not (keep x))) xs)))

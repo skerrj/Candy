@@ -34,7 +34,8 @@ T2_DIR = Path("output") / "t2"
 T1_MODULE = "cdy_translator"
 BIN_PATH = ROOT / "bin" / "py" / f"{T1_MODULE}.py"
 # The Candy files a translator reads while it translates, kept next to it: macro code uses
-# Form and its helpers, and every file gets the prelude's macros (expand.cdy).
+# Form and its helpers, and every file gets the prelude's macros (expand.cdy); the
+# library's modules, which a program imports (test).
 LIBRARY = (
     "form.cdy",
     "prelude_macros.cdy",
@@ -42,6 +43,12 @@ LIBRARY = (
     "system.cdy",
     "translator.cdy",
     "prelude.cdy",
+    "math.cdy",
+    "string.cdy",
+    "map.cdy",
+    "list.cdy",
+    "test.cdy",
+    "test_macros.cdy",
 )
 
 

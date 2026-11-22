@@ -25,7 +25,8 @@ be passed, or bound to another meaning. A built-in's arity comes from its type
 number of arguments, and writes them with a space between.
 
 ```candy run
-(put (str-len "four") (+ 1 2))
+(import string ())
+(put (string.len "four") (+ 1 2))
 ```
 ```expect
 4 3
@@ -134,13 +135,14 @@ rest) is only for numbers, `String`s (by their characters' code points, as a `Ch
 `Char`s ([[checking.operators]]).
 
 ```candy run
+(import map ())
 (deft S (A ((x Int))) (B ((x Int))) (C))
 (deft V ((x Int) (y Int)))
 (sig a S)
 (def a (A 1))
 (put (= a (A 1)) (= a (B 1)) (!= a (B 1)) (= C C) (= (V 1 2) (V 1 2)) (= (V 1 2) (V 2 1)))
 (put (= (List 1 2) (List 1 2)) (= (Tup 1 "a") (Tup 1 "b")) (= 0.0 -0.0))
-(put (contains (B 1) (List a (B 1))) (map-get (map-from (List (Tup a "a") (Tup (B 1) "b"))) (B 1)))
+(put (contains (B 1) (List a (B 1))) (map.at (map.from (List (Tup a "a") (Tup (B 1) "b"))) (B 1)))
 ```
 ```expect
 true false true true true false

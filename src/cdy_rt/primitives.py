@@ -284,14 +284,14 @@ def char_at(s: str, i: int) -> str:
     ``str``)."""
     if 0 <= i < len(s):
         return s[i]
-    raise CandyFail(f"char-at: index out of range: {i}, for length {len(s)}")
+    raise CandyFail(f"string.at: index out of range: {i}, for length {len(s)}")
 
 
 def substring(s: str, i: int, j: int) -> str:
     """Characters ``i`` up to (not including) ``j`` of ``s``, as ``slice_``."""
     if 0 <= i <= j <= len(s):
         return s[i:j]
-    raise CandyFail(f"substring: index out of range: {i} to {j}, for length {len(s)}")
+    raise CandyFail(f"string.slice: index out of range: {i} to {j}, for length {len(s)}")
 
 
 def join(coll: Sequence[str], delim: str) -> str:

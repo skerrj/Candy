@@ -6,6 +6,7 @@
 ;;; declared with no shape keeps its own rule (core.cdy).
 
 (import form)
+(import string ())
 
 ;; A syntax category: `Name` (a symbol), `ModName` (a module path, `lib/util`, a symbol),
 ;; `(List c)` (a parenthesised list of c's) and `(Opt c)` (c, or nothing; only at the end).
@@ -68,7 +69,7 @@
 ;; The special form `name` with `shape`, as its error writes it: (import ModName [(Name*)]).
 (sig shape-text (Fn (String (List Syntax)) String))
 (defn shape-text (name shape)
-  (format "({(join (++ (List name) (map syntax-text shape)) \" \")})"))
+  (format "({(string.join (++ (List name) (map syntax-text shape)) \" \")})"))
 
 (sig syntax-text (Fn (Syntax) String))
 (defn syntax-text (c)

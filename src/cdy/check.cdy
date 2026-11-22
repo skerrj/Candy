@@ -13,6 +13,8 @@
 
 (import form)
 (import core)
+(import string ())
+(import map ())
 
 ;; What the checker knows, read-only while it checks a definition, each top-level name by
 ;; its key (core.cdy's global-key, `util.Shape`): each global's type, each record's and
@@ -65,7 +67,7 @@
 ;; `args`. No name holds a `.`, so the key splits back into its module and name.
 (sig key-tcon (Fn (String (List CType)) CType))
 (defn key-tcon (key args)
-  (let ((parts (split key ".")))
+  (let ((parts (string.split key ".")))
     (if (= (len parts) 2) (TCon (at parts 0) (at parts 1) args) (TCon "" key args))))
 
 ;; --- the program ---
@@ -75,7 +77,7 @@
 (sig type-check (Fn ((List Top) (Map String Builtin)) (List Top)))
 (defn type-check (tops builtins)
   (let (((typed-tops errors) (check-program tops builtins))
-        (order-errors (if (= (len errors) 0) (check-order tops (order-of tops) empty-map) empty-list)))
+        (order-errors (if (= (len errors) 0) (check-order tops (order-of tops) map.empty) empty-list)))
     (cond
       ((> (len errors) 0) (fail (at errors 0)))
       ((> (len order-errors) 0) (fail (at order-errors 0)))
@@ -84,8 +86,8 @@
 ;; `tops` typed, and the type errors in them, in order.
 (sig check-program (Fn ((List Top) (Map String Builtin)) (Tup (List Top) (List String))))
 (defn check-program (tops builtins)
-  (let ((ctx (Ctx (top-types tops) (top-shapes tops) (top-sums tops) builtins NOWHERE empty-map empty-map)))
-    (check-tops tops ctx (St empty-map 0 empty-list empty-map empty-list empty-list))))
+  (let ((ctx (Ctx (top-types tops) (top-shapes tops) (top-sums tops) builtins NOWHERE map.empty map.empty)))
+    (check-tops tops ctx (St map.empty 0 empty-list map.empty empty-list empty-list))))
 
 ;; Each definition named (typed Core), checked, then typed with what the check found.
 (sig check-tops (Fn ((List Top) Ctx St) (Tup (List Top) (List String))))
@@ -94,7 +96,7 @@
           (map-acc
             (fn (s top)
               (let ((named (retype-top top (fn (t k) (TVar (format "?e{k}")))))
-                    (fresh-st (assoc s subst empty-map types empty-map compared empty-list))
+                    (fresh-st (assoc s subst map.empty types map.empty compared empty-list))
                     (s1 (check-compared ctx (solve-pending ctx (check-top named ctx fresh-st)))))
                 (Tup s1 (retype-top named (fn (t k) (node-type t s1))))))
             st
@@ -127,7 +129,7 @@
 (defn bind-all (params types env i)
   (if (or (= i (len params)) (= i (len types)))
     env
-    (bind-all params types (map-set env (local-key (at params i)) (at types i)) (+ i 1))))
+    (bind-all params types (map.set env (local-key (at params i)) (at types i)) (+ i 1))))
 
 (sig local-key (Fn (Expr) String))
 (defn local-key (e)
@@ -141,18 +143,18 @@
   (fold
     (fn (acc top)
       (match top
-        ((TDef m name _ t _) (map-set acc (global-key m name) t))
-        ((TDefn m name _ _ t _) (map-set acc (global-key m name) t))
+        ((TDef m name _ t _) (map.set acc (global-key m name) t))
+        ((TDefn m name _ _ t _) (map.set acc (global-key m name) t))
         ((TDeft m name tvars fields)
-          (map-set acc (global-key m name) (TFn (fields-types fields) (TCon m name (tvar-types tvars)))))
+          (map.set acc (global-key m name) (TFn (fields-types fields) (TCon m name (tvar-types tvars)))))
         ((TDeftSum m name tvars variants) (variant-types variants m (TCon m name (tvar-types tvars)) acc))
         (else acc)))
-    empty-map
+    map.empty
     tops))
 
 (sig variant-types (Fn ((List Variant) String CType (Map String CType)) (Map String CType)))
 (defn variant-types (variants module sum start)
-  (fold (fn (acc v) (map-set acc (global-key module (get v name)) (TFn (fields-types (get v fields)) sum))) start variants))
+  (fold (fn (acc v) (map.set acc (global-key module (get v name)) (TFn (fields-types (get v fields)) sum))) start variants))
 
 (sig fields-types (Fn ((List (Tup String CType))) (List CType)))
 (defn fields-types (fields) (map (fn (f) (let (((_name t) f)) t)) fields))
@@ -165,16 +167,16 @@
   (fold
     (fn (acc top)
       (match top
-        ((TDeft m name tvars fields) (map-set acc (global-key m name) (Shape tvars fields "")))
+        ((TDeft m name tvars fields) (map.set acc (global-key m name) (Shape tvars fields "")))
         ((TDeftSum m name tvars variants) (variant-shapes variants tvars m name acc))
         (else acc)))
-    empty-map
+    map.empty
     tops))
 
 (sig variant-shapes (Fn ((List Variant) (List String) String String (Map String Shape)) (Map String Shape)))
 (defn variant-shapes (variants tvars module sum start)
   (fold
-    (fn (acc v) (map-set acc (global-key module (get v name)) (Shape tvars (get v fields) (global-key module sum))))
+    (fn (acc v) (map.set acc (global-key module (get v name)) (Shape tvars (get v fields) (global-key module sum))))
     start
     variants))
 
@@ -185,9 +187,9 @@
     (fn (acc top)
       (match top
         ((TDeftSum m name tvars variants)
-          (map-set acc (global-key m name) (Shape tvars (map (fn (v) (Tup (global-key m (get v name)) ANY)) variants) "")))
+          (map.set acc (global-key m name) (Shape tvars (map (fn (v) (Tup (global-key m (get v name)) ANY)) variants) "")))
         (else acc)))
-    empty-map
+    map.empty
     tops))
 
 ;; --- expressions ---
@@ -278,7 +280,7 @@
       ((Lit form _) (Res (literal-type form) st))
       ((Local name _ _ _)
         (let ((key (local-key e)))
-          (Res (if (map-has (get ctx env) key) (map-get (get ctx env) key) ANY) st)))
+          (Res (if (map.has (get ctx env) key) (map.at (get ctx env) key) ANY) st)))
       ((Global _ _ _ _) (as-value (name-type e ctx st)))
       ((Prim _ _ _) (as-value (name-type e ctx st)))
       ((Call callee args _ _) (infer-call callee args ctx st))
@@ -322,7 +324,7 @@
   (match e
     ((Global m name _ _)
       (let ((key (global-key m name)))
-        (if (map-has (get ctx globals) key) (noted name (instantiate (map-get (get ctx globals) key) st) ctx) (Res ANY st))))
+        (if (map.has (get ctx globals) key) (noted name (instantiate (map.at (get ctx globals) key) st) ctx) (Res ANY st))))
     ((Prim name _ _) (noted name (prim-type name ctx st) ctx))
     (else (Res ANY st))))
 
@@ -374,8 +376,8 @@
 ;; A built-in as a value: its type, instantiated (an operator's too: system.cdy).
 (sig prim-type (Fn (String Ctx St) Res))
 (defn prim-type (name ctx st)
-  (if (map-has (get ctx builtins) name)
-    (match (map-get (get ctx builtins) name)
+  (if (map.has (get ctx builtins) name)
+    (match (map.at (get ctx builtins) name)
       ((Typed type _) (instantiate type st))
       (else (Res ANY st)))
     (Res ANY st)))
@@ -460,7 +462,7 @@
                 (Res ret (args-st args ctx st1)))
               (Res ret (check-args args (spread-rest params (len args)) name ctx (get rc st)))))
           ((!= (len params) (len args))
-            (let ((unit (if (map-has (get ctx shapes) (global-key-of callee)) "field(s)" "argument(s)"))
+            (let ((unit (if (map.has (get ctx shapes) (global-key-of callee)) "field(s)" "argument(s)"))
                   (st1 (report (format "({name} ...) takes {(len params)} {unit}, got {(len args)}") ctx (get rc st))))
               (Res ret (args-st args ctx st1))))
           (else (Res ret (check-args args params name ctx (get rc st))))))
@@ -623,10 +625,10 @@
 (sig fields-have-fn (Fn (String (Map String CType) Ctx (List String)) Bool))
 (defn fields-have-fn (name subst ctx seen)
   (cond
-    ((map-has (get ctx shapes) name)
-      (any (fn (f) (let (((_name t) f)) (has-fn t subst ctx seen))) (get (map-get (get ctx shapes) name) fields)))
-    ((map-has (get ctx sums) name)
-      (any (fn (v) (let (((variant _t) v)) (has-fn (key-tcon variant empty-list) subst ctx seen))) (get (map-get (get ctx sums) name) fields)))
+    ((map.has (get ctx shapes) name)
+      (any (fn (f) (let (((_name t) f)) (has-fn t subst ctx seen))) (get (map.at (get ctx shapes) name) fields)))
+    ((map.has (get ctx sums) name)
+      (any (fn (v) (let (((variant _t) v)) (has-fn (key-tcon variant empty-list) subst ctx seen))) (get (map.at (get ctx sums) name) fields)))
     (else false)))
 
 (sig join-all (Fn ((List CType) String Ctx Res) Res))
@@ -643,10 +645,10 @@
     ((TCon m n args)
       (let ((name (global-key m n)))
       (cond
-        ((map-has (get ctx shapes) name)
-          (let ((s (map-get (get ctx shapes) name)))
-            (find-field (get s fields) field (zip-map (get s tvars) args empty-map))))
-        ((map-has (get ctx sums) name) (sum-field (map-get (get ctx sums) name) args field ctx))
+        ((map.has (get ctx shapes) name)
+          (let ((s (map.at (get ctx shapes) name)))
+            (find-field (get s fields) field (zip-map (get s tvars) args map.empty))))
+        ((map.has (get ctx sums) name) (sum-field (map.at (get ctx sums) name) args field ctx))
         (else (Tup false ANY)))))
     (else (Tup false ANY))))
 
@@ -664,8 +666,8 @@
 ;; Whether every variant of the sum `name` (a key) has `field`, of whatever type.
 (sig in-every-variant (Fn (String String Ctx) Bool))
 (defn in-every-variant (name field ctx)
-  (and (map-has (get ctx sums) name)
-       (all (fn (v) (let (((variant _t) v) ((ok _ft) (field-of (key-tcon variant empty-list) field ctx))) ok)) (get (map-get (get ctx sums) name) fields))))
+  (and (map.has (get ctx sums) name)
+       (all (fn (v) (let (((variant _t) v) ((ok _ft) (field-of (key-tcon variant empty-list) field ctx))) ok)) (get (map.at (get ctx sums) name) fields))))
 
 (sig find-field (Fn ((List (Tup String CType)) String (Map String CType)) (Tup Bool CType)))
 (defn find-field (fields field vars)
@@ -678,13 +680,13 @@
 (defn zip-map (names types acc)
   (if (or (= (len names) 0) (= (len types) 0))
     acc
-    (zip-map (rest names) (rest types) (map-set acc (at names 0) (at types 0)))))
+    (zip-map (rest names) (rest types) (map.set acc (at names 0) (at types 0)))))
 
 ;; `t` with each type variable in `vars` replaced.
 (sig put-vars (Fn (CType (Map String CType)) CType))
 (defn put-vars (t vars)
   (match t
-    ((TVar name) (if (map-has vars name) (map-get vars name) t))
+    ((TVar name) (if (map.has vars name) (map.at vars name) t))
     ((TCon m name args) (TCon m name (map (fn (a) (put-vars a vars)) args)))
     ((TFn params ret) (TFn (map (fn (p) (put-vars p vars)) params) (put-vars ret vars)))))
 
@@ -717,7 +719,7 @@
                 (cond
                   ((in-every-variant (tcon-name ot) field ctx)
                     (format "{what}: field {field} of {(show ot (get st subst))} has different types in its variants"))
-                  ((or (map-has (get ctx shapes) (tcon-name ot)) (map-has (get ctx sums) (tcon-name ot)))
+                  ((or (map.has (get ctx shapes) (tcon-name ot)) (map.has (get ctx sums) (tcon-name ot)))
                     (format "{what}: {(show ot (get st subst))} has no field {field}"))
                   (else (format "{what}: {(show ot (get st subst))} has no fields")))
                 ctx st)))))))))
@@ -727,11 +729,11 @@
 (sig narrow (Fn (CType Expr Ctx) CType))
 (defn narrow (ot obj ctx)
   (let ((key (match obj ((Local _ _ _ _) (local-key obj)) (else ""))))
-    (if (map-has (get ctx narrowed) key)
-      (let ((variant (map-get (get ctx narrowed) key)))
+    (if (map.has (get ctx narrowed) key)
+      (let ((variant (map.at (get ctx narrowed) key)))
         (match ot
           ((TCon m name args)
-            (if (= (global-key m name) (get (map-get (get ctx shapes) variant) sum)) (key-tcon variant args) ot))
+            (if (= (global-key m name) (get (map.at (get ctx shapes) variant) sum)) (key-tcon variant args) ot))
           (else ot)))
       ot)))
 
@@ -755,7 +757,7 @@
       (let (((st left) acc)
             (on (prune (get p on) (get st subst))))
         (cond
-          ((map-has (get st subst) (++ "any" (tvar-name on)))
+          ((map.has (get st subst) (++ "any" (tvar-name on)))
             (Tup (assoc st subst (mark-any (get p t) (get st subst))) left))
           ((is-var on) (Tup st (++ left (List p))))
           (else
@@ -804,10 +806,10 @@
 (defn infer-match (subject clauses default ctx st)
   (let ((rs (infer subject ctx st))
         (variant (clause-key (at clauses 0)))
-        (sum (if (map-has (get ctx shapes) variant) (get (map-get (get ctx shapes) variant) sum) ""))
-        (tvars (if (map-has (get ctx sums) sum) (get (map-get (get ctx sums) sum) tvars) empty-list))
+        (sum (if (map.has (get ctx shapes) variant) (get (map.at (get ctx shapes) variant) sum) ""))
+        (tvars (if (map.has (get ctx sums) sum) (get (map.at (get ctx sums) sum) tvars) empty-list))
         ((ftypes st0) (fresh-types (len tvars) (get rs st) empty-list))
-        (vars (zip-map tvars ftypes empty-map))
+        (vars (zip-map tvars ftypes map.empty))
         (want (key-tcon sum ftypes))
         (st1 (expect-is want (get rs t) "match: the subject" ctx st0))
         ((ctypes st2) (infer-clauses subject clauses vars ctx st1)))
@@ -823,10 +825,10 @@
   (let (((st1 ts)
           (map-acc
             (fn (s c)
-              (let ((shape (if (map-has (get ctx shapes) (clause-key c)) (map-get (get ctx shapes) (clause-key c)) (Shape empty-list empty-list "")))
+              (let ((shape (if (map.has (get ctx shapes) (clause-key c)) (map.at (get ctx shapes) (clause-key c)) (Shape empty-list empty-list "")))
                     (bound (assoc ctx env (bind-fields (get c binds) (get shape fields) vars (get ctx env))))
                     (inner (match subject
-                             ((Local _ _ _ _) (assoc bound narrowed (map-set (get ctx narrowed) (local-key subject) (clause-key c))))
+                             ((Local _ _ _ _) (assoc bound narrowed (map.set (get ctx narrowed) (local-key subject) (clause-key c))))
                              (else bound)))
                     (r (infer (get c body) inner (typed-binds (get c binds) (get inner env) s))))
                 (Tup (get r st) (get r t))))
@@ -845,7 +847,7 @@
     (fn (env b)
       (let (((field loc) b)
             ((found ft) (find-field fields field vars)))
-        (map-set env (local-key loc) (if found ft ANY))))
+        (map.set env (local-key loc) (if found ft ANY))))
     start
     binds))
 
@@ -862,7 +864,7 @@
 (sig typed (Fn (Expr CType St) St))
 (defn typed (e t st)
   (let ((key (tvar-name (get e t))))
-    (if (starts-with key "?e") (assoc st types (map-set (get st types) key t)) st)))
+    (if (string.starts-with key "?e") (assoc st types (map.set (get st types) key t)) st)))
 
 ;; Each of `es` recorded with the type at its index in `ts`.
 (sig typed-all (Fn ((List Expr) (List CType) St) St))
@@ -875,7 +877,7 @@
   (fold
     (fn (st b)
       (let (((_field loc) b))
-        (typed loc (if (map-has env (local-key loc)) (map-get env (local-key loc)) ANY) st)))
+        (typed loc (if (map.has env (local-key loc)) (map.at env (local-key loc)) ANY) st)))
     start
     binds))
 
@@ -889,14 +891,14 @@
 (sig recorded (Fn (Expr St) CType))
 (defn recorded (e st)
   (let ((key (tvar-name (get e t))))
-    (if (map-has (get st types) key) (map-get (get st types) key) ANY)))
+    (if (map.has (get st types) key) (map.at (get st types) key) ANY)))
 
 ;; A node's type once its definition is checked: the type recorded under its name `t`,
 ;; with the substitution put in.
 (sig node-type (Fn (CType St) CType))
 (defn node-type (t st)
   (let ((key (tvar-name t)))
-    (if (map-has (get st types) key) (final-type (map-get (get st types) key) (get st subst)) t)))
+    (if (map.has (get st types) key) (final-type (map.at (get st types) key) (get st subst)) t)))
 
 ;; `t` resolved, a variable still unsolved that met `Any` (`mark-any`) as `Any`.
 (sig final-type (Fn (CType (Map String CType)) CType))
@@ -904,7 +906,7 @@
   (match (prune t subst)
     ((TCon m name args) (TCon m name (map (fn (a) (final-type a subst)) args)))
     ((TFn params ret) (TFn (map (fn (p) (final-type p subst)) params) (final-type ret subst)))
-    ((TVar name) (if (map-has subst (++ "any" name)) ANY (TVar name)))))
+    ((TVar name) (if (map.has subst (++ "any" name)) ANY (TVar name)))))
 
 ;; `top` with each node's type `(f t k)`, its old type and its number.
 (sig retype-top (Fn (Top (Fn (CType Int) CType)) Top))
@@ -1006,13 +1008,13 @@
 ;; Whether a type variable is one the checker made (?N, or ?N:number for a constraint
 ;; variable's), which unification may solve; a sig's (a) is rigid.
 (sig is-flexible (Fn (String) Bool))
-(defn is-flexible (name) (starts-with name "?"))
+(defn is-flexible (name) (string.starts-with name "?"))
 
 ;; `t` with its solved variables followed, at the top.
 (sig prune (Fn (CType (Map String CType)) CType))
 (defn prune (t subst)
   (match t
-    ((TVar name) (if (map-has subst name) (prune (map-get subst name) subst) t))
+    ((TVar name) (if (map.has subst name) (prune (map.at subst name) subst) t))
     (else t)))
 
 ;; `t` with every solved variable put in.
@@ -1064,7 +1066,7 @@
 (sig mark-any (Fn (CType (Map String CType)) (Map String CType)))
 (defn mark-any (t subst)
   (match (prune t subst)
-    ((TVar name) (if (is-flexible name) (map-set subst (++ "any" name) ANY) subst))
+    ((TVar name) (if (is-flexible name) (map.set subst (++ "any" name) ANY) subst))
     ((TCon _ _ args) (fold (fn (s a) (mark-any a s)) subst args))
     ((TFn params ret) (mark-any ret (fold (fn (s p) (mark-any p s)) subst params)))))
 
@@ -1080,7 +1082,7 @@
   (cond
     ((match t ((TVar other) (= other v)) (else false)) (Tup true subst))
     ((occurs v t subst) (Tup false subst))
-    ((= (constraint-of v) "") (Tup true (map-set subst v t)))
+    ((= (constraint-of v) "") (Tup true (map.set subst v t)))
     (else (bind-constrained v (constraint-of v) t subst))))
 
 ;; A variable of the constraint `c` (`?N:number`, checking.constraints) bound to `t`: a
@@ -1093,25 +1095,25 @@
 
 (sig bind-listed (Fn (String String CType (Map String CType)) (Tup Bool (Map String CType))))
 (defn bind-listed (v c t subst)
-  (let ((takes (map-get CONSTRAINTS c)))
+  (let ((takes (map.at CONSTRAINTS c)))
     (match t
       ((TCon m name _)
         (cond
-          ((and (= m SYSTEM) (contains name takes)) (Tup true (map-set subst v t)))
+          ((and (= m SYSTEM) (contains name takes)) (Tup true (map.set subst v t)))
           (else (Tup false subst))))
       ((TVar other)
         (let ((oc (constraint-of other)))
           (cond
             ((not (is-flexible other))
-              (if (and (!= oc "") (within oc c)) (Tup true (map-set subst v t)) (Tup false subst)))
-            ((= oc "") (Tup true (map-set subst other (TVar v))))
-            ((= oc "equatable") (Tup true (map-set subst other (TVar v))))
-            ((within c oc) (Tup true (map-set subst other (TVar v))))
-            ((within oc c) (Tup true (map-set subst v t)))
+              (if (and (!= oc "") (within oc c)) (Tup true (map.set subst v t)) (Tup false subst)))
+            ((= oc "") (Tup true (map.set subst other (TVar v))))
+            ((= oc "equatable") (Tup true (map.set subst other (TVar v))))
+            ((within c oc) (Tup true (map.set subst other (TVar v))))
+            ((within oc c) (Tup true (map.set subst v t)))
             (else
-              (let ((both (filter (fn (x) (contains x (map-get CONSTRAINTS oc))) takes)))
+              (let ((both (filter (fn (x) (contains x (map.at CONSTRAINTS oc))) takes)))
                 (if (and (= (len both) 1) (!= (at both 0) "List"))
-                  (Tup true (map-set (map-set subst v (tcon (at both 0))) other (tcon (at both 0))))
+                  (Tup true (map.set (map.set subst v (tcon (at both 0))) other (tcon (at both 0))))
                   (Tup false subst)))))))
       (else (Tup false subst)))))
 
@@ -1125,10 +1127,10 @@
       (let ((oc (constraint-of other)))
         (cond
           ((not (is-flexible other))
-            (if (and (!= oc "") (within oc "equatable")) (Tup true (map-set subst v t)) (Tup false subst)))
-          ((= oc "") (Tup true (map-set subst other (TVar v))))
-          (else (Tup true (map-set subst v t))))))
-    (else (Tup true (map-set subst v t)))))
+            (if (and (!= oc "") (within oc "equatable")) (Tup true (map.set subst v t)) (Tup false subst)))
+          ((= oc "") (Tup true (map.set subst other (TVar v))))
+          (else (Tup true (map.set subst v t))))))
+    (else (Tup true (map.set subst v t)))))
 
 ;; Whether every type the constraint `a` takes, `b` takes too: every constraint's are
 ;; `equatable`, but `appendable`'s, whose lists may hold functions.
@@ -1137,7 +1139,7 @@
   (cond
     ((= b "equatable") (!= a "appendable"))
     ((= a "equatable") false)
-    (else (all (fn (x) (contains x (map-get CONSTRAINTS b))) (map-get CONSTRAINTS a)))))
+    (else (all (fn (x) (contains x (map.at CONSTRAINTS b))) (map.at CONSTRAINTS a)))))
 
 (sig is-any (Fn (CType) Bool))
 (defn is-any (t)
@@ -1203,7 +1205,7 @@
       (Res t st)
       (let (((ftypes st1) (fresh-types (len names) st empty-list))
             (vars (map (fn (i) (keep-constraint (at names i) (at ftypes i))) (range 0 (len names)))))
-        (Res (put-vars t (zip-map names vars empty-map)) st1)))))
+        (Res (put-vars t (zip-map names vars map.empty)) st1)))))
 
 ;; A fresh variable `?N` for the sig's variable `name`: `?N:number` if `name` is a
 ;; constraint variable (checking.constraints).
@@ -1229,12 +1231,12 @@
 (defn order-of (tops)
   (fold (fn (o top)
           (match top
-            ((TDef m name _ _ _) (assoc o kinds (map-set (get o kinds) (global-key m name) "def")))
+            ((TDef m name _ _ _) (assoc o kinds (map.set (get o kinds) (global-key m name) "def")))
             ((TDefn m name _ body _ _)
               (let ((key (global-key m name)))
-                (Order (map-set (get o kinds) key "defn") (map-set (get o bodies) key body))))
-            (else (fold (fn (o2 n) (assoc o2 kinds (map-set (get o2 kinds) n "deft"))) o (defined-by top)))))
-        (Order empty-map empty-map) tops))
+                (Order (map.set (get o kinds) key "defn") (map.set (get o bodies) key body))))
+            (else (fold (fn (o2 n) (assoc o2 kinds (map.set (get o2 kinds) n "deft"))) o (defined-by top)))))
+        (Order map.empty map.empty) tops))
 
 ;; The names a top defines, by key: a def's or defn's, a record's, a sum's variants.
 (sig defined-by (Fn (Top) (List String)))
@@ -1257,7 +1259,7 @@
           (map-acc
             (fn (defined top)
               (Tup
-                (fold (fn (d n) (map-set d n true)) defined (defined-by top))
+                (fold (fn (d n) (map.set d n true)) defined (defined-by top))
                 (match top
                   ((TDef _ _ init _ _) (order-errors init order defined))
                   ((TExpr e) (order-errors e order defined))
@@ -1273,16 +1275,16 @@
   (concat
     (map (fn (u)
            (let (((name pos) u)
-                 (reached (reach (List name) order (map-from (List (Tup name true))))))
+                 (reached (reach (List name) order (map.from (List (Tup name true))))))
              (map (fn (n) (++ (pos-text pos) (used-early n name order)))
-                  (filter (fn (n) (and (map-has (get order kinds) n) (not (map-has defined n)))) (map-keys reached)))))
+                  (filter (fn (n) (and (map.has (get order kinds) n) (not (map.has defined n)))) (map.keys reached)))))
          (uses e empty-list))))
 
 ;; The message for `n`, used before its definition, through `name` (unless it is `n`).
 (sig used-early (Fn (String String Order) String))
 (defn used-early (n name order)
   (let ((through (if (= n name) "" (++ ", through " (shown-name name)))))
-    (format "{(shown-name n)} is used before its {(map-get (get order kinds) n)}{through}")))
+    (format "{(shown-name n)} is used before its {(map.at (get order kinds) n)}{through}")))
 
 ;; The top-level names reached from `todo`, through the bodies of the functions among them;
 ;; `seen` holds those found so far.
@@ -1291,10 +1293,10 @@
   (if (= (len todo) 0)
     seen
     (let ((name (at todo 0))
-          (found (if (map-has (get order bodies) name)
-                   (filter (fn (n) (not (map-has seen n))) (map (fn (u) (let (((n _pos) u)) n)) (uses (map-get (get order bodies) name) empty-list)))
+          (found (if (map.has (get order bodies) name)
+                   (filter (fn (n) (not (map.has seen n))) (map (fn (u) (let (((n _pos) u)) n)) (uses (map.at (get order bodies) name) empty-list)))
                    empty-list)))
-      (reach (++ (rest todo) found) order (fold (fn (m n) (map-set m n true)) seen found)))))
+      (reach (++ (rest todo) found) order (fold (fn (m n) (map.set m n true)) seen found)))))
 
 ;; The globals `e` uses, by key, with where, added to `acc`: in a `fn` too, counted as
 ;; called.
@@ -1333,16 +1335,16 @@
     ((TCon _ name args)
       (if (= (len args) 0)
         name
-        (format "({name} {(join (map (fn (a) (show a subst)) args) \" \")})")))
-    ((TFn params ret) (format "(Fn ({(join (map (fn (p) (show p subst)) params) \" \")}) {(show ret subst)})"))
+        (format "({name} {(string.join (map (fn (a) (show a subst)) args) \" \")})")))
+    ((TFn params ret) (format "(Fn ({(string.join (map (fn (p) (show p subst)) params) \" \")}) {(show ret subst)})"))
     ((TVar name)
       (cond
         ((not (is-flexible name)) name)
         ((!= (constraint-of name) "") (constraint-of name))
-        (else (++ "t" (substring name 1 (str-len name))))))))
+        (else (++ "t" (string.slice name 1 (string.len name))))))))
 
 ;; A top-level name's key (global-key) as the program wrote it: util.greet is greet.
 (sig shown-name (Fn (String) String))
 (defn shown-name (key)
-  (let ((parts (split key ".")))
+  (let ((parts (string.split key ".")))
     (at parts (- (len parts) 1))))

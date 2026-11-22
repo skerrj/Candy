@@ -1,7 +1,10 @@
 """The Python spellings of Candy's built-ins: what each translates to in Python. What a
 built-in is (special form, operator, or function or value with a type) is declared in
 Candy, in ``src/cdy/special.cdy`` and ``src/cdy/system.cdy``, which the translator checks
-against these spellings both ways (``doc/hl_rqmt/symbol_table.md``).
+against these spellings both ways (``doc/hl_rqmt/symbol_table.md``). Each is keyed by its
+declaration module and name, ``translator.fresh-name``, except ``system``'s, which keep
+their own names (``len``); the modules these keys name are the declaration modules
+(``include.cdy``, ``declaration-modules``; ``doc/hl_rqmt/stdlib.md``, step 1).
 
 Modelled on schmuz's ``src/py_smz/table.py`` (``OP_TABLE``). Differences from schmuz:
 
@@ -97,11 +100,12 @@ TYPES: Spellings = {
     "Map": type_("_cdy_Mapping[{}]"),
 }
 
+# The math module's built-ins (src/cdy/math.cdy), keyed ``math.``; and the operators.
 MATH: Spellings = {
-    "PI": value("math.pi"),
-    "sin": call("math.sin"),
-    "cos": call("math.cos"),
-    "tan": call("math.tan"),
+    "math.PI": value("math.pi"),
+    "math.sin": call("math.sin"),
+    "math.cos": call("math.cos"),
+    "math.tan": call("math.tan"),
     "+": operator("+", "binop", "add"),
     "++": operator("+", "binop", "append"),  # strings or lists (tuples)
     "-": operator("-", "binop", "sub"),
@@ -148,21 +152,21 @@ COLLECTION: Spellings = {
     # is a ``str``); ``primitives.at`` would type it as the join of the element types.
     "at": Spelling(f"{PRIMITIVES_MODULE}.at", "index"),
     "slice": primitive("slice_"),
-    "join": primitive("join"),
     # Writable in Candy (the prelude), but built in for speed: Candy adds to a list by
     # copying it, so its own map would take quadratic time.
     "map": primitive("list_map"),
     "filter": primitive("list_filter"),
     "fold": primitive("list_fold"),
     "map-acc": primitive("list_map_acc"),
-    # Maps: ``map-set`` returns a new map.
-    "empty-map": value("{}"),
-    "map-get": primitive("map_get"),
-    "map-has": primitive("map_has"),
-    "map-set": primitive("map_set"),
-    "map-keys": primitive("map_keys"),
-    "map-from": primitive("map_from"),
-    "map-size": call("len"),
+    # The map module's built-ins (src/cdy/map.cdy), keyed ``map.``: ``map.set`` returns a
+    # new map. Each keeps its Python function from before (``map_get``).
+    "map.empty": value("{}"),
+    "map.at": primitive("map_get"),
+    "map.has": primitive("map_has"),
+    "map.set": primitive("map_set"),
+    "map.keys": primitive("map_keys"),
+    "map.from": primitive("map_from"),
+    "map.size": call("len"),
     # The library (doc/hl_rqmt/library.md): a list is the host's tuple, so its operations
     # are built-ins.
     "any": primitive("list_any"),
@@ -177,38 +181,42 @@ COLLECTION: Spellings = {
     "contains": primitive("list_contains"),
 }
 
+# The string module's built-ins (src/cdy/string.cdy), keyed ``string.``. Each keeps its
+# Python function from before (``substring``, ``isspace``), which a translator before the
+# move still calls.
 STRING: Spellings = {
-    "str-len": call("len"),
-    "char-at": Spelling(f"{PRIMITIVES_MODULE}.char_at", "index"),
-    "substring": primitive("substring"),
-    "str-contains": primitive("str_contains"),
-    "to-int": primitive("to_int"),
-    "to-float": primitive("to_float"),
-    "is-decimal": primitive("is_decimal"),
-    "hex-char": primitive("hex_char"),
-    "starts-with": primitive("starts_with"),
-    "ends-with": primitive("ends_with"),
-    "split": primitive("split"),
-    "repeat": primitive("repeat"),
-    "char-code": call("ord"),
-    "replace": primitive("replace"),
-    "isspace": primitive("isspace"),
+    "string.len": call("len"),
+    "string.at": Spelling(f"{PRIMITIVES_MODULE}.char_at", "index"),
+    "string.slice": primitive("substring"),
+    "string.contains": primitive("str_contains"),
+    "string.to-int": primitive("to_int"),
+    "string.to-float": primitive("to_float"),
+    "string.is-decimal": primitive("is_decimal"),
+    "string.hex-char": primitive("hex_char"),
+    "string.starts-with": primitive("starts_with"),
+    "string.ends-with": primitive("ends_with"),
+    "string.split": primitive("split"),
+    "string.join": primitive("join"),
+    "string.repeat": primitive("repeat"),
+    "string.code": call("ord"),
+    "string.replace": primitive("replace"),
+    "string.is-space": primitive("isspace"),
 }
 
-# For the translator: these spellings, which it reads as Candy data (each entry a pair, its
-# text and kind; doc/hl_rqmt/symbol_table.md). schmuz read its table through ``op-tab-*``
-# functions.
+# For the translator (translator.cdy's, so keyed ``translator.``): these spellings, which it
+# reads as Candy data (each entry a pair, its text and kind; doc/hl_rqmt/symbol_table.md).
+# schmuz read its table through ``op-tab-*`` functions.
 TRANSLATOR: Spellings = {
-    "py-spellings": value(f"{SPELLING_MODULE}.SPELLINGS"),
+    "translator.py-spellings": value(f"{SPELLING_MODULE}.SPELLINGS"),
 }
 
 # Macros (doc/hl_rqmt/macros.md): the translator loads a translated macro program and calls
 # its macros; ``fresh-name`` is behind ``gensym`` (form.cdy).
 MACRO: Spellings = {
-    "load-macros": primitive("load_macros"),
-    "call-macro": primitive("call_macro"),
-    "module-dir": primitive("module_dir"),
-    "fresh-name": primitive("fresh_name"),
+    "translator.load-macros": primitive("load_macros"),
+    "translator.call-macro": primitive("call_macro"),
+    "translator.module-dir": primitive("module_dir"),
+    "translator.fresh-name": primitive("fresh_name"),
 }
 
 INFRA: Spellings = {

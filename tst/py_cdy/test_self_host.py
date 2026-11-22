@@ -1,8 +1,9 @@
 """Tests for the self-hosted translator (``self_host.py``, ``src/cdy/cdyc.cdy``).
 
 T1, the Candy translator built by the checked-in one (``bin``), is built once per test
-session. Each test program (``tst/cdy/t1/NAME.cdy``, ``tst/cdy/NAME.cdy`` and
-``tst/cdy/cdyc/NAME.cdy``) is translated by T1; the result must run and print ``NAME.out``,
+session. Each test program (``tst/cdy/t1/NAME.cdy``, ``tst/cdy/NAME.cdy``,
+``tst/cdy/cdyc/NAME.cdy`` and, the library modules' tests, ``tst/cdy/stdlib/NAME_test.cdy``)
+is translated by T1; the result must run, exit with 0 and print ``NAME.out``,
 and pass ``mypy --strict``. T1 itself must pass ``mypy --strict`` too: that type-checks the
 Candy translator's own code.
 
@@ -50,6 +51,7 @@ PROGRAMS = [
     *sorted((ROOT / "tst" / "cdy" / "t1").glob("*.cdy")),
     *sorted((ROOT / "tst" / "cdy").glob("*.cdy")),
     *sorted(CDYC_ONLY.glob("*.cdy")),
+    *sorted((ROOT / "tst" / "cdy" / "stdlib").glob("*.cdy")),
 ]
 IDS = [p.stem for p in PROGRAMS]
 TOP = "cdyc"  # the translator's top module, whose names have no prefix in Python
@@ -322,7 +324,14 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
 def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
     """``forms`` as Python, translated as macro code (where quoting is allowed), as
     ``expand.cdy`` translates a macro program."""
-    return cast(str, candy(t1, "translate-expanded")(forms, candy(t1, "read.read-hole"), {}, True))
+    library = candy(t1, "expand.library-builtins")(None)
+    imports = candy(t1, "macro-imports")(None)
+    return cast(
+        str,
+        candy(t1, "translate-expanded")(
+            forms, candy(t1, "read.read-hole"), {}, True, library, imports
+        ),
+    )
 
 
 def test_quoting_in_macro_code(t1: ModuleType, tmp_path: Path) -> None:
@@ -603,7 +612,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig slurp (Fn (String) String))\n", ""),
-            "spelling.py: slurp is declared in none of special.cdy, system.cdy, translator.cdy",
+            "spelling.py: slurp is declared in none of special.cdy, system.cdy",
         ),
         (
             "system.cdy",
@@ -616,7 +625,7 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(deft Bool)\n", ""),
-            "spelling.py: Bool is declared in none of special.cdy, system.cdy, translator.cdy",
+            "spelling.py: Bool is declared in none of special.cdy, system.cdy",
         ),
         ("system.cdy", ("", "(deft Nope)\n"), "system.cdy: Nope has no Python type in spelling.py"),
         ("system.cdy", ("", "(deft (List a))\n"), "system.cdy: List is already declared"),
@@ -628,22 +637,27 @@ def test_translator_needs_its_library(t1_path: Path, tmp_path: Path) -> None:
         (
             "system.cdy",
             ("(sig not (Fn (Bool) Bool))\n", ""),
-            "spelling.py: not is declared in none of special.cdy, system.cdy, translator.cdy",
+            "spelling.py: not is declared in none of special.cdy, system.cdy",
         ),
         (
             "translator.cdy",
             ("(sig fresh-name (Fn (String) String))\n", ""),
-            (
-                "spelling.py: fresh-name is declared in none of special.cdy, system.cdy, "
-                "translator.cdy"
-            ),
+            # The declaration modules follow, each with a spelling (include.cdy).
+            "spelling.py: translator.fresh-name is declared in none of special.cdy, system.cdy",
+        ),
+        (
+            # Keyed by its module, a built-in may have a system one's name
+            # (doc/hl_rqmt/stdlib.md, step 1), but needs its own spelling.
+            "translator.cdy",
+            ("", "(sig len (Fn (Any) Int))\n"),
+            "translator.cdy: translator.len has no Python mapping in spelling.py",
         ),
         (
             "translator.cdy",
-            ("", "(sig len (Fn (Any) Int))\n"),
-            "translator.cdy: len is already declared",
+            ("", "(sig fresh-name (Fn (String) String))\n"),
+            "translator.cdy: fresh-name is already declared",
         ),
-        ("translator.cdy", ("", "(def x 1)\n"), "translator.cdy: expected (sig name Type)"),
+        ("translator.cdy", ("", "(sig x)\n"), "translator.cdy: expected (sig name Type)"),
         ("translator.cdy", ("", "(deft Nope)\n"), "translator.cdy: only system.cdy declares types"),
         (
             "special.cdy",
@@ -667,6 +681,26 @@ def test_library_errors(
     declared.write_text(text.replace(old, "") + extra, encoding="utf-8")
     with pytest.raises(CandyFail, match=re.escape(message)):
         translate_with(load(translator), "(put 1)")
+
+
+def test_a_declaration_module_holds_candy(t1_path: Path, tmp_path: Path) -> None:
+    """A declaration module's definitions are ordinary Candy, which its importers see as
+    they see its built-ins, and which use its built-ins too (``doc/hl_rqmt/stdlib.md``,
+    Question 2)."""
+    translator = tmp_path / t1_path.name
+    shutil.copyfile(t1_path, translator)
+    copy_library(tmp_path)
+    declared = tmp_path / "translator.cdy"
+    declared.write_text(
+        declared.read_text(encoding="utf-8")
+        + '(sig shout (Fn (String) String))\n(defn shout (s) (++ s "!"))\n'
+        + "(import map ())\n"
+        + "(sig spelled (Fn (String) Bool))\n(defn spelled (name) (map.has py-spellings name))\n",
+        encoding="utf-8",
+    )
+    source = '(import translator)\n(put (shout "hi") (translator.shout "a") (spelled "len"))'
+    done = run(translate_with(load(translator), source), tmp_path, "mixed")
+    assert (done.returncode, done.stdout) == (0, "hi! a! true\n"), done.stderr
 
 
 def test_special_forms_are_declared(t1: ModuleType) -> None:

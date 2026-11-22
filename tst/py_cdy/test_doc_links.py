@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from backlog import NAME
+from cdy_rt.spelling import SPELLINGS
 from doc_links import (
     ID,
     Anchor,
@@ -123,8 +124,10 @@ def test_every_stable_rule_has_an_example(path: str) -> None:
 
 
 def builtin_names(text: str) -> tuple[str, ...]:
-    """The names a declaration module's bodiless ``sig``s declare."""
-    return tuple(re.findall(r"^\(sig (\S+)", text, re.MULTILINE))
+    """The names a declaration module's bodiless ``sig``s declare: each ``sig`` of a name it
+    doesn't define (the rest of it is Candy, ``core.cdy``'s ``declarations``)."""
+    defined = set(re.findall(r"^\(defn? (\S+)", text, re.MULTILINE))
+    return tuple(n for n in re.findall(r"^\(sig (\S+)", text, re.MULTILINE) if n not in defined)
 
 
 def unexampled(names: tuple[str, ...], spec: dict[str, str]) -> list[str]:
@@ -150,11 +153,26 @@ def unindexed(names: tuple[str, ...], text: str) -> list[str]:
     return [name for name in names if name not in listed]
 
 
+def declared_builtins() -> tuple[str, ...]:
+    """The built-ins the language's declaration modules declare, as a program names them:
+    ``system``'s by their own names, another module's qualified (``string.len``). The
+    declaration modules are those the runtime's spellings name (``include.cdy``,
+    ``declaration-modules``); ``translator``'s aren't the language's: ``translator.cdy``'s
+    comments specify them."""
+    modules = sorted({key.split(".")[0] for key in SPELLINGS if "." in key} - {"translator"})
+    lib = ROOT / "src/cdy"
+    return builtin_names((lib / "system.cdy").read_text(encoding="utf-8")) + tuple(
+        f"{m}.{name}"
+        for m in modules
+        for name in builtin_names((lib / f"{m}.cdy").read_text(encoding="utf-8"))
+    )
+
+
 def test_every_builtin_is_specified() -> None:
-    """Every built-in in ``system`` is in ``library.builtins``' index and in an example
-    that runs (``doc/hl_rqmt/library_layers.md``, step 6). ``translator``'s aren't the
-    language's: ``translator.cdy``'s comments specify them."""
-    names = builtin_names((ROOT / "src/cdy/system.cdy").read_text(encoding="utf-8"))
+    """Every built-in of the language's declaration modules is in ``library.builtins``'
+    index and in an example that runs (``doc/hl_rqmt/library_layers.md``, step 6;
+    ``doc/hl_rqmt/stdlib.md``, step 1)."""
+    names = declared_builtins()
     assert len(names) > 50
     assert not unindexed(names, SPEC["spec/60-library.md"]), "not in library.builtins' table"
     assert not unexampled(names, SPEC), "in no example that runs"
@@ -168,6 +186,7 @@ def test_builtin_checks_catch_a_missing_one() -> None:
     )
     assert unindexed(("len", "at"), text) == ["at"]
     assert unexampled(("len", "at"), {"f.md": text}) == ["at"]
+    assert builtin_names("(sig a Int)\n(sig f (Fn (Int) Int))\n(defn f (x) x)\n") == ("a",)
 
 
 def test_renamed_ids_keep_an_alias() -> None:

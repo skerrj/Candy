@@ -45,6 +45,31 @@ first
 (sig x Int) (def x 1) (def x 2) => defined more than once: x
 ```
 
+<a id="programs.top-do"></a>
+**A top-level `do`** (since `stdlib`) is its forms, spliced into the top level, so they
+may be definitions: a macro expands to one form, and this is how one defines several
+things (`deftest`, [[library.test]]). A `do` in an expression still can't hold one. A
+`defmacro`, `import` or `import-macros` can't be in it, since those are read before
+macros are expanded.
+
+```candy run
+(defmacro defsquare (name n)
+  (quasi (do (sig (unq name) Int) (def (unq name) (* (unq n) (unq n))))))
+(defsquare nine 3)
+(do (put "a") (sig x Int) (def x (+ nine 1)))
+(put x)
+```
+```expect
+a
+10
+```
+
+```candy errors
+(do (defmacro m (a) a)) => defmacro can't be in a top-level do: it is read before macros are expanded
+(do (import x)) => import can't be in a top-level do: it is read before macros are expanded
+(do (import-macros x)) => import-macros can't be in a top-level do: it is read before macros are expanded
+```
+
 <a id="programs.namespace"></a>
 **One namespace** (since `namespaces`): a module's types, values and variants share one
 namespace, *lasting*, so a type can't share its name with a value or a variant; a record's
@@ -210,7 +235,7 @@ main: 0 argument(s)
 ## The prelude (since `system-prelude`)
 
 Every file imports the prelude (`src/cdy/prelude.cdy`) without saying so: what is built
-on the built-ins (declared in `src/cdy/system.cdy`): `rest`, `map-update`, `Maybe`
+on the built-ins (declared in `src/cdy/system.cdy`): `rest`, `Maybe`
 with `find`, `index-of` and `with-default` ([[library.maybe]]), and `Result`
 ([[library.errors]]).
 Macro code doesn't get it ([[B52]]). A file's own definition of a
@@ -246,7 +271,12 @@ so a new library module can't break a program. Two of the library's files aren't
 modules, `special` and `prelude_macros`: the translator reads them itself. A
 **declaration module** is a library module that declares built-ins, which the target
 defines, each with a bodiless `sig` (since `library-layers`): `translator`, which declares
-those only the translator needs, seen only by a file that imports it. It is
+those only the translator needs, seen only by a file that imports it. The declaration
+modules are those the target provides built-ins for, and each built-in is its module's,
+`translator.fresh-name`, as a program's names are (since `stdlib`), so two declaration
+modules may each declare a name. Its other forms, the `sig`s of names it defines and its
+definitions, are ordinary Candy, which may use its built-ins; its importers see both
+(since `stdlib`). A declaration module is
 always the library's, *lasting*: a program's file of that name isn't imported in its
 place, so a program can't replace a target's declarations. `name` may be
 a relative path (`lib/util`). Every name the module defines at top level (`def`, `defn`,
@@ -255,7 +285,10 @@ and `deft` with its variants) becomes visible, unqualified, and as `m.name` too
 
 `(import name (a b))` (since `namespaces`) makes only the names it lists unqualified; the
 module's other names are reached as `m.name` ("b: the import of m doesn't list it: write
-m.b"), and `(import name ())` makes none unqualified. Each listed name must be one the
+m.b"), and `(import name ())` makes none unqualified. A name the import leaves
+unqualified-only (or that the module keeps private) gives way to a built-in of the same
+name (since `stdlib`): with `(import lib/tags ())`, `len` is still the list's, and
+`tags.len` the one `tags` defines (`import_list.cdy`). Each listed name must be one the
 module defines ("import: m doesn't define c"), listed once. The two forms are `import`'s
 shape, declared in `special.cdy` as `(special import (ModName (Opt (List Name))))`, a
 module path and, optionally, a list of names; a form that doesn't fit it is an error
