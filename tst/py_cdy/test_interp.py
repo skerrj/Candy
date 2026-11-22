@@ -5,9 +5,11 @@ import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import cast
+from typing import Any, cast
 
 import pytest
+
+from cdy_rt.primitives import CandyFail
 
 # Every kind of Core expression and top-level form: a record and a sum, `get` and `assoc`,
 # `match` with an `else`, a rest parameter, recursion, `let` (an applied `fn`), a `Tup`
@@ -72,3 +74,49 @@ def test_interpret_usage(t1_path: Path) -> None:
     )
     assert done.returncode == 2
     assert "--interpret FILE.cdy" in done.stderr
+
+
+def test_every_declared_builtin_is_interpreted(t1: ModuleType) -> None:
+    builtins = dict(t1.expand__library_builtins(None))
+    t1.interp_builtins__check_interp_builtins(builtins)
+    assert len(t1.interp_builtins__BUILTINS) == 71  # and 4 values: nil, empty-list, ...
+    declared: dict[str, Any] = {
+        **builtins,
+        "zz": t1.core__Typed(t1.core__TFn((), t1.core__ANY), "system"),
+    }
+    with pytest.raises(CandyFail, match="no built-in for zz"):
+        t1.interp_builtins__check_interp_builtins(declared)
+    del builtins["len"]
+    with pytest.raises(CandyFail, match="a built-in nothing declares: len"):
+        t1.interp_builtins__check_interp_builtins(builtins)
+
+
+# `show` and `text` of every kind of value, by the value (Question 3), against the Python
+# target's, by the type: the sizes of number, a float's exponent, a string's escapes and a
+# control character, a char, the collections, a record, a generic one, a fieldless
+# variant, `Maybe`.
+SHOWN = """\
+(import map ())
+(deft (Box a) ((v a)))
+(deft Sh (Dot) (Pt ((x Int) (y Int))))
+(sig none (Maybe Int))
+(def none None)
+(sig empty (List Int))
+(def empty empty-list)
+(put (show 1) (show -5) (show 1500l) (show 7b) (show 2.5f) (show 10.0) (show 1.0e20) (show true))
+(put (show \\a) (show "a \\"b\\"\\n\\t\\\\ \\u0001") (show nil) (show empty) (show none))
+(put (show (List 1 2)) (show (Tup 1 "a")) (show (map.from (List (Tup "k" 1)))) (show (Box 3)))
+(put (show Dot) (show (Pt 1 2)) (show (Some 4)) (show (Box (List "x"))))
+(put \\c "s" 3 1.5 (List "a") (Some \\d))
+"""
+
+
+def test_show_and_text_agree_with_the_python_target(
+    t1: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "shown.py"
+    out.write_text(cast(str, t1.translate_text(SHOWN)), encoding="utf-8")
+    done = subprocess.run([sys.executable, str(out)], capture_output=True, text=True, check=False)
+    assert done.returncode == 0, done.stderr
+    assert cast(int, t1.interpret_text(SHOWN, ())) == 0
+    assert capsys.readouterr().out == done.stdout

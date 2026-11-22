@@ -195,6 +195,24 @@ New translator code in the language `bin` already reads, no new built-in: no sta
    for the interpreter's own lines. No staging.
 2. **The built-ins:** every one, its table checked against the declarations both ways;
    `=`, ordering, `show`, `text`, bounds written from the spec.
+   *Done (2026-11-21). As built:* `interp_builtins.cdy`, its table `BUILTINS`: 71
+   functions, every one a declaration module declares but `translator`'s; with the four
+   values interp.cdy's `prim-value` gives (`nil`, `empty-list`, `map.empty`, `math.PI`),
+   the 75. `check-interp-builtins` checks it against the declared ones both ways, on
+   every run, as the spellings are. Written from the spec: `=` and `!=` (the host's
+   equality on `Value`s, so by structure and class), the comparisons (`compare`),
+   `show` and `text` by the value (the host's `show` only for a float's digits; a
+   string's escapes, a control character's `\u`, in Candy), the bounds of `at`, `slice`,
+   `string.at` and `string.slice`, with the spec's messages, and the loops of `map`,
+   `filter`, `fold`, `map-acc`, `any`, `all` and `find-index`. The rest unwrap and call
+   the host's built-in of the same name. The driver hands the table to `interpret`, so
+   neither module imports the other; a format hole is the table's `text`. `interpret-text`
+   runs Candy text, as `translate-text` translates it, for the tests. Tests:
+   `test_every_declared_builtin_is_interpreted` (both ways),
+   `test_show_and_text_agree_with_the_python_target`. Run in-process, the spec's 94 `run`
+   and `panic` examples agree but two, `expr.tail-calls`' and `list.sort`'s 500 items,
+   which recurse past the host's stack: step 3's. Checked against `boot/93`'s `bin`: the
+   same output for all 108 programs. No staging.
 3. **Tail calls and panics:** self tail calls as a loop; the panics' messages and exit
    status as a translated program's.
 4. **The spec on both:** `test_interpret` and `test_interpret_panic`; each difference

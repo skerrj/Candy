@@ -9,6 +9,7 @@
 (import core)
 (import map ())
 (import string ())
+(import math ())
 
 ;; --- values ---
 
@@ -48,9 +49,11 @@
 
 ;; Runs `tops`, the checked definitions of a program whose top module is `top`, in order,
 ;; then its `main`, if it has one, with `args`; gives the exit status: `main`'s result, or 0.
-(sig interpret (Fn ((List Top) String (List String)) Int))
-(defn interpret (tops top args)
-  (let ((cx (fold run-top (Ctx map.empty BUILTINS) tops)))
+;; `builtins` are the built-ins, by key (interp_builtins.cdy).
+(sig interpret
+  (Fn ((List Top) String (List String) (Map String (Fn ((Fn (Value (List Value)) Value) (List Value)) Value))) Int))
+(defn interpret (tops top args builtins)
+  (let ((cx (fold run-top (Ctx map.empty builtins) tops)))
     (if (has-main tops top)
       (match (apply cx (global cx top "main") (List (VList (map (fn (a) (VStr a)) args))))
         ((VInt n) n)
@@ -182,13 +185,14 @@
     (fail (format "internal error: interp: no built-in {key}"))))
 
 ;; A built-in that is a value, not a function: `nil`, `empty-list`, `map.empty`,
-;; `math.PI`; any other is a function, a VPrim.
+;; `math.PI` (interp_builtins.cdy's table holds the functions); any other is a VPrim.
 (sig prim-value (Fn (String) Value))
 (defn prim-value (name)
   (cond
     ((= name "nil") VUnit)
     ((= name "empty-list") (VList empty-list))
     ((= name "map.empty") (VMap map.empty))
+    ((= name "math.PI") (VDouble math.PI))
     (else (VPrim name))))
 
 (sig truth (Fn (Value) Bool))
@@ -216,7 +220,7 @@
 (defn part-text (cx env p)
   (match p
     ((FText s) s)
-    ((FHole x) (text-of (eval cx env x)))))
+    ((FHole x) (str-of (call-builtin cx "text" (List (eval cx env x)))))))
 
 ;; A record's or variant's field.
 (sig field-of (Fn (Value String) Value))
@@ -254,64 +258,6 @@
           (else (fail "internal error: interp: no clause matches")))))
     (else (fail "internal error: interp: a match on a value that isn't a variant"))))
 
-;; --- the built-ins (step 1: what `put` and the operators need; doc/hl_rqmt/interpreter.md) ---
-
-;; The numbers `args`, all of one type, folded left by its operation: `fi` on the integers'
-;; Ints, `fd` on the floats' Doubles.
-(sig fold-num (Fn ((Fn (Int Int) Int) (Fn (Double Double) Double) (List Value)) Value))
-(defn fold-num (fi fd args)
-  (fold
-    (fn (a b)
-      (match a
-        ((VInt x) (VInt (fi x (int-of b))))
-        ((VLong x) (VLong (fi x (long-of b))))
-        ((VByte x) (VByte (fi x (byte-of b))))
-        ((VFloat x) (VFloat (fd x (float-of b))))
-        ((VDouble x) (VDouble (fd x (double-of b))))
-        (else (fail "internal error: interp: arithmetic on a value that isn't a number"))))
-    (at args 0)
-    (drop 1 args)))
-
-;; Whether `ok` holds of each two neighbours of `args`: a comparison chains.
-(sig chain (Fn ((Fn (Value Value) Bool) (List Value)) Bool))
-(defn chain (ok args) (all (fn (i) (ok (at args i) (at args (+ i 1)))) (range 0 (- (len args) 1))))
-
-;; -1, 0 or 1, as `a` is less than, equal to or greater than `b`, both comparable and of
-;; one type.
-(sig compare (Fn (Value Value) Int))
-(defn compare (a b)
-  (match a
-    ((VInt x) (order x (int-of b)))
-    ((VLong x) (order x (long-of b)))
-    ((VByte x) (order x (byte-of b)))
-    ((VFloat x) (order x (float-of b)))
-    ((VDouble x) (order x (double-of b)))
-    ((VStr x) (order x (str-of b)))
-    ((VChar x) (order x (char-of b)))
-    (else (fail "internal error: interp: a comparison of values that aren't comparable"))))
-
-(sig order (Fn (comparable comparable) Int))
-(defn order (x y) (cond ((< x y) -1) ((> x y) 1) (else 0)))
-
-;; Two strings or two lists, appended.
-(sig append (Fn (Value Value) Value))
-(defn append (a b)
-  (match a
-    ((VStr x) (VStr (++ x (str-of b))))
-    ((VList x) (VList (++ x (list-of b))))
-    (else (fail "internal error: interp: ++ on a value that isn't a string or a list"))))
-
-;; A value's text, as `put` writes it (step 1: the literals only).
-(sig text-of (Fn (Value) String))
-(defn text-of (v)
-  (match v
-    ((VStr s) s)
-    ((VChar c) (text c))
-    ((VInt n) (text n))
-    ((VBool b) (if b "true" "false"))
-    ((VUnit) "nil")
-    (else (fail "internal error: interp: text of this value is step 2's"))))
-
 ;; --- a value's host datum ---
 
 (sig int-of (Fn (Value) Int))
@@ -335,31 +281,7 @@
     ((VList xs) xs)
     ((VTup xs) xs)
     (else (fail "internal error: interp: expected a List or a Tup"))))
+(sig map-of (Fn (Value) (Map Value Value)))
+(defn map-of (v) (match v ((VMap m) m) (else (fail "internal error: interp: expected a Map"))))
 (sig list-of (Fn (Value) (List Value)))
 (defn list-of (v) (match v ((VList xs) xs) (else (fail "internal error: interp: expected a List"))))
-
-;; The table of built-ins, last: a def may use only what is defined before it.
-(sig BUILTINS (Map String (Fn ((Fn (Value (List Value)) Value) (List Value)) Value)))
-(def BUILTINS
-  (map.from
-    (List
-      (Tup "put-line" (fn (_call args) (do (put-line (str-of (at args 0))) VUnit)))
-      (Tup "text" (fn (_call args) (VStr (text-of (at args 0)))))
-      (Tup "+" (fn (_call args) (fold-num (fn (a b) (+ a b)) (fn (a b) (+ a b)) args)))
-      (Tup "-" (fn (_call args) (fold-num (fn (a b) (- a b)) (fn (a b) (- a b)) args)))
-      (Tup "*" (fn (_call args) (fold-num (fn (a b) (* a b)) (fn (a b) (* a b)) args)))
-      (Tup "++" (fn (_call args) (fold append (at args 0) (drop 1 args))))
-      (Tup "=" (fn (_call args) (VBool (chain (fn (a b) (= a b)) args))))
-      (Tup "!=" (fn (_call args) (VBool (chain (fn (a b) (!= a b)) args))))
-      (Tup "<" (fn (_call args) (VBool (chain (fn (a b) (< (compare a b) 0)) args))))
-      (Tup ">" (fn (_call args) (VBool (chain (fn (a b) (> (compare a b) 0)) args))))
-      (Tup "<=" (fn (_call args) (VBool (chain (fn (a b) (<= (compare a b) 0)) args))))
-      (Tup ">=" (fn (_call args) (VBool (chain (fn (a b) (>= (compare a b) 0)) args))))
-      (Tup "not" (fn (_call args) (VBool (not (truth (at args 0))))))
-      ;; A Tup pattern reads its items with `at` (core.cdy, destructure), so `at` takes a
-      ;; tuple too, which a program can't give it.
-      (Tup "at" (fn (_call args) (at (items-of (at args 0)) (int-of (at args 1)))))
-      (Tup "len" (fn (_call args) (VInt (len (list-of (at args 0))))))
-      (Tup "fold" (fn (call args) (fold (fn (acc x) (call (at args 0) (List acc x))) (at args 1) (list-of (at args 2)))))
-      (Tup "and" (fn (_call args) (VBool (all (fn (a) (truth a)) args))))
-      (Tup "or" (fn (_call args) (VBool (any (fn (a) (truth a)) args)))))))

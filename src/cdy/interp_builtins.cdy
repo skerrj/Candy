@@ -1,0 +1,299 @@
+;;; interp_builtins: the interpreter's built-ins (doc/hl_rqmt/interpreter.md, "The
+;;; built-ins"), one for each that a declaration module declares but `translator`'s, a table
+;;; checked against them both ways (check-interp-builtins), as spelling.py is: the porting
+;;; surface, counted. Each takes the function that applies a value to arguments, for the
+;;; ones that call a function they are given, and its arguments, `Value`s (interp.cdy).
+;;; What the spec specifies beyond the host's word is written here from the spec: `=` and
+;;; the comparisons, `show` and `text`, the bounds of `at` and `slice`, the loops of the
+;;; ones that take a function. The rest is leaf work on host data, unwrapped and handed to
+;;; the host's built-in of the same name (Question 7), so it inherits the host where the
+;;; spec defers to it ([[B160]]).
+
+(import core (Builtin Typed CType TFn))
+(import interp)
+(import map ())
+(import string ())
+(import math ())
+
+;; --- the table ---
+
+;; The declared built-ins that `builtins` (library-builtins) holds and the table doesn't,
+;; and those the table holds that nothing declares: an internal error, either.
+(sig check-interp-builtins (Fn ((Map String Builtin)) Unit))
+(defn check-interp-builtins (builtins)
+  (let ((declared (filter (fn (key) (is-interpreted (map.at builtins key))) (map.keys builtins)))
+        (missing (filter (fn (key) (not (map.has BUILTINS key))) declared))
+        (extra (filter (fn (key) (not (contains key declared))) (map.keys BUILTINS)))
+        (none (string.join missing ", "))
+        (stray (string.join extra ", ")))
+    (cond
+      ((> (len missing) 0) (fail (format "internal error: interp: no built-in for {none}")))
+      ((> (len extra) 0) (fail (format "internal error: interp: a built-in nothing declares: {stray}"))))))
+
+;; Whether the interpreter must have the built-in `b`: a function or value a declaration
+;; module declares, but not `translator`'s, which only the translator needs; nor `nil`,
+;; `empty-list`, `map.empty` and `math.PI`, values interp.cdy's prim-value gives.
+(sig is-interpreted (Fn (Builtin) Bool))
+(defn is-interpreted (b)
+  (match b
+    ((Typed t m) (and (!= m "translator") (is-function t)))
+    (else false)))
+
+(sig is-function (Fn (CType) Bool))
+(defn is-function (t)
+  (match t
+    ((TFn _ _) true)
+    (else false)))
+
+;; --- numbers ---
+
+;; The numbers `args`, all of one type, folded left by its operation: `fi` on the integers'
+;; Ints, `fd` on the floats' Doubles.
+(sig fold-num (Fn ((Fn (Int Int) Int) (Fn (Double Double) Double) (List Value)) Value))
+(defn fold-num (fi fd args)
+  (fold
+    (fn (a b)
+      (match a
+        ((VInt x) (VInt (fi x (int-of b))))
+        ((VLong x) (VLong (fi x (long-of b))))
+        ((VByte x) (VByte (fi x (byte-of b))))
+        ((VFloat x) (VFloat (fd x (float-of b))))
+        ((VDouble x) (VDouble (fd x (double-of b))))
+        (else (fail "internal error: interp: arithmetic on a value that isn't a number"))))
+    (at args 0)
+    (drop 1 args)))
+
+;; `quot` and `mod` take integers only, `/` floats only (the checker's constraints).
+(sig no-int (Fn (Int Int) Int))
+(defn no-int (_a _b) (fail "internal error: interp: / on integers"))
+
+(sig no-float (Fn (Double Double) Double))
+(defn no-float (_a _b) (fail "internal error: interp: quot or mod on floats"))
+
+;; Whether `ok` holds of each two neighbours of `args`: a comparison chains.
+(sig chain (Fn ((Fn (Value Value) Bool) (List Value)) Bool))
+(defn chain (ok args) (all (fn (i) (ok (at args i) (at args (+ i 1)))) (range 0 (- (len args) 1))))
+
+;; -1, 0 or 1, as `a` is less than, equal to or greater than `b`, both comparable and of
+;; one type (checking.constraints: the numbers, String and Char).
+(sig compare (Fn (Value Value) Int))
+(defn compare (a b)
+  (match a
+    ((VInt x) (order x (int-of b)))
+    ((VLong x) (order x (long-of b)))
+    ((VByte x) (order x (byte-of b)))
+    ((VFloat x) (order x (float-of b)))
+    ((VDouble x) (order x (double-of b)))
+    ((VStr x) (order x (str-of b)))
+    ((VChar x) (order x (char-of b)))
+    (else (fail "internal error: interp: a comparison of values that aren't comparable"))))
+
+(sig order (Fn (comparable comparable) Int))
+(defn order (x y) (cond ((< x y) -1) ((> x y) 1) (else 0)))
+
+;; Two strings or two lists, appended.
+(sig append (Fn (Value Value) Value))
+(defn append (a b)
+  (match a
+    ((VStr x) (VStr (++ x (str-of b))))
+    ((VList x) (VList (++ x (list-of b))))
+    (else (fail "internal error: interp: ++ on a value that isn't a string or a list"))))
+
+;; --- show and text (spec/60-library.md, library.show; by the value, Question 3) ---
+
+;; `v` as an expression that evaluates to it: a literal as the literal, anything else as
+;; its constructor applied to its parts; the host's `show` only for a float's digits.
+(sig show-value (Fn (Value) String))
+(defn show-value (v)
+  (match v
+    ((VInt n) (text n))
+    ((VLong n) (++ (text n) "l"))
+    ((VByte n) (++ (text n) "b"))
+    ((VFloat x) (++ (show x) "f"))
+    ((VDouble x) (show x))
+    ((VBool b) (if b "true" "false"))
+    ((VChar c) (++ "\\" (text c)))
+    ((VStr s) (show-string s))
+    ((VUnit) "nil")
+    ((VList xs) (show-items "List" (map show-value xs)))
+    ((VTup xs) (show-items "Tup" (map show-value xs)))
+    ((VMap m)
+      (show-items "Map" (map (fn (k) (format "(Tup {(show-value k)} {(show-value (map.at m k))})")) (map.keys m))))
+    ((VRec _ name fields)
+      (if (= (len fields) 0) name (show-items name (map (fn (f) (let (((_n x) f)) (show-value x))) fields))))
+    (else (fail "show: a function can't be shown"))))
+
+;; A value as `put` writes it: a string or a char as its text, anything else as shown.
+(sig text-value (Fn (Value) String))
+(defn text-value (v)
+  (match v
+    ((VStr s) s)
+    ((VChar c) (text c))
+    (else (show-value v))))
+
+(sig show-items (Fn (String (List String)) String))
+(defn show-items (head items) (++ "(" (string.join (++ (List head) items) " ") ")"))
+
+;; A string literal: quoted, with Candy's escapes (syntax.strings), a control character as
+;; `\u` and four hex digits.
+(sig show-string (Fn (String) String))
+(defn show-string (s)
+  (++ "\"" (string.join (map (fn (i) (escape (string.at s i))) (range 0 (string.len s))) "") "\""))
+
+(sig escape (Fn (Char) String))
+(defn escape (c)
+  (let ((n (string.code (text c))))
+    (cond
+      ((= n 34) "\\\"")
+      ((= n 92) "\\\\")
+      ((= n 8) "\\b")
+      ((= n 12) "\\f")
+      ((= n 10) "\\n")
+      ((= n 13) "\\r")
+      ((= n 9) "\\t")
+      ((< n 32) (++ "\\u" (hex4 n)))
+      (else (text c)))))
+
+;; `n`, less than 65536, as four lowercase hex digits.
+(sig hex4 (Fn (Int) String))
+(defn hex4 (n)
+  (string.join
+    (map (fn (d) (string.slice "0123456789abcdef" d (+ d 1))) (List (quot n 4096) (mod (quot n 256) 16) (mod (quot n 16) 16) (mod n 16)))
+    ""))
+
+;; --- bounds (spec/60-library.md, library.bounds) ---
+
+;; The item of `xs` at `i`, which must be `0 <= i < (len xs)`; else a panic, named `who`.
+(sig at-in (Fn (String Int Int) Unit))
+(defn at-in (who i n)
+  (if (or (< i 0) (>= i n)) (fail (format "{who}: index out of range: {i}, for length {n}"))))
+
+;; `0 <= i <= j <= n`, or a panic, named `who`.
+(sig slice-in (Fn (String Int Int Int) Unit))
+(defn slice-in (who i j n)
+  (if (or (< i 0) (> i j) (> j n)) (fail (format "{who}: index out of range: {i} to {j}, for length {n}"))))
+
+(sig list-at (Fn (Value Value) Value))
+(defn list-at (l iv)
+  (let ((xs (items-of l)) (i (int-of iv)))
+    (do (at-in "at" i (len xs)) (at xs i))))
+
+(sig list-slice (Fn (Value Value Value) Value))
+(defn list-slice (l iv jv)
+  (let ((xs (list-of l)) (i (int-of iv)) (j (int-of jv)))
+    (do (slice-in "slice" i j (len xs)) (VList (slice xs i j)))))
+
+(sig string-at (Fn (Value Value) Value))
+(defn string-at (sv iv)
+  (let ((s (str-of sv)) (i (int-of iv)))
+    (do (at-in "string.at" i (string.len s)) (VChar (string.at s i)))))
+
+(sig string-slice (Fn (Value Value Value) Value))
+(defn string-slice (sv iv jv)
+  (let ((s (str-of sv)) (i (int-of iv)) (j (int-of jv)))
+    (do (slice-in "string.slice" i j (string.len s)) (VStr (string.slice s i j)))))
+
+;; --- functions given as arguments ---
+
+;; `call`'s result for `f` of `x`, a Bool.
+(sig test (Fn ((Fn (Value (List Value)) Value) Value Value) Bool))
+(defn test (call f x) (truth (call f (List x))))
+
+;; A two-item tuple's items.
+(sig pair-of (Fn (Value) (Tup Value Value)))
+(defn pair-of (v)
+  (let ((items (items-of v)))
+    (if (= (len items) 2) (Tup (at items 0) (at items 1)) (fail "internal error: interp: expected a pair"))))
+
+(sig strs (Fn ((List String)) Value))
+(defn strs (xs) (VList (map (fn (s) (VStr s)) xs)))
+
+;; The table, last: a def may use only what is defined before it.
+(sig BUILTINS (Map String (Fn ((Fn (Value (List Value)) Value) (List Value)) Value)))
+(def BUILTINS
+  (map.from
+    (List
+      ;; the operators
+      (Tup "+" (fn (_c a) (fold-num (fn (x y) (+ x y)) (fn (x y) (+ x y)) a)))
+      (Tup "-" (fn (_c a) (fold-num (fn (x y) (- x y)) (fn (x y) (- x y)) a)))
+      (Tup "*" (fn (_c a) (fold-num (fn (x y) (* x y)) (fn (x y) (* x y)) a)))
+      (Tup "/" (fn (_c a) (fold-num no-int (fn (x y) (/ x y)) a)))
+      (Tup "quot" (fn (_c a) (fold-num (fn (x y) (quot x y)) no-float a)))
+      (Tup "mod" (fn (_c a) (fold-num (fn (x y) (mod x y)) no-float a)))
+      (Tup "++" (fn (_c a) (fold append (at a 0) (drop 1 a))))
+      (Tup "=" (fn (_c a) (VBool (chain (fn (x y) (= x y)) a))))
+      (Tup "!=" (fn (_c a) (VBool (chain (fn (x y) (!= x y)) a))))
+      (Tup "<" (fn (_c a) (VBool (chain (fn (x y) (< (compare x y) 0)) a))))
+      (Tup ">" (fn (_c a) (VBool (chain (fn (x y) (> (compare x y) 0)) a))))
+      (Tup "<=" (fn (_c a) (VBool (chain (fn (x y) (<= (compare x y) 0)) a))))
+      (Tup ">=" (fn (_c a) (VBool (chain (fn (x y) (>= (compare x y) 0)) a))))
+      (Tup "and" (fn (_c a) (VBool (all truth a))))
+      (Tup "or" (fn (_c a) (VBool (any truth a))))
+      (Tup "not" (fn (_c a) (VBool (not (truth (at a 0))))))
+      ;; output
+      (Tup "put-line" (fn (_c a) (do (put-line (str-of (at a 0))) VUnit)))
+      (Tup "put-err" (fn (_c a) (do (put-err (str-of (at a 0))) VUnit)))
+      (Tup "text" (fn (_c a) (VStr (text-value (at a 0)))))
+      (Tup "show" (fn (_c a) (VStr (show-value (at a 0)))))
+      ;; files
+      (Tup "slurp" (fn (_c a) (VStr (slurp (str-of (at a 0))))))
+      (Tup "spit" (fn (_c a) (do (spit (str-of (at a 0)) (str-of (at a 1))) VUnit)))
+      (Tup "file-exists" (fn (_c a) (VBool (file-exists (str-of (at a 0))))))
+      (Tup "make-dirs" (fn (_c a) (do (make-dirs (str-of (at a 0))) VUnit)))
+      (Tup "path-stem" (fn (_c a) (VStr (path-stem (str-of (at a 0))))))
+      (Tup "path-dir" (fn (_c a) (VStr (path-dir (str-of (at a 0))))))
+      (Tup "path-join" (fn (_c a) (VStr (path-join (str-of (at a 0)) (str-of (at a 1))))))
+      (Tup "path-resolve" (fn (_c a) (VStr (path-resolve (str-of (at a 0))))))
+      ;; lists (`at` takes a tuple too: a Tup pattern's reads, core.cdy's destructure)
+      (Tup "len" (fn (_c a) (VInt (len (list-of (at a 0))))))
+      (Tup "at" (fn (_c a) (list-at (at a 0) (at a 1))))
+      (Tup "slice" (fn (_c a) (list-slice (at a 0) (at a 1) (at a 2))))
+      (Tup "map" (fn (c a) (VList (map (fn (x) (c (at a 0) (List x))) (list-of (at a 1))))))
+      (Tup "filter" (fn (c a) (VList (filter (fn (x) (test c (at a 0) x)) (list-of (at a 1))))))
+      (Tup "fold" (fn (c a) (fold (fn (acc x) (c (at a 0) (List acc x))) (at a 1) (list-of (at a 2)))))
+      (Tup "map-acc"
+        (fn (c a)
+          (let (((s ys) (map-acc (fn (s x) (pair-of (c (at a 0) (List s x)))) (at a 1) (list-of (at a 2)))))
+            (VTup (List s (VList ys))))))
+      (Tup "any" (fn (c a) (VBool (any (fn (x) (test c (at a 0) x)) (list-of (at a 1))))))
+      (Tup "all" (fn (c a) (VBool (all (fn (x) (test c (at a 0) x)) (list-of (at a 1))))))
+      (Tup "find-index" (fn (c a) (VInt (find-index (fn (x) (test c (at a 0) x)) (list-of (at a 1))))))
+      (Tup "reverse" (fn (_c a) (VList (reverse (list-of (at a 0))))))
+      (Tup "range" (fn (_c a) (VList (map (fn (n) (VInt n)) (range (int-of (at a 0)) (int-of (at a 1)))))))
+      (Tup "take" (fn (_c a) (VList (take (int-of (at a 0)) (list-of (at a 1))))))
+      (Tup "drop" (fn (_c a) (VList (drop (int-of (at a 0)) (list-of (at a 1))))))
+      (Tup "concat" (fn (_c a) (VList (concat (map list-of (list-of (at a 0)))))))
+      (Tup "zip"
+        (fn (_c a) (VList (map (fn (p) (let (((x y) p)) (VTup (List x y)))) (zip (list-of (at a 0)) (list-of (at a 1)))))))
+      (Tup "contains" (fn (_c a) (VBool (any (fn (y) (= (at a 0) y)) (list-of (at a 1))))))
+      ;; the program
+      (Tup "fail" (fn (_c a) (fail (str-of (at a 0)))))
+      ;; math
+      (Tup "math.sin" (fn (_c a) (VDouble (math.sin (double-of (at a 0))))))
+      (Tup "math.cos" (fn (_c a) (VDouble (math.cos (double-of (at a 0))))))
+      (Tup "math.tan" (fn (_c a) (VDouble (math.tan (double-of (at a 0))))))
+      ;; strings
+      (Tup "string.len" (fn (_c a) (VInt (string.len (str-of (at a 0))))))
+      (Tup "string.at" (fn (_c a) (string-at (at a 0) (at a 1))))
+      (Tup "string.slice" (fn (_c a) (string-slice (at a 0) (at a 1) (at a 2))))
+      (Tup "string.contains" (fn (_c a) (VBool (string.contains (str-of (at a 0)) (str-of (at a 1))))))
+      (Tup "string.starts-with" (fn (_c a) (VBool (string.starts-with (str-of (at a 0)) (str-of (at a 1))))))
+      (Tup "string.ends-with" (fn (_c a) (VBool (string.ends-with (str-of (at a 0)) (str-of (at a 1))))))
+      (Tup "string.split" (fn (_c a) (strs (string.split (str-of (at a 0)) (str-of (at a 1))))))
+      (Tup "string.join" (fn (_c a) (VStr (string.join (map str-of (list-of (at a 0))) (str-of (at a 1))))))
+      (Tup "string.repeat" (fn (_c a) (VStr (string.repeat (str-of (at a 0)) (int-of (at a 1))))))
+      (Tup "string.replace"
+        (fn (_c a) (VStr (string.replace (str-of (at a 0)) (str-of (at a 1)) (str-of (at a 2))))))
+      (Tup "string.to-int" (fn (_c a) (VInt (string.to-int (str-of (at a 0))))))
+      (Tup "string.to-float" (fn (_c a) (VDouble (string.to-float (str-of (at a 0))))))
+      (Tup "string.is-decimal" (fn (_c a) (VBool (string.is-decimal (str-of (at a 0))))))
+      (Tup "string.code" (fn (_c a) (VInt (string.code (str-of (at a 0))))))
+      (Tup "string.hex-char" (fn (_c a) (VStr (string.hex-char (str-of (at a 0))))))
+      (Tup "string.is-space" (fn (_c a) (VBool (string.is-space (str-of (at a 0))))))
+      ;; maps
+      (Tup "map.at" (fn (_c a) (map.at (map-of (at a 0)) (at a 1))))
+      (Tup "map.has" (fn (_c a) (VBool (map.has (map-of (at a 0)) (at a 1)))))
+      (Tup "map.set" (fn (_c a) (VMap (map.set (map-of (at a 0)) (at a 1) (at a 2)))))
+      (Tup "map.keys" (fn (_c a) (VList (map.keys (map-of (at a 0))))))
+      (Tup "map.from" (fn (_c a) (VMap (map.from (map pair-of (list-of (at a 0)))))))
+      (Tup "map.size" (fn (_c a) (VInt (map.size (map-of (at a 0)))))))))

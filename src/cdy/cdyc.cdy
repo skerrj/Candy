@@ -15,6 +15,7 @@
 (import emit)
 (import check)
 (import interp)
+(import interp_builtins)
 (import translator)
 (import map ())
 
@@ -149,13 +150,25 @@
 ;; `main`, after the front end has read, expanded, analysed and checked it as for a
 ;; translation; gives the exit status (doc/hl_rqmt/interpreter.md).
 (sig interpret-file (Fn (String (List String)) Int))
-(defn interpret-file (path args)
-  (let ((modules (read-modules path))
-        (builtins (library-builtins nil)))
-    (interpret
-      (type-check (program-tops modules read-hole builtins) builtins)
-      (get (at modules (- (len modules) 1)) stem)
-      args)))
+(defn interpret-file (path args) (interpret-modules (read-modules path) args))
+
+;; Candy text run on the interpreter, as translate-text translates it; its imports are
+;; found in the current directory.
+(sig interpret-text (Fn (String (List String)) Int))
+(defn interpret-text (text args) (interpret-modules (text-modules text) args))
+
+;; The program `modules`, the top module last, run on the interpreter with `args`; first
+;; the interpreter's built-ins checked against the declared ones (interp_builtins.cdy).
+(sig interpret-modules (Fn ((List Module) (List String)) Int))
+(defn interpret-modules (modules args)
+  (let ((builtins (library-builtins nil)))
+    (do
+      (check-interp-builtins builtins)
+      (interpret
+        (type-check (program-tops modules read-hole builtins) builtins)
+        (get (at modules (- (len modules) 1)) stem)
+        args
+        BUILTINS))))
 
 ;; --- the driver ---
 

@@ -80,7 +80,7 @@ By kind, then priority.
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
 | [B218](B218-interpreter-step-1.md) | interpreter step 1: Values and the evaluator | task | review | normal |
-| [B219](B219-interpreter-step-2.md) | interpreter step 2: The built-ins | task | open | normal |
+| [B219](B219-interpreter-step-2.md) | interpreter step 2: The built-ins | task | review | normal |
 | [B220](B220-interpreter-step-3.md) | interpreter step 3: Tail calls and panics | task | open | normal |
 | [B221](B221-interpreter-step-4.md) | interpreter step 4: The spec on both | task | open | normal |
 | [B222](B222-interpreter-step-5.md) | interpreter step 5: The test programs on both | task | open | normal |
