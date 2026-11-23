@@ -215,6 +215,21 @@ New translator code in the language `bin` already reads, no new built-in: no sta
    same output for all 108 programs. No staging.
 3. **Tail calls and panics:** self tail calls as a loop; the panics' messages and exit
    status as a translated program's.
+   *Done (2026-11-22). As built:* a trampoline: `eval-tail` evaluates a function's body
+   in tail position (an `if`'s branches, a `do`'s last form, a `let`'s body, a clause's
+   body; `choose-clause` shared with `eval-match`), giving its value (`Done`) or the
+   call it ends in, still to make (`Again`), and `apply` goes round again on that, a
+   self tail call that `lower` makes a Python loop. So every tail call runs as a loop,
+   mutual ones too, more than [[expr.tail-calls]] promises. Other recursion goes 138
+   calls deep (about seven Python frames a call), against about 1000 on the Python
+   target; the rule now says the depth is an implementation's (Question 4), and
+   [[B37]] has a note. Past it, both stop with Python's traceback ([[B160]]). The panics
+   needed nothing new: `fail` and the interpreter's own bounds raise the host's panic,
+   which the translator's `main` writes as `candy: msg`, exiting with 1. Tests:
+   `test_interpret_tail_calls` (a self, a mutual and a `match` clause's tail call),
+   `test_interpret_panics` (`fail`, an index out of range, by the flag). In-process,
+   all 94 of the spec's `run` and `panic` examples agree. Checked against `boot/94`'s
+   `bin`: the same output for all 108 programs. No staging.
 4. **The spec on both:** `test_interpret` and `test_interpret_panic`; each difference
    fixed, or filed and marked.
 5. **The test programs on both:** all 16 (Question 1).

@@ -153,11 +153,24 @@
     ((truth (eval cx env (at args i))) true)
     (else (any-true cx env args (+ i 1)))))
 
-;; `f` applied to `args`.
+;; A function's body evaluated in tail position: its value, or the call it ends in, still to
+;; make (spec/40-expressions.md, expr.tail-calls).
+(deft Tail
+  (Done ((v Value)))
+  (Again ((f Value) (args (List Value)))))
+
+;; `f` applied to `args`. A body that ends in a call goes round again here, in place of a
+;; call deeper in the host's stack: `apply` calling itself in tail position, which lower
+;; makes a loop. So a defn that calls itself in tail position runs as a loop, as the spec
+;; says, and so does any other tail call. (No fn here: lower keeps a loop only in a defn
+;; that makes no closure.)
 (sig apply (Fn (Ctx Value (List Value)) Value))
 (defn apply (cx f args)
   (match f
-    ((VFn params body env _ rest) (eval cx (bind-params env params args rest) body))
+    ((VFn params body env _ rest)
+      (match (eval-tail cx (bind-params env params args rest) body)
+        ((Done v) v)
+        ((Again g more) (apply cx g more))))
     ((VCtor module name fields) (VRec module name (zip fields args)))
     ((VPrim key) (call-builtin cx key args))
     (else (fail "internal error: interp: a call of a value that isn't a function"))))
@@ -241,22 +254,50 @@
       (VRec module name (map (fn (f) (let (((n _v) f)) (if (= n field) (Tup n x) f))) fields)))
     (else (fail (format "internal error: interp: assoc {field} on a value that isn't a record")))))
 
-;; The clause of `clauses` whose variant `v` is, its fields bound; else `default`'s.
+;; The value of the clause of `clauses` whose variant `v` is; else of `default`'s.
 (sig eval-match (Fn (Ctx (Map Int Value) Value (List Clause) (List Expr)) Value))
 (defn eval-match (cx env v clauses default)
+  (let (((inner body) (choose-clause env v clauses default))) (eval cx inner body)))
+
+;; The body of the clause of `clauses` whose variant `v` is, with `env` and its fields
+;; bound; else `default`'s, with `env`.
+(sig choose-clause (Fn ((Map Int Value) Value (List Clause) (List Expr)) (Tup (Map Int Value) Expr)))
+(defn choose-clause (env v clauses default)
   (match v
     ((VRec module name _)
       (let ((i (find-index (fn (c) (and (= (get c module) module) (= (get c variant) name))) clauses)))
         (cond
           ((>= i 0)
             (let ((c (at clauses i)))
-              (eval
-                cx
+              (Tup
                 (fold (fn (m b) (let (((field loc) b)) (map.set m (local-id loc) (field-of v field)))) env (get c binds))
                 (get c body))))
-          ((= (len default) 1) (eval cx env (at default 0)))
+          ((= (len default) 1) (Tup env (at default 0)))
           (else (fail "internal error: interp: no clause matches")))))
     (else (fail "internal error: interp: a match on a value that isn't a variant"))))
+
+;; `e` evaluated in tail position: a call there is left to `apply`'s loop, not made; an
+;; `if`'s branch, a `do`'s last form, an applied `fn`'s body (a let) and a clause's body
+;; are in tail position too. Anything else is evaluated.
+(sig eval-tail (Fn (Ctx (Map Int Value) Expr) Tail))
+(defn eval-tail (cx env e)
+  (match e
+    ((Call callee args _ _)
+      (if (or (is-prim callee "and") (is-prim callee "or"))
+        (Done (eval cx env e))
+        (let ((vals (map (fn (a) (eval cx env a)) args)))
+          (match callee
+            ((Lambda params body _ _) (eval-tail cx (bind-params env params vals false) body))
+            (else (Again (eval cx env callee) vals))))))
+    ((If test then other _ _) (if (truth (eval cx env test)) (eval-tail cx env then) (eval-tail cx env other)))
+    ((Do body _ _)
+      (let ((last (- (len body) 1)))
+        (do
+          (map (fn (x) (eval cx env x)) (take last body))
+          (eval-tail cx env (at body last)))))
+    ((MatchE subject clauses default _ _)
+      (let (((inner body) (choose-clause env (eval cx env subject) clauses default))) (eval-tail cx inner body)))
+    (else (Done (eval cx env e)))))
 
 ;; --- a value's host datum ---
 

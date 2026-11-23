@@ -120,3 +120,44 @@ def test_show_and_text_agree_with_the_python_target(
     assert done.returncode == 0, done.stderr
     assert cast(int, t1.interpret_text(SHOWN, ())) == 0
     assert capsys.readouterr().out == done.stdout
+
+
+# A self tail call, a mutual one and one in a `match` clause run as loops (expr.tail-calls).
+TAIL_CALLS = """\
+(sig count (Fn (Int Int) Int))
+(defn count (n acc) (if (= n 0) acc (count (- n 1) (+ acc 1))))
+(sig even (Fn (Int) Bool))
+(defn even (n) (if (= n 0) true (odd (- n 1))))
+(sig odd (Fn (Int) Bool))
+(defn odd (n) (if (= n 0) false (even (- n 1))))
+(sig down (Fn ((Maybe Int)) Int))
+(defn down (m) (match m ((Some n) (if (= n 0) 0 (down (Some (- n 1))))) ((None) -1)))
+(put (count 100000 0) (even 100001) (down (Some 50000)))
+"""
+
+
+def test_interpret_tail_calls(t1: ModuleType, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cast(int, t1.interpret_text(TAIL_CALLS, ())) == 0
+    assert capsys.readouterr().out == "100000 false 0\n"
+
+
+# A panic: `fail`'s message, `candy: ` first, exit status 1 and no traceback, as a
+# translated program's (library.errors); an index out of range is the spec's message.
+PANICS = {
+    '(put 1)\n(fail "stop here")\n': "candy: stop here\n",
+    "(put (at (List 1 2) 5))\n": "candy: at: index out of range: 5, for length 2\n",
+}
+
+
+@pytest.mark.parametrize("source", PANICS)
+def test_interpret_panics(source: str, t1_path: Path, tmp_path: Path) -> None:
+    path = tmp_path / "p.cdy"
+    path.write_text(source, encoding="utf-8")
+    done = subprocess.run(
+        [sys.executable, str(t1_path), "--interpret", str(path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 1
+    assert done.stderr == PANICS[source]

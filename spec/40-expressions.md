@@ -369,8 +369,10 @@ arguments before the rest: `sum` below is an `(Fn (Int) Int)`.
 <a id="expr.tail-calls"></a>
 A `defn` that calls itself in tail position runs as a loop, so it can recur any number of
 times, unless it has a rest parameter. Other recursion (not in tail position, mutual, in
-a `defn` that makes a `fn`, or with a rest parameter) uses the host's stack, about 1000
-calls deep (*for now*: [[B37]]).
+a `defn` that makes a `fn`, or with a rest parameter) may use the host's stack, and how
+deep it can go is an implementation's (since `interpreter`; *for now*: [[B37]]): about
+1000 calls on the Python target, about 130 on the interpreter, which spends a few of the
+host's frames on a call but runs every tail call as a loop.
 
 ```candy run
 (sig count (Fn (Int Int) Int))
