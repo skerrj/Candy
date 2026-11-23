@@ -395,7 +395,9 @@ brackets:
    the translator, later ([[B217]]).
 7. **`host-macros`:** macros run on the interpreter; macro code gets the prelude
    ([[B52]]); their results checked ([[B42]]); macro files as modules ([[B45]]);
-   hygiene ([[B46]]); the macro leaks that remain ([[B43]], [[B44]]). (M)
+   hygiene ([[B46]]); the macro leaks that remain ([[B43]], [[B44]]). (M) *Planned
+   (`host_macros.md`, accepted 2026-11-22):* [[B46]] for built-ins only; [[B43]] and
+   [[B44]] left out, [[B44]]'s fix filed as [[B224]].
 8. **`test-runner`:** the spec's runner in Candy, on the interpreter, called from
    `test_spec.py`; the spec runs on both implementations through it. (X)
 9. **`porting-surface`:** the per-target files (`system`, spelling, runtime, spec
@@ -625,7 +627,7 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B45]] macro files use inclusion | M | `host-macros` |
 | [[B46]] templates not hygienic across modules | M | `host-macros` |
 | [[B43]] `gensym` is impure | M | `host-macros` |
-| [[B44]] a macro can't expand into `import` | M | `host-macros` |
+| [[B44]] a macro can't expand into `import` | M | `host-macros` (left out: [[B224]], later) |
 | [[B61]] `expand.cdy` knows special forms' shapes | M | `host-macros` |
 | [[B63]] a macro file compiled per importer | M | `host-macros` |
 | [[B29]] records are `NamedTuple`s | P | stays (the `tup` part: `collections`) |

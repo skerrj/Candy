@@ -12,8 +12,12 @@ The pipeline is read → include → expand → analyse: imports are resolved, a
 collected, before any macro runs. So a macro that returns `(import util)` reaches
 `analyse`, which says "import is only allowed at top level", and the same goes for a
 generated `defmacro`. Fix: expand top-level forms before `include`, one at a time (as
-Racket and Clojure do); until then, a better error. From `doc/archive/leaks_modules.md`.
+Racket and Clojure do; [[B224]]); until then, a better error. From
+`doc/archive/leaks_modules.md`.
 
 ## Notes
 
 - 2026-10-26, the owner: `low` in triage ([[B103]]): an easy workaround, or rare.
+- 2026-11-22, the owner: left out of `host-macros`, though the epic gave it that branch
+  (`doc/hl_rqmt/host_macros.md`, Question 1); the fix, include and expand as one loop,
+  filed as [[B224]].
