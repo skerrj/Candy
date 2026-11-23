@@ -232,6 +232,16 @@ New translator code in the language `bin` already reads, no new built-in: no sta
    `bin`: the same output for all 108 programs. No staging.
 4. **The spec on both:** `test_interpret` and `test_interpret_panic`; each difference
    fixed, or filed and marked.
+   *Done (2026-11-22). As built:* `test_spec.py`'s `test_interpret` and
+   `test_interpret_panic`, one test per `candy run` and `candy panic` example, through
+   T1's `interpret-text` in pytest's process (its output captured, a panic caught and
+   written `candy: msg`), with the same marks as the translated runs: all 94 pass, in
+   about 4 s, with no difference to fix or file; steps 2 and 3 had found the two there
+   were. The backlog's repros are all `candy error`, the front end's, so none runs on
+   the interpreter; one for a Python-target defect would pass there and fail as a strict
+   expected failure, a difference to decide (`test_spec.py`'s docstring).
+   `spec/README.md` says every `run` and `panic` example runs on both. No translator
+   change, so no `boot/NN`.
 5. **The test programs on both:** all 16 (Question 1).
 6. **Docs:** CLAUDE.md ("How the translator works"), `spec/README.md`, the epic's sixth
    branch *done*, `multi_target.md` (the porting surface counted); "Looking back".

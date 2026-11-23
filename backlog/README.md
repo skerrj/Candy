@@ -82,7 +82,7 @@ By kind, then priority.
 | [B218](B218-interpreter-step-1.md) | interpreter step 1: Values and the evaluator | task | review | normal |
 | [B219](B219-interpreter-step-2.md) | interpreter step 2: The built-ins | task | review | normal |
 | [B220](B220-interpreter-step-3.md) | interpreter step 3: Tail calls and panics | task | review | normal |
-| [B221](B221-interpreter-step-4.md) | interpreter step 4: The spec on both | task | open | normal |
+| [B221](B221-interpreter-step-4.md) | interpreter step 4: The spec on both | task | review | normal |
 | [B222](B222-interpreter-step-5.md) | interpreter step 5: The test programs on both | task | open | normal |
 | [B223](B223-interpreter-step-6.md) | interpreter step 6: Docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
