@@ -4,8 +4,10 @@ T1, the Candy translator built by the checked-in one (``bin``), is built once pe
 session. Each test program (``tst/cdy/t1/NAME.cdy``, ``tst/cdy/NAME.cdy``,
 ``tst/cdy/cdyc/NAME.cdy`` and, the library modules' tests, ``tst/cdy/stdlib/NAME_test.cdy``)
 is translated by T1; the result must run, exit with 0 and print ``NAME.out``,
-and pass ``mypy --strict``. T1 itself must pass ``mypy --strict`` too: that type-checks the
-Candy translator's own code.
+and pass ``mypy --strict``. Each also runs on T1's interpreter, in this process
+(``interp.cdy``; ``doc/hl_rqmt/interpreter.md``), with the same exit status and output.
+T1 itself must pass ``mypy --strict`` too: that type-checks the Candy translator's own
+code.
 
 T1 reads with its own reader (``src/cdy/read.cdy``). The edge cases it accepts and rejects
 are those the Python translator's parser did, when it was here (``doc/hl_rqmt/bootstrap.md``).
@@ -92,6 +94,18 @@ def test_output(program: Path, t1: ModuleType, tmp_path: Path) -> None:
     done = run(translate_file_with(t1, program), tmp_path, "t1")
     assert done.returncode == 0, done.stderr
     assert done.stdout == expected
+
+
+@pytest.mark.parametrize("program", PROGRAMS, ids=IDS)
+def test_interpret_output(
+    program: Path,
+    t1: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.chdir(ROOT)
+    assert candy(t1, "interpret-file")(str(program), ()) == 0
+    assert capsys.readouterr().out == program.with_suffix(".out").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("program", PROGRAMS, ids=IDS)

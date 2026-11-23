@@ -243,6 +243,14 @@ New translator code in the language `bin` already reads, no new built-in: no sta
    `spec/README.md` says every `run` and `panic` example runs on both. No translator
    change, so no `boot/NN`.
 5. **The test programs on both:** all 16 (Question 1).
+   *Done (2026-11-22). As built:* `test_self_host.py`'s `test_interpret_output`, beside
+   `test_output`: each test program run on T1's interpreter in pytest's process, from
+   the repository's root as the translated ones are, must exit with 0 and print its
+   `.out`. All 16 pass as they were, with no difference to fix: modules, qualified and
+   private names, an import's list, macro files (expanded before the interpreter sees
+   the program), `main`, a library module and the `test` module. None comes near the
+   interpreter's depth (step 3); `loops.cdy` is the slowest, at about 2 s. No translator
+   change, so no `boot/NN`.
 6. **Docs:** CLAUDE.md ("How the translator works"), `spec/README.md`, the epic's sixth
    branch *done*, `multi_target.md` (the porting surface counted); "Looking back".
 
