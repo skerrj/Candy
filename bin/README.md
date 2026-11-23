@@ -8,7 +8,9 @@ targets get their own, see `doc/hl_rqmt/multi_target.md`).
   Run it: `python bin/py/cdy_translator.py FILE.cdy [OUT.py]` translates `FILE.cdy` (and
   its imports) into `OUT.py`, by default `output/FILE.py`; errors print `candy: ...` and
   exit with 1 (usage: 2). `python src/py_cdy/main.py FILE.cdy [--run]` does the same
-  through `main.py`, which can also run the result. It needs only the
+  through `main.py`, which can also run the result. With `--interpret FILE.cdy [ARG
+  ...]` (or `main.py FILE.cdy --interpret`) it runs `FILE.cdy` on its interpreter
+  instead. It needs only the
   runtime `cdy_rt` (it has its own reader), and it rebuilds itself (both tested).
 - `py/form.cdy`, `py/prelude_macros.cdy`, `py/special.cdy`, `py/system.cdy`,
   `py/translator.cdy` and `py/prelude.cdy`: copies of the files in `src/cdy/`, which the

@@ -128,6 +128,14 @@ built-ins (`string.trim`). A target's spelling table so says which modules it pr
 
 The open questions below are still open: there is one `system.cdy`, for Python.
 
+*Counted on branch `interpreter`* (`doc/hl_rqmt/interpreter.md`): the interpreter is a
+second implementation of the built-ins, a table checked against the declarations both
+ways, so the porting surface's built-ins are counted: 75 a program can use (71 functions,
+4 values), `translator`'s 5 apart. Writing it showed what a second one must supply beyond
+each built-in's leaf work: equality by structure and class, `show` and `text` from the
+value, the bounds' panics with the spec's messages, and the loops of the built-ins that
+take a function; and that a target's recursion depth is its own ([[expr.tail-calls]]).
+
 ### Open: abstracting `system.cdy` while allowing specifics
 
 `system.cdy` has to do two things that pull against each other:

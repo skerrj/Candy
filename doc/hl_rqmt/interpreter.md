@@ -1,7 +1,8 @@
 # The interpreter (HLD)
 
 **Status: accepted (2026-11-21), with the answers to its questions, as proposed (tasks
-[[B218]] to [[B223]]); for branch `interpreter`. Epic: `python_complete.md` (its sixth
+[[B218]] to [[B223]]); for branch `interpreter`; steps 1 to 6 built (2026-11-22), to
+review. Epic: `python_complete.md` (its sixth
 branch). After tag `stdlib`.** A tree-walking
 interpreter over typed Core, written in Candy, with values of its own: the second
 implementation, so the spec's examples run on two and their output is compared
@@ -253,6 +254,13 @@ New translator code in the language `bin` already reads, no new built-in: no sta
    change, so no `boot/NN`.
 6. **Docs:** CLAUDE.md ("How the translator works"), `spec/README.md`, the epic's sixth
    branch *done*, `multi_target.md` (the porting surface counted); "Looking back".
+   *Done (2026-11-22). As built:* CLAUDE.md's list of the code (`interp.cdy`,
+   `interp_builtins.cdy`), `main.py`'s flag, the history (the branch), "The interpreter"
+   in "How the translator works", and "Running"; README's and `bin/README.md`'s usage;
+   `python_complete.md`'s sixth branch *done* and its triage's [[B101]] row, with a note
+   on [[B101]] (its conformance point done, REPL-style examples left); a *counted* note
+   in `multi_target.md` (the porting surface: 75 built-ins, and what a second
+   implementation supplies beyond their leaf work). `spec/README.md` came with step 4.
 
 ## After the MVP
 
@@ -267,6 +275,35 @@ New translator code in the language `bin` already reads, no new built-in: no sta
   translator's modules kept small enough to load on their own, which `namespaces` began.
   `host-macros` gets some of it anyway: macro code runs on the interpreter, with
   `form.cdy`'s functions.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **A small, typed Core makes a second implementation cheap.** `let`, tuple patterns and
+  a `Tup` match are all applied `fn`s, `cond` a macro, and every node has its type, so
+  the evaluator is 15 cases and the whole interpreter about 630 lines of Candy. The
+  front end shared, the interpreter is only what a program means at run time.
+- **Run the spec early.** Running every example in-process during step 2, before the
+  tests that would, found the only two differences (both depth, step 3's); steps 4 and
+  5 were wiring, with nothing to fix. The spec said enough to implement twice: no rule
+  needed a sentence, but [[expr.tail-calls]] needed a number in place of "the host's".
+- **Take a representation from what is already there.** The `Value` sum as first
+  written held a `Long` as a `Long`, but a literal form holds an `Int`, and Candy has no
+  conversion: the checker said so at once. Each number keeps its own variant, so `show`
+  by the value still knows `1l` from `1`.
+- **Read Core before writing against it.** A fieldless variant is a call with no
+  arguments in Core (`Dot()` in Python), and a `Tup` pattern reads with the built-in
+  `at`, which so takes a tuple: both cost a debugging round, both were in `core.cdy`.
+- **A second implementation inherits what it hands to the host.** Leaf work handed to
+  the host's built-ins means the two agree on Python's word where the spec defers to it
+  ([[B160]]), by construction, not by test; what the interpreter writes itself (`=`,
+  `show`, bounds) is where the comparison means something.
+- **Depth is a cost of the host's stack, multiplied.** About seven Python frames a
+  Candy call took the interpreter's depth to 138; a trampoline made every tail call a
+  loop for one `deft` and a rewritten `apply`. Measure it, and say the number.
+- **mypy narrows a variant start** ([[B184]]'s mechanism, now seen twice): Python
+  backend leaks surface again when the translator itself is the program being typed.
 
 ## Questions
 
