@@ -385,7 +385,14 @@ brackets:
    (`map-update` is `map.update`).
 6. **`interpreter`:** the interpreter over typed Core, written once against the
    language as the branches before it leave it; the spec runs on both, and a
-   difference is a gap in the spec or a bug in one of them. (S, checked)
+   difference is a gap in the spec or a bug in one of them. (S, checked) *Done (tag
+   `interpreter`, 2026-11-22; `interpreter.md`):* a tree-walker in Candy, a module of
+   the translator run by its `--interpret` flag, with values of its own and a table of
+   built-ins checked against the declarations (71 functions and 4 values, the 75: the
+   porting surface counted); every tail call a loop, other recursion an
+   implementation's depth; the spec's 94 `run` and `panic` examples and the 16 test
+   programs on both, with the same output: the exit test's first part. Its parts of
+   the translator, later ([[B217]]).
 7. **`host-macros`:** macros run on the interpreter; macro code gets the prelude
    ([[B52]]); their results checked ([[B42]]); macro files as modules ([[B45]]);
    hygiene ([[B46]]); the macro leaks that remain ([[B43]], [[B44]]). (M)
@@ -609,7 +616,7 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B62]] every module compiles the prelude's macros | L | `library` |
 | [[B97]] a library per target | L | `library`, `porting-surface` |
 | [[B125]] the target's own checker, as an option | I → taken up | `porting-surface` |
-| [[B101]] an interpreter | I → taken up | `interpreter` |
+| [[B101]] an interpreter | I → taken up | `interpreter` (done: the second implementation) |
 | [[B52]] macro code has no prelude | L | `host-macros` |
 | [[B41]] macros run with `exec` | M | `host-macros` |
 | [[B70]] `load-macros` finds names by Python name | M | `host-macros` |

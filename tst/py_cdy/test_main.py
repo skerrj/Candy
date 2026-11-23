@@ -73,3 +73,13 @@ def test_main_translator_bin_import(
     Path("sub/p.cdy").write_text("(import lib)\n(put who)\n", encoding="utf-8")
     assert main(["sub/p.cdy", "--run", "--translator", "bin"]) == 0  # found next to p.cdy
     assert capfd.readouterr().out == "lib\n"
+
+
+def test_main_interpret(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    Path("p.cdy").write_text('(put "hi" (+ 1 2))\n', encoding="utf-8")
+    assert main(["p.cdy", "--interpret"]) == 0
+    assert capfd.readouterr().out == "hi 3\n"
+    assert main(["p.cdy", "--interpret", "--run"]) == 2

@@ -26,3 +26,8 @@ A JIT is speed only, and speed isn't the problem (the whole suite is about 20 s)
 ## Notes
 
 - 2026-10-26, the owner: `low` in triage ([[B103]]): an idea to think about later.
+- 2026-11-22, Claude: its third point is done (branch `interpreter`,
+  `doc/hl_rqmt/interpreter.md`): every `candy run` and `candy panic` example runs on the
+  interpreter too, the spec a conformance suite of two. The printer in Candy syntax came
+  with `semantics` (`show`). Left: REPL-style examples, an expression at a time, which
+  need a REPL ([[B217]]'s neighbour, not this item's to decide); open for that.

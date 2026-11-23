@@ -17,12 +17,16 @@ or more, so a block of four can show blocks without running them; indented ones 
 indent), which also reads the spec's ids (``tst/py_cdy/test_doc_links.py``). Each example
 is translated by T1 and run, one test each, named ``file:line``. Each file's ``run``
 examples also pass ``mypy --strict`` together, in one mypy run, and T2 translates them as
-T1 does. A file whose status line says
+T1 does. Each ``run`` and ``panic`` example also runs on T1's interpreter, in this
+process (``interp.cdy``; ``doc/hl_rqmt/interpreter.md``), and must give the same output
+or panic: the spec on two implementations. A file whose status line says
 ``status: draft`` has its examples marked as expected failures (a passing one is reported).
 
 A backlog item's ``candy run`` and ``candy error`` blocks (``backlog/``, ``script/backlog.py``)
 are its repro: what *should* happen, run the same way as a strict expected failure, so the
-test fails once the defect is fixed, until the example moves into its spec file.
+test fails once the defect is fixed, until the example moves into its spec file. (A repro
+runs on the interpreter too, with the same mark: one of a Python-target defect would pass
+there, and so fail, a difference to decide.)
 """
 
 import re
@@ -173,6 +177,28 @@ def test_panic(example: Example, t1: ModuleType, tmp_path: Path) -> None:
     assert done.returncode != 0, done.stdout
     assert example.expected in done.stderr
     assert "Traceback" not in done.stderr, done.stderr
+
+
+def interpret(t1: ModuleType, source: str) -> str:
+    """Run ``source`` on T1's interpreter, in this process; what it panicked with, as a
+    translated program writes it (``candy: msg``), or ``""``."""
+    try:
+        t1.interpret_text(source, ())
+    except (CandyFail, IndexError) as err:
+        return f"candy: {err}"
+    return ""
+
+
+@pytest.mark.parametrize("example", cases("run"))
+def test_interpret(example: Example, t1: ModuleType, capsys: pytest.CaptureFixture[str]) -> None:
+    panic = interpret(t1, example.source)
+    assert panic == ""
+    assert capsys.readouterr().out == example.expected
+
+
+@pytest.mark.parametrize("example", cases("panic"))
+def test_interpret_panic(example: Example, t1: ModuleType) -> None:
+    assert example.expected in interpret(t1, example.source)
 
 
 @pytest.mark.parametrize("example", cases("setup"))

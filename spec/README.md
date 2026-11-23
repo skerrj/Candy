@@ -2,8 +2,10 @@
 
 The language, rule by rule, each rule with examples that run: `tst/py_cdy/test_spec.py`
 translates every example with the translator and checks what it does
-(`doc/hl_rqmt/executable_spec.md`). A rule here is what Candy *is*; the HLDs in
-`doc/hl_rqmt/` record how it got there.
+(`doc/hl_rqmt/executable_spec.md`), and runs every `candy run` and `candy panic` one on
+the interpreter too (since `interpreter`; `doc/hl_rqmt/interpreter.md`), which must do
+the same: two implementations, so a rule must say enough for each. A rule here is what
+Candy *is*; the HLDs in `doc/hl_rqmt/` record how it got there.
 
 ## The files
 
@@ -61,8 +63,8 @@ its backlog item, a `leak` (`backlog/`, linked as `[[B15]]`).
 A fenced block's info string says what it is. Each example is a whole program, in a file
 of its own, with the prelude and the prelude macros as every program has them.
 
-- **`candy run`**, followed by **`expect`**: the program runs, and its output must be the
-  `expect` block, exactly:
+- **`candy run`**, followed by **`expect`**: the program runs, translated and on the
+  interpreter, and each one's output must be the `expect` block, exactly:
 
   ```candy run
   (put (+ 1 2))
@@ -86,8 +88,9 @@ of its own, with the prelude and the prelude macros as every program has them.
   ```
 
 - **`candy panic`**, followed by **`expect-panic`**: the program must translate, and
-  running it must fail (a panic, as an index out of range is), writing the
-  `expect-panic` text to stderr, and no Python traceback ([[library.errors]]):
+  running it, translated and on the interpreter, must fail (a panic, as an index out of
+  range is), writing the `expect-panic` text to stderr, and no Python traceback
+  ([[library.errors]]):
 
   ```candy panic
   (import string ())

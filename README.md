@@ -35,6 +35,8 @@ the chain's first step runs only where that rewrite is installed (`backlog/`, [[
 python src/py_cdy/main.py FILE.cdy --run    # translate to output/FILE.py, then run it
 python src/py_cdy/main.py FILE.cdy          # translate only
 python bin/py/cdy_translator.py FILE.cdy [OUT.py]   # the translator on its own
+python bin/py/cdy_translator.py --interpret FILE.cdy [ARG ...]  # on the interpreter
+python src/py_cdy/main.py FILE.cdy --interpret     # the same, through main.py
 ```
 
 A program that defines `main`, typed `(Fn ((List String)) Int)`, runs it with its
