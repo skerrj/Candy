@@ -1,7 +1,7 @@
 # B218: interpreter step 1: Values and the evaluator
 
 kind: task
-state: review
+state: done
 priority: normal
 found: interpreter, 2026-11-21
 fixed: interpreter, 2026-11-21
@@ -14,3 +14,4 @@ Step 1 of `doc/hl_rqmt/interpreter.md`. `Value`, the environment, `eval` and `ap
 
 - 2026-11-21, Claude: filed on the HLD's acceptance (the owner, 2026-11-21).
 - 2026-11-21, Claude: built (the HLD's step 1, "Done").
+- 2026-11-22, the owner: ticked in review.

@@ -79,12 +79,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B218](B218-interpreter-step-1.md) | interpreter step 1: Values and the evaluator | task | review | normal |
-| [B219](B219-interpreter-step-2.md) | interpreter step 2: The built-ins | task | review | normal |
-| [B220](B220-interpreter-step-3.md) | interpreter step 3: Tail calls and panics | task | review | normal |
-| [B221](B221-interpreter-step-4.md) | interpreter step 4: The spec on both | task | review | normal |
-| [B222](B222-interpreter-step-5.md) | interpreter step 5: The test programs on both | task | review | normal |
-| [B223](B223-interpreter-step-6.md) | interpreter step 6: Docs | task | review | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -132,11 +126,11 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 - [expr.let](../spec/40-expressions.md#expr.let): [B17](B17-tup-destructuring.md)
 - [expr.logic](../spec/40-expressions.md#expr.logic): [B100](B100-and-or-macros.md)
 - [expr.rest](../spec/40-expressions.md#expr.rest): [B171](B171-list-not-a-value.md)
-- [expr.tail-calls](../spec/40-expressions.md#expr.tail-calls): [B37](B37-self-tail-calls-only.md), [B220](B220-interpreter-step-3.md), [B98](B98-trampolines.md)
+- [expr.tail-calls](../spec/40-expressions.md#expr.tail-calls): [B37](B37-self-tail-calls-only.md), [B98](B98-trampolines.md)
 - [expr.unit](../spec/40-expressions.md#expr.unit): [B9](B9-nil-redefinable.md)
 - [library.bounds](../spec/60-library.md#library.bounds): [B159](B159-string-helpers-negative-index.md), [B160](B160-python-errors-not-panics.md)
-- [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B219](B219-interpreter-step-2.md), [B97](B97-library-per-target.md)
-- [library.errors](../spec/60-library.md#library.errors): [B220](B220-interpreter-step-3.md), [B160](B160-python-errors-not-panics.md)
+- [library.builtins](../spec/60-library.md#library.builtins): [B49](B49-opaque-host-types.md), [B95](B95-io-refactor.md), [B108](B108-flat-builtins.md), [B97](B97-library-per-target.md)
+- [library.errors](../spec/60-library.md#library.errors): [B160](B160-python-errors-not-panics.md)
 - [library.format](../spec/60-library.md#library.format): [B16](B16-format-hack.md), [B131](B131-errors-without-position.md)
 - [library.list](../spec/60-library.md#library.list): [B216](B216-number-zero.md)
 - [library.lists](../spec/60-library.md#library.lists): [B34](B34-no-collection.md), [B184](B184-empty-start-fails-mypy.md)
@@ -316,3 +310,9 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B211](B211-stdlib-step-6.md) | stdlib step 6: The `map` module | task | done | normal |
 | [B212](B212-stdlib-step-7.md) | stdlib step 7: The `list` module | task | done | normal |
 | [B213](B213-stdlib-step-8.md) | stdlib step 8: docs | task | done | normal |
+| [B218](B218-interpreter-step-1.md) | interpreter step 1: Values and the evaluator | task | done | normal |
+| [B219](B219-interpreter-step-2.md) | interpreter step 2: The built-ins | task | done | normal |
+| [B220](B220-interpreter-step-3.md) | interpreter step 3: Tail calls and panics | task | done | normal |
+| [B221](B221-interpreter-step-4.md) | interpreter step 4: The spec on both | task | done | normal |
+| [B222](B222-interpreter-step-5.md) | interpreter step 5: The test programs on both | task | done | normal |
+| [B223](B223-interpreter-step-6.md) | interpreter step 6: Docs | task | done | normal |
