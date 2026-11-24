@@ -12,7 +12,7 @@
       (do
         (sig (unq (at args 0)) test.Test)
         (def (unq (at args 0))
-          (test.Test (unq (Txt (sym-name (at args 0)) NOWHERE)) (fn (_) (List (unq-sp (rest-of args))))))))))
+          (test.Test (unq (Txt (sym-name (at args 0)) NOWHERE)) (fn (_) (List (unq-sp (rest args))))))))))
 
 ;; (check test): test.Pass if `test`, a Bool, is true, or else a test.Fail with its text
 ;; and where it is.

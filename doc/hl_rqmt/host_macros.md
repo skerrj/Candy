@@ -245,6 +245,20 @@ prelude, the `bin` before reads its own copy, so no staging there.
    Python changes (macro code isn't emitted); checked against `boot/96`'s `bin`.
 3. **The prelude for macro code** ([[B52]]): imported implicitly; `rest-of` goes;
    [[macros.macro-code]].
+   *Done (2026-11-23). As built:* `cdyc.cdy`'s `macro-prelude` reads and analyses
+   `prelude.cdy` once per translation, as module `prelude` (it imports nothing and uses
+   no macros, so it needs no expanding: no cycle); `macro-imports` takes its exports, so
+   macro code imports it as a program does, and `macro-loader` checks and loads its
+   definitions with each macro program. `form.cdy`'s `rest-of` is gone, for `rest`
+   (`test_macros.cdy`, and two test files). [[macros.macro-code]] says macro code sees
+   the prelude, and runs on the interpreter (so `show` and `text` are Candy's), with an
+   example using `find`, `with-default` and `rest`. `test_quoting_in_macro_code`, which
+   still translates macro code to Python, passes the prelude's exports. The translator
+   and the suite take as long as before (1.04 s to translate the translator; the suite
+   61 s against 60). Checked against `boot/97`'s `bin`: 104 of the 108 programs the
+   same; the other four use the prelude in macro code (`macros.cdy`, `test_test.cdy`
+   through `test_macros.cdy`, and two spec examples), which that `bin` can't run, and
+   `macros.cdy` and `test_test.cdy` translate as they did under it before this step.
 4. **Macro files as modules** ([[B45]], [[B63]], [[B197]]): `import-macros` reads a
    module; macro code's module is its file's; each loaded once per translation;
    [[macros.import-macros]].

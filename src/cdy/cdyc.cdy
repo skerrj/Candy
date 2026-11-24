@@ -35,10 +35,22 @@
   (let ((builtins (library-builtins nil)))
     (python-of (type-check (program-tops modules parse builtins) builtins) (get (at modules (- (len modules) 1)) stem))))
 
-;; The Expander for a translation: the built-ins read once, and the prelude's macros loaded
-;; once, for every module ([[B66]], [[B62]]).
+;; The Expander for a translation: the built-ins read once, the prelude analysed once for
+;; macro code, and the prelude's macros loaded once, for every module ([[B66]], [[B62]]).
 (sig expander (Fn ((Map String Builtin)) Expander))
-(defn expander (builtins) (new-expander builtins (macro-loader builtins (macro-imports nil))))
+(defn expander (builtins)
+  (let (((exports tops) (macro-prelude builtins)))
+    (new-expander builtins (macro-loader builtins (macro-imports exports) tops))))
+
+;; The prelude, for macro code (doc/hl_rqmt/host_macros.md, step 3): what it exports, and
+;; its definitions, analysed. It imports nothing and uses no macros, so it needs no
+;; expanding, and loading it needs no macros: no cycle with the prelude's macros.
+(sig macro-prelude (Fn ((Map String Builtin)) (Tup Exports (List Top))))
+(defn macro-prelude (builtins)
+  (let ((path (library-path "prelude.cdy"))
+        (forms (read-source path (slurp path)))
+        (exports (module-exports forms "prelude")))
+    (Tup exports (analyse-module forms exports empty-list map.empty builtins read-hole map.empty false))))
 
 ;; The definitions of the program `modules`, analysed (see translate-modules); not yet
 ;; type-checked (check.cdy).
@@ -97,17 +109,17 @@
 
 ;; How a macro program (expand.cdy) is loaded, with `builtins` and macro code's `imports`
 ;; (macro-imports), each read once per translation: analysed (it is macro code, so it can
-;; quote; its module is ""), type-checked as a program is (check.cdy;
-;; doc/hl_rqmt/host_macros.md, "What checking macro code checks"), and loaded on the
-;; interpreter (interp_macros.cdy), giving the
+;; quote; its module is ""), type-checked as a program is, with the prelude's definitions
+;; (`prelude`, macro-prelude; check.cdy; doc/hl_rqmt/host_macros.md, "What checking macro
+;; code checks"), and loaded on the interpreter with them (interp_macros.cdy), giving the
 ;; function each macro's defn is, by its name. Each load restarts gensym's count, as
 ;; load-macros did, so a translation's names don't depend on the translations before it:
 ;; by a load-macros of no Python, *for now* until load-macros goes (host_macros.md, step 6).
 (sig macro-loader
-  (Fn ((Map String Builtin) (List Import)) (Fn ((List Form)) (Fn (String) (Fn ((List Form)) Form)))))
-(defn macro-loader (builtins imports)
+  (Fn ((Map String Builtin) (List Import) (List Top)) (Fn ((List Form)) (Fn (String) (Fn ((List Form)) Form)))))
+(defn macro-loader (builtins imports prelude)
   (fn (forms)
-    (let ((tops (type-check (analyse-program forms imports builtins read-hole map.empty true) builtins))
+    (let ((tops (type-check (++ prelude (analyse-program forms imports builtins read-hole map.empty true)) builtins))
           (_restarted (load-macros "" sym-name map.empty)))
       (macro-runner tops ""))))
 
@@ -119,16 +131,18 @@
 (defn translate-expanded (forms parse macros quoting builtins imports)
   (python-of (analyse-program forms imports builtins parse macros quoting) ""))
 
-;; What macro code imports implicitly: translator, the library's (`gensym`, form.cdy,
-;; calls fresh-name); and string's built-ins, only qualified (`string.join`), as a program
+;; What macro code imports implicitly: the prelude, as a program does (`prelude`, its
+;; exports: macro-prelude); translator, the library's (`gensym`, form.cdy, calls
+;; fresh-name); and string's built-ins, only qualified (`string.join`), as a program
 ;; imports it by convention, `(import string ())`. A macro file's import of either adds
-;; nothing (include.cdy, include-forms). Only their built-ins: macro code doesn't get the
-;; library's Candy, as it doesn't get the prelude ([[B52]]).
-(sig macro-imports (Fn (Unit) (List Import)))
-(defn macro-imports (_)
+;; nothing (include.cdy, include-forms). Of translator and string only their built-ins:
+;; string's Candy (`string.trim`) isn't macro code's.
+(sig macro-imports (Fn (Exports) (List Import)))
+(defn macro-imports (prelude)
   (let ((translator (library-path "translator.cdy"))
         (string (library-path "string.cdy")))
     (List
+      (Import prelude NOWHERE None)
       (Import (declared-exports (read-source translator (slurp translator)) "translator") NOWHERE None)
       (Import (declared-exports (read-source string (slurp string)) "string") NOWHERE (Some empty-list)))))
 

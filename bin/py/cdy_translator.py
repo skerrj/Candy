@@ -214,42 +214,39 @@ def form__list_items(form: form__Form) -> tuple[form__Form, ...]:
     else:
         return ()
 
-def form__rest_of(forms: tuple[form__Form, ...]) -> tuple[form__Form, ...]:
-    return cdy_rt.primitives.list_drop(1, forms)
-
 def form__form_pos(form: form__Form) -> form__Pos:
     _cdy_t3: object = form
     if isinstance(_cdy_t3, form__Sym):
         pos = _cdy_t3.pos
         return pos
     elif isinstance(_cdy_t3, form__Lst):
+        _cdy_pos_6 = _cdy_t3.pos
+        return _cdy_pos_6
+    elif isinstance(_cdy_t3, form__Txt):
         _cdy_pos_7 = _cdy_t3.pos
         return _cdy_pos_7
-    elif isinstance(_cdy_t3, form__Txt):
+    elif isinstance(_cdy_t3, form__IntLit):
         _cdy_pos_8 = _cdy_t3.pos
         return _cdy_pos_8
-    elif isinstance(_cdy_t3, form__IntLit):
+    elif isinstance(_cdy_t3, form__LongLit):
         _cdy_pos_9 = _cdy_t3.pos
         return _cdy_pos_9
-    elif isinstance(_cdy_t3, form__LongLit):
+    elif isinstance(_cdy_t3, form__ByteLit):
         _cdy_pos_10 = _cdy_t3.pos
         return _cdy_pos_10
-    elif isinstance(_cdy_t3, form__ByteLit):
+    elif isinstance(_cdy_t3, form__FloatLit):
         _cdy_pos_11 = _cdy_t3.pos
         return _cdy_pos_11
-    elif isinstance(_cdy_t3, form__FloatLit):
+    elif isinstance(_cdy_t3, form__DoubleLit):
         _cdy_pos_12 = _cdy_t3.pos
         return _cdy_pos_12
-    elif isinstance(_cdy_t3, form__DoubleLit):
+    elif isinstance(_cdy_t3, form__CharLit):
         _cdy_pos_13 = _cdy_t3.pos
         return _cdy_pos_13
-    elif isinstance(_cdy_t3, form__CharLit):
-        _cdy_pos_14 = _cdy_t3.pos
-        return _cdy_pos_14
     else:
         assert isinstance(_cdy_t3, form__BoolLit)
-        _cdy_pos_15 = _cdy_t3.pos
-        return _cdy_pos_15
+        _cdy_pos_14 = _cdy_t3.pos
+        return _cdy_pos_14
 
 def form__pos_text(pos: form__Pos) -> str:
     line = pos.line
@@ -8721,7 +8718,16 @@ def translate_modules(modules: tuple[include__Module, ...], parse: _cdy_Callable
     return python_of(check__type_check(program_tops(modules, parse, builtins), builtins), cdy_rt.primitives.at(modules, (len(modules) - 1)).stem)
 
 def expander(builtins: _cdy_Mapping[str, core__Builtin]) -> expand__Expander:
-    return expand__new_expander(builtins, macro_loader(builtins, macro_imports(None)))
+    _tup = macro_prelude(builtins)
+    exports = _tup[0]
+    tops = _tup[1]
+    return expand__new_expander(builtins, macro_loader(builtins, macro_imports(exports), tops))
+
+def macro_prelude(builtins: _cdy_Mapping[str, core__Builtin]) -> tuple[core__Exports, tuple[core__Top, ...]]:
+    path = include__library_path('prelude.cdy')
+    forms = read__read_source(path, cdy_rt.primitives.slurp(path))
+    exports = core__module_exports(forms, 'prelude')
+    return (exports, core__analyse_module(forms, exports, (), {}, builtins, read__read_hole, {}, False))
 
 def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]], builtins: _cdy_Mapping[str, core__Builtin]) -> tuple[core__Top, ...]:
     ready = expand_modules(modules, expander(builtins))
@@ -8755,9 +8761,9 @@ def analyse_modules(ready: tuple[Ready, ...], by_key: _cdy_Mapping[str, core__Ex
 def imported(imps: tuple[include__Imp, ...], by_key: _cdy_Mapping[str, core__Exports]) -> tuple[core__Import, ...]:
     return cdy_rt.primitives.list_map((lambda imp: core__Import(cdy_rt.primitives.map_get(by_key, imp.key), imp.pos, imp.only)), imps)
 
-def macro_loader(builtins: _cdy_Mapping[str, core__Builtin], imports: tuple[core__Import, ...]) -> _cdy_Callable[[tuple[form__Form, ...]], _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]]:
+def macro_loader(builtins: _cdy_Mapping[str, core__Builtin], imports: tuple[core__Import, ...], prelude: tuple[core__Top, ...]) -> _cdy_Callable[[tuple[form__Form, ...]], _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]]:
     def _cdy_t425(forms: tuple[form__Form, ...]) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
-        tops = check__type_check(core__analyse_program(forms, imports, builtins, read__read_hole, {}, True), builtins)
+        tops = check__type_check((prelude + core__analyse_program(forms, imports, builtins, read__read_hole, {}, True)), builtins)
         _restarted = cdy_rt.primitives.load_macros('', form__sym_name, {})
         return interp_macros__macro_runner(tops, '')
     return _cdy_t425
@@ -8765,10 +8771,10 @@ def macro_loader(builtins: _cdy_Mapping[str, core__Builtin], imports: tuple[core
 def translate_expanded(forms: tuple[form__Form, ...], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]], macros: _cdy_Mapping[str, form__Macro], quoting: bool, builtins: _cdy_Mapping[str, core__Builtin], imports: tuple[core__Import, ...]) -> str:
     return python_of(core__analyse_program(forms, imports, builtins, parse, macros, quoting), '')
 
-def macro_imports(_: None) -> tuple[core__Import, ...]:
+def macro_imports(prelude: core__Exports) -> tuple[core__Import, ...]:
     translator = include__library_path('translator.cdy')
     string = include__library_path('string.cdy')
-    return (core__Import(core__declared_exports(read__read_source(translator, cdy_rt.primitives.slurp(translator)), 'translator'), form__NOWHERE, prelude__None()), core__Import(core__declared_exports(read__read_source(string, cdy_rt.primitives.slurp(string)), 'string'), form__NOWHERE, prelude__Some(())))
+    return (core__Import(prelude, form__NOWHERE, prelude__None()), core__Import(core__declared_exports(read__read_source(translator, cdy_rt.primitives.slurp(translator)), 'translator'), form__NOWHERE, prelude__None()), core__Import(core__declared_exports(read__read_source(string, cdy_rt.primitives.slurp(string)), 'string'), form__NOWHERE, prelude__Some(())))
 
 def python_of(tops: tuple[core__Top, ...], top: str) -> str:
     stmts = lower__lower_program(tops, 0)

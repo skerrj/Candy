@@ -38,24 +38,34 @@ unless: yes
 ```
 
 <a id="macros.macro-code"></a>
-A macro's body is **macro code**: it can use the built-ins, `Form` with its helpers
-(`form.cdy`: `sym-name`, `list-items`, `rest-of`, `gensym`, and the variants, such as
-`Sym` and `Txt`), the helpers of the macro files it imports, and the translator's
-built-ins, since it imports `translator` implicitly (`gensym` calls `fresh-name`;
-[[programs.import]]); not the program's own definitions, and not the prelude (*for now*:
-[[B52]]).
+A macro's body is **macro code**: it can use the built-ins, the prelude (`rest`, `Maybe`,
+`find`; since `host-macros`), `Form` with its helpers (`form.cdy`: `sym-name`,
+`list-items`, `gensym`, and the variants, such as `Sym` and `Txt`), the helpers of the
+macro files it imports, and the translator's built-ins, since it imports `translator`
+implicitly (`gensym` calls `fresh-name`; [[programs.import]]); not the program's own
+definitions. It sees what a program sees, then, but runs while translating: it is run
+on the interpreter, so what it prints, or puts in a message, is what `show` and `text`
+write ([[library.show]]).
 
 ```candy run
 (import string ())
 (defmacro name-of (s) (Txt (sym-name s) NOWHERE))
 (defmacro swap (call) (let ((items (list-items call))) (Lst (reverse items) NOWHERE)))
+(defmacro first-name args
+  (with-default (Txt "none" NOWHERE) (find (fn (f) (!= (sym-name f) "")) (rest args))))
 
 (put (name-of hello))
 (put (swap ("abc" string.len)))
+(sig b Int)
+(def b 4)
+(put (first-name 1 2 "x" 4))
+(put (first-name 1 2 "x" b))
 ```
 ```expect
 hello
 3
+none
+4
 ```
 
 <a id="macros.checked"></a>

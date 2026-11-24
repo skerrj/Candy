@@ -339,7 +339,7 @@ def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
     """``forms`` as Python, translated as macro code (where quoting is allowed), as
     ``expand.cdy`` translates a macro program."""
     library = candy(t1, "expand.library-builtins")(None)
-    imports = candy(t1, "macro-imports")(None)
+    imports = candy(t1, "macro-imports")(candy(t1, "macro-prelude")(library)[0])
     return cast(
         str,
         candy(t1, "translate-expanded")(

@@ -11,7 +11,7 @@
   (if (= (len clauses) 0)
     (quo (fail "my-cond: no clause matched"))
     (let ((c (list-items (at clauses 0))))
-      (quasi (if (unq (at c 0)) (unq (at c 1)) (my-cond (unq-sp (rest-of clauses))))))))
+      (quasi (if (unq (at c 0)) (unq (at c 1)) (my-cond (unq-sp (rest clauses))))))))
 
 ;; No parameters; quoted literals.
 (defmacro answer () (quo (+ 40 2)))

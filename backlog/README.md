@@ -36,7 +36,7 @@ By kind, then priority.
 | [B45](B45-macro-files-inclusion.md) | Macro files still use inclusion | leak | open | normal |
 | [B46](B46-templates-not-hygienic.md) | Macro templates aren't hygienic across modules | leak | open | normal |
 | [B49](B49-opaque-host-types.md) | Host objects have no Candy type | leak | open | normal |
-| [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | open | normal |
+| [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | review | normal |
 | [B22](B22-numbers-unbounded.md) | Overflow isn't checked, and a `Float` is 64 bits on Python | leak | open | low |
 | [B41](B41-macros-exec.md) | Macros run with Python's `exec` | leak | open | low |
 | [B43](B43-gensym-impure.md) | `gensym` is impure | leak | open | low |
@@ -81,7 +81,7 @@ By kind, then priority.
 |---|---|---|---|---|
 | [B225](B225-host-macros-step-1.md) | host-macros step 1: Macros on the interpreter | task | review | normal |
 | [B226](B226-host-macros-step-2.md) | host-macros step 2: Macro code checked | task | review | normal |
-| [B227](B227-host-macros-step-3.md) | host-macros step 3: The prelude for macro code | task | open | normal |
+| [B227](B227-host-macros-step-3.md) | host-macros step 3: The prelude for macro code | task | review | normal |
 | [B228](B228-host-macros-step-4.md) | host-macros step 4: Macro files as modules | task | open | normal |
 | [B229](B229-host-macros-step-5.md) | host-macros step 5: Hygiene for built-ins | task | open | normal |
 | [B230](B230-host-macros-step-6.md) | host-macros step 6: `load-macros` dropped | task | open | normal |

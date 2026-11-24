@@ -1,10 +1,10 @@
 # B52: Macro code doesn't get the prelude
 
 kind: leak
-state: open
+state: review
 priority: normal
 found: library, 2026-10-22
-fixed:
+fixed: host-macros, 2026-11-23
 where: `src/cdy/expand.cdy`, `src/cdy/form.cdy`
 refs: [[macros.macro-code]], [[programs.prelude]]
 
@@ -15,3 +15,9 @@ runs while translating can see is a phase question (Racket's
 `(require (for-syntax ...))`). Fix: give macro programs the prelude, or let them import
 it (`doc/hl_rqmt/modules.md`, "Macro modules on the host"); then `rest-of` can go. From
 `doc/archive/leaks_library.md`.
+
+## Notes
+
+- 2026-11-23, Claude: macro code imports the prelude implicitly, its definitions loaded
+  with each macro program on the interpreter (`host-macros` step 3,
+  [[macros.macro-code]]); `form.cdy`'s `rest-of` is gone, for `rest`.
