@@ -190,10 +190,12 @@ definitions are helpers, which run only while translating (the importing file's 
   code too, since they run only while translating: they can quote, and see `Form`.
 - A macro file can `import-macros` other macro files, whose macros expand in it and whose
   helpers it can call; it doesn't pass those macros on.
-- Each macro file is loaded once per importer; a cycle is an error.
+- Each macro file is loaded once per translation, however many files import it (since
+  `host-macros`); a cycle is an error.
 
 The examples need a second file, so they are `tst/cdy/cdyc/macro_files.cdy` and
-`test_self_host.py`'s `test_macro_file_errors` and `test_macro_file_is_a_module`.
+`test_self_host.py`'s `test_macro_file_errors`, `test_macro_file_is_a_module` and
+`test_macro_file_loads_once`.
 
 ```candy errors
 (import-macros) => import-macros: expected (import-macros name)

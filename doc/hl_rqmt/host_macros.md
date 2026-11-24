@@ -287,6 +287,17 @@ prelude, the `bin` before reads its own copy, so no staging there.
    `test_macro_file_is_a_module`; [[macros.import-macros]] and [[programs.import]] say
    a macro file's `import` is a module's. Translating the translator 1.06 s against
    1.05 s; checked against `boot/98`'s `bin`: the same output for all 108 programs.
+   *4b done (2026-11-23). As built:* the Expander keeps the macro files loaded so far, by
+   key (`loaded`), and every function that may load one hands it back with them:
+   `import-file` (from `loaded`, or else `load-new`), `import-all`, `expand-file`,
+   `expand-macro-file`, `expand-program`, `cdyc.cdy`'s `load-macro-file` and
+   `expand-modules`, which now folds over the modules, handing it from each to the next
+   (its start a typed `NO_READY`, [[B184]] again). A macro file's expansion doesn't
+   depend on its importer, so one load serves them all. Eight modules importing one
+   macro file: 0.20 s to 0.15 s. Test: `test_macro_file_loads_once` (a macro file's
+   top-level `put` runs as it loads: three lines under `boot/99`'s `bin`, one now);
+   [[macros.import-macros]] says once per translation. Checked against `boot/99`'s
+   `bin`: the same output for all 108 programs.
 5. **Hygiene for built-ins** ([[B46]], narrowed; Question 2): a template's built-in and
    prelude names qualified; [[programs.shadowing]]'s *for now* about `put` and `text`
    goes, with an example.

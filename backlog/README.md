@@ -58,7 +58,7 @@ By kind, then priority.
 | [B56](B56-match-temporary.md) | Every `match` subject gets a temporary | tech-debt | open | normal |
 | [B61](B61-expand-knows-forms.md) | `expand.cdy` knows the shape of some special forms | tech-debt | open | normal |
 | [B62](B62-prelude-macros-per-module.md) | Every module compiles the prelude's macros | tech-debt | review | normal |
-| [B63](B63-macro-file-per-importer.md) | A macro file is compiled once per file that imports it | tech-debt | open | normal |
+| [B63](B63-macro-file-per-importer.md) | A macro file is compiled once per file that imports it | tech-debt | review | normal |
 | [B66](B66-builtins-read-each-time.md) | `special.cdy` and `system.cdy` are read for every translation | tech-debt | review | normal |
 | [B68](B68-whole-prelude.md) | The whole prelude goes into every program | tech-debt | open | normal |
 | [B69](B69-quadratic-lists.md) | Building a list is quadratic | tech-debt | open | normal |
@@ -82,7 +82,7 @@ By kind, then priority.
 | [B225](B225-host-macros-step-1.md) | host-macros step 1: Macros on the interpreter | task | review | normal |
 | [B226](B226-host-macros-step-2.md) | host-macros step 2: Macro code checked | task | review | normal |
 | [B227](B227-host-macros-step-3.md) | host-macros step 3: The prelude for macro code | task | review | normal |
-| [B228](B228-host-macros-step-4.md) | host-macros step 4: Macro files as modules | task | open | normal |
+| [B228](B228-host-macros-step-4.md) | host-macros step 4: Macro files as modules | task | review | normal |
 | [B229](B229-host-macros-step-5.md) | host-macros step 5: Hygiene for built-ins | task | open | normal |
 | [B230](B230-host-macros-step-6.md) | host-macros step 6: `load-macros` dropped | task | open | normal |
 | [B231](B231-host-macros-step-7.md) | host-macros step 7: Docs | task | open | normal |

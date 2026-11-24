@@ -399,6 +399,30 @@ def test_macro_file_is_a_module(
     assert done.stdout == "(List 1 1)\n>hi!\n"
 
 
+# A macro file is loaded once per translation, however many modules import it (host-macros
+# step 4b, B63): its top-level put runs as it loads, so it writes one line.
+LOADED_ONCE = {
+    "mac.cdy": '(put-line "loading mac")\n(defmacro twice (e) (quasi (+ (unq e) (unq e))))\n',
+    "a.cdy": "(import-macros mac)\n(sig fa (Fn (Int) Int))\n(defn fa (x) (twice x))\n",
+    "b.cdy": "(import-macros mac)\n(sig fb (Fn (Int) Int))\n(defn fb (x) (twice x))\n",
+    "p.cdy": "(import a)\n(import b)\n(import-macros mac)\n(put (twice (fa (fb 1))))\n",
+}
+
+
+def test_macro_file_loads_once(
+    t1: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    for name, text in LOADED_ONCE.items():
+        Path(name).write_text(text, encoding="utf-8")
+    python = translate_file_with(t1, Path("p.cdy"))
+    assert capsys.readouterr().out == "loading mac\n"
+    assert run(python, tmp_path, "p").stdout == "8\n"
+
+
 def test_fixpoint_t2_passes_mypy_strict(t2: tuple[Path, str]) -> None:
     stdout, _, status = mypy_api.run(["--strict", "--no-incremental", str(t2[0])])
     assert status == 0, stdout

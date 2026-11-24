@@ -50,61 +50,66 @@
 ;; (read-builtins); how a macro file is loaded (`load-file`: its path, the Expander, and
 ;; the macro files being loaded, for a cycle); how a file's own defmacros are (`load-own`:
 ;; their defns, and the macro files the file imports, giving the function a defn is, by
-;; its name); and the prelude's macros, loaded (`prelude`), which every file but the
-;; prelude's own starts from. cdyc.cdy makes the two loaders (load-macro-file,
-;; load-own-macros).
+;; its name); the prelude's macros, loaded (`prelude`), which every file but the
+;; prelude's own starts from; and the macro files loaded so far, by key (`loaded`), each
+;; loaded once per translation ([[B63]]): an Expander is handed on, through the
+;; translation's modules, by each function that may load one. cdyc.cdy makes the two
+;; loaders (load-macro-file, load-own-macros); `load-file` hands the Expander back too.
 (deft Expander
   ((builtins (Map String Builtin))
-   (load-file (Fn (String Expander (List String)) MacroFile))
+   (load-file (Fn (String Expander (List String)) (Tup MacroFile Expander)))
    (load-own (Fn ((List Form) (List MacroFile)) (Fn (String) (Fn ((List Form)) Form))))
-   (prelude Imports)))
+   (prelude Imports)
+   (loaded (Map String MacroFile))))
 
 ;; The Expander for `builtins` and the loaders, the prelude's macros loaded with them.
 (sig new-expander
   (Fn ((Map String Builtin)
-       (Fn (String Expander (List String)) MacroFile)
+       (Fn (String Expander (List String)) (Tup MacroFile Expander))
        (Fn ((List Form) (List MacroFile)) (Fn (String) (Fn ((List Form)) Form))))
       Expander))
 (defn new-expander (builtins load-file load-own)
-  (let ((bare (Expander builtins load-file load-own (Imports empty-list empty-list map.empty)))
+  (let ((bare (Expander builtins load-file load-own (Imports empty-list empty-list map.empty) map.empty))
         (path (library-path "prelude_macros.cdy"))
-        (form (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))
-    (assoc bare prelude (import-file form bare empty-list (get bare prelude)))))
+        (form (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE))
+        ((imports ex) (import-file form bare empty-list (get bare prelude))))
+    (assoc ex prelude imports)))
 
 ;; The program's forms with its defmacros and macro imports taken out and its macro calls
-;; expanded, and its macros.
+;; expanded, its macros, and `ex` with the macro files it loaded.
 (sig expand-program
-  (Fn ((List Form) Expander) (Tup (List Form) (Map String Macro))))
+  (Fn ((List Form) Expander) (Tup (List Form) (Map String Macro) Expander)))
 (defn expand-program (forms ex)
-  (let ((done (expand-file forms ex empty-list)))
-    (Tup (get done forms) (get done macros))))
+  (let (((done ex1) (expand-file forms ex empty-list)))
+    (Tup (get done forms) (get done macros) ex1)))
 
 (sig MACRO_HEADS (List String))
 (def MACRO_HEADS (List "defmacro" "import-macros"))
 
-;; `forms`, a file of the program, expanded. `loading` holds the macro files being loaded,
-;; to catch a cycle.
-(sig expand-file (Fn ((List Form) Expander (List String)) Expanded))
+;; `forms`, a file of the program, expanded, and `ex` with the macro files it loaded.
+;; `loading` holds the macro files being loaded, to catch a cycle.
+(sig expand-file (Fn ((List Form) Expander (List String)) (Tup Expanded Expander)))
 (defn expand-file (forms ex loading)
-  (let ((imports (import-all (pick-forms forms (List "import-macros") true) ex loading (get ex prelude)))
+  (let (((imports ex1) (import-all (pick-forms forms (List "import-macros") true) ex loading (get ex prelude)))
         (imported (macro-map (get imports macros) map.empty))
         (defs (expand-defs (pick-forms forms (List "defmacro") true) imported))
-        (own (if (= (len defs) 0) empty-list (load-own-defs defs (get imports files) ex)))
+        (own (if (= (len defs) 0) empty-list (load-own-defs defs (get imports files) ex1)))
         (macros (macro-map own imported)))
-    (Expanded (splice-dos (expand-all (pick-forms forms MACRO_HEADS false) macros)) macros)))
+    (Tup (Expanded (splice-dos (expand-all (pick-forms forms MACRO_HEADS false) macros)) macros) ex1)))
 
 ;; The forms of a macro file, expanded: its helpers with the macros it imports, its
 ;; defmacros as defns; with the macro files it imports loaded (`loading` as for
-;; expand-file). cdyc.cdy's load-file analyses and loads them as the file's module.
-(sig expand-macro-file (Fn ((List Form) Expander (List String)) MacroForms))
+;; expand-file), and `ex` with them. cdyc.cdy's load-file analyses and loads them as the
+;; file's module.
+(sig expand-macro-file (Fn ((List Form) Expander (List String)) (Tup MacroForms Expander)))
 (defn expand-macro-file (forms ex loading)
   (let ((builtins (get ex builtins))
-        (imports (import-all (pick-forms forms (List "import-macros") true) ex loading (get ex prelude)))
+        ((imports ex1) (import-all (pick-forms forms (List "import-macros") true) ex loading (get ex prelude)))
         (imported (macro-map (get imports macros) map.empty))
         (defs (expand-defs (pick-forms forms (List "defmacro") true) imported))
         (checked (unique-names defs builtins map.empty))
         (helpers (splice-dos (expand-all (pick-forms forms MACRO_HEADS false) imported))))
-    (MacroForms (++ helpers (macro-program defs builtins)) defs imported (get imports files))))
+    (Tup (MacroForms (++ helpers (macro-program defs builtins)) defs imported (get imports files)) ex1)))
 
 ;; `forms`, a file's top level after expansion, with each `(do form*)` replaced by its
 ;; forms, spliced in, a `do` among them too (programs.top-do): so a macro can define
@@ -158,26 +163,36 @@
 
 ;; --- macro files ---
 
-;; `start` with the macro files of the (import-macros "path") forms `forms` loaded.
-(sig import-all (Fn ((List Form) Expander (List String) Imports) Imports))
+;; `start` with the macro files of the (import-macros "path") forms `forms` loaded, and
+;; `ex` with them.
+(sig import-all (Fn ((List Form) Expander (List String) Imports) (Tup Imports Expander)))
 (defn import-all (forms ex loading start)
-  (fold (fn (acc form) (import-file form ex loading acc)) start forms))
+  (fold (fn (acc form) (let (((imports e) acc)) (import-file form e loading imports))) (Tup start ex) forms))
 
-;; `acc` with the macro file of `form` loaded, unless it was already.
-(sig import-file (Fn (Form Expander (List String) Imports) Imports))
+;; `acc` with the macro file of `form` added, unless it was already, and `ex` with it: from
+;; `ex` if it was loaded before in this translation, or else loaded now.
+(sig import-file (Fn (Form Expander (List String) Imports) (Tup Imports Expander)))
 (defn import-file (form ex loading acc)
   (let ((path (macro-path form))
         (key (path-resolve path)))
     (cond
-      ((map.has (get acc seen) key) acc)
+      ((map.has (get acc seen) key) (Tup acc ex))
       ((contains key loading)
         (fail (format "{(pos-text (form-pos form))}import-macros: {path} imports itself")))
       (else
-        (let ((file ((get ex load-file) path ex (++ loading (List key)))))
-          (Imports
-            (++ (get acc macros) (get file macros))
-            (add-files (List file) (get acc files))
-            (map.set (get acc seen) key true)))))))
+        (let (((file ex1) (if (map.has (get ex loaded) key) (Tup (map.at (get ex loaded) key) ex) (load-new path key ex loading))))
+          (Tup
+            (Imports
+              (++ (get acc macros) (get file macros))
+              (add-files (List file) (get acc files))
+              (map.set (get acc seen) key true))
+            ex1))))))
+
+;; The macro file at `path` (its key `key`) loaded, and `ex` with it kept.
+(sig load-new (Fn (String String Expander (List String)) (Tup MacroFile Expander)))
+(defn load-new (path key ex loading)
+  (let (((file ex1) ((get ex load-file) path ex (++ loading (List key)))))
+    (Tup file (assoc ex1 loaded (map.set (get ex1 loaded) key file)))))
 
 ;; The path in (import-macros "path"), which include.cdy put there.
 (sig macro-path (Fn (Form) String))
