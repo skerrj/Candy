@@ -927,7 +927,41 @@
       ((= head "unq-sp") (fail (located here "unq-sp: only inside a list in quasi")))
       ((= head "quasi") (fail (located here "quasi: a quasi inside a quasi isn't supported yet")))
       ((is-list-form form) (quasi-list (list-items form) here n))
-      (else (Tup (quoted form) n)))))
+      (else (Tup (quoted (hygienic form scope)) n)))))
+
+;; The symbol `form` in a template, qualified if it names a built-in value every file sees
+;; or a prelude value, as the macro's own module sees it: `text` as `system.text`, so the
+;; expansion means the same wherever it is used, a file's own `text` not changing `put`
+;; (doc/hl_rqmt/host_macros.md, "Hygiene for built-ins"; programs.shadowing). A name the
+;; macro's module defines or imports otherwise, a special form's, a macro's, a type's, a
+;; variant's and a local's stay as written; any other form is itself.
+(sig hygienic (Fn (Form Scope) Form))
+(defn hygienic (form scope)
+  (match form
+    ((Sym name pos)
+      (let ((names (get scope names)))
+        (cond
+          ((names-own name names) (if (is-prelude-value (map.at names name)) (Sym (++ "prelude." name) pos) form))
+          ((and (is-everyones name (get scope builtins)) (not (map.has (get scope macros) name)))
+            (Sym (++ "system." name) pos))
+          (else form))))
+    (else form)))
+
+;; Whether `names` has an entry for `name` that this module can use unqualified: not one an
+;; import leaves qualified-only (Unlisted), which gives way to a built-in, nor one only a
+;; module it doesn't import defines (Elsewhere).
+(sig names-own (Fn (String (Map String Entry)) Bool))
+(defn names-own (name names)
+  (and (map.has names name)
+       (match (map.at names name) ((Unlisted _) false) ((Elsewhere _) false) (else true))))
+
+;; Whether `e` is a value the prelude defines.
+(sig is-prelude-value (Fn (Entry) Bool))
+(defn is-prelude-value (e)
+  (match e ((Value m _) (= m PRELUDE)) (else false)))
+
+(sig PRELUDE String)
+(def PRELUDE "prelude")
 
 ;; The e of (unq e) or (unq-sp e), analysed.
 (sig unq-arg (Fn (Form Scope Int) (Tup Expr Int)))

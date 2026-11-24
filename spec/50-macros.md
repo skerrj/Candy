@@ -156,6 +156,34 @@ reserved for later, as a reader macro (`00-syntax.md`).
 (defmacro m () (quasi (f (unq nope)))) => unknown name nope
 ```
 
+<a id="macros.hygiene"></a>
+**Built-ins in a template:** a symbol in a `quasi` template that names a built-in value
+every file sees (an operator too) or a prelude value, as the macro's own module sees
+it, is written qualified, `system.text` or `prelude.rest`, so the expansion means the
+same wherever it is used: a file's own `text` doesn't change `put` (since
+`host-macros`; [[programs.shadowing]]). A name the macro's module defines or imports,
+a special form's, a macro's, a type's and a variant's stay as written, so an expansion
+that calls a macro file's helper needs it where it is used (*for now*: [[B46]]); and a
+template that binds a built-in's name binds a qualified name, an error: `gensym` is
+the way.
+
+```candy run
+(defmacro size (e) (quasi (len (unq e))))
+
+(sig len (Fn (String) Int))
+(defn len (s) 99)
+(sig text (Fn (Int) String))
+(defn text (n) "mine")
+(put (size (List 1 2)) (len "ab") (text 1))
+```
+```expect
+2 99 mine
+```
+
+```candy errors
+(defmacro m () (quasi (let ((len 1)) len))) (put (m)) => system.len: a name can't hold a ., which qualifies a name with its module (m.name)
+```
+
 <a id="macros.gensym"></a>
 ## gensym
 

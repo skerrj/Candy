@@ -301,6 +301,22 @@ prelude, the `bin` before reads its own copy, so no staging there.
 5. **Hygiene for built-ins** ([[B46]], narrowed; Question 2): a template's built-in and
    prelude names qualified; [[programs.shadowing]]'s *for now* about `put` and `text`
    goes, with an example.
+   *Done (2026-11-24). As built:* `core.cdy`'s `hygienic`, called by `quasi-form` on a
+   template's symbol: a name the macro's module sees as a prelude value becomes
+   `prelude.name`, one it sees as a built-in every file sees (`is-everyones`, an
+   operator too) `system.name`; one it defines or imports, a special form's, a
+   macro's, a type's, a variant's stays as written. An import's qualified-only name
+   (`Unlisted`: macro code's `(import string ())` gives `len` one) and `Elsewhere` give
+   way, as they do in `resolve`. A qualified built-in is spelled as the bare one, so
+   the translated Python is the same: against `boot/100`'s `bin`, 109 programs, the one
+   that differs the new example, which `boot/100` gets wrong. The new rule is
+   [[macros.hygiene]], with the example and an error row (a template that binds `len`
+   binds `system.len`); [[programs.shadowing]]'s *for now* is gone. [[B46]] stays open
+   for its other half, a macro file's helpers ((b) in Question 2). On the way:
+   `boot/100` is the first three-digit tag, and `script/bootstrap.py`'s `tagged_steps`
+   listed the tags as git sorts names, `boot/100` after `boot/10`; it sorts by number
+   now. Translating the translator 1.21 s, as `boot/100`'s `bin` (the machine slower
+   today than at step 4).
 6. **`load-macros` dropped** ([[B41]], [[B70]]; staged): from `translator.cdy`,
    `spelling.py`, `primitives.py`, with a built-in that restarts `gensym`'s count in
    its place (step 1); `macros.md`'s account of `exec` marked history;
