@@ -883,7 +883,7 @@
 
 ;; A (List Form) of `items` (Exprs that make Forms).
 (sig form-list (Fn ((List Expr)) Expr))
-(defn form-list (items) (if (= (len items) 0) (Prim "empty-list" NOWHERE ANY) (Tuple items NOWHERE ANY)))
+(defn form-list (items) (if (= (len items) 0) (Prim "empty-list" NOWHERE ANY) (ListOf items NOWHERE ANY)))
 
 (sig literal-variant (Fn (Form) String))
 (defn literal-variant (form)
@@ -923,7 +923,7 @@
       (analyse-expr (at items 1) scope n))))
 
 ;; A list in quasi: its items, with the (unq-sp e) ones spliced in. The parts are runs
-;; of plain items (each a Tuple) and spliced lists, joined with ++.
+;; of plain items (each a ListOf) and spliced lists, joined with ++.
 (sig quasi-list (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn quasi-list (items scope n)
   (let (((parts n1) (quasi-parts items scope n empty-list empty-list)))
@@ -942,7 +942,7 @@
           (quasi-parts (rest items) scope n1 (++ run (List e)) parts))))))
 
 (sig close-run (Fn ((List Expr) (List Expr)) (List Expr)))
-(defn close-run (run parts) (if (= (len run) 0) parts (++ parts (List (Tuple run NOWHERE ANY)))))
+(defn close-run (run parts) (if (= (len run) 0) parts (++ parts (List (ListOf run NOWHERE ANY)))))
 
 (sig join-parts (Fn ((List Expr)) Expr))
 (defn join-parts (parts)

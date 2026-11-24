@@ -53,12 +53,22 @@
 (sig interpret
   (Fn ((List Top) String (List String) (Map String (Fn ((Fn (Value (List Value)) Value) (List Value)) Value))) Int))
 (defn interpret (tops top args builtins)
-  (let ((cx (fold run-top (Ctx map.empty builtins) tops)))
+  (let ((cx (load-tops tops builtins)))
     (if (has-main tops top)
       (match (apply cx (global cx top "main") (List (VList (map (fn (a) (VStr a)) args))))
         ((VInt n) n)
         (else (fail "internal error: interp: main gave no Int")))
       0)))
+
+;; The definitions `tops` run in order with `builtins`, without a `main`: what they define.
+;; Macros are loaded so (interp_macros.cdy).
+(sig load-tops
+  (Fn ((List Top) (Map String (Fn ((Fn (Value (List Value)) Value) (List Value)) Value))) Ctx))
+(defn load-tops (tops builtins) (fold run-top (Ctx map.empty builtins) tops))
+
+;; The global `key` of `cx` (global-key) applied to `args`.
+(sig call-global (Fn (Ctx String (List Value)) Value))
+(defn call-global (cx key args) (apply cx (map.at (get cx globals) key) args))
 
 ;; `cx` with the top-level form `t` run: a type's constructors, a def's value, a defn's
 ;; function, an expression's effects.

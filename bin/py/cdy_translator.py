@@ -268,7 +268,7 @@ def form__gensym(prefix: str) -> form__Form:
 class form__Macro(_cdy_NamedTuple):
     name: str
     arity: int
-    run: _cdy_Any
+    run: _cdy_Callable[[tuple[form__Form, ...]], form__Form]
     pos: form__Pos
     def __eq__(self, other: object) -> bool:
         return type(self) is type(other) and tuple.__eq__(self, other)
@@ -276,7 +276,7 @@ class form__Macro(_cdy_NamedTuple):
         return not self == other
     def __hash__(self) -> int:
         return hash((type(self), tuple(self)))
-cdy_rt.primitives.register_type(form__Macro, 'Macro', (), ('String', 'Int', 'Any', 'form.Pos'))
+cdy_rt.primitives.register_type(form__Macro, 'Macro', (), ('String', 'Int', 'Fn', 'form.Pos'))
 
 def string__trim(s: str) -> str:
     start = string__skip_space(s, 0, 1, len(s))
@@ -2415,7 +2415,7 @@ def core__form_list(items: tuple[core__Expr, ...]) -> core__Expr:
     if (len(items) == 0):
         return core__Prim('empty-list', form__NOWHERE, core__ANY)
     else:
-        return core__Tuple(items, form__NOWHERE, core__ANY)
+        return core__ListOf(items, form__NOWHERE, core__ANY)
 
 def core__literal_variant(form: form__Form) -> str:
     _cdy_t61: object = form
@@ -2491,7 +2491,7 @@ def core__close_run(run: tuple[core__Expr, ...], parts: tuple[core__Expr, ...]) 
     if (len(run) == 0):
         return parts
     else:
-        return (parts + (core__Tuple(run, form__NOWHERE, core__ANY),))
+        return (parts + (core__ListOf(run, form__NOWHERE, core__ANY),))
 
 def core__join_parts(parts: tuple[core__Expr, ...]) -> core__Expr:
     if (len(parts) == 0):
@@ -5418,7 +5418,7 @@ cdy_rt.primitives.register_type(expand__Expanded, 'Expanded', (), (('List', 'for
 
 class expand__Expander(_cdy_NamedTuple):
     builtins: _cdy_Mapping[str, core__Builtin]
-    compile_: _cdy_Callable[[tuple[form__Form, ...]], str]
+    load: _cdy_Callable[[tuple[form__Form, ...]], _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]]
     prelude: expand__Imports
     def __eq__(self, other: object) -> bool:
         return type(self) is type(other) and tuple.__eq__(self, other)
@@ -5428,8 +5428,8 @@ class expand__Expander(_cdy_NamedTuple):
         return hash((type(self), tuple(self)))
 cdy_rt.primitives.register_type(expand__Expander, 'Expander', (), (('Map', 'String', 'core.Builtin'), 'Fn', 'expand.Imports'))
 
-def expand__new_expander(builtins: _cdy_Mapping[str, core__Builtin], compile_: _cdy_Callable[[tuple[form__Form, ...]], str]) -> expand__Expander:
-    bare = expand__Expander(builtins, compile_, expand__Imports((), (), {}))
+def expand__new_expander(builtins: _cdy_Mapping[str, core__Builtin], load: _cdy_Callable[[tuple[form__Form, ...]], _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]]) -> expand__Expander:
+    bare = expand__Expander(builtins, load, expand__Imports((), (), {}))
     path = include__library_path('prelude_macros.cdy')
     form = form__Lst((form__Sym('import-macros', form__NOWHERE), form__Txt(path, form__NOWHERE)), form__NOWHERE)
     return bare._replace(prelude=expand__import_file(form, bare, (), bare.prelude))
@@ -5535,12 +5535,9 @@ def expand__helper_forms(groups: tuple[tuple[str, tuple[form__Form, ...]], ...])
 
 def expand__load_defs(defs: tuple[form__Form, ...], helpers: tuple[form__Form, ...], ex: expand__Expander) -> tuple[form__Macro, ...]:
     builtins = ex.builtins
-    compile_ = ex.compile_
     checked = expand__unique_names(defs, builtins, {})
-    form_forms = expand__form_defs(None)
-    python = compile_((form_forms + helpers + expand__macro_program(defs, builtins)))
-    loaded = cdy_rt.primitives.load_macros(python, form__sym_name, expand__mangled_names(cdy_rt.primitives.map_keys(core__top_names(form_forms))))
-    return expand__macro_list(defs, loaded)
+    run = ex.load((expand__form_defs(None) + helpers + expand__macro_program(defs, builtins)))
+    return expand__macro_list(defs, run)
 
 def expand__library_builtins(_: None) -> _cdy_Mapping[str, core__Builtin]:
     decls = include__library_path('special.cdy')
@@ -5549,9 +5546,6 @@ def expand__library_builtins(_: None) -> _cdy_Mapping[str, core__Builtin]:
         path = include__library_path(file)
         return (file, read__read_source(path, cdy_rt.primitives.slurp(path)))
     return core__read_builtins(_cdy_t217, cdy_rt.primitives.list_map(_cdy_t216, (('system.cdy',) + cdy_rt.primitives.list_map((lambda name: (name + '.cdy')), include__declaration_modules(None)))), cdy_rt.spelling.SPELLINGS)
-
-def expand__mangled_names(names: tuple[str, ...]) -> _cdy_Mapping[str, bool]:
-    return cdy_rt.primitives.list_fold((lambda m, n: cdy_rt.primitives.map_set(m, emit__py_mangle(n), True)), {}, names)
 
 def expand__form_defs(_: None) -> tuple[form__Form, ...]:
     path = include__library_path('form.cdy')
@@ -5620,13 +5614,13 @@ def expand__unique_names(defs: tuple[form__Form, ...], builtins: _cdy_Mapping[st
     _seen = cdy_rt.primitives.list_fold(_cdy_t221, start, defs)
     return True
 
-def expand__macro_list(defs: tuple[form__Form, ...], loaded: _cdy_Mapping[str, _cdy_Any]) -> tuple[form__Macro, ...]:
+def expand__macro_list(defs: tuple[form__Form, ...], run_of: _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]) -> tuple[form__Macro, ...]:
     def _cdy_t222(d: form__Form) -> form__Macro:
         items = form__list_items(d)
         name = form__sym_name(items[1])
         params = items[2]
         arity = (len(form__list_items(params)) if (form__sym_name(params) == '') else -1)
-        run = cdy_rt.primitives.map_get(loaded, emit__py_mangle(expand__macro_fn(name)))
+        run = run_of(expand__macro_fn(name))
         return form__Macro(name, arity, run, form__form_pos(d))
     return cdy_rt.primitives.list_map(_cdy_t222, defs)
 
@@ -5714,29 +5708,29 @@ def expand__form_at(form: form__Form, pos: form__Pos) -> form__Form:
         v = _cdy_t227.name
         return form__Sym(v, pos)
     elif isinstance(_cdy_t227, form__Txt):
-        _cdy_v_171 = _cdy_t227.val
-        return form__Txt(_cdy_v_171, pos)
+        _cdy_v_165 = _cdy_t227.val
+        return form__Txt(_cdy_v_165, pos)
     elif isinstance(_cdy_t227, form__IntLit):
-        _cdy_v_172 = _cdy_t227.val
-        return form__IntLit(_cdy_v_172, pos)
+        _cdy_v_166 = _cdy_t227.val
+        return form__IntLit(_cdy_v_166, pos)
     elif isinstance(_cdy_t227, form__LongLit):
-        _cdy_v_173 = _cdy_t227.val
-        return form__LongLit(_cdy_v_173, pos)
+        _cdy_v_167 = _cdy_t227.val
+        return form__LongLit(_cdy_v_167, pos)
     elif isinstance(_cdy_t227, form__ByteLit):
-        _cdy_v_174 = _cdy_t227.val
-        return form__ByteLit(_cdy_v_174, pos)
+        _cdy_v_168 = _cdy_t227.val
+        return form__ByteLit(_cdy_v_168, pos)
     elif isinstance(_cdy_t227, form__FloatLit):
-        _cdy_v_175 = _cdy_t227.val
-        return form__FloatLit(_cdy_v_175, pos)
+        _cdy_v_169 = _cdy_t227.val
+        return form__FloatLit(_cdy_v_169, pos)
     elif isinstance(_cdy_t227, form__DoubleLit):
-        _cdy_v_176 = _cdy_t227.val
-        return form__DoubleLit(_cdy_v_176, pos)
+        _cdy_v_170 = _cdy_t227.val
+        return form__DoubleLit(_cdy_v_170, pos)
     elif isinstance(_cdy_t227, form__CharLit):
-        _cdy_v_177 = _cdy_t227.val
-        return form__CharLit(_cdy_v_177, pos)
+        _cdy_v_171 = _cdy_t227.val
+        return form__CharLit(_cdy_v_171, pos)
     elif isinstance(_cdy_t227, form__BoolLit):
-        _cdy_v_178 = _cdy_t227.val
-        return form__BoolLit(_cdy_v_178, pos)
+        _cdy_v_172 = _cdy_t227.val
+        return form__BoolLit(_cdy_v_172, pos)
     else:
         return form
 
@@ -7811,7 +7805,7 @@ class interp__Ctx(_cdy_NamedTuple):
 cdy_rt.primitives.register_type(interp__Ctx, 'Ctx', (), (('Map', 'String', 'interp.Value'), ('Map', 'String', 'Fn')))
 
 def interp__interpret(tops: tuple[core__Top, ...], top: str, args: tuple[str, ...], builtins: _cdy_Mapping[str, _cdy_Callable[[_cdy_Callable[[interp__Value, tuple[interp__Value, ...]], interp__Value], tuple[interp__Value, ...]], interp__Value]]) -> int:
-    cx = cdy_rt.primitives.list_fold(interp__run_top, interp__Ctx({}, builtins), tops)
+    cx = interp__load_tops(tops, builtins)
     if core__has_main(tops, top):
         _cdy_t329: object = interp__apply(cx, interp__global(cx, top, 'main'), (interp__VList(cdy_rt.primitives.list_map((lambda a: interp__VStr(a)), args)),))
         if isinstance(_cdy_t329, interp__VInt):
@@ -7822,6 +7816,12 @@ def interp__interpret(tops: tuple[core__Top, ...], top: str, args: tuple[str, ..
     else:
         return 0
 
+def interp__load_tops(tops: tuple[core__Top, ...], builtins: _cdy_Mapping[str, _cdy_Callable[[_cdy_Callable[[interp__Value, tuple[interp__Value, ...]], interp__Value], tuple[interp__Value, ...]], interp__Value]]) -> interp__Ctx:
+    return cdy_rt.primitives.list_fold(interp__run_top, interp__Ctx({}, builtins), tops)
+
+def interp__call_global(cx: interp__Ctx, key: str, args: tuple[interp__Value, ...]) -> interp__Value:
+    return interp__apply(cx, cdy_rt.primitives.map_get(cx.globals_, key), args)
+
 def interp__run_top(cx: interp__Ctx, t: core__Top) -> interp__Ctx:
     _cdy_t330: object = t
     if isinstance(_cdy_t330, core__TDeft):
@@ -7830,21 +7830,21 @@ def interp__run_top(cx: interp__Ctx, t: core__Top) -> interp__Ctx:
         fields = _cdy_t330.fields
         return interp__define(cx, module, name, interp__constructor(module, name, fields))
     elif isinstance(_cdy_t330, core__TDeftSum):
-        _cdy_module_12 = _cdy_t330.module
+        _cdy_module_17 = _cdy_t330.module
         variants = _cdy_t330.variants
-        return cdy_rt.primitives.list_fold((lambda c, v: interp__define(c, _cdy_module_12, v.name, interp__constructor(_cdy_module_12, v.name, v.fields))), cx, variants)
+        return cdy_rt.primitives.list_fold((lambda c, v: interp__define(c, _cdy_module_17, v.name, interp__constructor(_cdy_module_17, v.name, v.fields))), cx, variants)
     elif isinstance(_cdy_t330, core__TDef):
-        _cdy_module_16 = _cdy_t330.module
-        _cdy_name_17 = _cdy_t330.name
+        _cdy_module_21 = _cdy_t330.module
+        _cdy_name_22 = _cdy_t330.name
         init = _cdy_t330.init
-        return interp__define(cx, _cdy_module_16, _cdy_name_17, interp__eval(cx, {}, init))
+        return interp__define(cx, _cdy_module_21, _cdy_name_22, interp__eval(cx, {}, init))
     elif isinstance(_cdy_t330, core__TDefn):
-        _cdy_module_19 = _cdy_t330.module
-        _cdy_name_20 = _cdy_t330.name
+        _cdy_module_24 = _cdy_t330.module
+        _cdy_name_25 = _cdy_t330.name
         params = _cdy_t330.params
         body = _cdy_t330.body
         ty = _cdy_t330.t
-        return interp__define(cx, _cdy_module_19, _cdy_name_20, interp__VFn(params, body, {}, core__global_key(_cdy_module_19, _cdy_name_20), core__is_variadic(ty)))
+        return interp__define(cx, _cdy_module_24, _cdy_name_25, interp__VFn(params, body, {}, core__global_key(_cdy_module_24, _cdy_name_25), core__is_variadic(ty)))
     else:
         assert isinstance(_cdy_t330, core__TExpr)
         expr = _cdy_t330.expr
@@ -7882,8 +7882,8 @@ def interp__eval(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], e: core
         name = _cdy_t332.name
         return interp__global(cx, module, name)
     elif isinstance(_cdy_t332, core__Prim):
-        _cdy_name_47 = _cdy_t332.name
-        return interp__prim_value(_cdy_name_47)
+        _cdy_name_52 = _cdy_t332.name
+        return interp__prim_value(_cdy_name_52)
     elif isinstance(_cdy_t332, core__Call):
         callee = _cdy_t332.callee
         args = _cdy_t332.args
@@ -7902,14 +7902,14 @@ def interp__eval(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], e: core
         return cdy_rt.primitives.at(vals, (len(vals) - 1))
     elif isinstance(_cdy_t332, core__Lambda):
         params = _cdy_t332.params
-        _cdy_body_57 = _cdy_t332.body
-        return interp__VFn(params, _cdy_body_57, env, '', False)
+        _cdy_body_62 = _cdy_t332.body
+        return interp__VFn(params, _cdy_body_62, env, '', False)
     elif isinstance(_cdy_t332, core__Tuple):
         items = _cdy_t332.items
         return interp__VTup(cdy_rt.primitives.list_map((lambda x: interp__eval(cx, env, x)), items))
     elif isinstance(_cdy_t332, core__ListOf):
-        _cdy_items_60 = _cdy_t332.items
-        return interp__VList(cdy_rt.primitives.list_map((lambda x: interp__eval(cx, env, x)), _cdy_items_60))
+        _cdy_items_65 = _cdy_t332.items
+        return interp__VList(cdy_rt.primitives.list_map((lambda x: interp__eval(cx, env, x)), _cdy_items_65))
     elif isinstance(_cdy_t332, core__Fmt):
         parts = _cdy_t332.parts
         return interp__VStr(cdy_rt.primitives.join(cdy_rt.primitives.list_map((lambda p: interp__part_text(cx, env, p)), parts), ''))
@@ -7918,14 +7918,14 @@ def interp__eval(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], e: core
         field = _cdy_t332.field
         return interp__field_of(interp__eval(cx, env, obj), field)
     elif isinstance(_cdy_t332, core__Assoc):
-        _cdy_obj_66 = _cdy_t332.obj
+        _cdy_obj_71 = _cdy_t332.obj
         fields = _cdy_t332.fields
         def _cdy_t333(v: interp__Value, f: tuple[str, core__Expr]) -> interp__Value:
             _tup = f
-            _cdy_name_71 = _tup[0]
+            _cdy_name_76 = _tup[0]
             x = _tup[1]
-            return interp__with_field(v, _cdy_name_71, interp__eval(cx, env, x))
-        return cdy_rt.primitives.list_fold(_cdy_t333, interp__eval(cx, env, _cdy_obj_66), fields)
+            return interp__with_field(v, _cdy_name_76, interp__eval(cx, env, x))
+        return cdy_rt.primitives.list_fold(_cdy_t333, interp__eval(cx, env, _cdy_obj_71), fields)
     elif isinstance(_cdy_t332, core__MatchE):
         subject = _cdy_t332.subject
         clauses = _cdy_t332.clauses
@@ -8082,17 +8082,17 @@ def interp__literal(form: form__Form) -> interp__Value:
         n = _cdy_t341.val
         return interp__VInt(n)
     elif isinstance(_cdy_t341, form__LongLit):
-        _cdy_n_132 = _cdy_t341.val
-        return interp__VLong(_cdy_n_132)
+        _cdy_n_137 = _cdy_t341.val
+        return interp__VLong(_cdy_n_137)
     elif isinstance(_cdy_t341, form__ByteLit):
-        _cdy_n_133 = _cdy_t341.val
-        return interp__VByte(_cdy_n_133)
+        _cdy_n_138 = _cdy_t341.val
+        return interp__VByte(_cdy_n_138)
     elif isinstance(_cdy_t341, form__FloatLit):
         x = _cdy_t341.val
         return interp__VFloat(x)
     elif isinstance(_cdy_t341, form__DoubleLit):
-        _cdy_x_135 = _cdy_t341.val
-        return interp__VDouble(_cdy_x_135)
+        _cdy_x_140 = _cdy_t341.val
+        return interp__VDouble(_cdy_x_140)
     elif isinstance(_cdy_t341, form__BoolLit):
         b = _cdy_t341.val
         return interp__VBool(b)
@@ -8120,9 +8120,9 @@ def interp__field_of(v: interp__Value, field: str) -> interp__Value:
     if isinstance(_cdy_t343, interp__VRec):
         fields = _cdy_t343.fields
         def _cdy_t344(f: tuple[str, interp__Value]) -> bool:
-            _cdy__tup_148 = f
-            name = _cdy__tup_148[0]
-            _v = _cdy__tup_148[1]
+            _cdy__tup_153 = f
+            name = _cdy__tup_153[0]
+            _v = _cdy__tup_153[1]
             return (name == field)
         i = cdy_rt.primitives.list_find_index(_cdy_t344, fields)
         if (i < 0):
@@ -8164,7 +8164,7 @@ def interp__choose_clause(env: _cdy_Mapping[int, interp__Value], v: interp__Valu
     if isinstance(_cdy_t347, interp__VRec):
         module = _cdy_t347.module
         name = _cdy_t347.name
-        i = cdy_rt.primitives.list_find_index((lambda _cdy_c_179: ((_cdy_c_179.module == module) and (_cdy_c_179.variant == name))), clauses)
+        i = cdy_rt.primitives.list_find_index((lambda _cdy_c_184: ((_cdy_c_184.module == module) and (_cdy_c_184.variant == name))), clauses)
         if (i >= 0):
             c = cdy_rt.primitives.at(clauses, i)
             def _cdy_t348(m: _cdy_Mapping[int, interp__Value], b: tuple[str, core__Expr]) -> _cdy_Mapping[int, interp__Value]:
@@ -8205,18 +8205,18 @@ def interp__eval_tail(cx: interp__Ctx, env: _cdy_Mapping[int, interp__Value], e:
         else:
             return interp__eval_tail(cx, env, other)
     elif isinstance(_cdy_t349, core__Do):
-        _cdy_body_199 = _cdy_t349.body
-        last = (len(_cdy_body_199) - 1)
-        cdy_rt.primitives.list_map((lambda x: interp__eval(cx, env, x)), cdy_rt.primitives.list_take(last, _cdy_body_199))
-        return interp__eval_tail(cx, env, cdy_rt.primitives.at(_cdy_body_199, last))
+        _cdy_body_204 = _cdy_t349.body
+        last = (len(_cdy_body_204) - 1)
+        cdy_rt.primitives.list_map((lambda x: interp__eval(cx, env, x)), cdy_rt.primitives.list_take(last, _cdy_body_204))
+        return interp__eval_tail(cx, env, cdy_rt.primitives.at(_cdy_body_204, last))
     elif isinstance(_cdy_t349, core__MatchE):
         subject = _cdy_t349.subject
         clauses = _cdy_t349.clauses
         default = _cdy_t349.default
         _tup = interp__choose_clause(env, interp__eval(cx, env, subject), clauses, default)
         inner = _tup[0]
-        _cdy_body_207 = _tup[1]
-        return interp__eval_tail(cx, inner, _cdy_body_207)
+        _cdy_body_212 = _tup[1]
+        return interp__eval_tail(cx, inner, _cdy_body_212)
     else:
         return interp__Done(interp__eval(cx, env, e))
 
@@ -8282,8 +8282,8 @@ def interp__items_of(v: interp__Value) -> tuple[interp__Value, ...]:
         xs = _cdy_t358.items
         return xs
     elif isinstance(_cdy_t358, interp__VTup):
-        _cdy_xs_224 = _cdy_t358.items
-        return _cdy_xs_224
+        _cdy_xs_229 = _cdy_t358.items
+        return _cdy_xs_229
     else:
         return cdy_rt.primitives.fail('internal error: interp: expected a List or a Tup')
 
@@ -8616,6 +8616,85 @@ def _cdy_t376(_c: _cdy_Callable[[interp__Value, tuple[interp__Value, ...]], inte
         return interp__VTup((x, y))
     return interp__VList(cdy_rt.primitives.list_map(_cdy_t375, cdy_rt.primitives.list_zip(interp__list_of(a[0]), interp__list_of(a[1]))))
 interp_builtins__BUILTINS: _cdy_Mapping[str, _cdy_Callable[[_cdy_Callable[[interp__Value, tuple[interp__Value, ...]], interp__Value], tuple[interp__Value, ...]], interp__Value]] = cdy_rt.primitives.map_from((_cdy_t377, _cdy_t378, _cdy_t379, _cdy_t380, _cdy_t381, _cdy_t382, _cdy_t383, _cdy_t384, _cdy_t385, _cdy_t386, _cdy_t387, _cdy_t388, _cdy_t389, _cdy_t390, _cdy_t391, _cdy_t392, _cdy_t393, _cdy_t394, _cdy_t395, _cdy_t396, _cdy_t397, _cdy_t398, _cdy_t399, _cdy_t400, _cdy_t401, _cdy_t402, _cdy_t403, _cdy_t404, _cdy_t405, _cdy_t406, _cdy_t407, _cdy_t408, _cdy_t409, _cdy_t410, _cdy_t411, _cdy_t412, _cdy_t413, _cdy_t414, _cdy_t415, _cdy_t416, _cdy_t417, _cdy_t418, _cdy_t419, ('zip', _cdy_t376), ('contains', (lambda _c, a: interp__VBool(cdy_rt.primitives.list_any((lambda y: (a[0] == y)), interp__list_of(a[1]))))), ('fail', (lambda _c, a: cdy_rt.primitives.fail(interp__str_of(a[0])))), ('math.sin', (lambda _c, a: interp__VDouble(math.sin(interp__double_of(a[0]))))), ('math.cos', (lambda _c, a: interp__VDouble(math.cos(interp__double_of(a[0]))))), ('math.tan', (lambda _c, a: interp__VDouble(math.tan(interp__double_of(a[0]))))), ('string.len', (lambda _c, a: interp__VInt(len(interp__str_of(a[0]))))), ('string.at', (lambda _c, a: interp_builtins__string_at(a[0], a[1]))), ('string.slice', (lambda _c, a: interp_builtins__string_slice(a[0], a[1], a[2]))), ('string.contains', (lambda _c, a: interp__VBool(cdy_rt.primitives.str_contains(interp__str_of(a[0]), interp__str_of(a[1]))))), ('string.starts-with', (lambda _c, a: interp__VBool(cdy_rt.primitives.starts_with(interp__str_of(a[0]), interp__str_of(a[1]))))), ('string.ends-with', (lambda _c, a: interp__VBool(cdy_rt.primitives.ends_with(interp__str_of(a[0]), interp__str_of(a[1]))))), ('string.split', (lambda _c, a: interp_builtins__strs(cdy_rt.primitives.split(interp__str_of(a[0]), interp__str_of(a[1]))))), ('string.join', (lambda _c, a: interp__VStr(cdy_rt.primitives.join(cdy_rt.primitives.list_map(interp__str_of, interp__list_of(a[0])), interp__str_of(a[1]))))), ('string.repeat', (lambda _c, a: interp__VStr(cdy_rt.primitives.repeat(interp__str_of(a[0]), interp__int_of(a[1]))))), ('string.replace', (lambda _c, a: interp__VStr(cdy_rt.primitives.replace(interp__str_of(a[0]), interp__str_of(a[1]), interp__str_of(a[2]))))), ('string.to-int', (lambda _c, a: interp__VInt(cdy_rt.primitives.to_int(interp__str_of(a[0]))))), ('string.to-float', (lambda _c, a: interp__VDouble(cdy_rt.primitives.to_float(interp__str_of(a[0]))))), ('string.is-decimal', (lambda _c, a: interp__VBool(cdy_rt.primitives.is_decimal(interp__str_of(a[0]))))), ('string.code', (lambda _c, a: interp__VInt(ord(interp__str_of(a[0]))))), ('string.hex-char', (lambda _c, a: interp__VStr(cdy_rt.primitives.hex_char(interp__str_of(a[0]))))), ('string.is-space', (lambda _c, a: interp__VBool(cdy_rt.primitives.isspace(interp__str_of(a[0]))))), ('map.at', (lambda _c, a: cdy_rt.primitives.map_get(interp__map_of(a[0]), a[1]))), ('map.has', (lambda _c, a: interp__VBool(cdy_rt.primitives.map_has(interp__map_of(a[0]), a[1])))), ('map.set', (lambda _c, a: interp__VMap(cdy_rt.primitives.map_set(interp__map_of(a[0]), a[1], a[2])))), ('map.keys', (lambda _c, a: interp__VList(cdy_rt.primitives.map_keys(interp__map_of(a[0]))))), ('map.from', (lambda _c, a: interp__VMap(cdy_rt.primitives.map_from(cdy_rt.primitives.list_map(interp_builtins__pair_of, interp__list_of(a[0])))))), ('map.size', (lambda _c, a: interp__VInt(len(interp__map_of(a[0])))))))
+interp_builtins__MACRO_BUILTINS: _cdy_Mapping[str, _cdy_Callable[[_cdy_Callable[[interp__Value, tuple[interp__Value, ...]], interp__Value], tuple[interp__Value, ...]], interp__Value]] = cdy_rt.primitives.map_set(interp_builtins__BUILTINS, 'translator.fresh-name', (lambda _c, a: interp__VStr(cdy_rt.primitives.fresh_name(interp__str_of(a[0])))))
+
+def interp_macros__macro_runner(tops: tuple[core__Top, ...], module: str) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
+    cx = interp__load_tops(tops, interp_builtins__MACRO_BUILTINS)
+    def _cdy_t420(name: str) -> _cdy_Callable[[tuple[form__Form, ...]], form__Form]:
+        key = core__global_key(module, name)
+        return (lambda args: interp_macros__value_form(interp__call_global(cx, key, (interp__VList(cdy_rt.primitives.list_map((lambda a: interp_macros__form_value(module, a)), args)),))))
+    return _cdy_t420
+
+def interp_macros__pos_value(module: str, p: form__Pos) -> interp__Value:
+    return interp__VRec(module, 'Pos', (('file', interp__VStr(p.file)), ('line', interp__VInt(p.line)), ('col', interp__VInt(p.col))))
+
+def interp_macros__form_value(module: str, f: form__Form) -> interp__Value:
+    at_pos: _cdy_Callable[[str, str, interp__Value], interp__Value] = (lambda _cdy_name_11, field, v: interp__VRec(module, _cdy_name_11, ((field, v), ('pos', interp_macros__pos_value(module, form__form_pos(f))))))
+    _cdy_t421: object = f
+    if isinstance(_cdy_t421, form__Sym):
+        name = _cdy_t421.name
+        return at_pos('Sym', 'name', interp__VStr(name))
+    elif isinstance(_cdy_t421, form__Lst):
+        items = _cdy_t421.items
+        return at_pos('Lst', 'items', interp__VList(cdy_rt.primitives.list_map((lambda i: interp_macros__form_value(module, i)), items)))
+    elif isinstance(_cdy_t421, form__Txt):
+        s = _cdy_t421.val
+        return at_pos('Txt', 'val', interp__VStr(s))
+    elif isinstance(_cdy_t421, form__IntLit):
+        n = _cdy_t421.val
+        return at_pos('IntLit', 'val', interp__VInt(n))
+    elif isinstance(_cdy_t421, form__LongLit):
+        _cdy_n_20 = _cdy_t421.val
+        return at_pos('LongLit', 'val', interp__VInt(_cdy_n_20))
+    elif isinstance(_cdy_t421, form__ByteLit):
+        _cdy_n_21 = _cdy_t421.val
+        return at_pos('ByteLit', 'val', interp__VInt(_cdy_n_21))
+    elif isinstance(_cdy_t421, form__FloatLit):
+        x = _cdy_t421.val
+        return at_pos('FloatLit', 'val', interp__VDouble(x))
+    elif isinstance(_cdy_t421, form__DoubleLit):
+        _cdy_x_23 = _cdy_t421.val
+        return at_pos('DoubleLit', 'val', interp__VDouble(_cdy_x_23))
+    elif isinstance(_cdy_t421, form__CharLit):
+        c = _cdy_t421.val
+        return at_pos('CharLit', 'val', interp__VChar(c))
+    else:
+        assert isinstance(_cdy_t421, form__BoolLit)
+        b = _cdy_t421.val
+        return at_pos('BoolLit', 'val', interp__VBool(b))
+
+def interp_macros__value_pos(v: interp__Value) -> form__Pos:
+    return form__Pos(interp__str_of(interp__field_of(v, 'file')), interp__int_of(interp__field_of(v, 'line')), interp__int_of(interp__field_of(v, 'col')))
+
+def interp_macros__value_form(v: interp__Value) -> form__Form:
+    _cdy_t422: object = v
+    if isinstance(_cdy_t422, interp__VRec):
+        name = _cdy_t422.name
+        pos = interp_macros__value_pos(interp__field_of(v, 'pos'))
+        if (name == 'Sym'):
+            return form__Sym(interp__str_of(interp__field_of(v, 'name')), pos)
+        elif (name == 'Lst'):
+            return form__Lst(cdy_rt.primitives.list_map(interp_macros__value_form, interp__list_of(interp__field_of(v, 'items'))), pos)
+        elif (name == 'Txt'):
+            return form__Txt(interp__str_of(interp__field_of(v, 'val')), pos)
+        elif (name == 'IntLit'):
+            return form__IntLit(interp__int_of(interp__field_of(v, 'val')), pos)
+        elif (name == 'LongLit'):
+            return form__LongLit(interp__int_of(interp__field_of(v, 'val')), pos)
+        elif (name == 'ByteLit'):
+            return form__ByteLit(interp__int_of(interp__field_of(v, 'val')), pos)
+        elif (name == 'FloatLit'):
+            return form__FloatLit(interp__double_of(interp__field_of(v, 'val')), pos)
+        elif (name == 'DoubleLit'):
+            return form__DoubleLit(interp__double_of(interp__field_of(v, 'val')), pos)
+        elif (name == 'CharLit'):
+            return form__CharLit(interp__char_of(interp__field_of(v, 'val')), pos)
+        elif (name == 'BoolLit'):
+            return form__BoolLit(interp__truth(interp__field_of(v, 'val')), pos)
+        else:
+            return cdy_rt.primitives.fail(('internal error: interp: a macro gave a ' + name + ', not a Form'))
+    else:
+        return cdy_rt.primitives.fail("internal error: interp: a macro gave a value that isn't a Form")
 
 class Ready(_cdy_NamedTuple):
     module: include__Module
@@ -8635,7 +8714,7 @@ def translate_modules(modules: tuple[include__Module, ...], parse: _cdy_Callable
     return python_of(check__type_check(program_tops(modules, parse, builtins), builtins), cdy_rt.primitives.at(modules, (len(modules) - 1)).stem)
 
 def expander(builtins: _cdy_Mapping[str, core__Builtin]) -> expand__Expander:
-    return expand__new_expander(builtins, compile_macros(builtins, macro_imports(None)))
+    return expand__new_expander(builtins, macro_loader(builtins, macro_imports(None)))
 
 def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]], builtins: _cdy_Mapping[str, core__Builtin]) -> tuple[core__Top, ...]:
     ready = expand_modules(modules, expander(builtins))
@@ -8644,7 +8723,7 @@ def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str
     return analyse_modules(ready, by_key, elsewhere, builtins, parse)
 
 def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -> tuple[Ready, ...]:
-    def _cdy_t420(m: include__Module) -> Ready:
+    def _cdy_t423(m: include__Module) -> Ready:
         declaring = include__is_declaration(m.key)
         all_ = m.forms
         _tup = expand__expand_program((core__definitions(all_) if declaring else all_), ex)
@@ -8652,7 +8731,7 @@ def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -
         macros = _tup[1]
         own = core__module_exports(forms, m.stem)
         return Ready(m, forms, macros, (core__with_declared(own, all_, m.stem) if declaring else own))
-    return cdy_rt.primitives.list_map(_cdy_t420, modules)
+    return cdy_rt.primitives.list_map(_cdy_t423, modules)
 
 def exports_by_key(ready: tuple[Ready, ...]) -> _cdy_Mapping[str, core__Exports]:
     return cdy_rt.primitives.list_fold((lambda m, r: cdy_rt.primitives.map_set(m, r.module.key, r.exports)), {}, ready)
@@ -8661,16 +8740,20 @@ def exports_of(ready: tuple[Ready, ...]) -> tuple[core__Exports, ...]:
     return cdy_rt.primitives.list_map((lambda r: r.exports), ready)
 
 def analyse_modules(ready: tuple[Ready, ...], by_key: _cdy_Mapping[str, core__Exports], elsewhere: _cdy_Mapping[str, str], builtins: _cdy_Mapping[str, core__Builtin], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]]) -> tuple[core__Top, ...]:
-    def _cdy_t421(r: Ready) -> tuple[core__Top, ...]:
+    def _cdy_t424(r: Ready) -> tuple[core__Top, ...]:
         macros = r.macros
         return core__analyse_module(r.forms, r.exports, imported(r.module.imports, by_key), elsewhere, builtins, (lambda text, where: expand__expand_all(parse(text, where), macros)), macros, False)
-    return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t421, ready))
+    return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t424, ready))
 
 def imported(imps: tuple[include__Imp, ...], by_key: _cdy_Mapping[str, core__Exports]) -> tuple[core__Import, ...]:
     return cdy_rt.primitives.list_map((lambda imp: core__Import(cdy_rt.primitives.map_get(by_key, imp.key), imp.pos, imp.only)), imps)
 
-def compile_macros(builtins: _cdy_Mapping[str, core__Builtin], imports: tuple[core__Import, ...]) -> _cdy_Callable[[tuple[form__Form, ...]], str]:
-    return (lambda forms: translate_expanded(forms, read__read_hole, {}, True, builtins, imports))
+def macro_loader(builtins: _cdy_Mapping[str, core__Builtin], imports: tuple[core__Import, ...]) -> _cdy_Callable[[tuple[form__Form, ...]], _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]]:
+    def _cdy_t425(forms: tuple[form__Form, ...]) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
+        tops = core__analyse_program(forms, imports, builtins, read__read_hole, {}, True)
+        _restarted = cdy_rt.primitives.load_macros('', form__sym_name, {})
+        return interp_macros__macro_runner(tops, '')
+    return _cdy_t425
 
 def translate_expanded(forms: tuple[form__Form, ...], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]], macros: _cdy_Mapping[str, form__Macro], quoting: bool, builtins: _cdy_Mapping[str, core__Builtin], imports: tuple[core__Import, ...]) -> str:
     return python_of(core__analyse_program(forms, imports, builtins, parse, macros, quoting), '')

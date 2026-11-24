@@ -81,9 +81,10 @@ a macro is defined once; a special form can't be a macro. A macro is its file's 
 ```
 
 <a id="macros.errors-at-call"></a>
-**Errors point at the call:** a wrong number of arguments, a `fail` in the macro, an
-error the host raises while it runs, and an error in the form it returns are all
-reported at the call (so these rows give the position):
+**Errors point at the call:** a wrong number of arguments, a `fail` in the macro, a
+panic in it (an index out of range, with the built-in's message: macro code runs on the
+interpreter, since `host-macros`), an error the host raises while it runs, and an error
+in the form it returns are all reported at the call (so these rows give the position):
 
 ```candy errors
 (defmacro m (a) a)
@@ -91,7 +92,7 @@ reported at the call (so these rows give the position):
 (m 1 2) => line 2, column 1: m: expected 1 argument(s), got 2
 (defmacro bad () (quo (if))) (put 1) (bad) => line 2, column 38: if: expected (if test then else?)
 (defmacro f (a) (fail "no")) (f 1) => line 2, column 30: f: no
-(defmacro f (a) (at (list-items a) 5)) (f x) => line 2, column 40: f: IndexError
+(defmacro f (a) (at (list-items a) 5)) (f x) => line 2, column 40: f: at: index out of range: 5, for length 0
 ```
 
 <a id="macros.quoting"></a>

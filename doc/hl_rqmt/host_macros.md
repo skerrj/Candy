@@ -186,6 +186,25 @@ prelude, the `bin` before reads its own copy, so no staging there.
    bridge (`interp_macros.cdy`); `Macro`'s function typed, `call-macro` retyped;
    `fresh-name` in the interpreter's table for macro code; the Expander handed a loader
    in place of `compile`. The spec's `IndexError` row; the suite's time compared.
+   *Done (2026-11-22). As built:* `interp.cdy`'s `load-tops` (split out of `interpret`)
+   and `call-global`, named so beside `interp_builtins.cdy`'s own `call`;
+   `interp_builtins.cdy`'s `MACRO_BUILTINS`, the table and `translator.fresh-name`;
+   `interp_macros.cdy`'s `macro-runner` (a macro program's `Ctx`, loaded once, and the
+   function each `macro__NAME` is) and the bridge, `form-value` and `value-form`, for
+   macro code's Form of a given module (`""` until step 4). `cdyc.cdy`'s
+   `macro-loader` replaces `compile-macros`: it analyses the macro program and hands it
+   to `macro-runner`. `Macro`'s `run` is `(Fn ((List Form)) Form)`, and `call-macro`
+   `(Fn ((Fn ((List a)) b) (List a) String) b)`, its Python the same. Two things the
+   HLD missed: quoting built a list of forms as a Core `Tuple`, which Python spells as
+   a list but the interpreter doesn't (`core.cdy`'s `form-list` and `close-run` now
+   `ListOf`; only macro code quotes, so no program's Python changes); and `load_macros`
+   restarted `gensym`'s count on each load, which keeps a translation's names from
+   depending on those before it, so `macro-loader` restarts it the same way, by a
+   `load-macros` of no Python, *for now*: step 6 gives the restart a built-in of its
+   own. [[macros.errors-at-call]]'s `IndexError` row is now the interpreter's message.
+   Test: `test_forms_cross_to_the_interpreter_and_back`. The suite takes as long as
+   before (56 s), and translating the translator 1.02 s against 0.98 s. Checked against
+   `boot/95`'s `bin`: the same output for all 108 programs. No staging.
 2. **Macro code checked** ([[B42]]): the macro program type-checked before it loads;
    every macro in use passes; [[macros.macro-code]] says it is checked, with an error
    example.
@@ -198,7 +217,8 @@ prelude, the `bin` before reads its own copy, so no staging there.
    prelude names qualified; [[programs.shadowing]]'s *for now* about `put` and `text`
    goes, with an example.
 6. **`load-macros` dropped** ([[B41]], [[B70]]; staged): from `translator.cdy`,
-   `spelling.py`, `primitives.py`; `macros.md`'s account of `exec` marked history;
+   `spelling.py`, `primitives.py`, with a built-in that restarts `gensym`'s count in
+   its place (step 1); `macros.md`'s account of `exec` marked history;
    [[B49]] narrowed to `module-dir`.
 7. **Docs:** CLAUDE.md ("Macros", "The interpreter"), `macros.md`, `modules.md`'s
    "Macro modules on the host", the epic's seventh branch *done*; "Looking back".

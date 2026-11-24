@@ -79,7 +79,7 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B225](B225-host-macros-step-1.md) | host-macros step 1: Macros on the interpreter | task | open | normal |
+| [B225](B225-host-macros-step-1.md) | host-macros step 1: Macros on the interpreter | task | review | normal |
 | [B226](B226-host-macros-step-2.md) | host-macros step 2: Macro code checked | task | open | normal |
 | [B227](B227-host-macros-step-3.md) | host-macros step 3: The prelude for macro code | task | open | normal |
 | [B228](B228-host-macros-step-4.md) | host-macros step 4: Macro files as modules | task | open | normal |

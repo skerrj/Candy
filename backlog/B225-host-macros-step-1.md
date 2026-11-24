@@ -1,10 +1,10 @@
 # B225: host-macros step 1: Macros on the interpreter
 
 kind: task
-state: open
+state: review
 priority: normal
 found: host-macros, 2026-11-22
-fixed:
+fixed: host-macros, 2026-11-22
 where: `src/cdy/interp_macros.cdy`, `src/cdy/interp.cdy`, `src/cdy/expand.cdy`, `src/cdy/cdyc.cdy`
 refs: 
 
@@ -13,3 +13,4 @@ Step 1 of `doc/hl_rqmt/host_macros.md`. The macro program as today (flat, module
 ## Notes
 
 - 2026-11-22, Claude: filed on the HLD's acceptance (the owner, 2026-11-22).
+- 2026-11-22, Claude: built (the HLD's step 1, "Done").

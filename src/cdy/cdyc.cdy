@@ -16,6 +16,7 @@
 (import check)
 (import interp)
 (import interp_builtins)
+(import interp_macros)
 (import translator)
 (import map ())
 
@@ -37,7 +38,7 @@
 ;; The Expander for a translation: the built-ins read once, and the prelude's macros loaded
 ;; once, for every module ([[B66]], [[B62]]).
 (sig expander (Fn ((Map String Builtin)) Expander))
-(defn expander (builtins) (new-expander builtins (compile-macros builtins (macro-imports nil))))
+(defn expander (builtins) (new-expander builtins (macro-loader builtins (macro-imports nil))))
 
 ;; The definitions of the program `modules`, analysed (see translate-modules); not yet
 ;; type-checked (check.cdy).
@@ -94,12 +95,19 @@
 (defn imported (imps by-key)
   (map (fn (imp) (Import (map.at by-key (get imp key)) (get imp pos) (get imp only))) imps))
 
-;; How a macro program (expand.cdy) becomes Python, with `builtins` and macro code's
-;; `imports` (macro-imports), each read once per translation. It is macro code, so it can
-;; quote.
-(sig compile-macros (Fn ((Map String Builtin) (List Import)) (Fn ((List Form)) String)))
-(defn compile-macros (builtins imports)
-  (fn (forms) (translate-expanded forms read-hole map.empty true builtins imports)))
+;; How a macro program (expand.cdy) is loaded, with `builtins` and macro code's `imports`
+;; (macro-imports), each read once per translation: analysed (it is macro code, so it can
+;; quote; its module is "") and loaded on the interpreter (interp_macros.cdy), giving the
+;; function each macro's defn is, by its name. Each load restarts gensym's count, as
+;; load-macros did, so a translation's names don't depend on the translations before it:
+;; by a load-macros of no Python, *for now* until load-macros goes (host_macros.md, step 6).
+(sig macro-loader
+  (Fn ((Map String Builtin) (List Import)) (Fn ((List Form)) (Fn (String) (Fn ((List Form)) Form)))))
+(defn macro-loader (builtins imports)
+  (fn (forms)
+    (let ((tops (analyse-program forms imports builtins read-hole map.empty true))
+          (_restarted (load-macros "" sym-name map.empty)))
+      (macro-runner tops ""))))
 
 ;; `forms`, one program with no imports and no macro calls left, as Python; `macros` are
 ;; the program's macros, `builtins` the built-ins, and `imports` what it imports

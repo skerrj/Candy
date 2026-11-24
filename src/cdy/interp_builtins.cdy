@@ -14,6 +14,7 @@
 (import map ())
 (import string ())
 (import math ())
+(import translator (fresh-name))
 
 ;; --- the table ---
 
@@ -297,3 +298,10 @@
       (Tup "map.keys" (fn (_c a) (VList (map.keys (map-of (at a 0))))))
       (Tup "map.from" (fn (_c a) (VMap (map.from (map pair-of (list-of (at a 0)))))))
       (Tup "map.size" (fn (_c a) (VInt (map.size (map-of (at a 0)))))))))
+
+;; Macro code's built-ins: the table, and `gensym`'s `fresh-name` (form.cdy), the host's
+;; counter (doc/hl_rqmt/host_macros.md, Question 5; [[B43]]). Macro code imports
+;; `translator` implicitly; a program can't use it, so the table has none of its own.
+(sig MACRO_BUILTINS (Map String (Fn ((Fn (Value (List Value)) Value) (List Value)) Value)))
+(def MACRO_BUILTINS
+  (map.set BUILTINS "translator.fresh-name" (fn (_c a) (VStr (fresh-name (str-of (at a 0)))))))
