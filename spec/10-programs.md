@@ -301,8 +301,7 @@ written from it, `expected (import ModName [(Name*)])`. The example with a name 
   name wins over both.
 - Importing a module twice is fine; an import cycle is an error, and so are two modules
   with the same file name (`util` and `lib/util`).
-- In a macro file, `import` pastes the file in (inclusion), as its helpers, so it lists no
-  names.
+- A macro file's `import` is a module's too (since `host-macros`; [[macros.import-macros]]).
 
 ```candy errors
 (import) => import: expected (import ModName [(Name*)])

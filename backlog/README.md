@@ -33,7 +33,7 @@ By kind, then priority.
 | [B34](B34-no-collection.md) | No `Collection` interface | leak | open | normal |
 | [B37](B37-self-tail-calls-only.md) | Only self tail calls are loops | leak | open | normal |
 | [B42](B42-macro-result-unchecked.md) | A macro's result isn't checked to be a `Form` | leak | review | normal |
-| [B45](B45-macro-files-inclusion.md) | Macro files still use inclusion | leak | open | normal |
+| [B45](B45-macro-files-inclusion.md) | Macro files still use inclusion | leak | review | normal |
 | [B46](B46-templates-not-hygienic.md) | Macro templates aren't hygienic across modules | leak | open | normal |
 | [B49](B49-opaque-host-types.md) | Host objects have no Candy type | leak | open | normal |
 | [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | review | normal |
@@ -112,7 +112,7 @@ By kind, then priority.
 | [B156](B156-macro-errors-name-expansion.md) | An error in a macro's expansion names the expansion's forms | idea | open | low |
 | [B170](B170-bracket-list-literal.md) | Brackets for a list literal | idea | open | low |
 | [B176](B176-host-records.md) | Host records: a built-in type with fields | idea | open | low |
-| [B197](B197-builtins-module.md) | The built-ins' module, and macro code's | idea | open | low |
+| [B197](B197-builtins-module.md) | The built-ins' module, and macro code's | idea | review | low |
 | [B215](B215-test-registry.md) | `deftest` doesn't register its tests | idea | open | low |
 | [B217](B217-translator-parts-on-the-interpreter.md) | Parts of the translator on the interpreter | idea | open | low |
 | [B224](B224-expand-and-include-one-loop.md) | Expand and include as one loop | idea | open | low |

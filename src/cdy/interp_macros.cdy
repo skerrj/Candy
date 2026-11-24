@@ -5,19 +5,17 @@
 ;;; result crosses back (Question 4).
 
 (import form)
-(import core (Top global-key))
+(import core (Top))
 (import interp)
 (import interp_builtins (MACRO_BUILTINS))
 
 ;; How to run the macros of the macro program `tops`, loaded on the interpreter once: the
-;; function a macro's `defn` (`macro__NAME`, of module `module`, as macro code's Form
-;; is) is, on the translator's Forms.
-(sig macro-runner (Fn ((List Top) String) (Fn (String) (Fn ((List Form)) Form))))
-(defn macro-runner (tops module)
+;; function a macro's `defn` (`macro__NAME`) is, by its key (global-key), on the
+;; translator's Forms, which cross as the values of macro code's module `form`.
+(sig macro-runner (Fn ((List Top)) (Fn (String) (Fn ((List Form)) Form))))
+(defn macro-runner (tops)
   (let ((cx (load-tops tops MACRO_BUILTINS)))
-    (fn (name)
-      (let ((key (global-key module name)))
-        (fn (args) (value-form (call-global cx key (List (VList (map (fn (a) (form-value module a)) args))))))))))
+    (fn (key) (fn (args) (value-form (call-global cx key (List (VList (map (fn (a) (form-value "form" a)) args)))))))))
 
 ;; --- across: a Form as a value, and back ---
 

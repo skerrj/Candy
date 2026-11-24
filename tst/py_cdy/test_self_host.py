@@ -225,11 +225,9 @@ def test_main_errors_say_where(text: str, message: str, t1: ModuleType) -> None:
             "main.cdy:1:14: import: x is listed twice",
         ),
         (
+            # A macro file's import is a module's (since host-macros), its list checked.
             {"main.cdy": "(import-macros m)", "m.cdy": "(import h (f))", "h.cdy": ""},
-            (
-                "m.cdy:1:1: import: a macro file's import includes the whole file, "
-                "so it lists no names"
-            ),
+            "m.cdy:1:12: import: h doesn't define f",
         ),
         (
             {"main.cdy": "(import a)\n(put x)", "a.cdy": "(private x) (sig x Int) (def x 1)"},
@@ -335,28 +333,10 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
     assert (done.returncode, done.stdout) == (0, "140\n280\n"), done.stderr
 
 
-def translate_macro_code(t1: ModuleType, forms: tuple[Any, ...]) -> str:
-    """``forms`` as Python, translated as macro code (where quoting is allowed), as
-    ``expand.cdy`` translates a macro program."""
-    library = candy(t1, "expand.library-builtins")(None)
-    imports = candy(t1, "macro-imports")(candy(t1, "macro-prelude")(library)[0])
-    return cast(
-        str,
-        candy(t1, "translate-expanded")(
-            forms, candy(t1, "read.read-hole"), {}, True, library, imports
-        ),
-    )
-
-
-def test_quoting_in_macro_code(t1: ModuleType, tmp_path: Path) -> None:
+def test_quoting_in_macro_code(t1: ModuleType, capsys: pytest.CaptureFixture[str]) -> None:
     program = CDYC_ONLY / "macro_code" / "quoting.cdy"
-    done = run(
-        translate_macro_code(t1, candy(t1, "include.read-program")(str(program))),
-        tmp_path,
-        "quoting",
-    )
-    assert done.returncode == 0, done.stderr
-    assert done.stdout == program.with_suffix(".out").read_text(encoding="utf-8")
+    candy(t1, "load-macro-code")(str(program))
+    assert capsys.readouterr().out == program.with_suffix(".out").read_text(encoding="utf-8")
 
 
 MACRO_FILE = """(defmacro twice (e) (quasi (+ (unq e) (unq e))))
@@ -383,6 +363,40 @@ def test_macro_file_errors(
     Path("p.cdy").write_text(src, encoding="utf-8")
     with pytest.raises(CandyFail, match=re.escape(message)):
         translate_file_with(t1, Path("p.cdy"))
+
+
+# A macro file is a module (host-macros step 4): its imports are real, with a name list
+# and qualified names, and a private name stays its own.
+MACRO_MODULE = {
+    "mac.cdy": (
+        "(import h (twice))\n"
+        "(defmacro both (e) (twice (h.wrap e)))\n"
+        '(defmacro shout (s) (Txt (++ (h.upper-ish (sym-name s)) "!") NOWHERE))\n'
+    ),
+    "h.cdy": (
+        "(private secret)\n"
+        "(sig twice (Fn (Form) Form))\n"
+        "(defn twice (f) (quasi (++ (unq f) (unq f))))\n"
+        "(sig wrap (Fn (Form) Form))\n"
+        "(defn wrap (f) (quasi (List (unq f))))\n"
+        "(sig upper-ish (Fn (String) String))\n"
+        "(defn upper-ish (s) (++ (secret nil) s))\n"
+        "(sig secret (Fn (Unit) String))\n"
+        '(defn secret (_) ">")\n'
+    ),
+    "p.cdy": "(import-macros mac)\n(put (both 1))\n(put (shout hi))\n",
+}
+
+
+def test_macro_file_is_a_module(
+    t1: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    for name, text in MACRO_MODULE.items():
+        Path(name).write_text(text, encoding="utf-8")
+    done = run(translate_file_with(t1, Path("p.cdy")), tmp_path, "p")
+    assert done.returncode == 0, done.stderr
+    assert done.stdout == "(List 1 1)\n>hi!\n"
 
 
 def test_fixpoint_t2_passes_mypy_strict(t2: tuple[Path, str]) -> None:

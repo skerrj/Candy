@@ -261,7 +261,32 @@ prelude, the `bin` before reads its own copy, so no staging there.
    `macros.cdy` and `test_test.cdy` translate as they did under it before this step.
 4. **Macro files as modules** ([[B45]], [[B63]], [[B197]]): `import-macros` reads a
    module; macro code's module is its file's; each loaded once per translation;
-   [[macros.import-macros]].
+   [[macros.import-macros]]. Built as two commits: 4a the modules, 4b each loaded once.
+   *4a done (2026-11-23). As built:* a macro file is read with `read-modules`, so its
+   `import`s are real (a name list, qualified and private names); the modules it imports
+   are expanded as a program's and analysed as macro code (`cdyc.cdy`'s
+   `macro-module`: they run only while translating, so they can quote and see `Form`, as
+   they could when they were pasted in); the file itself is expanded as a macro file
+   (`expand.cdy`'s `expand-macro-file`: its helpers with the macros it imports, then its
+   defmacros as `macro__NAME` defns) and analysed as macro code of its own module, its
+   stem (`load-macro-file`). A file's own defmacros are a program of their own, of no
+   module, `""`, as a top module's names have no prefix (`load-own-macros`), so no stem
+   can clash with an imported macro file's. Both import macro code's base: the prelude
+   and `form`, analysed once per translation (`MacroBase`, `macro-base`), `form` a module
+   now, so quoting builds `form.Sym` (`core.cdy`'s `FORM`; [[B197]]), and `translator`
+   and `string` declared; a macro file's helpers are an import of its module, so the
+   importer's own defmacros call them unqualified, as before. `load-macro-tops` checks
+   and loads a macro program's modules, with the base, on the interpreter. Inclusion is
+   gone from `include.cdy` (`read-program`, `include-forms`, the error for a macro file's
+   import with a list), and so are `macro-prelude`, `macro-loader` and
+   `translate-expanded`. The checker found two old slips in macro code: quoting a `2l`,
+   `3b` or `1.5f` gave its variant's field a `Long`, `Byte` or `Float` where the field
+   holds an `Int` or `Double` (`core.cdy`'s `field-literal`), and the quoting test built
+   a `(List Form)` with `Tup`; `test_quoting_in_macro_code` now loads its file as macro
+   code on the interpreter (`cdyc.cdy`'s `load-macro-code`). New test:
+   `test_macro_file_is_a_module`; [[macros.import-macros]] and [[programs.import]] say
+   a macro file's `import` is a module's. Translating the translator 1.06 s against
+   1.05 s; checked against `boot/98`'s `bin`: the same output for all 108 programs.
 5. **Hygiene for built-ins** ([[B46]], narrowed; Question 2): a template's built-in and
    prelude names qualified; [[programs.shadowing]]'s *for now* about `put` and `text`
    goes, with an example.

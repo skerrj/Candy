@@ -180,17 +180,20 @@ capture the program's:
 ## Macro files: import-macros
 
 `(import-macros name)`, top level only, finds `name.cdy` as `import` does
-(`10-programs.md`), but reads it as a **macro file**: its `defmacro`s become macros of
-the importing file, and its other definitions are helpers, which run only while
-translating (the importing file's own `defmacro`s can call them; its program can't).
+(`10-programs.md`), but reads it as a **macro file**, a module of macro code (since
+`host-macros`): its `defmacro`s become macros of the importing file, and its other
+definitions are helpers, which run only while translating (the importing file's own
+`defmacro`s can call them, unqualified; its program can't).
 
-- A macro file can `import` ordinary files (their definitions are helpers too; in a macro
-  file `import` is still inclusion) and `import-macros` other macro files, whose macros
-  expand in it; it doesn't pass those macros on.
+- A macro file's `import`s are a module's ([[programs.import]]): a name list, qualified
+  names (`h.wrap`) and private names as for any module. The modules it imports are macro
+  code too, since they run only while translating: they can quote, and see `Form`.
+- A macro file can `import-macros` other macro files, whose macros expand in it and whose
+  helpers it can call; it doesn't pass those macros on.
 - Each macro file is loaded once per importer; a cycle is an error.
 
 The examples need a second file, so they are `tst/cdy/cdyc/macro_files.cdy` and
-`test_self_host.py`'s `test_macro_file_errors`.
+`test_self_host.py`'s `test_macro_file_errors` and `test_macro_file_is_a_module`.
 
 ```candy errors
 (import-macros) => import-macros: expected (import-macros name)

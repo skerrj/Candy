@@ -1,10 +1,10 @@
 # B197: The built-ins' module, and macro code's
 
 kind: idea
-state: open
+state: review
 priority: low
 found: namespaces step 6's review, 2026-11-14
-fixed:
+fixed: host-macros, 2026-11-23
 where: `src/cdy/core.cdy`, `src/cdy/check.cdy`, `src/cdy/emit.cdy`
 refs: [[B42]], [[B45]], [[programs.qualified]]
 
@@ -33,3 +33,7 @@ What settling it needs:
   is `system.name` too ([[programs.sees]]); `emit` spells a `system` type through
   `spelling.py`, and `show` tells a program's `Map` from the built-in's ([[B196]]). Macro
   code's module stays `""`: the second half, with [[B42]] and [[B45]].
+- 2026-11-23, Claude: its second half done by `host-macros` step 4a: a macro file's code
+  is of its own module, its stem, and a file's own defmacros of `""`, as a top module's
+  names have no prefix; `form` is a module, so quoting builds `form.Sym` (`core.cdy`'s
+  `FORM`).

@@ -11,8 +11,8 @@
 ;; --- types (from sig) ---
 
 (deft CType
-  ;; A built-in type's module is `system` (SYSTEM); macro code's own types' is "", *for
-  ;; now* ([[B197]]).
+  ;; A built-in type's module is `system` (SYSTEM); macro code's is its file's, "" for a
+  ;; file's own defmacros (cdyc.cdy, load-own-macros).
   (TCon ((module String) (name String) (args (List CType))))
   (TVar ((name String)))
   (TFn ((params (List CType)) (ret CType))))
@@ -25,8 +25,8 @@
 (deft Expr
   (Lit ((form Form) (t CType)))
   (Local ((name String) (id Int) (pos Pos) (t CType)))
-  ;; A top-level name: the module that defines it, and its name there. Macro code has no
-  ;; module, "", *for now* ([[B197]]).
+  ;; A top-level name: the module that defines it, and its name there; for a file's own
+  ;; defmacros "" (cdyc.cdy, load-own-macros).
   (Global ((module String) (name String) (pos Pos) (t CType)))
   (Prim ((name String) (pos Pos) (t CType)))
   (Call ((callee Expr) (args (List Expr)) (pos Pos) (t CType)))
@@ -873,13 +873,28 @@
   (if (get scope quoting) true (fail (located scope (format "{what}: only in macro code")))))
 
 ;; The Expr that builds `form` as a Form value.
+;; The module whose Form quoting builds: form.cdy's, which macro code imports implicitly
+;; (cdyc.cdy, macro-imports; doc/hl_rqmt/host_macros.md, step 4).
+(sig FORM String)
+(def FORM "form")
+
 (sig quoted (Fn (Form) Expr))
 (defn quoted (form)
   (match form
-    ((Sym name _) (Call (Global "" "Sym" NOWHERE ANY) (List (Lit (Txt name NOWHERE) ANY) (Global "" "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
-    ((Lst items _) (Call (Global "" "Lst" NOWHERE ANY) (List (form-list (map quoted items)) (Global "" "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
-    (else (Call (Global "" (literal-variant form) NOWHERE ANY) (List (Lit form ANY) (Global "" "NOWHERE" NOWHERE ANY)) NOWHERE ANY))))
+    ((Sym name _) (Call (Global FORM "Sym" NOWHERE ANY) (List (Lit (Txt name NOWHERE) ANY) (Global FORM "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
+    ((Lst items _) (Call (Global FORM "Lst" NOWHERE ANY) (List (form-list (map quoted items)) (Global FORM "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
+    (else (Call (Global FORM (literal-variant form) NOWHERE ANY) (List (Lit (field-literal form) ANY) (Global FORM "NOWHERE" NOWHERE ANY)) NOWHERE ANY))))
 
+
+;; The literal `form` as its variant's field holds it (form.cdy): a Long's or a Byte's as an
+;; Int, a Float's as a Double, as the reader keeps them; any other as it is.
+(sig field-literal (Fn (Form) Form))
+(defn field-literal (form)
+  (match form
+    ((LongLit n pos) (IntLit n pos))
+    ((ByteLit n pos) (IntLit n pos))
+    ((FloatLit x pos) (DoubleLit x pos))
+    (else form)))
 
 ;; A (List Form) of `items` (Exprs that make Forms).
 (sig form-list (Fn ((List Expr)) Expr))
@@ -928,7 +943,7 @@
 (defn quasi-list (items scope n)
   (let (((parts n1) (quasi-parts items scope n empty-list empty-list))
         (here (get scope here)))
-    (Tup (Call (Global "" "Lst" NOWHERE ANY) (List (join-parts parts here) (Global "" "NOWHERE" NOWHERE ANY)) here ANY) n1)))
+    (Tup (Call (Global FORM "Lst" NOWHERE ANY) (List (join-parts parts here) (Global FORM "NOWHERE" NOWHERE ANY)) here ANY) n1)))
 
 (sig quasi-parts
   (Fn ((List Form) Scope Int (List Expr) (List Expr)) (Tup (List Expr) Int)))
