@@ -38,7 +38,7 @@ By kind, then priority.
 | [B49](B49-opaque-host-types.md) | Host objects have no Candy type | leak | open | normal |
 | [B52](B52-macro-code-no-prelude.md) | Macro code doesn't get the prelude | leak | review | normal |
 | [B22](B22-numbers-unbounded.md) | Overflow isn't checked, and a `Float` is 64 bits on Python | leak | open | low |
-| [B41](B41-macros-exec.md) | Macros run with Python's `exec` | leak | open | low |
+| [B41](B41-macros-exec.md) | Macros run with Python's `exec` | leak | review | low |
 | [B43](B43-gensym-impure.md) | `gensym` is impure | leak | open | low |
 | [B44](B44-macro-cant-make-import.md) | A macro can't expand into `import`, `import-macros` or `defmacro` | leak | open | low |
 | [B113](B113-field-leading-underscore.md) | A field can't start with `_`, because Python's `NamedTuple` can't | leak | open | low |
@@ -69,7 +69,7 @@ By kind, then priority.
 | [B58](B58-reader-appends.md) | The reader builds strings and lists one item at a time | tech-debt | open | low |
 | [B60](B60-three-test-dirs.md) | Three directories of test programs | tech-debt | open | low |
 | [B64](B64-form-cdy-copied.md) | `form.cdy` is copied next to every translator | tech-debt | open | low |
-| [B70](B70-load-macros-prefix.md) | `load-macros` finds `form.cdy`'s names from a Python name | tech-debt | open | low |
+| [B70](B70-load-macros-prefix.md) | `load-macros` finds `form.cdy`'s names from a Python name | tech-debt | review | low |
 | [B74](B74-py-str-not-repr.md) | `py-str` is close to `repr`, not equal | tech-debt | open | low |
 | [B76](B76-py-reserved-314.md) | `PY_RESERVED` is Python 3.14's | tech-debt | open | low |
 | [B79](B79-read-sexpr-any.md) | `tst/cdy/read_sexpr.cdy` types forms as `Any` | tech-debt | open | low |
@@ -84,7 +84,7 @@ By kind, then priority.
 | [B227](B227-host-macros-step-3.md) | host-macros step 3: The prelude for macro code | task | review | normal |
 | [B228](B228-host-macros-step-4.md) | host-macros step 4: Macro files as modules | task | review | normal |
 | [B229](B229-host-macros-step-5.md) | host-macros step 5: Hygiene for built-ins | task | review | normal |
-| [B230](B230-host-macros-step-6.md) | host-macros step 6: `load-macros` dropped | task | open | normal |
+| [B230](B230-host-macros-step-6.md) | host-macros step 6: `load-macros` dropped | task | review | normal |
 | [B231](B231-host-macros-step-7.md) | host-macros step 7: Docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 

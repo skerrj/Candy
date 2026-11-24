@@ -210,10 +210,9 @@ TRANSLATOR: Spellings = {
     "translator.py-spellings": value(f"{SPELLING_MODULE}.SPELLINGS"),
 }
 
-# Macros (doc/hl_rqmt/macros.md): the translator loads a translated macro program and calls
-# its macros; ``fresh-name`` is behind ``gensym`` (form.cdy).
+# Macros (doc/hl_rqmt/host_macros.md): the translator calls a macro, which runs on the
+# interpreter; ``fresh-name`` is behind ``gensym`` (form.cdy).
 MACRO: Spellings = {
-    "translator.load-macros": primitive("load_macros"),
     "translator.call-macro": primitive("call_macro"),
     "translator.module-dir": primitive("module_dir"),
     "translator.fresh-name": primitive("fresh_name"),

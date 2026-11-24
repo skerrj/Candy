@@ -335,6 +335,13 @@ prelude, the `bin` before reads its own copy, so no staging there.
    ([[library.builtins]], [[programs.shadowing]], CLAUDE.md). Test:
    `test_fresh_name` restarts with it. Checked against `boot/101`'s `bin`: the same
    output for all 109 programs.
+   *6b done (2026-11-24). As built:* `load-macros` out of `translator.cdy`, `spelling.py`
+   (`MACRO`) and `primitives.py` (`load_macros`, with its test and fixtures); the
+   translator's built-ins five again. `macros.md`'s "How `load-macros` runs macro code"
+   and its rejection of an interpreter marked history; CLAUDE.md's "Macros" says how
+   macros run now. [[B41]] and [[B70]] to review; [[B49]] narrowed to `module-dir`.
+   `bin`'s Python is the same as 6a's (a declaration dropped emits nothing); checked
+   against `boot/102`'s `bin`: the same output for all 109 programs.
 7. **Docs:** CLAUDE.md ("Macros", "The interpreter"), `macros.md`, `modules.md`'s
    "Macro modules on the host", the epic's seventh branch *done*; "Looking back".
 

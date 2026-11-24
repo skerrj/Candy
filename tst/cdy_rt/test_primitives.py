@@ -22,7 +22,6 @@ from cdy_rt.primitives import (
     list_fold,
     list_map,
     list_map_acc,
-    load_macros,
     make_dirs,
     map_get,
     map_has,
@@ -143,34 +142,8 @@ def test_panic_hook(capsys: pytest.CaptureFixture[str], monkeypatch: pytest.Monk
     assert capsys.readouterr().err == "ValueError: not a panic\n"
 
 
-HOME = "Form"  # a name the "translator" defines, which load_macros is asked to put back
-OTHER = "mine"  # one it isn't
-
-
 def home() -> None:
-    """Stands in for a translator function: load_macros runs a program in its module."""
-
-
-form__HOME = "prefixed Form"  # pylint: disable=invalid-name  # the same, with modules
-
-
-def form__home() -> None:
-    """Stands in for a function of a translator built with modules (form.cdy's prefix)."""
-
-
-def test_load_macros() -> None:
-    program = (
-        "HOME = 'theirs'\nOTHER = 'theirs'\n"
-        "def macro__m(args):\n    return (HOME, OTHER, args)\nmacro__n = 1\n"
-    )
-    macros = load_macros(program, home, {"HOME": True})
-    assert set(macros) == {"macro__m", "macro__n"}
-    # HOME is the home module's again; OTHER stays the program's.
-    assert macros["macro__m"](("a",)) == ("Form", "theirs", ("a",))
-    assert "macro__m" not in globals() and OTHER == "mine"  # it ran in a copy
-    # With modules, form.cdy's names have home's prefix.
-    macros = load_macros(program, form__home, {"HOME": True})
-    assert macros["macro__m"](()) == ("prefixed Form", "theirs", ())
+    """Stands in for a translator function, for module_dir."""
 
 
 def test_fresh_name() -> None:
@@ -178,8 +151,6 @@ def test_fresh_name() -> None:
     assert (fresh_name("x"), fresh_name("tmp")) == ("x__1", "tmp__2")
     restart_fresh_names(None)
     assert fresh_name("x") == "x__1"
-    load_macros("", home, {})  # restarts it too, until it goes (host_macros.md, step 6)
-    assert fresh_name("y") == "y__1"
 
 
 def test_call_macro() -> None:

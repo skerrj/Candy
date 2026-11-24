@@ -1,10 +1,10 @@
 # B41: Macros run with Python's `exec`
 
 kind: leak
-state: open
+state: review
 priority: low
 found: macros, 2026-10-18
-fixed:
+fixed: host-macros, 2026-11-24
 where: `src/cdy_rt/primitives.py` (`load_macros`), `src/cdy/expand.cdy`
 refs: [[macros.defmacro]], [[macros.macro-code]]
 
@@ -18,3 +18,6 @@ code (or an interpreter). From `doc/archive/leaks_macros.md`.
 ## Notes
 
 - 2026-10-26, the owner: `low` in triage ([[B103]]): matters once there is a second target.
+- 2026-11-24, Claude: macro code runs on the interpreter (`host-macros` steps 1 to 4), and
+  `load-macros` is gone from `translator.cdy`, `spelling.py` and `primitives.py` (step
+  6b); `macros.md`'s account of the `exec` is marked history.

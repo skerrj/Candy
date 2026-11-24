@@ -142,8 +142,16 @@ macros independent of the translator's host, but it means a second implementatio
 every form and every built-in (each needs a Python function to call by name), and macro
 code would run slowly. The translator's host is Python for the foreseeable future
 (`doc/hl_rqmt/multi_target.md` plans other targets for programs, not for the translator).
+*Since `host-macros`, macro code runs on the interpreter (`doc/hl_rqmt/interpreter.md`,
+built for the language's own sake, then used for macros: `doc/hl_rqmt/host_macros.md`),
+so the second implementation exists and this rejection is history.*
 
 ### How `load-macros` runs macro code (Python `exec`)
+
+*History: this is how macros ran from the `macros` branch to `host-macros`, which runs
+macro code on the interpreter and dropped `load-macros` from `translator.cdy`, the
+runtime and its spellings (`doc/hl_rqmt/host_macros.md`, step 6; [[B41]]). Kept as
+built.*
 
 The one place the translator runs Candy code it has just translated. In steps:
 

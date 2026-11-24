@@ -565,8 +565,8 @@ def run_main(main: Callable[[tuple[str, ...]], int]) -> NoReturn:
 
 # --- macros (doc/hl_rqmt/macros.md) ---
 
-# Counts the names fresh_name makes; restart_fresh_names (and load_macros) restarts it, so a
-# program's translation doesn't depend on what was translated before it.
+# Counts the names fresh_name makes; restart_fresh_names restarts it, so a program's
+# translation doesn't depend on what was translated before it.
 _FRESH = [itertools.count(1)]
 
 
@@ -591,28 +591,6 @@ def module_globals(fn: Callable[..., object]) -> dict[str, Any]:
     """The namespace of the module that defines the function ``fn``. (Generated code types
     a Candy function as a ``Callable``, which has no ``__globals__``.)"""
     return cast(dict[str, Any], getattr(fn, "__globals__"))  # noqa: B009
-
-
-def load_macros(
-    python: str, home: Callable[..., object], keep: Mapping[str, object]
-) -> Mapping[str, Any]:
-    """Run ``python``, a translated macro program, in a copy of the namespace of the module
-    that defines the function ``home`` (the translator), and return its macros: the functions
-    named ``macro__...``. The Candy names in ``keep`` (``form.cdy``'s) are then set back to
-    the translator's, so the macros build the translator's own ``Form``s, not those of the
-    macro program's copy of ``form.cdy`` (``home`` is one of ``form.cdy``'s functions).
-    See "How load-macros runs macro code" in ``doc/hl_rqmt/macros.md``."""
-    home_ns = module_globals(home)
-    namespace = dict(home_ns)
-    exec(compile(python, "<macros>", "exec"), namespace)  # noqa: S102  # pylint: disable=exec-used
-    # In a translator built with modules, form.cdy's names have its prefix (``form__Sym``),
-    # which ``home``'s own Python name shows; a translator built before modules has none.
-    # ``keep``'s names are Python names (the translator mangles them).
-    head, sep, _ = home.__name__.rpartition("__")
-    for name in keep:
-        namespace[name] = home_ns[head + sep + name]
-    _FRESH[0] = itertools.count(1)
-    return {name: val for name, val in namespace.items() if name.startswith("macro__")}
 
 
 def call_macro(macro: Any, args: Sequence[Any], where: str) -> Any:
