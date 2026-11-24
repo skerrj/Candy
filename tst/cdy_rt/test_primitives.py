@@ -37,6 +37,7 @@ from cdy_rt.primitives import (
     put_err,
     register_type,
     replace,
+    restart_fresh_names,
     run_main,
     show,
     show_any,
@@ -173,10 +174,12 @@ def test_load_macros() -> None:
 
 
 def test_fresh_name() -> None:
-    load_macros("", home, {})  # restarts the count
+    restart_fresh_names(None)
     assert (fresh_name("x"), fresh_name("tmp")) == ("x__1", "tmp__2")
-    load_macros("", home, {})
+    restart_fresh_names(None)
     assert fresh_name("x") == "x__1"
+    load_macros("", home, {})  # restarts it too, until it goes (host_macros.md, step 6)
+    assert fresh_name("y") == "y__1"
 
 
 def test_call_macro() -> None:

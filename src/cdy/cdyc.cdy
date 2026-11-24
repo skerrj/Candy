@@ -174,14 +174,12 @@
 ;; The macro program of the modules `loaded` and the definitions `tops`, type-checked as a
 ;; program is (check.cdy; doc/hl_rqmt/host_macros.md, "What checking macro code checks")
 ;; and loaded on the interpreter (interp_macros.cdy): the function each of its defns is, by
-;; its key (global-key). Each load restarts gensym's count, as load-macros did, so a
-;; translation's names don't depend on the translations before it: by a load-macros of no
-;; Python, *for now* until load-macros goes (host_macros.md, step 6).
+;; its key (global-key). Each load restarts gensym's count (restart-fresh-names), so a
+;; translation's names don't depend on the translations before it.
 (sig load-macro-tops (Fn ((Map String Builtin) (List Loaded) (List Top)) (Fn (String) (Fn ((List Form)) Form))))
 (defn load-macro-tops (builtins loaded tops)
-  (let ((all (type-check (++ (concat (map (fn (l) (get l tops)) loaded)) tops) builtins))
-        (_restarted (load-macros "" sym-name map.empty)))
-    (macro-runner all)))
+  (let ((all (type-check (++ (concat (map (fn (l) (get l tops)) loaded)) tops) builtins)))
+    (do (restart-fresh-names nil) (macro-runner all))))
 
 ;; `start` with the modules `loaded` added, each once, in order.
 (sig add-loaded (Fn ((List Loaded) (List Loaded)) (List Loaded)))

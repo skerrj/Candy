@@ -19,5 +19,7 @@
 ;; --- the translator's own directory, where its library is ---
 (sig module-dir (Fn (Any) String))
 
-;; --- a name no program has written, for gensym (form.cdy) ---
+;; --- a name no program has written, for gensym (form.cdy); and its count restarted, as
+;; the translator does each time it loads macro code ---
 (sig fresh-name (Fn (String) String))
+(sig restart-fresh-names (Fn (Unit) Unit))

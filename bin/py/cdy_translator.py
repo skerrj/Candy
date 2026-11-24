@@ -8837,7 +8837,7 @@ def load_own_macros(builtins: _cdy_Mapping[str, core__Builtin], base: MacroBase)
 
 def load_macro_tops(builtins: _cdy_Mapping[str, core__Builtin], loaded: tuple[expand__Loaded, ...], tops: tuple[core__Top, ...]) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
     all_ = check__type_check((cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map((lambda l: l.tops), loaded)) + tops), builtins)
-    _restarted = cdy_rt.primitives.load_macros('', form__sym_name, {})
+    cdy_rt.primitives.restart_fresh_names(None)
     return interp_macros__macro_runner(all_)
 
 def add_loaded(loaded: tuple[expand__Loaded, ...], start: tuple[expand__Loaded, ...]) -> tuple[expand__Loaded, ...]:
@@ -8876,10 +8876,10 @@ def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -
         e = _tup[1]
         declaring = include__is_declaration(m.key)
         all_ = m.forms
-        _cdy__tup_107 = expand__expand_program((core__definitions(all_) if declaring else all_), e)
-        forms = _cdy__tup_107[0]
-        macros = _cdy__tup_107[1]
-        e1 = _cdy__tup_107[2]
+        _cdy__tup_106 = expand__expand_program((core__definitions(all_) if declaring else all_), e)
+        forms = _cdy__tup_106[0]
+        macros = _cdy__tup_106[1]
+        e1 = _cdy__tup_106[2]
         own = core__module_exports(forms, m.stem)
         return ((done + (Ready(m, forms, macros, (core__with_declared(own, all_, m.stem) if declaring else own)),)), e1)
     return cdy_rt.primitives.list_fold(_cdy_t429, (NO_READY, ex), modules)

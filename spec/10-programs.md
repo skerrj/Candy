@@ -120,8 +120,9 @@ definition of a built-in's name (`(defn len ...)`) is its own, in that file only
 local shadows everything ([[expr.let]]). A qualified name is never shadowed. A macro's
 expansion means what its macro means: a built-in or prelude name in its template is
 qualified ([[macros.hygiene]]), so a file's own `text` isn't the one `put` calls. The
-translator's five built-ins
-(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`) are only a
+translator's six built-ins
+(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`,
+`restart-fresh-names`) are only a
 file's that imports `translator` ([[programs.import]]); macro code imports it
 implicitly ([[macros.macro-code]]).
 

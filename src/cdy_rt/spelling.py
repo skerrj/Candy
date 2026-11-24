@@ -217,6 +217,7 @@ MACRO: Spellings = {
     "translator.call-macro": primitive("call_macro"),
     "translator.module-dir": primitive("module_dir"),
     "translator.fresh-name": primitive("fresh_name"),
+    "translator.restart-fresh-names": primitive("restart_fresh_names"),
 }
 
 INFRA: Spellings = {

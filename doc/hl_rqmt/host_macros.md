@@ -202,7 +202,8 @@ Steps 1 to 5 are translator code in the language `bin` reads, with no new built-
 `bin` still uses its own `load-macros` to build T1. Step 6 drops `load-macros` from
 `translator.cdy`, `spelling.py` and `primitives.py`; the `bin` before still declares it
 and calls it, checking its declarations against the live `spelling.py`, so step 6 is
-staged `old-runtime` (`script/bootstrap.py`). If step 3's `prelude_macros.cdy` uses the
+staged `old-runtime` (`script/bootstrap.py`). *As built, step 6 is two commits, neither
+staged (step 6's note).* If step 3's `prelude_macros.cdy` uses the
 prelude, the `bin` before reads its own copy, so no staging there.
 
 ## Steps
@@ -320,7 +321,20 @@ prelude, the `bin` before reads its own copy, so no staging there.
 6. **`load-macros` dropped** ([[B41]], [[B70]]; staged): from `translator.cdy`,
    `spelling.py`, `primitives.py`, with a built-in that restarts `gensym`'s count in
    its place (step 1); `macros.md`'s account of `exec` marked history;
-   [[B49]] narrowed to `module-dir`.
+   [[B49]] narrowed to `module-dir`. Built as two commits, neither staged: staging
+   `old-runtime` can't do it in one, since in the step's tree the `bin` before reads
+   the step's `translator.cdy`, with the new built-in, and checks it against its own
+   runtime's `spelling.py`, which has no spelling for it ("declared in none of ...").
+   6a adds the built-in and uses it, `load-macros` kept, which the `bin` before calls
+   and the step's runtime still has; 6b drops `load-macros`, which the `bin` of 6a no
+   longer calls.
+   *6a done (2026-11-24). As built:* `translator.restart-fresh-names`, `(Fn (Unit)
+   Unit)`, the runtime's `restart_fresh_names`, called by `cdyc.cdy`'s
+   `load-macro-tops` in a `do` (mypy rejects binding a call that returns `None`), where
+   it called `load-macros` of no Python; the translator's built-ins are six until 6b
+   ([[library.builtins]], [[programs.shadowing]], CLAUDE.md). Test:
+   `test_fresh_name` restarts with it. Checked against `boot/101`'s `bin`: the same
+   output for all 109 programs.
 7. **Docs:** CLAUDE.md ("Macros", "The interpreter"), `macros.md`, `modules.md`'s
    "Macro modules on the host", the epic's seventh branch *done*; "Looking back".
 

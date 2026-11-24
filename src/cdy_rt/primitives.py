@@ -565,8 +565,8 @@ def run_main(main: Callable[[tuple[str, ...]], int]) -> NoReturn:
 
 # --- macros (doc/hl_rqmt/macros.md) ---
 
-# Counts the names fresh_name makes; load_macros restarts it, so a program's translation
-# doesn't depend on what was translated before it.
+# Counts the names fresh_name makes; restart_fresh_names (and load_macros) restarts it, so a
+# program's translation doesn't depend on what was translated before it.
 _FRESH = [itertools.count(1)]
 
 
@@ -574,6 +574,12 @@ def fresh_name(prefix: str) -> str:
     """A new name, ``prefix__N``, for a macro to introduce. The reader rejects ``__`` in a
     name, so no program can spell it."""
     return f"{prefix}__{next(_FRESH[0])}"
+
+
+def restart_fresh_names(_: None) -> None:
+    """Restart the count of ``fresh_name``, as the translator does each time it loads macro
+    code, so a program's translation doesn't depend on what was translated before it."""
+    _FRESH[0] = itertools.count(1)
 
 
 def module_dir(fn: Callable[..., object]) -> str:
