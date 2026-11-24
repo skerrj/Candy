@@ -97,7 +97,9 @@
 
 ;; How a macro program (expand.cdy) is loaded, with `builtins` and macro code's `imports`
 ;; (macro-imports), each read once per translation: analysed (it is macro code, so it can
-;; quote; its module is "") and loaded on the interpreter (interp_macros.cdy), giving the
+;; quote; its module is ""), type-checked as a program is (check.cdy;
+;; doc/hl_rqmt/host_macros.md, "What checking macro code checks"), and loaded on the
+;; interpreter (interp_macros.cdy), giving the
 ;; function each macro's defn is, by its name. Each load restarts gensym's count, as
 ;; load-macros did, so a translation's names don't depend on the translations before it:
 ;; by a load-macros of no Python, *for now* until load-macros goes (host_macros.md, step 6).
@@ -105,7 +107,7 @@
   (Fn ((Map String Builtin) (List Import)) (Fn ((List Form)) (Fn (String) (Fn ((List Form)) Form)))))
 (defn macro-loader (builtins imports)
   (fn (forms)
-    (let ((tops (analyse-program forms imports builtins read-hole map.empty true))
+    (let ((tops (type-check (analyse-program forms imports builtins read-hole map.empty true) builtins))
           (_restarted (load-macros "" sym-name map.empty)))
       (macro-runner tops ""))))
 

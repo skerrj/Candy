@@ -26,7 +26,7 @@
   (Lit ((form Form) (t CType)))
   (Local ((name String) (id Int) (pos Pos) (t CType)))
   ;; A top-level name: the module that defines it, and its name there. Macro code has no
-  ;; module, "", *for now* ([[B197]]; it isn't checked, [[B42]]).
+  ;; module, "", *for now* ([[B197]]).
   (Global ((module String) (name String) (pos Pos) (t CType)))
   (Prim ((name String) (pos Pos) (t CType)))
   (Call ((callee Expr) (args (List Expr)) (pos Pos) (t CType)))
@@ -926,30 +926,32 @@
 ;; of plain items (each a ListOf) and spliced lists, joined with ++.
 (sig quasi-list (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn quasi-list (items scope n)
-  (let (((parts n1) (quasi-parts items scope n empty-list empty-list)))
-    (Tup (Call (Global "" "Lst" NOWHERE ANY) (List (join-parts parts) (Global "" "NOWHERE" NOWHERE ANY)) NOWHERE ANY) n1)))
+  (let (((parts n1) (quasi-parts items scope n empty-list empty-list))
+        (here (get scope here)))
+    (Tup (Call (Global "" "Lst" NOWHERE ANY) (List (join-parts parts here) (Global "" "NOWHERE" NOWHERE ANY)) here ANY) n1)))
 
 (sig quasi-parts
   (Fn ((List Form) Scope Int (List Expr) (List Expr)) (Tup (List Expr) Int)))
 (defn quasi-parts (items scope n run parts)
   (if (= (len items) 0)
-    (Tup (close-run run parts) n)
+    (Tup (close-run run parts (get scope here)) n)
     (let ((item (at items 0)))
       (if (= (head-name item) "unq-sp")
         (let (((e n1) (unq-arg item (at-pos scope (form-pos item)) n)))
-          (quasi-parts (rest items) scope n1 empty-list (++ (close-run run parts) (List e))))
+          (quasi-parts (rest items) scope n1 empty-list (++ (close-run run parts (get scope here)) (List e))))
         (let (((e n1) (quasi-form item scope n)))
           (quasi-parts (rest items) scope n1 (++ run (List e)) parts))))))
 
-(sig close-run (Fn ((List Expr) (List Expr)) (List Expr)))
-(defn close-run (run parts) (if (= (len run) 0) parts (++ parts (List (ListOf run NOWHERE ANY)))))
+(sig close-run (Fn ((List Expr) (List Expr) Pos) (List Expr)))
+(defn close-run (run parts pos) (if (= (len run) 0) parts (++ parts (List (ListOf run pos ANY)))))
 
-(sig join-parts (Fn ((List Expr)) Expr))
-(defn join-parts (parts)
+;; The parts joined, at `pos`, the template list's (so a type error in one points there).
+(sig join-parts (Fn ((List Expr) Pos) Expr))
+(defn join-parts (parts pos)
   (cond
-    ((= (len parts) 0) (Prim "empty-list" NOWHERE ANY))
+    ((= (len parts) 0) (Prim "empty-list" pos ANY))
     ((= (len parts) 1) (at parts 0))
-    (else (Call (Prim "++" NOWHERE ANY) parts NOWHERE ANY))))
+    (else (Call (Prim "++" pos ANY) parts pos ANY))))
 
 ;; --- types ---
 

@@ -43,8 +43,7 @@ A macro's body is **macro code**: it can use the built-ins, `Form` with its help
 `Sym` and `Txt`), the helpers of the macro files it imports, and the translator's
 built-ins, since it imports `translator` implicitly (`gensym` calls `fresh-name`;
 [[programs.import]]); not the program's own definitions, and not the prelude (*for now*:
-[[B52]]). Macro code isn't type-checked,
-by Candy or by mypy (*for now*: [[B42]]).
+[[B52]]).
 
 ```candy run
 (import string ())
@@ -57,6 +56,22 @@ by Candy or by mypy (*for now*: [[B42]]).
 ```expect
 hello
 3
+```
+
+<a id="macros.checked"></a>
+**Macro code is type-checked** (since `host-macros`), as a program is, before any macro
+runs: a macro is a function from its arguments, a `(List Form)`, to a `Form`, and every
+expression of its code is checked, whether or not the macro is called, the error at the
+macro's code. In a template, an `(unq e)`'s `e` must be a `Form`, and an `(unq-sp e)`'s a
+`(List Form)`. What a form contains isn't checked there (a template's `if` with no
+`then`, say): the expansion is checked as the program's code, at the call
+([[macros.errors-at-call]]; *for now*: [[B232]]).
+
+```candy errors
+(defmacro m (a) 5) => line 1, column 17: defmacro m: expected Form, got Int
+(defmacro m (a) (list-items "x")) => line 1, column 29: argument 1 of list-items: expected Form, got String
+(defmacro m (a) (quasi (+ (unq 1) 2))) => line 1, column 24: List: an item: expected Form, got Int
+(defmacro m (a) (quasi (f (unq-sp a)))) => line 1, column 35: argument 2 of ++: expected (List Form), got Form
 ```
 
 <a id="macros.binding"></a>

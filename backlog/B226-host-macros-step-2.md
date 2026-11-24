@@ -1,10 +1,10 @@
 # B226: host-macros step 2: Macro code checked
 
 kind: task
-state: open
+state: review
 priority: normal
 found: host-macros, 2026-11-22
-fixed:
+fixed: host-macros, 2026-11-23
 where: `src/cdy/cdyc.cdy`, `spec/50-macros.md`
 refs: 
 
@@ -13,3 +13,4 @@ Step 2 of `doc/hl_rqmt/host_macros.md`. The macro program type-checked before it
 ## Notes
 
 - 2026-11-22, Claude: filed on the HLD's acceptance (the owner, 2026-11-22).
+- 2026-11-23, Claude: built (the HLD's step 2, "Done").

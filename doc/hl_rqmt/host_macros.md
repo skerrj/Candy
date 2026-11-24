@@ -122,6 +122,32 @@ panic, `f: at: index out of range: 5, for length 0` in place of `f: IndexError`,
 spec's message, so that row of the rule changes. A type error in macro code is a new
 error, at the `defmacro`'s code, with its position.
 
+### What checking macro code checks (step 2)
+
+The macro program is checked as a program is: each `macro__NAME` against its `sig`,
+`(Fn ((List Form)) Form)`, with every helper it calls and `form.cdy`'s definitions.
+So every expression of macro code is checked, whether or not the macro is ever called,
+and an error is at the macro's code, with its position: `(+ 1 "a")` in a body,
+`(list-items "x")`, a helper called with the wrong number of arguments, a body that
+gives an `Int`, an `(unq e)` in a template whose `e` isn't a `Form` (or an `(unq-sp e)`
+whose `e` isn't a `(List Form)`), since a template is analysed into calls of `Form`'s
+constructors. Until now none of it was: a bug showed only when the macro ran.
+
+What a form *contains* isn't checked there: `Form` is a syntax tree, so its type says
+"a form", not "a well-formed `if`" or "an expression of type `Int`". A template that
+leaves out an `if`'s `then`, or adds a `String` to an `Int`, is found as today, one stage
+later: its expansion goes back into the program, analysed and checked as the program's
+code, the error at the call ([[macros.errors-at-call]]), in the expansion's words
+([[B156]]). Two ways to check more at the `defmacro`, both later, not this branch's
+(the owner, 2026-11-23):
+
+- **Shapes in templates** ([[B232]]): a template's special forms checked against
+  `syntax.cdy`'s shapes, an `(unq e)` one form and an `(unq-sp e)` any number; shapes
+  only, not types. Cheap, since the shapes exist.
+- **Typed code** (`doc/brainstorm.md`): a template typed by what it builds, `(Code Int)`,
+  checked at the `defmacro`, as MetaOCaml does; a fit for expressions only, so a second
+  kind of macro, and a branch or more.
+
 ### The prelude for macro code
 
 Macro code imports the prelude implicitly, as a program does. `prelude.cdy` uses no
@@ -208,6 +234,15 @@ prelude, the `bin` before reads its own copy, so no staging there.
 2. **Macro code checked** ([[B42]]): the macro program type-checked before it loads;
    every macro in use passes; [[macros.macro-code]] says it is checked, with an error
    example.
+   *Done (2026-11-23). As built:* `cdyc.cdy`'s `macro-loader` runs `type-check` on the
+   analysed macro program before `macro-runner`; every macro in use passed as it was
+   (the prelude's, the test module's, the test programs'). Two messages read badly for
+   macro code, so: an error in a macro's body names it `defmacro m`, not the `defn
+   macro__m` it becomes (`check.cdy`'s `defn-label`); and a template's list has the
+   template's position, not the `defmacro`'s (`core.cdy`'s `quasi-list`, `close-run`,
+   `join-parts`). The rule is its own, [[macros.checked]], with four error rows;
+   [[macros.macro-code]] loses its *for now*, and [[B42]] goes to review. No program's
+   Python changes (macro code isn't emitted); checked against `boot/96`'s `bin`.
 3. **The prelude for macro code** ([[B52]]): imported implicitly; `rest-of` goes;
    [[macros.macro-code]].
 4. **Macro files as modules** ([[B45]], [[B63]], [[B197]]): `import-macros` reads a
