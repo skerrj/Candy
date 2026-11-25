@@ -22,7 +22,7 @@ import importlib.util
 import shutil
 from pathlib import Path
 from types import ModuleType
-from typing import cast
+from typing import Any, cast
 
 from mypy import api as mypy_api
 
@@ -54,6 +54,19 @@ LIBRARY = (
 
 class FixpointError(Exception):
     """A rebuilt translator doesn't reproduce itself or doesn't pass ``mypy --strict``."""
+
+
+TOP = "cdyc"  # the translator's top module, whose names have no prefix in Python
+
+
+def candy(translator: ModuleType, name: str) -> Any:
+    """The translator's own top-level ``name``, as Candy writes it: ``form.Pos``, module
+    ``form``'s ``Pos``, or ``translate-text``, the top module's. Its Python name is the
+    translator's to give (``py-global-name`` in ``emit.cdy``, itself reached by its Python
+    name), so moving a definition to another module changes a test only where the module's
+    name is (B65). For the tests.."""
+    module, _, own = name.rpartition(".")
+    return getattr(translator, translator.emit__py_global_name(module or TOP, own, TOP))
 
 
 def load(path: Path) -> ModuleType:

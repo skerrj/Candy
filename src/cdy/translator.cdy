@@ -6,6 +6,8 @@
 ;;; finds the library's copy, never a program's file of that name (this one included).
 ;;; This file is read as it is, so it can't use macros.
 
+(import prelude (Result Ok Err))
+
 ;; --- the spellings (each built-in's Python text and kind, and an operator's function as
 ;; a value) ---
 (sig py-spellings (Map String (Tup String String String)))
@@ -14,6 +16,24 @@
 ;; `f` applied to `args`, a panic or a host error in it starting with `where` (a macro's
 ;; call: macros.errors-at-call).
 (sig call-macro (Fn ((Fn ((List a)) b) (List a) String) b))
+
+;; --- panics and output, for tools that run the translator or a program in-process: the
+;; spec's runner (spec_runner.cdy; doc/hl_rqmt/test_runner.md). Not for a program's
+;; logic, where a panic is a bug and an expected failure a Result (library.errors) ---
+
+;; `f` applied to nil: `(Ok v)`, or `(Err msg)` if it panicked (a `fail`, an index out of
+;; range), with the panic's message. Any other host error is a bug, not caught.
+(sig catch-panic (Fn ((Fn (Unit) a)) (Result a String)))
+(defn catch-panic (f)
+  (let (((done msg) (run-caught f)))
+    (if (= (len done) 1) (Ok (at done 0)) (Err msg))))
+;; `f` applied to nil: its value, in a list of one, and ""; or, if it panicked, no value
+;; and the panic's message. catch-panic's host part, since the runtime can't build the
+;; prelude's Result.
+(sig run-caught (Fn ((Fn (Unit) a)) (Tup (List a) String)))
+;; `f` applied to nil, and what it wrote to the standard output meanwhile, which is then
+;; not written.
+(sig capture-output (Fn ((Fn (Unit) a)) (Tup a String)))
 
 ;; --- the translator's own directory, where its library is ---
 (sig module-dir (Fn (Any) String))

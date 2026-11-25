@@ -19,6 +19,7 @@
 (import interp_macros)
 (import translator)
 (import map ())
+(import spec_runner ())
 
 ;; --- the whole translator: forms in, Python source out ---
 
@@ -328,7 +329,12 @@
 ;; --- the driver ---
 
 (sig USAGE String)
-(def USAGE "usage: cdy_translator.py FILE.cdy [OUT.py] | --interpret FILE.cdy [ARG ...]")
+(def USAGE "usage: cdy_translator.py FILE.cdy [OUT.py] | --interpret FILE.cdy [ARG ...] | --spec FILE.md ...")
+
+;; The spec's runner (spec_runner.cdy), given the translator and the interpreter, each
+;; on a Candy text with no arguments.
+(sig SPEC_RUNNER spec_runner.Runner)
+(def SPEC_RUNNER (spec_runner.Runner translate-text (fn (text) (interpret-text text empty-list))))
 
 ;; Translate FILE.cdy into OUT.py, by default output/FILE.py (as py_cdy/main.py does).
 (sig main (Fn ((List String)) Int))
@@ -336,6 +342,8 @@
   (cond
     ((and (> (len args) 0) (= (at args 0) "--interpret"))
       (if (< (len args) 2) (do (put-err USAGE) 2) (interpret-file (at args 1) (drop 2 args))))
+    ((and (> (len args) 0) (= (at args 0) "--spec"))
+      (if (< (len args) 2) (do (put-err USAGE) 2) (spec_runner.run-files SPEC_RUNNER (drop 1 args))))
     ((or (= (len args) 0) (> (len args) 2)) (do (put-err USAGE) 2))
     (else
       (let ((src (at args 0))

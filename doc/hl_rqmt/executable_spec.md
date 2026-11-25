@@ -132,6 +132,11 @@ tst/py_cdy/test_spec.py   extracts and runs every example in spec/*.md
 - the fixpoint's "T1 and T2 agree" covers the examples too.
 
 Written in Python (the chat's point 4, *lasting* while the translator could break it).
+*Since `test-runner` (`test_runner.md`):* the runner is Candy, `src/cdy/spec_runner.cdy`,
+checking each example in-process, on the interpreter or through the translator, and run
+by `cdy_translator.py --spec`; `test_spec.py` calls it per file and keeps the Python
+target's checks. A translator bug can't hide behind it, since the interpreter and the
+Python target are each checked against the spec's text.
 
 ### Scale
 
@@ -453,7 +458,8 @@ chain step with no staging. The translator's code is untouched.
 - Coded errors, if messages start changing under the tests.
 - A grammar file checked against the reader (or generating it).
 - Multi-module examples (a block that names its file), so `tst/cdy/cdyc/` can shrink.
-- The runner in Candy, as dogfooding, once it can't hide a translator bug.
+- The runner in Candy, as dogfooding, once it can't hide a translator bug. *Done in
+  `test-runner`.*
 - Tutorials outside `spec/` whose code blocks run through the same extractor.
 
 ## Questions

@@ -217,6 +217,9 @@ MACRO: Spellings = {
     "translator.module-dir": primitive("module_dir"),
     "translator.fresh-name": primitive("fresh_name"),
     "translator.restart-fresh-names": primitive("restart_fresh_names"),
+    # For tools that run the translator or a program in-process (the spec's runner).
+    "translator.run-caught": primitive("run_caught"),
+    "translator.capture-output": primitive("capture_output"),
 }
 
 INFRA: Spellings = {

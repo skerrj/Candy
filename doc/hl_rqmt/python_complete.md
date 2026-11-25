@@ -402,7 +402,12 @@ brackets:
    per translation; a template's built-in and prelude names qualified ([[B46]]
    narrowed to that); [[B43]] and [[B44]] left out, [[B44]]'s fix filed as [[B224]].
 8. **`test-runner`:** the spec's runner in Candy, on the interpreter, called from
-   `test_spec.py`; the spec runs on both implementations through it. (X)
+   `test_spec.py`; the spec runs on both implementations through it. (X) *Done (tag
+   `test-runner`, 2026-11-25; `test_runner.md`):* a module of the translator,
+   `spec_runner.cdy`, reading a spec file's examples and checking each in-process, run
+   by a `--spec` flag (the whole spec in 11 s) and by `test_spec.py` per file;
+   `catch-panic` and `capture-output` for tools ([[B139]]); pytest keeping the Python
+   target's checks, over the Candy reader's examples.
 9. **`porting-surface`:** the per-target files (`system`, spelling, runtime, spec
    extensions) in a layout a second target fills in; the porting surface's own doc;
    whether mypy stays (Question 3; [[B15]]'s part, now [[B125]]'s), and each target's own checker as an

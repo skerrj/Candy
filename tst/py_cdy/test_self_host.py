@@ -40,7 +40,9 @@ from self_host import (
     BIN_PATH,
     CDY_DIR,
     LIBRARY,
+    TOP,
     TRANSLATOR,
+    candy,
     copy_library,
     load,
     translate_file_with,
@@ -56,17 +58,6 @@ PROGRAMS = [
     *sorted((ROOT / "tst" / "cdy" / "stdlib").glob("*.cdy")),
 ]
 IDS = [p.stem for p in PROGRAMS]
-TOP = "cdyc"  # the translator's top module, whose names have no prefix in Python
-
-
-def candy(translator: ModuleType, name: str) -> Any:
-    """The translator's own top-level ``name``, as Candy writes it: ``form.Pos``, module
-    ``form``'s ``Pos``, or ``translate-text``, the top module's. Its Python name is the
-    translator's to give (``py-global-name`` in ``emit.cdy``, itself reached by its Python
-    name), so moving a definition to another module changes a test only where the module's
-    name is (B65)."""
-    module, _, own = name.rpartition(".")
-    return getattr(translator, translator.emit__py_global_name(module or TOP, own, TOP))
 
 
 def in_module(translator: ModuleType, value: object, module: str) -> bool:
@@ -331,6 +322,14 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
     clauses = " ".join(f"((= x {i}) (do (put {i}) (* 2 {i})))" for i in range(LONG))
     done = run(translate_with(t1, src.format(clauses=clauses)), tmp_path, "cond")
     assert (done.returncode, done.stdout) == (0, "140\n280\n"), done.stderr
+
+
+def test_catch_panic(t1: ModuleType) -> None:
+    """``translator.catch-panic``, the Candy over ``run-caught`` (test_runner.md, step 1)."""
+    catch = candy(t1, "translator.catch-panic")
+    ok, err = candy(t1, "prelude.Ok"), candy(t1, "prelude.Err")
+    assert catch(lambda _: 5) == ok(5)
+    assert catch(lambda _: t1.translate_text("(put x)")) == err("line 1, column 6: unknown name x")
 
 
 def test_quoting_in_macro_code(t1: ModuleType, capsys: pytest.CaptureFixture[str]) -> None:

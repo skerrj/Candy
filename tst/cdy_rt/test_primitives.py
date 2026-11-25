@@ -12,6 +12,7 @@ from cdy_rt.primitives import (
     CandyFail,
     at,
     call_macro,
+    capture_output,
     fail,
     file_exists,
     fresh_name,
@@ -37,6 +38,7 @@ from cdy_rt.primitives import (
     register_type,
     replace,
     restart_fresh_names,
+    run_caught,
     run_main,
     show,
     show_any,
@@ -151,6 +153,29 @@ def test_fresh_name() -> None:
     assert (fresh_name("x"), fresh_name("tmp")) == ("x__1", "tmp__2")
     restart_fresh_names(None)
     assert fresh_name("x") == "x__1"
+
+
+def test_run_caught() -> None:
+    assert run_caught(lambda _: 5) == ((5,), "")
+
+    def failing(_: None) -> int:
+        fail("boom")
+
+    assert run_caught(failing) == ((), "boom")
+    items = (1,)
+    assert run_caught(lambda _: items[len(items) + 2]) == ((), "tuple index out of range")
+    with pytest.raises(ZeroDivisionError):  # a bug, not a panic: not caught
+        run_caught(lambda _: 1 // 0)
+
+
+def test_capture_output(capsys: pytest.CaptureFixture[str]) -> None:
+    def writes(_: None) -> int:
+        print("one")
+        print("two")
+        return 7
+
+    assert capture_output(writes) == (7, "one\ntwo\n")
+    assert capsys.readouterr().out == ""
 
 
 def test_call_macro() -> None:

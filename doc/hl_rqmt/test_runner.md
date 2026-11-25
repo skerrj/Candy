@@ -1,6 +1,8 @@
 # The spec's runner in Candy (HLD)
 
-**Status: draft (2026-11-25), for the owner's review; for branch `test-runner`. Epic:
+**Status: accepted (2026-11-25), with the answers to its questions, as proposed (tasks
+[[B233]] to [[B237]]); for branch `test-runner`; steps 1 to 5 done (2026-11-25), their
+tasks ticked. Epic:
 `python_complete.md` (its eighth branch). After tag `host-macros`.** The spec's runner,
 which reads a spec file's examples and checks each one, written in Candy, a module of the
 translator: it runs each example on the interpreter, or translates it, and reports by
@@ -55,6 +57,9 @@ Python's test code.
 - **Panics caught, for tools only:** a translator built-in, `catch-panic` ([[B139]]), so
   the runner can check an `error` or `panic` example in-process; a program can't import
   it (it is `translator.cdy`'s), so a panic stays uncatchable for programs, *lasting*.
+  *Corrected in step 1:* a program can `(import translator)`, so it can reach
+  `catch-panic` by importing the translator's module on purpose; the module's comments
+  and [[library.builtins]] say it is for tools, not a program's logic.
 
 ## Not goals
 
@@ -155,16 +160,108 @@ reads.
 1. **`catch-panic` and `capture-output`** ([[B139]]): `translator.cdy`, `spelling.py`,
    `primitives.py`, with the runtime's tests; [[library.builtins]] (the translator's
    seven).
+   *Done (2026-11-25). As built:* the runtime can't build the prelude's `Result` (its
+   `Ok` is a class of the translated program, and the runtime depends on itself only),
+   so the host part is `run-caught`, `(Fn ((Fn (Unit) a)) (Tup (List a) String))`,
+   `f`'s value in a list of one and `""`, or no value and the panic's message (Python's
+   `run_caught`: `CandyFail` and `IndexError`, as `stop_on_panic` takes them; any other
+   error raises); `catch-panic` is Candy over it in `translator.cdy`, which imports
+   `prelude`'s `Result`, `Ok` and `Err` (a declaration module gets no prelude
+   implicitly). `capture-output` is `contextlib.redirect_stdout`. So the translator's
+   built-ins are seven, with `catch-panic` Candy ([[library.builtins]],
+   [[programs.shadowing]], CLAUDE.md); and only `module-dir` is typed `Any` now
+   ([[library.builtins]] still said three). A program can import `translator`, so
+   "a program can't import it" (Goals) was wrong: corrected there. Tests:
+   `test_run_caught` and `test_capture_output` (the runtime's), `test_catch_panic`
+   (through T1). No staging, as planned. `bin` gains `catch-panic`'s Python (9 lines);
+   checked against `boot/103`'s `bin`: the same output for all 109 programs.
 2. **The reader:** `spec_runner.cdy`'s `examples` and the status line; the reader's tests
    ported to call it.
+   *Done (2026-11-25). As built:* `src/cdy/spec_runner.cdy` (about 200 lines), imported
+   by `cdyc.cdy` qualified only, so the translator holds it: `blocks` (the fences, as
+   `doc_links.py` reads them), `status` (the first status line), `examples` and
+   `error-table` (the pairs, the tables with their setup), with `Block` and `Example`
+   records, an example's kind a string (`"run"`, `"error"`, `"panic"`, `"setup"`),
+   and the Python reader's messages, by `fail`. It reads every spec file and repro to
+   the same 424 examples as `test_spec.py`'s reader, and all 320 tracked docs to the same
+   blocks and status as `doc_links.py`'s: `test_readers_agree` checks it, until step 4
+   retires the Python reader. The reader's tests call the Candy reader now (`blocks`'
+   both readers'), with three more (an unclosed fence, a row with a second `=>`, a
+   status line that isn't one). `candy`, the tests' way to a Candy name, moved from
+   `test_self_host.py` into `self_host.py`, which both import. Three slips on the way:
+   `blocks-from` made a closure (a `map`'s `fn`), so `lower` didn't make it a loop and
+   it overflowed the stack (the closure moved to `block-text`); `string.contains`
+   takes the part first; and a status line's tail was sliced past its end
+   (`string.slice` is bounds-checked). `examples`' fold starts from typed values
+   ([[B184]]). Checked against `boot/104`'s `bin`: the same output for all 109 programs;
+   translating the translator takes as long as before.
 3. **The checks and the flag:** `check-example`, `check-file`, `--spec FILE ...` in
    `cdyc.cdy`'s `main` (its usage too); every spec file and repro checked by it, with
    the same results as `test_spec.py`'s.
+   *Done (2026-11-25). As built:* `spec_runner.cdy`'s `Runner` record (`translate`,
+   `interpret`: what `cdyc.cdy` hands it, `SPEC_RUNNER`, of `translate-text` and
+   `interpret-text`), `check-example` (a `run` is interpreted with its output captured,
+   and fails on a panic, a status other than 0 or other output; a `panic` must panic
+   with the expected text in `candy: msg`; an `error` must fail to translate with it; a
+   `setup` must translate), `check-text` and `check-file` (how many examples, and a line
+   per failure, `name:line: kind: what`, its later lines indented; a file whose blocks
+   don't pair up is one failure), and `run-files`, for `--spec FILE.md ...`, which
+   writes the failures and `spec: 9 files, 421 examples, 0 failed`, and gives 1 on a
+   failure. The whole spec takes 11 s in one process; the three open defects' repros
+   fail, as `test_spec.py`'s strict marks expect. `capture-output` captures stdout only,
+   so an example's `put-err` still reaches the terminal under the flag. Tests:
+   `test_checks` (each kind failing, and its message), `test_checks_report_a_file_that_
+   doesnt_pair_up`, `test_spec_flag` (T1 as a process), and `test_candy`, the Candy
+   runner on every spec file and repro, with the old marks, which step 4 builds
+   `test_spec.py` around. Two slips: a string inside a `format` hole ends the format
+   string, and `string.replace` replaces the first match only (the indent is `split`
+   and `join`). Checked against `boot/105`'s `bin`: the same output for all 109
+   programs; translating the translator as before.
 4. **pytest on the Candy runner:** `test_spec.py` as above, `examples` and `error_table`
    gone; the time compared.
+   *Done (2026-11-25). As built:* `test_spec.py`'s tests are per file: `test_candy` (the
+   Candy runner's checks), `test_python` (each `run` and `panic` example translated by
+   T1 and run as a process, every failure listed by `file:line`), `test_mypy_strict`
+   and `test_t1_and_t2_agree`, these three over the Candy reader's examples. Which files
+   have examples is decided at collection, before T1 is built, so by `doc_links.py`'s
+   fences (`has`), the same rules; the repros' strict marks are per file now. Gone: the
+   Python reader (`Example`, `PAIRS`, `examples`, `error_table`, `SpecError`), the
+   per-example tests (`test_run`, `test_error`, `test_panic`, `test_interpret`,
+   `test_interpret_panic`, `test_setup`) and step 2's `test_readers_agree`. 55 tests and
+   3 expected failures in place of 546 and 3, in 32 s against 30; the suite 373 tests
+   in place of 881, in 73 s as before. `bin` doesn't change.
 5. **Docs:** `executable_spec.md`'s "The runner" (its *lasting* answered),
    `spec/README.md` (how to run the spec), CLAUDE.md (the layout, the runner), the
    epic's eighth branch *done*; "Looking back".
+   *Done (2026-11-25). As built:* as listed; `executable_spec.md`'s "After" item (the
+   runner in Candy) marked done too, and CLAUDE.md's commands give `--spec`.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **A second reader is cheap to check against the first.** The Candy reader was
+  compared with the Python one on every file before either was trusted: 424 examples
+  and 320 docs' fences, equal, so step 4 could drop the Python one with no doubt about
+  what changed.
+- **A runtime primitive can't return a type defined in Candy.** `catch-panic` gives the
+  prelude's `Result`, whose `Ok` and `Err` are classes of the translated program, which
+  the runtime, depending only on itself, can't construct: the host part is a primitive
+  over built-in types (a list and a string), the `Result` Candy over it. A host
+  built-in that returns a `Maybe`, a `Result` or another `deft` type will meet this
+  again.
+- **On the Python target, a tail call is a loop only without a closure** (`lower`,
+  *for now*: [[B37]]): Python's closures capture variables, so `lower` leaves a
+  function that makes one as recursion, and a file of 500 lines overflowed. Keep
+  closures out of a loop's body. The interpreter has no such limit: every tail call is
+  a loop there, as in Scheme.
+- **The spec says what the library does at its edges, and it binds.** `string.replace`
+  replaces the first match, `string.contains` takes the part first, and `string.slice`
+  is bounds-checked: each surprised Candy written as if it were Python. They were the
+  runner's only slips: the language and the checker carried it.
+- **Collection happens before the build.** pytest names its tests before T1 exists, so
+  per-example tests would have needed a reader from the build before; per-file tests,
+  with each failure's `file:line` in the message, keep one reader and lose little.
 
 ## Questions
 
@@ -175,26 +272,32 @@ reads.
    process). **Proposed: the spec and the repros only:** the test programs are about
    whole programs and the fixpoint, mostly Python's business, and a process built-in is
    more porting surface for a check that is Python's anyway.
+   *Answer (2026-11-25, the owner): the spec and the repros only.*
 2. **Catching a panic:** `catch-panic` in `translator.cdy`, for tools (proposed); or in
    `system.cdy`, every program's (a panic then catchable everywhere, against the
    semantics HLD's Question 11); or no catch, a process per `error` example (325
    processes of about 0.14 s each, about 45 s more, and a process built-in).
    **Proposed: `translator.cdy`:** a program can't see it, so the rule for programs
    stays, and it is the shape Rust's `catch_unwind` has, for a later host.
+   *Answer (2026-11-25, the owner): `catch-panic` in `translator.cdy`, for tools.*
 3. **Capturing output:** `capture-output`, the host's stdout redirected (proposed); or
    the interpreter writing to a buffer it hands back, every output built-in's
    interpreter function changed to thread it, pure but a rewrite of its table's I/O.
    **Proposed: `capture-output`:** one host line, and the interpreter unchanged.
+   *Answer (2026-11-25, the owner): `capture-output`.*
 4. **pytest's tests:** per file, the Candy runner's failures as the message (proposed);
    or per example, as now, which needs the examples at collection time, before T1 is
    built (the checked-in `bin`'s reader, then, one build behind). **Proposed: per
    file:** the message names each failing example by `file:line`, and the flag checks
    one file on its own.
+   *Answer (2026-11-25, the owner): per file.*
 5. **Where it lives:** a module of the translator, `spec_runner.cdy`, run by a flag
    (proposed); or a program of its own that imports the translator's modules, with its
    own `bin`. **Proposed: a module and a flag,** as `--interpret` is: one program, one
    `bin`.
+   *Answer (2026-11-25, the owner): a module, `src/cdy/spec_runner.cdy`, and a flag.*
 6. **Fences in two readers:** `test_doc_links.py` keeps `doc_links.py`'s `blocks` for
    its checks of rules and links (proposed); or it calls the Candy reader too, needing
    T1 where today it needs nothing built. **Proposed: keep it:** those checks are about
    the docs, which the epic's Question 8 left in Python, and `blocks` is 20 lines.
+   *Answer (2026-11-25, the owner): keep `doc_links.py`'s reader.*
