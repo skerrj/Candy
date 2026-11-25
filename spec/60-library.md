@@ -18,8 +18,8 @@ provides it, with that type. Only a declaration module (`system.cdy`, `translato
 `math.cdy`, `string.cdy`, `map.cdy`) may have a `sig` with no definition. A built-in's arity is its type's
 (`40-expressions.md`). Lists, strings and maps each have their own operations (`len` a
 list's, `string.len` a string's, `map.size` a map's), *for now*, until interfaces let one
-name work on each ([[B34]]). None is typed `Any`; only three of `translator`'s are, which
-take or give a host function (*for now*: [[B49]]).
+name work on each ([[B34]]). None is typed `Any`; only `translator`'s `module-dir` is,
+which takes a host function (*for now*: [[B49]]).
 
 Each group's rule names its built-ins with their types, and what they do at the edges (an
 empty list, an index out of range, a missing key or file), *lasting*. This table is the
@@ -46,11 +46,14 @@ the prelude's are marked.
 file 7 3
 ```
 
-`fail` is a panic: the program stops with its message ([[library.errors]]). Five built-ins are only for the
-translator: `py-spellings`, `call-macro`, `module-dir`, `fresh-name` and
-`restart-fresh-names`,
-declared in `translator.cdy`, a declaration module, and seen only by a file that imports
-`translator` ([[programs.import]]).
+`fail` is a panic: the program stops with its message ([[library.errors]]). Seven
+built-ins are only for the translator and the tools that run it: `py-spellings`,
+`call-macro`, `module-dir`, `fresh-name`, `restart-fresh-names`, `run-caught` and
+`capture-output`, declared in `translator.cdy`, a declaration module, with
+`catch-panic`, Candy over `run-caught`, and seen only by a file that imports
+`translator` ([[programs.import]]). `catch-panic` and
+`capture-output` are for tools that run the translator or a program in-process, such as
+the spec's runner: a program's panic is a bug, and its expected failure a `Result`.
 
 <a id="library.lists"></a>
 ## Lists

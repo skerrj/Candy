@@ -1,10 +1,10 @@
 # B233: test-runner step 1: `catch-panic` and `capture-output`
 
 kind: task
-state: open
+state: review
 priority: normal
 found: test-runner, 2026-11-25
-fixed:
+fixed: test-runner, 2026-11-25
 where: `src/cdy/translator.cdy`, `src/cdy_rt/spelling.py`, `src/cdy_rt/primitives.py`
 refs: 
 
@@ -13,3 +13,5 @@ Step 1 of `doc/hl_rqmt/test_runner.md`. Two translator built-ins ([[B139]]; Ques
 ## Notes
 
 - 2026-11-25, Claude: filed on the HLD's acceptance (the owner, 2026-11-25).
+- 2026-11-25, Claude: built (the HLD's step 1, "Done"): `catch-panic` Candy over
+  `run-caught`.

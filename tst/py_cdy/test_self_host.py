@@ -333,6 +333,14 @@ def test_long_cond(src: str, t1: ModuleType, tmp_path: Path) -> None:
     assert (done.returncode, done.stdout) == (0, "140\n280\n"), done.stderr
 
 
+def test_catch_panic(t1: ModuleType) -> None:
+    """``translator.catch-panic``, the Candy over ``run-caught`` (test_runner.md, step 1)."""
+    catch = candy(t1, "translator.catch-panic")
+    ok, err = candy(t1, "prelude.Ok"), candy(t1, "prelude.Err")
+    assert catch(lambda _: 5) == ok(5)
+    assert catch(lambda _: t1.translate_text("(put x)")) == err("line 1, column 6: unknown name x")
+
+
 def test_quoting_in_macro_code(t1: ModuleType, capsys: pytest.CaptureFixture[str]) -> None:
     program = CDYC_ONLY / "macro_code" / "quoting.cdy"
     candy(t1, "load-macro-code")(str(program))

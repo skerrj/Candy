@@ -14,7 +14,9 @@ Started from schmuz's ``src/py_smz/smztils.py``. Differences from schmuz:
   one it used) and commented-out experiments.
 """
 
+import contextlib
 import functools
+import io
 import itertools
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -574,6 +576,25 @@ def fresh_name(prefix: str) -> str:
     """A new name, ``prefix__N``, for a macro to introduce. The reader rejects ``__`` in a
     name, so no program can spell it."""
     return f"{prefix}__{next(_FRESH[0])}"
+
+
+def run_caught[A](f: Callable[[None], A]) -> tuple[tuple[A, ...], str]:
+    """``f(None)``, as ``((value,), "")``; or, if it panicked (``CandyFail``, or an
+    ``IndexError``, which ``stop_on_panic`` takes for one), ``((), message)``. For tools that
+    run the translator or a program in-process (``translator.catch-panic``)."""
+    try:
+        return (f(None),), ""
+    except (CandyFail, IndexError) as err:
+        return (), str(err)
+
+
+def capture_output[A](f: Callable[[None], A]) -> tuple[A, str]:
+    """``f(None)``, and what it wrote to the standard output meanwhile, which is then not
+    written (``translator.capture-output``)."""
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        value = f(None)
+    return value, out.getvalue()
 
 
 def restart_fresh_names(_: None) -> None:

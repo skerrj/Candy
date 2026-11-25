@@ -56,6 +56,9 @@ Python's test code.
 - **Panics caught, for tools only:** a translator built-in, `catch-panic` ([[B139]]), so
   the runner can check an `error` or `panic` example in-process; a program can't import
   it (it is `translator.cdy`'s), so a panic stays uncatchable for programs, *lasting*.
+  *Corrected in step 1:* a program can `(import translator)`, so it can reach
+  `catch-panic` by importing the translator's module on purpose; the module's comments
+  and [[library.builtins]] say it is for tools, not a program's logic.
 
 ## Not goals
 
@@ -156,6 +159,21 @@ reads.
 1. **`catch-panic` and `capture-output`** ([[B139]]): `translator.cdy`, `spelling.py`,
    `primitives.py`, with the runtime's tests; [[library.builtins]] (the translator's
    seven).
+   *Done (2026-11-25). As built:* the runtime can't build the prelude's `Result` (its
+   `Ok` is a class of the translated program, and the runtime depends on itself only),
+   so the host part is `run-caught`, `(Fn ((Fn (Unit) a)) (Tup (List a) String))`,
+   `f`'s value in a list of one and `""`, or no value and the panic's message (Python's
+   `run_caught`: `CandyFail` and `IndexError`, as `stop_on_panic` takes them; any other
+   error raises); `catch-panic` is Candy over it in `translator.cdy`, which imports
+   `prelude`'s `Result`, `Ok` and `Err` (a declaration module gets no prelude
+   implicitly). `capture-output` is `contextlib.redirect_stdout`. So the translator's
+   built-ins are seven, with `catch-panic` Candy ([[library.builtins]],
+   [[programs.shadowing]], CLAUDE.md); and only `module-dir` is typed `Any` now
+   ([[library.builtins]] still said three). A program can import `translator`, so
+   "a program can't import it" (Goals) was wrong: corrected there. Tests:
+   `test_run_caught` and `test_capture_output` (the runtime's), `test_catch_panic`
+   (through T1). No staging, as planned. `bin` gains `catch-panic`'s Python (9 lines);
+   checked against `boot/103`'s `bin`: the same output for all 109 programs.
 2. **The reader:** `spec_runner.cdy`'s `examples` and the status line; the reader's tests
    ported to call it.
 3. **The checks and the flag:** `check-example`, `check-file`, `--spec FILE ...` in

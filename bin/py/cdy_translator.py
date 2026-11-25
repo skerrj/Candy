@@ -74,6 +74,15 @@ def prelude__with_default[a](fallback: a, m: prelude__Maybe[a]) -> a:
     elif isinstance(_cdy_t0, prelude__None):
         return fallback
 
+def translator__catch_panic[a](f: _cdy_Callable[[None], a]) -> prelude__Result[a, str]:
+    _tup = cdy_rt.primitives.run_caught(f)
+    done = _tup[0]
+    msg = _tup[1]
+    if (len(done) == 1):
+        return prelude__Ok(done[0])
+    else:
+        return prelude__Err(msg)
+
 class form__Pos(_cdy_NamedTuple):
     file: str
     line: int

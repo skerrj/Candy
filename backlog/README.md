@@ -71,7 +71,7 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B233](B233-test-runner-catch-panic-capture-output.md) | test-runner step 1: `catch-panic` and `capture-output` | task | open | normal |
+| [B233](B233-test-runner-catch-panic-capture-output.md) | test-runner step 1: `catch-panic` and `capture-output` | task | review | normal |
 | [B234](B234-test-runner-reader.md) | test-runner step 2: The reader | task | open | normal |
 | [B235](B235-test-runner-checks-and-flag.md) | test-runner step 3: The checks and the flag | task | open | normal |
 | [B236](B236-test-runner-pytest.md) | test-runner step 4: pytest on the Candy runner | task | open | normal |
@@ -98,7 +98,7 @@ By kind, then priority.
 | [B125](B125-target-checker-option.md) | Run the target's own static checker, as an option | idea | open | low |
 | [B133](B133-let-polymorphism.md) | A `fn` bound by `let` isn't generic | idea | open | low |
 | [B138](B138-if-without-else.md) | An `if` without `else` is allowed for `Unit` | idea | open | low |
-| [B139](B139-catch-panic.md) | A `catch-panic` for tools | idea | open | low |
+| [B139](B139-catch-panic.md) | A `catch-panic` for tools | idea | review | low |
 | [B156](B156-macro-errors-name-expansion.md) | An error in a macro's expansion names the expansion's forms | idea | open | low |
 | [B170](B170-bracket-list-literal.md) | Brackets for a list literal | idea | open | low |
 | [B176](B176-host-records.md) | Host records: a built-in type with fields | idea | open | low |

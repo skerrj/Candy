@@ -1,10 +1,10 @@
 # B139: A `catch-panic` for tools
 
 kind: idea
-state: open
+state: review
 priority: low
 found: semantics HLD, 2026-11-02
-fixed:
+fixed: test-runner, 2026-11-25
 where: `src/cdy/system.cdy`, `src/cdy_rt/primitives.py`
 refs: [[B39]]
 
@@ -22,3 +22,6 @@ translator unchanged (Rust's `std::panic::catch_unwind`, Go's `recover`). For
 - 2026-11-02, the owner: noted with Question 11's answer, panic and `Result`.
 - 2026-11-25, Claude: taken up by `test-runner` (`test_runner.md`, Question 2, the owner's
   answer): `catch-panic` in `translator.cdy`, for tools, step 1 ([[B233]]).
+- 2026-11-25, Claude: built in `test-runner` step 1: `translator.catch-panic`, Candy over
+  the host's `run-caught`, for tools; a program reaches it only by importing
+  `translator`.
