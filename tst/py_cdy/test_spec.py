@@ -325,6 +325,91 @@ def test_examples_that_dont_pair_up(text: str, message: str, t1: ModuleType) -> 
         candy(t1, "spec_runner.examples")(text, "t.md")
 
 
+# --- the checks (spec_runner.cdy's; doc/hl_rqmt/test_runner.md, step 3) ---
+
+# One example of each kind that passes, then one of each that fails.
+CHECKED = (
+    "```candy run\n(put 1)\n```\n```expect\n1\n```\n"
+    '```candy panic\n(fail "stop")\n```\n```expect-panic\ncandy: stop\n```\n'
+    "```candy errors\n(sig s Int)\n(def s 1)\n---\n(put t) => unknown name t\n```\n"
+    "```candy run\n(put 2)\n```\n```expect\n1\n```\n"
+    '```candy run\n(fail "no")\n```\n```expect\n\n```\n'
+    "```candy panic\n(put 1)\n```\n```expect-panic\nstop\n```\n"
+    '```candy panic\n(fail "go")\n```\n```expect-panic\nstop\n```\n'
+    "```candy error\n(put 1)\n```\n```expect-error\nunknown\n```\n"
+    "```candy error\n(put y)\n```\n```expect-error\nunknown name x\n```\n"
+    "```candy errors\n(put\n---\n(put u) => unknown name u\n```\n"
+)
+
+
+# The spec files, and the backlog items with a repro.
+ALL_FILES = [
+    pytest.param(p, id=p.name, marks=marks(p))
+    for p in (*FILES, *ITEMS)
+    if p in FILES or examples(TEXTS[p], p.name)
+]
+
+
+@pytest.mark.parametrize("path", ALL_FILES)
+def test_candy(path: Path, t1: ModuleType, capsys: pytest.CaptureFixture[str]) -> None:
+    """The spec file's examples, checked by the Candy runner (``spec_runner.cdy``): on the
+    interpreter, and through the translator, in this process. Its failures, each at its
+    ``file:line``, are the message."""
+    _, failures = candy(t1, "spec_runner.check-file")(candy(t1, "SPEC_RUNNER"), str(path))
+    capsys.readouterr()  # what an example wrote to stderr
+    assert not failures, "\n".join(failures)
+
+
+def test_checks(t1: ModuleType) -> None:
+    count, failures = candy(t1, "spec_runner.check-text")(candy(t1, "SPEC_RUNNER"), CHECKED, "t.md")
+    assert count == 12
+    assert failures == (
+        "t.md:19: run: its output was:\n    2\n    expected:\n    1\n    ",
+        "t.md:25: run: it panicked: candy: no",
+        "t.md:31: panic: it didn't panic; expected: stop",
+        "t.md:37: panic: it panicked with: candy: go\n    expected: stop",
+        "t.md:43: error: it translated; expected: unknown",
+        (
+            "t.md:49: error: its error was: line 1, column 6: unknown name y\n"
+            "    expected: unknown name x"
+        ),
+        (
+            "t.md:56: setup: the setup doesn't translate: line 1, column 1: parse error: "
+            "( is never closed"
+        ),
+        (
+            "t.md:58: error: its error was: line 1, column 1: parse error: ( is never closed\n"
+            "    expected: unknown name u"
+        ),
+    )
+
+
+def test_checks_report_a_file_that_doesnt_pair_up(t1: ModuleType) -> None:
+    check = candy(t1, "spec_runner.check-text")
+    assert check(candy(t1, "SPEC_RUNNER"), "```expect\n1\n```\n", "t.md") == (
+        0,
+        ("t.md:1: expect with no example before it",),
+    )
+
+
+def test_spec_flag(t1_path: Path, tmp_path: Path) -> None:
+    """``--spec``, on T1, as a process: each failure, a count, and the status."""
+    good = tmp_path / "good.md"
+    good.write_text("```candy run\n(put 1)\n```\n```expect\n1\n```\n", encoding="utf-8")
+    bad = tmp_path / "bad.md"
+    bad.write_text("```candy error\n(put 1)\n```\n```expect-error\nx\n```\n", encoding="utf-8")
+    done = subprocess.run(
+        [sys.executable, str(t1_path), "--spec", str(good), str(bad)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 1
+    assert done.stdout == (
+        "bad.md:1: error: it translated; expected: x\nspec: 2 files, 2 examples, 1 failed\n"
+    )
+
+
 def test_status(t1: ModuleType) -> None:
     read = candy(t1, "spec_runner.status")
     assert read("# Match\n\nstatus: draft, since: sum-types\n") == "draft"

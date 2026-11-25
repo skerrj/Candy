@@ -1,10 +1,10 @@
 # B235: test-runner step 3: The checks and the flag
 
 kind: task
-state: open
+state: review
 priority: normal
 found: test-runner, 2026-11-25
-fixed:
+fixed: test-runner, 2026-11-25
 where: `src/cdy/spec_runner.cdy`, `src/cdy/cdyc.cdy`
 refs: 
 
@@ -13,3 +13,4 @@ Step 3 of `doc/hl_rqmt/test_runner.md`. `check-example`, `check-file`, and `--sp
 ## Notes
 
 - 2026-11-25, Claude: filed on the HLD's acceptance (the owner, 2026-11-25).
+- 2026-11-25, Claude: built (the HLD's step 3, "Done").

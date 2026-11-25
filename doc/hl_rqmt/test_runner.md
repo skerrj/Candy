@@ -197,6 +197,25 @@ reads.
 3. **The checks and the flag:** `check-example`, `check-file`, `--spec FILE ...` in
    `cdyc.cdy`'s `main` (its usage too); every spec file and repro checked by it, with
    the same results as `test_spec.py`'s.
+   *Done (2026-11-25). As built:* `spec_runner.cdy`'s `Runner` record (`translate`,
+   `interpret`: what `cdyc.cdy` hands it, `SPEC_RUNNER`, of `translate-text` and
+   `interpret-text`), `check-example` (a `run` is interpreted with its output captured,
+   and fails on a panic, a status other than 0 or other output; a `panic` must panic
+   with the expected text in `candy: msg`; an `error` must fail to translate with it; a
+   `setup` must translate), `check-text` and `check-file` (how many examples, and a line
+   per failure, `name:line: kind: what`, its later lines indented; a file whose blocks
+   don't pair up is one failure), and `run-files`, for `--spec FILE.md ...`, which
+   writes the failures and `spec: 9 files, 421 examples, 0 failed`, and gives 1 on a
+   failure. The whole spec takes 11 s in one process; the three open defects' repros
+   fail, as `test_spec.py`'s strict marks expect. `capture-output` captures stdout only,
+   so an example's `put-err` still reaches the terminal under the flag. Tests:
+   `test_checks` (each kind failing, and its message), `test_checks_report_a_file_that_
+   doesnt_pair_up`, `test_spec_flag` (T1 as a process), and `test_candy`, the Candy
+   runner on every spec file and repro, with the old marks, which step 4 builds
+   `test_spec.py` around. Two slips: a string inside a `format` hole ends the format
+   string, and `string.replace` replaces the first match only (the indent is `split`
+   and `join`). Checked against `boot/105`'s `bin`: the same output for all 109
+   programs; translating the translator as before.
 4. **pytest on the Candy runner:** `test_spec.py` as above, `examples` and `error_table`
    gone; the time compared.
 5. **Docs:** `executable_spec.md`'s "The runner" (its *lasting* answered),

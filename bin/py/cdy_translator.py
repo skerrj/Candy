@@ -8941,6 +8941,123 @@ def spec_runner__table_row(row: str, setup: str, line: int, name: str) -> tuple[
         message = cdy_rt.primitives.join(prelude__rest(parts), ' => ')
         return (spec_runner__Example('error', (setup + string__trim(source)), string__trim(message), line),)
 
+class spec_runner__Runner(_cdy_NamedTuple):
+    translate: _cdy_Callable[[str], str]
+    interpret: _cdy_Callable[[str], int]
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(spec_runner__Runner, 'Runner', (), ('Fn', 'Fn'))
+
+def spec_runner__check_example(r: spec_runner__Runner, ex: spec_runner__Example) -> prelude__Maybe[str]:
+    kind = ex.kind
+    source = ex.source
+    expected = ex.expected
+    if (kind == 'run'):
+        return spec_runner__check_run(spec_runner__run_on(r, source), expected)
+    elif (kind == 'panic'):
+        return spec_runner__check_panic(spec_runner__run_on(r, source), expected)
+    elif (kind == 'error'):
+        return spec_runner__check_error(translator__catch_panic((lambda _: r.translate(source))), expected)
+    else:
+        _cdy_t429 = translator__catch_panic((lambda _: r.translate(source)))
+        if isinstance(_cdy_t429, prelude__Ok):
+            return prelude__None()
+        elif isinstance(_cdy_t429, prelude__Err):
+            msg: str = _cdy_t429.err
+            return prelude__Some(("the setup doesn't translate: " + msg))
+
+def spec_runner__run_on(r: spec_runner__Runner, source: str) -> tuple[prelude__Result[int, str], str]:
+    return cdy_rt.primitives.capture_output((lambda _: translator__catch_panic((lambda _cdy___97: r.interpret(source)))))
+
+def spec_runner__check_run(done: tuple[prelude__Result[int, str], str], expected: str) -> prelude__Maybe[str]:
+    _tup = done
+    result = _tup[0]
+    out = _tup[1]
+    _cdy_t430 = result
+    if isinstance(_cdy_t430, prelude__Err):
+        msg: str = _cdy_t430.err
+        return prelude__Some(('it panicked: candy: ' + msg))
+    elif isinstance(_cdy_t430, prelude__Ok):
+        status: int = _cdy_t430.v
+        if (status != 0):
+            return prelude__Some(('its status was ' + str(status)))
+        elif (out != expected):
+            return prelude__Some(('its output was:\n' + out + 'expected:\n' + expected))
+        else:
+            return prelude__None()
+
+def spec_runner__check_panic(done: tuple[prelude__Result[int, str], str], expected: str) -> prelude__Maybe[str]:
+    _tup = done
+    result = _tup[0]
+    _out = _tup[1]
+    _cdy_t431 = result
+    if isinstance(_cdy_t431, prelude__Ok):
+        return prelude__Some(("it didn't panic; expected: " + expected))
+    elif isinstance(_cdy_t431, prelude__Err):
+        msg: str = _cdy_t431.err
+        if cdy_rt.primitives.str_contains(expected, ('candy: ' + msg)):
+            return prelude__None()
+        else:
+            return prelude__Some(('it panicked with: candy: ' + msg + '\nexpected: ' + expected))
+
+def spec_runner__check_error(result: prelude__Result[str, str], expected: str) -> prelude__Maybe[str]:
+    _cdy_t432 = result
+    if isinstance(_cdy_t432, prelude__Ok):
+        return prelude__Some(('it translated; expected: ' + expected))
+    elif isinstance(_cdy_t432, prelude__Err):
+        msg: str = _cdy_t432.err
+        if cdy_rt.primitives.str_contains(expected, msg):
+            return prelude__None()
+        else:
+            return prelude__Some(('its error was: ' + msg + '\nexpected: ' + expected))
+
+def spec_runner__check_text(r: spec_runner__Runner, text: str, name: str) -> tuple[int, tuple[str, ...]]:
+    _cdy_t433 = translator__catch_panic((lambda _: spec_runner__examples(text, name)))
+    if isinstance(_cdy_t433, prelude__Err):
+        msg: str = _cdy_t433.err
+        return (0, (msg,))
+    elif isinstance(_cdy_t433, prelude__Ok):
+        exs: tuple[spec_runner__Example, ...] = _cdy_t433.v
+        return (len(exs), cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map((lambda ex: spec_runner__failure_lines(name, ex, spec_runner__check_example(r, ex))), exs)))
+
+def spec_runner__failure_lines(name: str, ex: spec_runner__Example, found: prelude__Maybe[str]) -> tuple[str, ...]:
+    _cdy_t434 = found
+    if isinstance(_cdy_t434, prelude__None):
+        return ()
+    elif isinstance(_cdy_t434, prelude__Some):
+        what: str = _cdy_t434.v
+        indented = cdy_rt.primitives.join(cdy_rt.primitives.split(what, '\n'), '\n    ')
+        return ((name + ':' + str(ex.line) + ': ' + ex.kind + ': ' + indented),)
+
+def spec_runner__check_file(r: spec_runner__Runner, path: str) -> tuple[int, tuple[str, ...]]:
+    return spec_runner__check_text(r, cdy_rt.primitives.slurp(path), (cdy_rt.primitives.path_stem(path) + '.md'))
+
+def spec_runner__run_files(r: spec_runner__Runner, paths: tuple[str, ...]) -> int:
+    checked = cdy_rt.primitives.list_map((lambda p: spec_runner__check_file(r, p)), paths)
+    def _cdy_t435(n: int, c: tuple[int, tuple[str, ...]]) -> int:
+        _tup = c
+        k = _tup[0]
+        _ = _tup[1]
+        return (n + k)
+    count = cdy_rt.primitives.list_fold(_cdy_t435, 0, checked)
+    def _cdy_t436(c: tuple[int, tuple[str, ...]]) -> tuple[str, ...]:
+        _tup = c
+        _k = _tup[0]
+        fs = _tup[1]
+        return fs
+    failed = cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t436, checked))
+    if (len(failed) > 0):
+        print(cdy_rt.primitives.join(failed, '\n'))
+    print(('spec: ' + str(len(paths)) + ' files, ' + str(count) + ' examples, ' + str(len(failed)) + ' failed'))
+    if (len(failed) == 0):
+        return 0
+    else:
+        return 1
+
 class Ready(_cdy_NamedTuple):
     module: include__Module
     forms: tuple[form__Form, ...]
@@ -8991,7 +9108,7 @@ def macro_imports(form: core__Exports, translator: core__Exports) -> tuple[core_
     return (core__Import(form, form__NOWHERE, prelude__None()), core__Import(translator, form__NOWHERE, prelude__None()), core__Import(declaration_exports('string'), form__NOWHERE, prelude__Some(())))
 
 def load_macro_file(builtins: _cdy_Mapping[str, core__Builtin], base: MacroBase) -> _cdy_Callable[[str, expand__Expander, tuple[str, ...]], tuple[expand__MacroFile, expand__Expander]]:
-    def _cdy_t429(path: str, ex: expand__Expander, loading: tuple[str, ...]) -> tuple[expand__MacroFile, expand__Expander]:
+    def _cdy_t437(path: str, ex: expand__Expander, loading: tuple[str, ...]) -> tuple[expand__MacroFile, expand__Expander]:
         modules = include__read_modules(path)
         file = cdy_rt.primitives.at(modules, (len(modules) - 1))
         base_keys = cdy_rt.primitives.list_map((lambda l: l.key), base.modules)
@@ -9013,7 +9130,7 @@ def load_macro_file(builtins: _cdy_Mapping[str, core__Builtin], base: MacroBase)
         all_ = add_loaded(mine, deps)
         run = load_macro_tops(builtins, (base.modules + all_), ())
         return (expand__MacroFile(cdy_rt.primitives.path_resolve(path), expand__macro_list(expanded.defs, (lambda name: run(core__global_key(stem, name)))), all_), ex2)
-    return _cdy_t429
+    return _cdy_t437
 
 def macro_module(r: Ready, base: MacroBase, by_key: _cdy_Mapping[str, core__Exports], builtins: _cdy_Mapping[str, core__Builtin]) -> expand__Loaded:
     m = r.module
@@ -9021,12 +9138,12 @@ def macro_module(r: Ready, base: MacroBase, by_key: _cdy_Mapping[str, core__Expo
     return expand__Loaded(m.key, r.exports, core__analyse_module(r.forms, r.exports, (imported(m.imports, by_key) + implicit_imports(base, m.imports, by_key)), {}, builtins, (lambda text, where: expand__expand_all(read__read_hole(text, where), macros)), macros, True))
 
 def load_own_macros(builtins: _cdy_Mapping[str, core__Builtin], base: MacroBase) -> _cdy_Callable[[tuple[form__Form, ...], tuple[expand__MacroFile, ...]], _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]]:
-    def _cdy_t430(forms: tuple[form__Form, ...], files: tuple[expand__MacroFile, ...]) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
+    def _cdy_t438(forms: tuple[form__Form, ...], files: tuple[expand__MacroFile, ...]) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
         deps = add_loaded(cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map((lambda f: f.modules), files)), ())
         prelude = base.modules[0].exports
         imports = ((core__Import(prelude, form__NOWHERE, prelude__None()),) + base.imports + file_imports(files))
         return load_macro_tops(builtins, (base.modules + deps), core__analyse_module(forms, core__module_exports(forms, ''), imports, {}, builtins, read__read_hole, {}, True))
-    return _cdy_t430
+    return _cdy_t438
 
 def load_macro_tops(builtins: _cdy_Mapping[str, core__Builtin], loaded: tuple[expand__Loaded, ...], tops: tuple[core__Top, ...]) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
     all_ = check__type_check((cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map((lambda l: l.tops), loaded)) + tops), builtins)
@@ -9034,12 +9151,12 @@ def load_macro_tops(builtins: _cdy_Mapping[str, core__Builtin], loaded: tuple[ex
     return interp_macros__macro_runner(all_)
 
 def add_loaded(loaded: tuple[expand__Loaded, ...], start: tuple[expand__Loaded, ...]) -> tuple[expand__Loaded, ...]:
-    def _cdy_t431(acc: tuple[expand__Loaded, ...], l: expand__Loaded) -> tuple[expand__Loaded, ...]:
+    def _cdy_t439(acc: tuple[expand__Loaded, ...], l: expand__Loaded) -> tuple[expand__Loaded, ...]:
         if cdy_rt.primitives.list_any((lambda m: (m.key == l.key)), acc):
             return acc
         else:
             return (acc + (l,))
-    return cdy_rt.primitives.list_fold(_cdy_t431, start, loaded)
+    return cdy_rt.primitives.list_fold(_cdy_t439, start, loaded)
 
 def loaded_exports(loaded: tuple[expand__Loaded, ...], start: _cdy_Mapping[str, core__Exports]) -> _cdy_Mapping[str, core__Exports]:
     return cdy_rt.primitives.list_fold((lambda m, l: cdy_rt.primitives.map_set(m, l.key, l.exports)), start, loaded)
@@ -9049,10 +9166,10 @@ def implicit_imports(base: MacroBase, imps: tuple[include__Imp, ...], by_key: _c
     return cdy_rt.primitives.list_filter((lambda i: (not cdy_rt.primitives.list_contains(i.exports.stem, stems))), base.imports)
 
 def file_imports(files: tuple[expand__MacroFile, ...]) -> tuple[core__Import, ...]:
-    def _cdy_t432(f: expand__MacroFile) -> core__Import:
+    def _cdy_t440(f: expand__MacroFile) -> core__Import:
         modules = f.modules
         return core__Import(cdy_rt.primitives.at(modules, (len(modules) - 1)).exports, form__NOWHERE, prelude__None())
-    return cdy_rt.primitives.list_map(_cdy_t432, files)
+    return cdy_rt.primitives.list_map(_cdy_t440, files)
 
 def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]], builtins: _cdy_Mapping[str, core__Builtin]) -> tuple[core__Top, ...]:
     _tup = expand_modules(modules, expander(builtins))
@@ -9063,7 +9180,7 @@ def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str
     return analyse_modules(ready, by_key, elsewhere, builtins, parse)
 
 def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -> tuple[tuple[Ready, ...], expand__Expander]:
-    def _cdy_t433(acc: tuple[tuple[Ready, ...], expand__Expander], m: include__Module) -> tuple[tuple[Ready, ...], expand__Expander]:
+    def _cdy_t441(acc: tuple[tuple[Ready, ...], expand__Expander], m: include__Module) -> tuple[tuple[Ready, ...], expand__Expander]:
         _tup = acc
         done = _tup[0]
         e = _tup[1]
@@ -9075,7 +9192,7 @@ def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -
         e1 = _cdy__tup_106[2]
         own = core__module_exports(forms, m.stem)
         return ((done + (Ready(m, forms, macros, (core__with_declared(own, all_, m.stem) if declaring else own)),)), e1)
-    return cdy_rt.primitives.list_fold(_cdy_t433, (NO_READY, ex), modules)
+    return cdy_rt.primitives.list_fold(_cdy_t441, (NO_READY, ex), modules)
 NO_READY: tuple[Ready, ...] = ()
 
 def exports_by_key(ready: tuple[Ready, ...]) -> _cdy_Mapping[str, core__Exports]:
@@ -9085,10 +9202,10 @@ def exports_of(ready: tuple[Ready, ...]) -> tuple[core__Exports, ...]:
     return cdy_rt.primitives.list_map((lambda r: r.exports), ready)
 
 def analyse_modules(ready: tuple[Ready, ...], by_key: _cdy_Mapping[str, core__Exports], elsewhere: _cdy_Mapping[str, str], builtins: _cdy_Mapping[str, core__Builtin], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]]) -> tuple[core__Top, ...]:
-    def _cdy_t434(r: Ready) -> tuple[core__Top, ...]:
+    def _cdy_t442(r: Ready) -> tuple[core__Top, ...]:
         macros = r.macros
         return core__analyse_module(r.forms, r.exports, imported(r.module.imports, by_key), elsewhere, builtins, (lambda text, where: expand__expand_all(parse(text, where), macros)), macros, False)
-    return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t434, ready))
+    return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t442, ready))
 
 def imported(imps: tuple[include__Imp, ...], by_key: _cdy_Mapping[str, core__Exports]) -> tuple[core__Import, ...]:
     return cdy_rt.primitives.list_map((lambda imp: core__Import(cdy_rt.primitives.map_get(by_key, imp.key), imp.pos, imp.only)), imps)
@@ -9119,7 +9236,8 @@ def interpret_modules(modules: tuple[include__Module, ...], args: tuple[str, ...
     builtins = expand__library_builtins(None)
     interp_builtins__check_interp_builtins(builtins)
     return interp__interpret(check__type_check(program_tops(modules, read__read_hole, builtins), builtins), cdy_rt.primitives.at(modules, (len(modules) - 1)).stem, args, interp_builtins__BUILTINS)
-USAGE: str = 'usage: cdy_translator.py FILE.cdy [OUT.py] | --interpret FILE.cdy [ARG ...]'
+USAGE: str = 'usage: cdy_translator.py FILE.cdy [OUT.py] | --interpret FILE.cdy [ARG ...] | --spec FILE.md ...'
+SPEC_RUNNER: spec_runner__Runner = spec_runner__Runner(translate_text, (lambda text: interpret_text(text, ())))
 
 def main(args: tuple[str, ...]) -> int:
     if ((len(args) > 0) and (args[0] == '--interpret')):
@@ -9128,6 +9246,12 @@ def main(args: tuple[str, ...]) -> int:
             return 2
         else:
             return interpret_file(args[1], cdy_rt.primitives.list_drop(2, args))
+    elif ((len(args) > 0) and (args[0] == '--spec')):
+        if (len(args) < 2):
+            cdy_rt.primitives.put_err(USAGE)
+            return 2
+        else:
+            return spec_runner__run_files(SPEC_RUNNER, cdy_rt.primitives.list_drop(1, args))
     elif ((len(args) == 0) or (len(args) > 2)):
         cdy_rt.primitives.put_err(USAGE)
         return 2

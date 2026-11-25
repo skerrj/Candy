@@ -16,6 +16,7 @@
 ;;; - any other fence (`candy` alone, `markdown`): an illustration, not run.
 
 (import string ())
+(import translator (catch-panic capture-output))
 
 ;; --- fences ---
 
@@ -206,3 +207,105 @@
             (source (at parts 0))
             (message (string.join (rest parts) " => ")))
         (List (Example "error" (++ setup (string.trim source)) (string.trim message) line))))))
+
+;; --- the checks ---
+
+;; What the runner runs, which cdyc.cdy hands it: a Candy text translated to Python
+;; (translate-text), and a Candy text run on the interpreter, giving its `main`'s status
+;; (interpret-text). Each panics on an error, as the translator does.
+(deft Runner ((translate (Fn (String) String)) (interpret (Fn (String) Int))))
+
+;; What is wrong with the example `ex`, checked by the Candy implementation, in this
+;; process: `None` if nothing is.
+;; - "run": interpreted, with no panic and a status of 0, and writing the expected output;
+;; - "panic": interpreted, panicking with the expected text in its message, as a program
+;;   writes it (`candy: msg`, library.errors);
+;; - "error": translated, panicking with the expected text in its message;
+;; - "setup": translated, with no panic.
+(sig check-example (Fn (Runner Example) (Maybe String)))
+(defn check-example (r ex)
+  (let ((kind (get ex kind))
+        (source (get ex source))
+        (expected (get ex expected)))
+    (cond
+      ((= kind "run") (check-run (run-on r source) expected))
+      ((= kind "panic") (check-panic (run-on r source) expected))
+      ((= kind "error") (check-error (catch-panic (fn (_) ((get r translate) source))) expected))
+      (else
+        (match (catch-panic (fn (_) ((get r translate) source)))
+          ((Ok _) None)
+          ((Err msg) (Some (format "the setup doesn't translate: {msg}"))))))))
+
+;; `source` run on the interpreter: its status or its panic's message, and its output.
+(sig run-on (Fn (Runner String) (Tup (Result Int String) String)))
+(defn run-on (r source)
+  (capture-output (fn (_) (catch-panic (fn (_) ((get r interpret) source))))))
+
+(sig check-run (Fn ((Tup (Result Int String) String) String) (Maybe String)))
+(defn check-run (done expected)
+  (let (((result out) done))
+    (match result
+      ((Err msg) (Some (format "it panicked: candy: {msg}")))
+      ((Ok status)
+        (cond
+          ((!= status 0) (Some (format "its status was {status}")))
+          ((!= out expected) (Some (format "its output was:\n{out}expected:\n{expected}")))
+          (else None))))))
+
+(sig check-panic (Fn ((Tup (Result Int String) String) String) (Maybe String)))
+(defn check-panic (done expected)
+  (let (((result _out) done))
+    (match result
+      ((Ok _) (Some (format "it didn't panic; expected: {expected}")))
+      ((Err msg)
+        (if (string.contains expected (++ "candy: " msg))
+          None
+          (Some (format "it panicked with: candy: {msg}\nexpected: {expected}")))))))
+
+(sig check-error (Fn ((Result String String) String) (Maybe String)))
+(defn check-error (result expected)
+  (match result
+    ((Ok _) (Some (format "it translated; expected: {expected}")))
+    ((Err msg)
+      (if (string.contains expected msg)
+        None
+        (Some (format "its error was: {msg}\nexpected: {expected}"))))))
+
+;; A spec file's examples checked: how many, and a line for each failure, `name:line:
+;; kind: what` (each line after the first indented). A file whose blocks don't pair up is
+;; one failure, the reader's message.
+(sig check-text (Fn (Runner String String) (Tup Int (List String))))
+(defn check-text (r text name)
+  (match (catch-panic (fn (_) (examples text name)))
+    ((Err msg) (Tup 0 (List msg)))
+    ((Ok exs)
+      (Tup
+        (len exs)
+        (concat (map (fn (ex) (failure-lines name ex (check-example r ex))) exs))))))
+
+(sig failure-lines (Fn (String Example (Maybe String)) (List String)))
+(defn failure-lines (name ex found)
+  (match found
+    ((None) empty-list)
+    ((Some what)
+      (let ((indented (string.join (string.split what "\n") "\n    ")))
+        (List (format "{name}:{(get ex line)}: {(get ex kind)}: {indented}"))))))
+
+;; The spec file at `path` checked (check-text), named by its file's name.
+(sig check-file (Fn (Runner String) (Tup Int (List String))))
+(defn check-file (r path)
+  (check-text r (slurp path) (++ (path-stem path) ".md")))
+
+;; The spec files `paths` checked, each failure written, then a count: 0 if none failed,
+;; or else 1 (cdyc.cdy's --spec). A backlog item's repro is meant to fail until its defect
+;; is fixed.
+(sig run-files (Fn (Runner (List String)) Int))
+(defn run-files (r paths)
+  (let ((checked (map (fn (p) (check-file r p)) paths))
+        (count (fold (fn (n c) (let (((k _) c)) (+ n k))) 0 checked))
+        (failed (concat (map (fn (c) (let ((( _k fs) c)) fs)) checked))))
+    (do
+      (if (> (len failed) 0) (put-line (string.join failed "\n")))
+      (put-line (format "spec: {(len paths)} files, {count} examples, {(len failed)} failed"))
+      (if (= (len failed) 0) 0 1))))
+

@@ -73,7 +73,7 @@ By kind, then priority.
 |---|---|---|---|---|
 | [B233](B233-test-runner-catch-panic-capture-output.md) | test-runner step 1: `catch-panic` and `capture-output` | task | review | normal |
 | [B234](B234-test-runner-reader.md) | test-runner step 2: The reader | task | review | normal |
-| [B235](B235-test-runner-checks-and-flag.md) | test-runner step 3: The checks and the flag | task | open | normal |
+| [B235](B235-test-runner-checks-and-flag.md) | test-runner step 3: The checks and the flag | task | review | normal |
 | [B236](B236-test-runner-pytest.md) | test-runner step 4: pytest on the Candy runner | task | open | normal |
 | [B237](B237-test-runner-docs.md) | test-runner step 5: Docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
