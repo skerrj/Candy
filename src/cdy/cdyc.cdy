@@ -19,6 +19,7 @@
 (import interp_macros)
 (import translator)
 (import map ())
+(import spec_runner ())
 
 ;; --- the whole translator: forms in, Python source out ---
 

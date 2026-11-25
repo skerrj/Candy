@@ -8757,6 +8757,190 @@ def interp_macros__value_form(v: interp__Value) -> form__Form:
     else:
         return cdy_rt.primitives.fail("internal error: interp: a macro gave a value that isn't a Form")
 
+class spec_runner__Block(_cdy_NamedTuple):
+    info: str
+    text: str
+    line: int
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(spec_runner__Block, 'Block', (), ('String', 'String', 'Int'))
+
+def spec_runner__blocks(text: str) -> tuple[spec_runner__Block, ...]:
+    lines = string__lines(text)
+    return spec_runner__blocks_from(lines, 0, ())
+
+def spec_runner__blocks_from(lines: tuple[str, ...], i: int, acc: tuple[spec_runner__Block, ...]) -> tuple[spec_runner__Block, ...]:
+    while True:
+        if (i >= len(lines)):
+            return acc
+        else:
+            line = cdy_rt.primitives.at(lines, i)
+            indent = spec_runner__run_of(line, 0, ' ')
+            ticks = spec_runner__run_of(line, indent, '`')
+            if (ticks < 3):
+                i = (i + 1)
+                continue
+            else:
+                end = spec_runner__closing(lines, (i + 1), ticks)
+                info = string__trim(cdy_rt.primitives.substring(line, (indent + ticks), len(line)))
+                body = spec_runner__block_text(cdy_rt.primitives.slice_(lines, (i + 1), end), indent)
+                i, acc = ((end + 1), (acc + (spec_runner__Block(info, body, (i + 1)),)))
+                continue
+
+def spec_runner__block_text(lines: tuple[str, ...], indent: int) -> str:
+    return cdy_rt.primitives.join(cdy_rt.primitives.list_map((lambda l: (spec_runner__dedent(l, indent) + '\n')), lines), '')
+
+def spec_runner__closing(lines: tuple[str, ...], i: int, ticks: int) -> int:
+    while True:
+        if (i >= len(lines)):
+            return len(lines)
+        elif spec_runner__closes(cdy_rt.primitives.at(lines, i), ticks):
+            return i
+        else:
+            i = (i + 1)
+            continue
+
+def spec_runner__closes(line: str, ticks: int) -> bool:
+    indent = spec_runner__run_of(line, 0, ' ')
+    n = spec_runner__run_of(line, indent, '`')
+    return ((n >= ticks) and (string__trim(cdy_rt.primitives.substring(line, (indent + n), len(line))) == ''))
+
+def spec_runner__run_of(s: str, i: int, c: str) -> int:
+    return spec_runner__run_from(s, i, c, 0)
+
+def spec_runner__run_from(s: str, i: int, c: str, n: int) -> int:
+    while True:
+        if ((i < len(s)) and (cdy_rt.primitives.substring(s, i, (i + 1)) == c)):
+            i, n = ((i + 1), (n + 1))
+            continue
+        else:
+            return n
+
+def spec_runner__dedent(line: str, indent: int) -> str:
+    spaces = spec_runner__run_of(line, 0, ' ')
+    return cdy_rt.primitives.substring(line, (spaces if (spaces < indent) else indent), len(line))
+spec_runner__STATUSES: tuple[str, ...] = ('draft', 'stable', 'deprecated')
+
+def spec_runner__status(text: str) -> str:
+    return prelude__with_default('', prelude__find((lambda s: (s != '')), cdy_rt.primitives.list_map(spec_runner__status_of, string__lines(text))))
+
+def spec_runner__status_of(line: str) -> str:
+    if (not cdy_rt.primitives.starts_with(line, 'status: ')):
+        return ''
+    else:
+        rest = cdy_rt.primitives.substring(line, 8, len(line))
+        word = prelude__with_default('', prelude__find((lambda s: cdy_rt.primitives.starts_with(rest, s)), spec_runner__STATUSES))
+        after = cdy_rt.primitives.substring(rest, len(word), len(rest))
+        if ((word != '') and spec_runner__status_tail(after)):
+            return word
+        else:
+            return ''
+
+def spec_runner__status_tail(after: str) -> bool:
+    since = ', since: '
+    if (string__trim(after) == ''):
+        return True
+    elif (not cdy_rt.primitives.starts_with(after, since)):
+        return False
+    else:
+        return spec_runner__is_word(cdy_rt.primitives.substring(after, len(since), len(after)))
+
+def spec_runner__is_word(s: str) -> bool:
+    word = string__trim(s)
+    return ((word != '') and cdy_rt.primitives.starts_with(s, word) and (not cdy_rt.primitives.str_contains(' ', word)))
+
+class spec_runner__Example(_cdy_NamedTuple):
+    kind: str
+    source: str
+    expected: str
+    line: int
+    def __eq__(self, other: object) -> bool:
+        return type(self) is type(other) and tuple.__eq__(self, other)
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+    def __hash__(self) -> int:
+        return hash((type(self), tuple(self)))
+cdy_rt.primitives.register_type(spec_runner__Example, 'Example', (), ('String', 'String', 'String', 'Int'))
+spec_runner__PAIRS: tuple[tuple[str, str], ...] = (('candy run', 'run'), ('candy error', 'error'), ('candy panic', 'panic'))
+
+def spec_runner__pair_kind(info: str) -> str:
+    _cdy_t426 = (lambda k: (k != ''))
+    def _cdy_t425(p: tuple[str, str]) -> str:
+        _tup = p
+        i = _tup[0]
+        k = _tup[1]
+        if (i == info):
+            return k
+        else:
+            return ''
+    return prelude__with_default('', prelude__find(_cdy_t426, cdy_rt.primitives.list_map(_cdy_t425, spec_runner__PAIRS)))
+
+def spec_runner__examples(text: str, name: str) -> tuple[spec_runner__Example, ...]:
+    all_ = spec_runner__blocks(text)
+    _tup = cdy_rt.primitives.list_fold((lambda acc, b: spec_runner__example_step(acc, b, name)), (spec_runner__NO_EXAMPLES, spec_runner__NO_BLOCK), all_)
+    found = _tup[0]
+    pending = _tup[1]
+    _cdy_t427 = pending
+    if isinstance(_cdy_t427, prelude__Some):
+        p: spec_runner__Block = _cdy_t427.v
+        return cdy_rt.primitives.fail((name + ':' + str(p.line) + ': ' + p.info + ' at the end, with no expect'))
+    elif isinstance(_cdy_t427, prelude__None):
+        return found
+spec_runner__NO_EXAMPLES: tuple[spec_runner__Example, ...] = ()
+spec_runner__NO_BLOCK: prelude__Maybe[spec_runner__Block] = prelude__None()
+
+def spec_runner__example_step(acc: tuple[tuple[spec_runner__Example, ...], prelude__Maybe[spec_runner__Block]], b: spec_runner__Block, name: str) -> tuple[tuple[spec_runner__Example, ...], prelude__Maybe[spec_runner__Block]]:
+    _tup = acc
+    found = _tup[0]
+    pending = _tup[1]
+    info = b.info
+    _cdy_t428 = pending
+    if isinstance(_cdy_t428, prelude__Some):
+        p: spec_runner__Block = _cdy_t428.v
+        kind = spec_runner__pair_kind(p.info)
+        want = ('expect' if (kind == 'run') else ('expect-' + kind))
+        if (info != want):
+            return cdy_rt.primitives.fail((name + ':' + str(p.line) + ': ' + p.info + ' needs ' + want + ' after it'))
+        else:
+            expected = (b.text if (kind == 'run') else string__trim(b.text))
+            return ((found + (spec_runner__Example(kind, p.text, expected, p.line),)), prelude__None())
+    elif isinstance(_cdy_t428, prelude__None):
+        if (spec_runner__pair_kind(info) != ''):
+            return (found, prelude__Some(b))
+        elif cdy_rt.primitives.list_contains(info, ('expect', 'expect-error', 'expect-panic')):
+            return cdy_rt.primitives.fail((name + ':' + str(b.line) + ': ' + info + ' with no example before it'))
+        elif (info == 'candy errors'):
+            return ((found + spec_runner__error_table(b, name)), prelude__None())
+        else:
+            return (found, prelude__None())
+
+def spec_runner__error_table(b: spec_runner__Block, name: str) -> tuple[spec_runner__Example, ...]:
+    rows = string__lines(b.text)
+    seps = cdy_rt.primitives.list_filter((lambda i: (string__trim(cdy_rt.primitives.at(rows, i)) == '---')), cdy_rt.primitives.list_range(0, len(rows)))
+    line = b.line
+    if (len(seps) > 1):
+        return cdy_rt.primitives.fail((name + ':' + str((line + seps[1] + 1)) + ': a second --- (a table has one setup)'))
+    else:
+        first = (0 if (len(seps) == 0) else (seps[0] + 1))
+        setup = cdy_rt.primitives.join(cdy_rt.primitives.list_map((lambda r: (r + '\n')), cdy_rt.primitives.list_take((first - 1), rows)), '')
+        head = (spec_runner__NO_EXAMPLES if (setup == '') else (spec_runner__Example('setup', setup, '', (line + 1)),))
+        return (head + cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map((lambda offset: spec_runner__table_row(cdy_rt.primitives.at(rows, (offset - 1)), setup, (line + offset), name)), cdy_rt.primitives.list_range((first + 1), (len(rows) + 1)))))
+
+def spec_runner__table_row(row: str, setup: str, line: int, name: str) -> tuple[spec_runner__Example, ...]:
+    if (string__trim(row) == ''):
+        return spec_runner__NO_EXAMPLES
+    elif (not cdy_rt.primitives.str_contains(' => ', row)):
+        return cdy_rt.primitives.fail((name + ':' + str(line) + ': expected source => message'))
+    else:
+        parts = cdy_rt.primitives.split(row, ' => ')
+        source = parts[0]
+        message = cdy_rt.primitives.join(prelude__rest(parts), ' => ')
+        return (spec_runner__Example('error', (setup + string__trim(source)), string__trim(message), line),)
+
 class Ready(_cdy_NamedTuple):
     module: include__Module
     forms: tuple[form__Form, ...]
@@ -8807,7 +8991,7 @@ def macro_imports(form: core__Exports, translator: core__Exports) -> tuple[core_
     return (core__Import(form, form__NOWHERE, prelude__None()), core__Import(translator, form__NOWHERE, prelude__None()), core__Import(declaration_exports('string'), form__NOWHERE, prelude__Some(())))
 
 def load_macro_file(builtins: _cdy_Mapping[str, core__Builtin], base: MacroBase) -> _cdy_Callable[[str, expand__Expander, tuple[str, ...]], tuple[expand__MacroFile, expand__Expander]]:
-    def _cdy_t425(path: str, ex: expand__Expander, loading: tuple[str, ...]) -> tuple[expand__MacroFile, expand__Expander]:
+    def _cdy_t429(path: str, ex: expand__Expander, loading: tuple[str, ...]) -> tuple[expand__MacroFile, expand__Expander]:
         modules = include__read_modules(path)
         file = cdy_rt.primitives.at(modules, (len(modules) - 1))
         base_keys = cdy_rt.primitives.list_map((lambda l: l.key), base.modules)
@@ -8829,7 +9013,7 @@ def load_macro_file(builtins: _cdy_Mapping[str, core__Builtin], base: MacroBase)
         all_ = add_loaded(mine, deps)
         run = load_macro_tops(builtins, (base.modules + all_), ())
         return (expand__MacroFile(cdy_rt.primitives.path_resolve(path), expand__macro_list(expanded.defs, (lambda name: run(core__global_key(stem, name)))), all_), ex2)
-    return _cdy_t425
+    return _cdy_t429
 
 def macro_module(r: Ready, base: MacroBase, by_key: _cdy_Mapping[str, core__Exports], builtins: _cdy_Mapping[str, core__Builtin]) -> expand__Loaded:
     m = r.module
@@ -8837,12 +9021,12 @@ def macro_module(r: Ready, base: MacroBase, by_key: _cdy_Mapping[str, core__Expo
     return expand__Loaded(m.key, r.exports, core__analyse_module(r.forms, r.exports, (imported(m.imports, by_key) + implicit_imports(base, m.imports, by_key)), {}, builtins, (lambda text, where: expand__expand_all(read__read_hole(text, where), macros)), macros, True))
 
 def load_own_macros(builtins: _cdy_Mapping[str, core__Builtin], base: MacroBase) -> _cdy_Callable[[tuple[form__Form, ...], tuple[expand__MacroFile, ...]], _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]]:
-    def _cdy_t426(forms: tuple[form__Form, ...], files: tuple[expand__MacroFile, ...]) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
+    def _cdy_t430(forms: tuple[form__Form, ...], files: tuple[expand__MacroFile, ...]) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
         deps = add_loaded(cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map((lambda f: f.modules), files)), ())
         prelude = base.modules[0].exports
         imports = ((core__Import(prelude, form__NOWHERE, prelude__None()),) + base.imports + file_imports(files))
         return load_macro_tops(builtins, (base.modules + deps), core__analyse_module(forms, core__module_exports(forms, ''), imports, {}, builtins, read__read_hole, {}, True))
-    return _cdy_t426
+    return _cdy_t430
 
 def load_macro_tops(builtins: _cdy_Mapping[str, core__Builtin], loaded: tuple[expand__Loaded, ...], tops: tuple[core__Top, ...]) -> _cdy_Callable[[str], _cdy_Callable[[tuple[form__Form, ...]], form__Form]]:
     all_ = check__type_check((cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map((lambda l: l.tops), loaded)) + tops), builtins)
@@ -8850,12 +9034,12 @@ def load_macro_tops(builtins: _cdy_Mapping[str, core__Builtin], loaded: tuple[ex
     return interp_macros__macro_runner(all_)
 
 def add_loaded(loaded: tuple[expand__Loaded, ...], start: tuple[expand__Loaded, ...]) -> tuple[expand__Loaded, ...]:
-    def _cdy_t427(acc: tuple[expand__Loaded, ...], l: expand__Loaded) -> tuple[expand__Loaded, ...]:
+    def _cdy_t431(acc: tuple[expand__Loaded, ...], l: expand__Loaded) -> tuple[expand__Loaded, ...]:
         if cdy_rt.primitives.list_any((lambda m: (m.key == l.key)), acc):
             return acc
         else:
             return (acc + (l,))
-    return cdy_rt.primitives.list_fold(_cdy_t427, start, loaded)
+    return cdy_rt.primitives.list_fold(_cdy_t431, start, loaded)
 
 def loaded_exports(loaded: tuple[expand__Loaded, ...], start: _cdy_Mapping[str, core__Exports]) -> _cdy_Mapping[str, core__Exports]:
     return cdy_rt.primitives.list_fold((lambda m, l: cdy_rt.primitives.map_set(m, l.key, l.exports)), start, loaded)
@@ -8865,10 +9049,10 @@ def implicit_imports(base: MacroBase, imps: tuple[include__Imp, ...], by_key: _c
     return cdy_rt.primitives.list_filter((lambda i: (not cdy_rt.primitives.list_contains(i.exports.stem, stems))), base.imports)
 
 def file_imports(files: tuple[expand__MacroFile, ...]) -> tuple[core__Import, ...]:
-    def _cdy_t428(f: expand__MacroFile) -> core__Import:
+    def _cdy_t432(f: expand__MacroFile) -> core__Import:
         modules = f.modules
         return core__Import(cdy_rt.primitives.at(modules, (len(modules) - 1)).exports, form__NOWHERE, prelude__None())
-    return cdy_rt.primitives.list_map(_cdy_t428, files)
+    return cdy_rt.primitives.list_map(_cdy_t432, files)
 
 def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]], builtins: _cdy_Mapping[str, core__Builtin]) -> tuple[core__Top, ...]:
     _tup = expand_modules(modules, expander(builtins))
@@ -8879,7 +9063,7 @@ def program_tops(modules: tuple[include__Module, ...], parse: _cdy_Callable[[str
     return analyse_modules(ready, by_key, elsewhere, builtins, parse)
 
 def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -> tuple[tuple[Ready, ...], expand__Expander]:
-    def _cdy_t429(acc: tuple[tuple[Ready, ...], expand__Expander], m: include__Module) -> tuple[tuple[Ready, ...], expand__Expander]:
+    def _cdy_t433(acc: tuple[tuple[Ready, ...], expand__Expander], m: include__Module) -> tuple[tuple[Ready, ...], expand__Expander]:
         _tup = acc
         done = _tup[0]
         e = _tup[1]
@@ -8891,7 +9075,7 @@ def expand_modules(modules: tuple[include__Module, ...], ex: expand__Expander) -
         e1 = _cdy__tup_106[2]
         own = core__module_exports(forms, m.stem)
         return ((done + (Ready(m, forms, macros, (core__with_declared(own, all_, m.stem) if declaring else own)),)), e1)
-    return cdy_rt.primitives.list_fold(_cdy_t429, (NO_READY, ex), modules)
+    return cdy_rt.primitives.list_fold(_cdy_t433, (NO_READY, ex), modules)
 NO_READY: tuple[Ready, ...] = ()
 
 def exports_by_key(ready: tuple[Ready, ...]) -> _cdy_Mapping[str, core__Exports]:
@@ -8901,10 +9085,10 @@ def exports_of(ready: tuple[Ready, ...]) -> tuple[core__Exports, ...]:
     return cdy_rt.primitives.list_map((lambda r: r.exports), ready)
 
 def analyse_modules(ready: tuple[Ready, ...], by_key: _cdy_Mapping[str, core__Exports], elsewhere: _cdy_Mapping[str, str], builtins: _cdy_Mapping[str, core__Builtin], parse: _cdy_Callable[[str, form__Pos], tuple[form__Form, ...]]) -> tuple[core__Top, ...]:
-    def _cdy_t430(r: Ready) -> tuple[core__Top, ...]:
+    def _cdy_t434(r: Ready) -> tuple[core__Top, ...]:
         macros = r.macros
         return core__analyse_module(r.forms, r.exports, imported(r.module.imports, by_key), elsewhere, builtins, (lambda text, where: expand__expand_all(parse(text, where), macros)), macros, False)
-    return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t430, ready))
+    return cdy_rt.primitives.list_concat(cdy_rt.primitives.list_map(_cdy_t434, ready))
 
 def imported(imps: tuple[include__Imp, ...], by_key: _cdy_Mapping[str, core__Exports]) -> tuple[core__Import, ...]:
     return cdy_rt.primitives.list_map((lambda imp: core__Import(cdy_rt.primitives.map_get(by_key, imp.key), imp.pos, imp.only)), imps)

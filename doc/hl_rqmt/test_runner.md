@@ -176,6 +176,24 @@ reads.
    checked against `boot/103`'s `bin`: the same output for all 109 programs.
 2. **The reader:** `spec_runner.cdy`'s `examples` and the status line; the reader's tests
    ported to call it.
+   *Done (2026-11-25). As built:* `src/cdy/spec_runner.cdy` (about 200 lines), imported
+   by `cdyc.cdy` qualified only, so the translator holds it: `blocks` (the fences, as
+   `doc_links.py` reads them), `status` (the first status line), `examples` and
+   `error-table` (the pairs, the tables with their setup), with `Block` and `Example`
+   records, an example's kind a string (`"run"`, `"error"`, `"panic"`, `"setup"`),
+   and the Python reader's messages, by `fail`. It reads every spec file and repro to
+   the same 424 examples as `test_spec.py`'s reader, and all 320 tracked docs to the same
+   blocks and status as `doc_links.py`'s: `test_readers_agree` checks it, until step 4
+   retires the Python reader. The reader's tests call the Candy reader now (`blocks`'
+   both readers'), with three more (an unclosed fence, a row with a second `=>`, a
+   status line that isn't one). `candy`, the tests' way to a Candy name, moved from
+   `test_self_host.py` into `self_host.py`, which both import. Three slips on the way:
+   `blocks-from` made a closure (a `map`'s `fn`), so `lower` didn't make it a loop and
+   it overflowed the stack (the closure moved to `block-text`); `string.contains`
+   takes the part first; and a status line's tail was sliced past its end
+   (`string.slice` is bounds-checked). `examples`' fold starts from typed values
+   ([[B184]]). Checked against `boot/104`'s `bin`: the same output for all 109 programs;
+   translating the translator takes as long as before.
 3. **The checks and the flag:** `check-example`, `check-file`, `--spec FILE ...` in
    `cdyc.cdy`'s `main` (its usage too); every spec file and repro checked by it, with
    the same results as `test_spec.py`'s.

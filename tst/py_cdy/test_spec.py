@@ -34,15 +34,15 @@ import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Literal, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 import pytest
 from mypy import api as mypy_api
 
 from backlog import item_files
 from cdy_rt.primitives import CandyFail
-from doc_links import Block, blocks, status
-from self_host import load, translate_with
+from doc_links import Block, blocks, status, tracked_docs
+from self_host import candy, load, translate_with
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC_DIR = ROOT / "spec"
@@ -227,44 +227,75 @@ def test_spec_files_have_a_status() -> None:
     assert not missing, f"no status: draft|stable|deprecated line in {missing}"
 
 
-# --- the runner itself ---
+# --- the reader (spec_runner.cdy's; doc/hl_rqmt/test_runner.md, step 2) ---
 
 
-def test_blocks_and_nested_fences() -> None:
+def fields(values: tuple[Any, ...]) -> list[tuple[Any, ...]]:
+    """Records (the Candy reader's ``Block``s or ``Example``s) as plain tuples."""
+    return [tuple(value) for value in values]
+
+
+def test_readers_agree(t1: ModuleType) -> None:
+    """The Candy reader reads every spec file and repro as this file's does (until step 4
+    retires this one), and every doc's fences and status line as ``doc_links.py`` does."""
+    for path in (*FILES, *ITEMS):
+        found = candy(t1, "spec_runner.examples")(TEXTS[path], path.name)
+        assert fields(found) == fields(examples(TEXTS[path], path.name)), path.name
+    for name, text in tracked_docs(ROOT).items():
+        assert fields(candy(t1, "spec_runner.blocks")(text)) == fields(blocks(text)), name
+        assert candy(t1, "spec_runner.status")(text) == status(text), name
+
+
+@pytest.mark.parametrize("reader", ["doc_links", "candy"])
+def test_blocks_and_nested_fences(reader: str, t1: ModuleType) -> None:
+    read = blocks if reader == "doc_links" else candy(t1, "spec_runner.blocks")
     text = "a\n```candy run\n(put 1)\n```\n````markdown\n```expect\n1\n```\n````\n"
-    assert blocks(text) == (
-        Block("candy run", "(put 1)\n", 2),
-        Block("markdown", "```expect\n1\n```\n", 5),
-    )
+    assert fields(read(text)) == [
+        ("candy run", "(put 1)\n", 2),
+        ("markdown", "```expect\n1\n```\n", 5),
+    ]
 
 
-def test_indented_fences() -> None:
+@pytest.mark.parametrize("reader", ["doc_links", "candy"])
+def test_indented_fences(reader: str, t1: ModuleType) -> None:
+    read = blocks if reader == "doc_links" else candy(t1, "spec_runner.blocks")
     text = "- a rule:\n\n  ```candy run\n  (put 1)\n    (put 2)\n  ```\n"
-    assert blocks(text) == (Block("candy run", "(put 1)\n  (put 2)\n", 3),)
+    assert fields(read(text)) == [("candy run", "(put 1)\n  (put 2)\n", 3)]
 
 
-def test_examples_pair_up() -> None:
+def test_unclosed_fence_runs_to_the_end(t1: ModuleType) -> None:
+    assert fields(candy(t1, "spec_runner.blocks")("```candy\nx\n")) == [("candy", "x\n", 1)]
+
+
+def test_examples_pair_up(t1: ModuleType) -> None:
     text = (
         "```candy run\n(put 1)\n```\n```expect\n1\n```\n"
         "```candy error\n(put x)\n```\n```expect-error\nunknown name x\n```\n"
         "```candy errors\n(put y) => unknown name y\n\n(put ()) => empty form\n```\n"
         "```candy panic\n(put (at (List) 0))\n```\n```expect-panic\nIndexError\n```\n"
     )
-    assert examples(text, "t.md") == (
-        Example("run", "(put 1)\n", "1\n", 1),
-        Example("error", "(put x)\n", "unknown name x", 7),
-        Example("error", "(put y)", "unknown name y", 14),
-        Example("error", "(put ())", "empty form", 16),
-        Example("panic", "(put (at (List) 0))\n", "IndexError", 18),
-    )
+    assert fields(candy(t1, "spec_runner.examples")(text, "t.md")) == [
+        ("run", "(put 1)\n", "1\n", 1),
+        ("error", "(put x)\n", "unknown name x", 7),
+        ("error", "(put y)", "unknown name y", 14),
+        ("error", "(put ())", "empty form", 16),
+        ("panic", "(put (at (List) 0))\n", "IndexError", 18),
+    ]
 
 
-def test_error_table_setup() -> None:
+def test_error_table_setup(t1: ModuleType) -> None:
     text = "```candy errors\n(sig s Int)\n(def s 1)\n --- \n(put t) => unknown name t\n```\n"
-    assert examples(text, "t.md") == (
-        Example("setup", "(sig s Int)\n(def s 1)\n", "", 2),
-        Example("error", "(sig s Int)\n(def s 1)\n(put t)", "unknown name t", 5),
-    )
+    assert fields(candy(t1, "spec_runner.examples")(text, "t.md")) == [
+        ("setup", "(sig s Int)\n(def s 1)\n", "", 2),
+        ("error", "(sig s Int)\n(def s 1)\n(put t)", "unknown name t", 5),
+    ]
+
+
+def test_error_row_with_arrows(t1: ModuleType) -> None:
+    text = "```candy errors\n(f) => a => b\n```\n"
+    assert fields(candy(t1, "spec_runner.examples")(text, "t.md")) == [
+        ("error", "(f)", "a => b", 2)
+    ]
 
 
 @pytest.mark.parametrize(
@@ -289,12 +320,15 @@ def test_error_table_setup() -> None:
         "second-separator",
     ],
 )
-def test_examples_that_dont_pair_up(text: str, message: str) -> None:
-    with pytest.raises(SpecError, match=re.escape(message)):
-        examples(text, "t.md")
+def test_examples_that_dont_pair_up(text: str, message: str, t1: ModuleType) -> None:
+    with pytest.raises(CandyFail, match=re.escape(message)):
+        candy(t1, "spec_runner.examples")(text, "t.md")
 
 
-def test_status() -> None:
-    assert status("# Match\n\nstatus: draft, since: sum-types\n") == "draft"
-    assert status("# Match\n\nstatus: stable\n") == "stable"
-    assert status("# Match\n\nStatus is stable.\n") == ""
+def test_status(t1: ModuleType) -> None:
+    read = candy(t1, "spec_runner.status")
+    assert read("# Match\n\nstatus: draft, since: sum-types\n") == "draft"
+    assert read("# Match\n\nstatus: stable\n") == "stable"
+    assert read("# Match\n\nStatus is stable.\n") == ""
+    assert read("status: stable, since:\nstatus: draft\n") == "draft"
+    assert read("status: stablest\n") == ""
