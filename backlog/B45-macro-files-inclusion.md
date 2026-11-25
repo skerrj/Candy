@@ -1,7 +1,7 @@
 # B45: Macro files still use inclusion
 
 kind: leak
-state: review
+state: done
 priority: normal
 found: modules, 2026-10-19
 fixed: host-macros, 2026-11-23
@@ -15,3 +15,7 @@ instead of copying it. From `doc/archive/leaks_modules.md`.
 - 2026-11-23, Claude: a macro file is a module of macro code, its imports real
   (`host-macros` step 4a, [[macros.import-macros]]); inclusion is gone from
   `include.cdy`.
+
+## Notes
+
+- 2026-11-24, the owner: ticked in review.

@@ -1,7 +1,7 @@
 # B52: Macro code doesn't get the prelude
 
 kind: leak
-state: review
+state: done
 priority: normal
 found: library, 2026-10-22
 fixed: host-macros, 2026-11-23
@@ -21,3 +21,4 @@ it (`doc/hl_rqmt/modules.md`, "Macro modules on the host"); then `rest-of` can g
 - 2026-11-23, Claude: macro code imports the prelude implicitly, its definitions loaded
   with each macro program on the interpreter (`host-macros` step 3,
   [[macros.macro-code]]); `form.cdy`'s `rest-of` is gone, for `rest`.
+- 2026-11-24, the owner: ticked in review.

@@ -1,7 +1,7 @@
 # B230: host-macros step 6: `load-macros` dropped
 
 kind: task
-state: review
+state: done
 priority: normal
 found: host-macros, 2026-11-22
 fixed: host-macros, 2026-11-24
@@ -14,3 +14,4 @@ Step 6 of `doc/hl_rqmt/host_macros.md`. `load-macros` taken out of `translator.c
 
 - 2026-11-22, Claude: filed on the HLD's acceptance (the owner, 2026-11-22).
 - 2026-11-24, Claude: built, as 6a and 6b, neither staged (the HLD's step 6, "Done").
+- 2026-11-24, the owner: ticked in review.

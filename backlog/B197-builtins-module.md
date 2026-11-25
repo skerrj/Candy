@@ -1,7 +1,7 @@
 # B197: The built-ins' module, and macro code's
 
 kind: idea
-state: review
+state: done
 priority: low
 found: namespaces step 6's review, 2026-11-14
 fixed: host-macros, 2026-11-23
@@ -37,3 +37,4 @@ What settling it needs:
   is of its own module, its stem, and a file's own defmacros of `""`, as a top module's
   names have no prefix; `form` is a module, so quoting builds `form.Sym` (`core.cdy`'s
   `FORM`).
+- 2026-11-24, the owner: ticked in review.

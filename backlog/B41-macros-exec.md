@@ -1,7 +1,7 @@
 # B41: Macros run with Python's `exec`
 
 kind: leak
-state: review
+state: done
 priority: low
 found: macros, 2026-10-18
 fixed: host-macros, 2026-11-24
@@ -21,3 +21,4 @@ code (or an interpreter). From `doc/archive/leaks_macros.md`.
 - 2026-11-24, Claude: macro code runs on the interpreter (`host-macros` steps 1 to 4), and
   `load-macros` is gone from `translator.cdy`, `spelling.py` and `primitives.py` (step
   6b); `macros.md`'s account of the `exec` is marked history.
+- 2026-11-24, the owner: ticked in review.
