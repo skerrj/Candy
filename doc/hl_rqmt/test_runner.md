@@ -1,7 +1,8 @@
 # The spec's runner in Candy (HLD)
 
 **Status: accepted (2026-11-25), with the answers to its questions, as proposed (tasks
-[[B233]] to [[B237]]); for branch `test-runner`. Epic:
+[[B233]] to [[B237]]); for branch `test-runner`; steps 1 to 5 done (2026-11-25), their
+tasks ticked. Epic:
 `python_complete.md` (its eighth branch). After tag `host-macros`.** The spec's runner,
 which reads a spec file's examples and checks each one, written in Candy, a module of the
 translator: it runs each example on the interpreter, or translates it, and reports by
@@ -232,6 +233,35 @@ reads.
 5. **Docs:** `executable_spec.md`'s "The runner" (its *lasting* answered),
    `spec/README.md` (how to run the spec), CLAUDE.md (the layout, the runner), the
    epic's eighth branch *done*; "Looking back".
+   *Done (2026-11-25). As built:* as listed; `executable_spec.md`'s "After" item (the
+   runner in Candy) marked done too, and CLAUDE.md's commands give `--spec`.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **A second reader is cheap to check against the first.** The Candy reader was
+  compared with the Python one on every file before either was trusted: 424 examples
+  and 320 docs' fences, equal, so step 4 could drop the Python one with no doubt about
+  what changed.
+- **A runtime primitive can't return a type defined in Candy.** `catch-panic` gives the
+  prelude's `Result`, whose `Ok` and `Err` are classes of the translated program, which
+  the runtime, depending only on itself, can't construct: the host part is a primitive
+  over built-in types (a list and a string), the `Result` Candy over it. A host
+  built-in that returns a `Maybe`, a `Result` or another `deft` type will meet this
+  again.
+- **On the Python target, a tail call is a loop only without a closure** (`lower`,
+  *for now*: [[B37]]): Python's closures capture variables, so `lower` leaves a
+  function that makes one as recursion, and a file of 500 lines overflowed. Keep
+  closures out of a loop's body. The interpreter has no such limit: every tail call is
+  a loop there, as in Scheme.
+- **The spec says what the library does at its edges, and it binds.** `string.replace`
+  replaces the first match, `string.contains` takes the part first, and `string.slice`
+  is bounds-checked: each surprised Candy written as if it were Python. They were the
+  runner's only slips: the language and the checker carried it.
+- **Collection happens before the build.** pytest names its tests before T1 exists, so
+  per-example tests would have needed a reader from the build before; per-file tests,
+  with each failure's `file:line` in the message, keep one reader and lose little.
 
 ## Questions
 

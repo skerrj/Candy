@@ -1,7 +1,7 @@
 # B236: test-runner step 4: pytest on the Candy runner
 
 kind: task
-state: review
+state: done
 priority: normal
 found: test-runner, 2026-11-25
 fixed: test-runner, 2026-11-25
@@ -14,3 +14,4 @@ Step 4 of `doc/hl_rqmt/test_runner.md`. `test_spec.py` per file (Question 4): th
 
 - 2026-11-25, Claude: filed on the HLD's acceptance (the owner, 2026-11-25).
 - 2026-11-25, Claude: built (the HLD's step 4, "Done").
+- 2026-11-25, the owner: ticked in review.

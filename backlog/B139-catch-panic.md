@@ -1,7 +1,7 @@
 # B139: A `catch-panic` for tools
 
 kind: idea
-state: review
+state: done
 priority: low
 found: semantics HLD, 2026-11-02
 fixed: test-runner, 2026-11-25
@@ -25,3 +25,4 @@ translator unchanged (Rust's `std::panic::catch_unwind`, Go's `recover`). For
 - 2026-11-25, Claude: built in `test-runner` step 1: `translator.catch-panic`, Candy over
   the host's `run-caught`, for tools; a program reaches it only by importing
   `translator`.
+- 2026-11-25, the owner: ticked in review.

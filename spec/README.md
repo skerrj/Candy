@@ -1,10 +1,20 @@
 # The Candy spec
 
-The language, rule by rule, each rule with examples that run: `tst/py_cdy/test_spec.py`
-translates every example with the translator and checks what it does
-(`doc/hl_rqmt/executable_spec.md`), and runs every `candy run` and `candy panic` one on
-the interpreter too (since `interpreter`; `doc/hl_rqmt/interpreter.md`), which must do
-the same: two implementations, so a rule must say enough for each. A rule here is what
+The language, rule by rule, each rule with examples that run
+(`doc/hl_rqmt/executable_spec.md`). The spec's runner, written in Candy
+(`src/cdy/spec_runner.cdy`, since `test-runner`; `doc/hl_rqmt/test_runner.md`), checks
+each example: a `candy run` or `candy panic` one on the interpreter, a `candy error` one
+or an error table's rows through the translator. `tst/py_cdy/test_spec.py` runs it, and
+runs every `candy run` and `candy panic` example as a Python program too, which must do
+the same: two implementations, so a rule must say enough for each. To check the spec, or
+one file of it, without pytest:
+
+```
+python bin/py/cdy_translator.py --spec spec/*.md
+```
+
+It writes each failure as `file:line: kind: what`, then a count, and exits with 1 if
+any example failed. A rule here is what
 Candy *is*; the HLDs in `doc/hl_rqmt/` record how it got there.
 
 ## The files

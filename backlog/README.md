@@ -71,11 +71,6 @@ By kind, then priority.
 
 | Item | | Kind | State | Priority |
 |---|---|---|---|---|
-| [B233](B233-test-runner-catch-panic-capture-output.md) | test-runner step 1: `catch-panic` and `capture-output` | task | review | normal |
-| [B234](B234-test-runner-reader.md) | test-runner step 2: The reader | task | review | normal |
-| [B235](B235-test-runner-checks-and-flag.md) | test-runner step 3: The checks and the flag | task | review | normal |
-| [B236](B236-test-runner-pytest.md) | test-runner step 4: pytest on the Candy runner | task | review | normal |
-| [B237](B237-test-runner-docs.md) | test-runner step 5: Docs | task | open | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea
@@ -98,7 +93,6 @@ By kind, then priority.
 | [B125](B125-target-checker-option.md) | Run the target's own static checker, as an option | idea | open | low |
 | [B133](B133-let-polymorphism.md) | A `fn` bound by `let` isn't generic | idea | open | low |
 | [B138](B138-if-without-else.md) | An `if` without `else` is allowed for `Unit` | idea | open | low |
-| [B139](B139-catch-panic.md) | A `catch-panic` for tools | idea | review | low |
 | [B156](B156-macro-errors-name-expansion.md) | An error in a macro's expansion names the expansion's forms | idea | open | low |
 | [B170](B170-bracket-list-literal.md) | Brackets for a list literal | idea | open | low |
 | [B176](B176-host-records.md) | Host records: a built-in type with fields | idea | open | low |
@@ -255,6 +249,7 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B132](B132-unsolved-types-reviewed.md) | Go over the types the checker leaves unsolved | task | done | normal |
 | [B135](B135-operator-error-at-call.md) | An operator's type error is at the call, not the argument | defect | done | low |
 | [B137](B137-variants-compare-equal.md) | Two variants of one sum with the same fields are equal | defect | done | normal |
+| [B139](B139-catch-panic.md) | A `catch-panic` for tools | idea | done | low |
 | [B140](B140-semantics-step-1.md) | semantics step 1: the small ones: unsolved types, `Any` defaulted | task | done | normal |
 | [B141](B141-semantics-step-2.md) | semantics step 2: `show`, and the `List` and `Tup` constructors | task | done | normal |
 | [B142](B142-semantics-step-3.md) | semantics step 3: equality | task | done | normal |
@@ -330,3 +325,8 @@ The open items, by the ids in their refs (spec rules, and sections of other docs
 | [B229](B229-host-macros-step-5.md) | host-macros step 5: Hygiene for built-ins | task | done | normal |
 | [B230](B230-host-macros-step-6.md) | host-macros step 6: `load-macros` dropped | task | done | normal |
 | [B231](B231-host-macros-step-7.md) | host-macros step 7: Docs | task | done | normal |
+| [B233](B233-test-runner-catch-panic-capture-output.md) | test-runner step 1: `catch-panic` and `capture-output` | task | done | normal |
+| [B234](B234-test-runner-reader.md) | test-runner step 2: The reader | task | done | normal |
+| [B235](B235-test-runner-checks-and-flag.md) | test-runner step 3: The checks and the flag | task | done | normal |
+| [B236](B236-test-runner-pytest.md) | test-runner step 4: pytest on the Candy runner | task | done | normal |
+| [B237](B237-test-runner-docs.md) | test-runner step 5: Docs | task | done | normal |
