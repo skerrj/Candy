@@ -93,8 +93,9 @@ def found_steps(head: str = "HEAD") -> tuple[Step, ...]:
 
 
 def tagged_steps() -> tuple[Step, ...]:
-    """The steps from the ``boot/NN`` tags, in order (empty before they exist)."""
-    names = git("tag", "--list", "boot/*", "--sort=refname").split()
+    """The steps from the ``boot/NN`` tags, in order of their numbers (``boot/100`` after
+    ``boot/99``, not after ``boot/10`` as git sorts names; empty before they exist)."""
+    names = sorted(git("tag", "--list", "boot/*").split(), key=lambda n: int(n.split("/")[1]))
     return tuple(Step(git("rev-parse", f"refs/tags/{name}^{{commit}}"), name) for name in names)
 
 

@@ -395,7 +395,12 @@ brackets:
    the translator, later ([[B217]]).
 7. **`host-macros`:** macros run on the interpreter; macro code gets the prelude
    ([[B52]]); their results checked ([[B42]]); macro files as modules ([[B45]]);
-   hygiene ([[B46]]); the macro leaks that remain ([[B43]], [[B44]]). (M)
+   hygiene ([[B46]]); the macro leaks that remain ([[B43]], [[B44]]). (M) *Done (tag
+   `host-macros`, 2026-11-24; `host_macros.md`):* macro code analysed, type-checked
+   and run on the interpreter, with the prelude, through a bridge of forms as values;
+   `load-macros` and the `exec` gone; a macro file a module of macro code, loaded once
+   per translation; a template's built-in and prelude names qualified ([[B46]]
+   narrowed to that); [[B43]] and [[B44]] left out, [[B44]]'s fix filed as [[B224]].
 8. **`test-runner`:** the spec's runner in Candy, on the interpreter, called from
    `test_spec.py`; the spec runs on both implementations through it. (X)
 9. **`porting-surface`:** the per-target files (`system`, spelling, runtime, spec
@@ -605,7 +610,7 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B108]] one flat namespace | L | `namespaces` (qualified names), `library-layers` (`system` a module), `stdlib` (done: the modules) |
 | [[B65]] tests reach internals by Python names | X | `namespaces` (done) |
 | [[B11]] a variant named like a macro | D | `namespaces` (done) |
-| [[B49]] host objects untyped | T | `library-layers` (narrowed to the macros), `host-macros` or the `py` extension |
+| [[B49]] host objects untyped | T | `library-layers` (narrowed to the macros), `host-macros` (narrowed to `module-dir`), or the `py` extension |
 | [[B51]] `with-default` is a built-in | L | `library` |
 | [[B50]] the translator's host built-ins | L | `library-layers` (done) |
 | [[B95]] the I/O refactor | L | `library` |
@@ -617,17 +622,17 @@ its six, [[B15]] split into [[B133]] and [[B134]], and found [[B131]], [[B132]] 
 | [[B97]] a library per target | L | `library`, `porting-surface` |
 | [[B125]] the target's own checker, as an option | I → taken up | `porting-surface` |
 | [[B101]] an interpreter | I → taken up | `interpreter` (done: the second implementation) |
-| [[B52]] macro code has no prelude | L | `host-macros` |
-| [[B41]] macros run with `exec` | M | `host-macros` |
-| [[B70]] `load-macros` finds names by Python name | M | `host-macros` |
-| [[B64]] `form.cdy` copied next to every translator | M | `host-macros` |
-| [[B42]] a macro's result unchecked | M | `host-macros` |
-| [[B45]] macro files use inclusion | M | `host-macros` |
-| [[B46]] templates not hygienic across modules | M | `host-macros` |
-| [[B43]] `gensym` is impure | M | `host-macros` |
-| [[B44]] a macro can't expand into `import` | M | `host-macros` |
-| [[B61]] `expand.cdy` knows special forms' shapes | M | `host-macros` |
-| [[B63]] a macro file compiled per importer | M | `host-macros` |
+| [[B52]] macro code has no prelude | L | `host-macros` (done) |
+| [[B41]] macros run with `exec` | M | `host-macros` (done: the interpreter) |
+| [[B70]] `load-macros` finds names by Python name | M | `host-macros` (done) |
+| [[B64]] `form.cdy` copied next to every translator | M | `host-macros` (left: the library is read from there) |
+| [[B42]] a macro's result unchecked | M | `host-macros` (done) |
+| [[B45]] macro files use inclusion | M | `host-macros` (done) |
+| [[B46]] templates not hygienic across modules | M | `host-macros` (narrowed: built-ins done, helpers later) |
+| [[B43]] `gensym` is impure | M | `host-macros` (left out, low) |
+| [[B44]] a macro can't expand into `import` | M | `host-macros` (left out: [[B224]], later) |
+| [[B61]] `expand.cdy` knows special forms' shapes | M | `host-macros` (left: later) |
+| [[B63]] a macro file compiled per importer | M | `host-macros` (done) |
 | [[B29]] records are `NamedTuple`s | P | stays (the `tup` part: `collections`) |
 | [[B113]] a field can't start with `_` | P | stays, or `porting-surface` |
 | [[B114]] a field named like a tuple method | P | stays, or `porting-surface` |

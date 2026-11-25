@@ -38,25 +38,50 @@ unless: yes
 ```
 
 <a id="macros.macro-code"></a>
-A macro's body is **macro code**: it can use the built-ins, `Form` with its helpers
-(`form.cdy`: `sym-name`, `list-items`, `rest-of`, `gensym`, and the variants, such as
-`Sym` and `Txt`), the helpers of the macro files it imports, and the translator's
-built-ins, since it imports `translator` implicitly (`gensym` calls `fresh-name`;
-[[programs.import]]); not the program's own definitions, and not the prelude (*for now*:
-[[B52]]). Macro code isn't type-checked,
-by Candy or by mypy (*for now*: [[B42]]).
+A macro's body is **macro code**: it can use the built-ins, the prelude (`rest`, `Maybe`,
+`find`; since `host-macros`), `Form` with its helpers (`form.cdy`: `sym-name`,
+`list-items`, `gensym`, and the variants, such as `Sym` and `Txt`), the helpers of the
+macro files it imports, and the translator's built-ins, since it imports `translator`
+implicitly (`gensym` calls `fresh-name`; [[programs.import]]); not the program's own
+definitions. It sees what a program sees, then, but runs while translating: it is run
+on the interpreter, so what it prints, or puts in a message, is what `show` and `text`
+write ([[library.show]]).
 
 ```candy run
 (import string ())
 (defmacro name-of (s) (Txt (sym-name s) NOWHERE))
 (defmacro swap (call) (let ((items (list-items call))) (Lst (reverse items) NOWHERE)))
+(defmacro first-name args
+  (with-default (Txt "none" NOWHERE) (find (fn (f) (!= (sym-name f) "")) (rest args))))
 
 (put (name-of hello))
 (put (swap ("abc" string.len)))
+(sig b Int)
+(def b 4)
+(put (first-name 1 2 "x" 4))
+(put (first-name 1 2 "x" b))
 ```
 ```expect
 hello
 3
+none
+4
+```
+
+<a id="macros.checked"></a>
+**Macro code is type-checked** (since `host-macros`), as a program is, before any macro
+runs: a macro is a function from its arguments, a `(List Form)`, to a `Form`, and every
+expression of its code is checked, whether or not the macro is called, the error at the
+macro's code. In a template, an `(unq e)`'s `e` must be a `Form`, and an `(unq-sp e)`'s a
+`(List Form)`. What a form contains isn't checked there (a template's `if` with no
+`then`, say): the expansion is checked as the program's code, at the call
+([[macros.errors-at-call]]; *for now*: [[B232]]).
+
+```candy errors
+(defmacro m (a) 5) => line 1, column 17: defmacro m: expected Form, got Int
+(defmacro m (a) (list-items "x")) => line 1, column 29: argument 1 of list-items: expected Form, got String
+(defmacro m (a) (quasi (+ (unq 1) 2))) => line 1, column 24: List: an item: expected Form, got Int
+(defmacro m (a) (quasi (f (unq-sp a)))) => line 1, column 35: argument 2 of ++: expected (List Form), got Form
 ```
 
 <a id="macros.binding"></a>
@@ -81,9 +106,10 @@ a macro is defined once; a special form can't be a macro. A macro is its file's 
 ```
 
 <a id="macros.errors-at-call"></a>
-**Errors point at the call:** a wrong number of arguments, a `fail` in the macro, an
-error the host raises while it runs, and an error in the form it returns are all
-reported at the call (so these rows give the position):
+**Errors point at the call:** a wrong number of arguments, a `fail` in the macro, a
+panic in it (an index out of range, with the built-in's message: macro code runs on the
+interpreter, since `host-macros`), an error the host raises while it runs, and an error
+in the form it returns are all reported at the call (so these rows give the position):
 
 ```candy errors
 (defmacro m (a) a)
@@ -91,7 +117,7 @@ reported at the call (so these rows give the position):
 (m 1 2) => line 2, column 1: m: expected 1 argument(s), got 2
 (defmacro bad () (quo (if))) (put 1) (bad) => line 2, column 38: if: expected (if test then else?)
 (defmacro f (a) (fail "no")) (f 1) => line 2, column 30: f: no
-(defmacro f (a) (at (list-items a) 5)) (f x) => line 2, column 40: f: IndexError
+(defmacro f (a) (at (list-items a) 5)) (f x) => line 2, column 40: f: at: index out of range: 5, for length 0
 ```
 
 <a id="macros.quoting"></a>
@@ -130,6 +156,34 @@ reserved for later, as a reader macro (`00-syntax.md`).
 (defmacro m () (quasi (f (unq nope)))) => unknown name nope
 ```
 
+<a id="macros.hygiene"></a>
+**Built-ins in a template:** a symbol in a `quasi` template that names a built-in value
+every file sees (an operator too) or a prelude value, as the macro's own module sees
+it, is written qualified, `system.text` or `prelude.rest`, so the expansion means the
+same wherever it is used: a file's own `text` doesn't change `put` (since
+`host-macros`; [[programs.shadowing]]). A name the macro's module defines or imports,
+a special form's, a macro's, a type's and a variant's stay as written, so an expansion
+that calls a macro file's helper needs it where it is used (*for now*: [[B46]]); and a
+template that binds a built-in's name binds a qualified name, an error: `gensym` is
+the way.
+
+```candy run
+(defmacro size (e) (quasi (len (unq e))))
+
+(sig len (Fn (String) Int))
+(defn len (s) 99)
+(sig text (Fn (Int) String))
+(defn text (n) "mine")
+(put (size (List 1 2)) (len "ab") (text 1))
+```
+```expect
+2 99 mine
+```
+
+```candy errors
+(defmacro m () (quasi (let ((len 1)) len))) (put (m)) => system.len: a name can't hold a ., which qualifies a name with its module (m.name)
+```
+
 <a id="macros.gensym"></a>
 ## gensym
 
@@ -154,17 +208,22 @@ capture the program's:
 ## Macro files: import-macros
 
 `(import-macros name)`, top level only, finds `name.cdy` as `import` does
-(`10-programs.md`), but reads it as a **macro file**: its `defmacro`s become macros of
-the importing file, and its other definitions are helpers, which run only while
-translating (the importing file's own `defmacro`s can call them; its program can't).
+(`10-programs.md`), but reads it as a **macro file**, a module of macro code (since
+`host-macros`): its `defmacro`s become macros of the importing file, and its other
+definitions are helpers, which run only while translating (the importing file's own
+`defmacro`s can call them, unqualified; its program can't).
 
-- A macro file can `import` ordinary files (their definitions are helpers too; in a macro
-  file `import` is still inclusion) and `import-macros` other macro files, whose macros
-  expand in it; it doesn't pass those macros on.
-- Each macro file is loaded once per importer; a cycle is an error.
+- A macro file's `import`s are a module's ([[programs.import]]): a name list, qualified
+  names (`h.wrap`) and private names as for any module. The modules it imports are macro
+  code too, since they run only while translating: they can quote, and see `Form`.
+- A macro file can `import-macros` other macro files, whose macros expand in it and whose
+  helpers it can call; it doesn't pass those macros on.
+- Each macro file is loaded once per translation, however many files import it (since
+  `host-macros`); a cycle is an error.
 
 The examples need a second file, so they are `tst/cdy/cdyc/macro_files.cdy` and
-`test_self_host.py`'s `test_macro_file_errors`.
+`test_self_host.py`'s `test_macro_file_errors`, `test_macro_file_is_a_module` and
+`test_macro_file_loads_once`.
 
 ```candy errors
 (import-macros) => import-macros: expected (import-macros name)

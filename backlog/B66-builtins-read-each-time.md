@@ -1,7 +1,7 @@
 # B66: `special.cdy` and `system.cdy` are read for every translation
 
 kind: tech-debt
-state: review
+state: done
 priority: normal
 found: symbol-table, 2026-10-21
 fixed: stdlib, 2026-11-19
@@ -19,3 +19,4 @@ caches them. From `doc/tech_debt.md`.
 - 2026-11-19, Claude: the built-ins read once per translation (`stdlib` step 2, the
   HLD's "Done"): `library-builtins` runs once, against 11 times for `modules.cdy`; 0.219 s
   to 0.119 s.
+- 2026-11-24, the owner: ticked in review.

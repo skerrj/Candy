@@ -118,10 +118,10 @@ module's macros on, and a macro has no qualified name.
 definition; an unqualified import's; a built-in or the prelude's, *lasting*. So a file's
 definition of a built-in's name (`(defn len ...)`) is its own, in that file only, and a
 local shadows everything ([[expr.let]]). A qualified name is never shadowed. A macro's
-expansion sees what its use sees, the file's own definitions too, so a file's own `text`
-is the one `put` calls (*for now*: [[B46]]). The translator's five built-ins
-(`py-spellings`, `load-macros`, `call-macro`, `module-dir`, `fresh-name`) are only a
-file's that imports `translator` ([[programs.import]]); macro code imports it
+expansion means what its macro means: a built-in or prelude name in its template is
+qualified ([[macros.hygiene]]), so a file's own `text` isn't the one `put` calls. The
+translator's five built-ins (`py-spellings`, `call-macro`, `module-dir`, `fresh-name`,
+`restart-fresh-names`) are only a file's that imports `translator` ([[programs.import]]); macro code imports it
 implicitly ([[macros.macro-code]]).
 
 ```candy run
@@ -301,8 +301,7 @@ written from it, `expected (import ModName [(Name*)])`. The example with a name 
   name wins over both.
 - Importing a module twice is fine; an import cycle is an error, and so are two modules
   with the same file name (`util` and `lib/util`).
-- In a macro file, `import` pastes the file in (inclusion), as its helpers, so it lists no
-  names.
+- A macro file's `import` is a module's too (since `host-macros`; [[macros.import-macros]]).
 
 ```candy errors
 (import) => import: expected (import ModName [(Name*)])

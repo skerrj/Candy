@@ -33,3 +33,10 @@ question 3).
   it): built as `stdlib`'s step 6a, for `map.cdy` to call a `get` of its own past the
   special form, and dropped for `map.at` (the HLD's step 6). Wanted again if a module's
   name ever needs saying where another would shadow it.
+- **typed code for macros** (MetaOCaml, typed Template Haskell): a template typed by what
+  it builds, `(quasi (+ (unq x) 1))` a `(Code Int)` when `x` is a `(Code Int)`, so a
+  template is type-checked at its `defmacro`, holes and all. Fits Lisp macros badly: many
+  take or make what isn't an expression (`cond`'s clauses, `deftest`'s `sig` and `def`),
+  a template's names mean the use site's (hygiene), and so there would be two kinds of
+  macro, typed for expressions and `Form` for the rest; a branch or more, and a change to
+  what a macro is. From `host-macros` (2026-11-23; the cheap half, shapes, is [[B232]]).

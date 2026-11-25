@@ -11,8 +11,8 @@
 ;; --- types (from sig) ---
 
 (deft CType
-  ;; A built-in type's module is `system` (SYSTEM); macro code's own types' is "", *for
-  ;; now* ([[B197]]).
+  ;; A built-in type's module is `system` (SYSTEM); macro code's is its file's, "" for a
+  ;; file's own defmacros (cdyc.cdy, load-own-macros).
   (TCon ((module String) (name String) (args (List CType))))
   (TVar ((name String)))
   (TFn ((params (List CType)) (ret CType))))
@@ -25,8 +25,8 @@
 (deft Expr
   (Lit ((form Form) (t CType)))
   (Local ((name String) (id Int) (pos Pos) (t CType)))
-  ;; A top-level name: the module that defines it, and its name there. Macro code has no
-  ;; module, "", *for now* ([[B197]]; it isn't checked, [[B42]]).
+  ;; A top-level name: the module that defines it, and its name there; for a file's own
+  ;; defmacros "" (cdyc.cdy, load-own-macros).
   (Global ((module String) (name String) (pos Pos) (t CType)))
   (Prim ((name String) (pos Pos) (t CType)))
   (Call ((callee Expr) (args (List Expr)) (pos Pos) (t CType)))
@@ -873,17 +873,32 @@
   (if (get scope quoting) true (fail (located scope (format "{what}: only in macro code")))))
 
 ;; The Expr that builds `form` as a Form value.
+;; The module whose Form quoting builds: form.cdy's, which macro code imports implicitly
+;; (cdyc.cdy, macro-imports; doc/hl_rqmt/host_macros.md, step 4).
+(sig FORM String)
+(def FORM "form")
+
 (sig quoted (Fn (Form) Expr))
 (defn quoted (form)
   (match form
-    ((Sym name _) (Call (Global "" "Sym" NOWHERE ANY) (List (Lit (Txt name NOWHERE) ANY) (Global "" "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
-    ((Lst items _) (Call (Global "" "Lst" NOWHERE ANY) (List (form-list (map quoted items)) (Global "" "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
-    (else (Call (Global "" (literal-variant form) NOWHERE ANY) (List (Lit form ANY) (Global "" "NOWHERE" NOWHERE ANY)) NOWHERE ANY))))
+    ((Sym name _) (Call (Global FORM "Sym" NOWHERE ANY) (List (Lit (Txt name NOWHERE) ANY) (Global FORM "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
+    ((Lst items _) (Call (Global FORM "Lst" NOWHERE ANY) (List (form-list (map quoted items)) (Global FORM "NOWHERE" NOWHERE ANY)) NOWHERE ANY))
+    (else (Call (Global FORM (literal-variant form) NOWHERE ANY) (List (Lit (field-literal form) ANY) (Global FORM "NOWHERE" NOWHERE ANY)) NOWHERE ANY))))
 
+
+;; The literal `form` as its variant's field holds it (form.cdy): a Long's or a Byte's as an
+;; Int, a Float's as a Double, as the reader keeps them; any other as it is.
+(sig field-literal (Fn (Form) Form))
+(defn field-literal (form)
+  (match form
+    ((LongLit n pos) (IntLit n pos))
+    ((ByteLit n pos) (IntLit n pos))
+    ((FloatLit x pos) (DoubleLit x pos))
+    (else form)))
 
 ;; A (List Form) of `items` (Exprs that make Forms).
 (sig form-list (Fn ((List Expr)) Expr))
-(defn form-list (items) (if (= (len items) 0) (Prim "empty-list" NOWHERE ANY) (Tuple items NOWHERE ANY)))
+(defn form-list (items) (if (= (len items) 0) (Prim "empty-list" NOWHERE ANY) (ListOf items NOWHERE ANY)))
 
 (sig literal-variant (Fn (Form) String))
 (defn literal-variant (form)
@@ -912,7 +927,41 @@
       ((= head "unq-sp") (fail (located here "unq-sp: only inside a list in quasi")))
       ((= head "quasi") (fail (located here "quasi: a quasi inside a quasi isn't supported yet")))
       ((is-list-form form) (quasi-list (list-items form) here n))
-      (else (Tup (quoted form) n)))))
+      (else (Tup (quoted (hygienic form scope)) n)))))
+
+;; The symbol `form` in a template, qualified if it names a built-in value every file sees
+;; or a prelude value, as the macro's own module sees it: `text` as `system.text`, so the
+;; expansion means the same wherever it is used, a file's own `text` not changing `put`
+;; (doc/hl_rqmt/host_macros.md, "Hygiene for built-ins"; programs.shadowing). A name the
+;; macro's module defines or imports otherwise, a special form's, a macro's, a type's, a
+;; variant's and a local's stay as written; any other form is itself.
+(sig hygienic (Fn (Form Scope) Form))
+(defn hygienic (form scope)
+  (match form
+    ((Sym name pos)
+      (let ((names (get scope names)))
+        (cond
+          ((names-own name names) (if (is-prelude-value (map.at names name)) (Sym (++ "prelude." name) pos) form))
+          ((and (is-everyones name (get scope builtins)) (not (map.has (get scope macros) name)))
+            (Sym (++ "system." name) pos))
+          (else form))))
+    (else form)))
+
+;; Whether `names` has an entry for `name` that this module can use unqualified: not one an
+;; import leaves qualified-only (Unlisted), which gives way to a built-in, nor one only a
+;; module it doesn't import defines (Elsewhere).
+(sig names-own (Fn (String (Map String Entry)) Bool))
+(defn names-own (name names)
+  (and (map.has names name)
+       (match (map.at names name) ((Unlisted _) false) ((Elsewhere _) false) (else true))))
+
+;; Whether `e` is a value the prelude defines.
+(sig is-prelude-value (Fn (Entry) Bool))
+(defn is-prelude-value (e)
+  (match e ((Value m _) (= m PRELUDE)) (else false)))
+
+(sig PRELUDE String)
+(def PRELUDE "prelude")
 
 ;; The e of (unq e) or (unq-sp e), analysed.
 (sig unq-arg (Fn (Form Scope Int) (Tup Expr Int)))
@@ -923,33 +972,35 @@
       (analyse-expr (at items 1) scope n))))
 
 ;; A list in quasi: its items, with the (unq-sp e) ones spliced in. The parts are runs
-;; of plain items (each a Tuple) and spliced lists, joined with ++.
+;; of plain items (each a ListOf) and spliced lists, joined with ++.
 (sig quasi-list (Fn ((List Form) Scope Int) (Tup Expr Int)))
 (defn quasi-list (items scope n)
-  (let (((parts n1) (quasi-parts items scope n empty-list empty-list)))
-    (Tup (Call (Global "" "Lst" NOWHERE ANY) (List (join-parts parts) (Global "" "NOWHERE" NOWHERE ANY)) NOWHERE ANY) n1)))
+  (let (((parts n1) (quasi-parts items scope n empty-list empty-list))
+        (here (get scope here)))
+    (Tup (Call (Global FORM "Lst" NOWHERE ANY) (List (join-parts parts here) (Global FORM "NOWHERE" NOWHERE ANY)) here ANY) n1)))
 
 (sig quasi-parts
   (Fn ((List Form) Scope Int (List Expr) (List Expr)) (Tup (List Expr) Int)))
 (defn quasi-parts (items scope n run parts)
   (if (= (len items) 0)
-    (Tup (close-run run parts) n)
+    (Tup (close-run run parts (get scope here)) n)
     (let ((item (at items 0)))
       (if (= (head-name item) "unq-sp")
         (let (((e n1) (unq-arg item (at-pos scope (form-pos item)) n)))
-          (quasi-parts (rest items) scope n1 empty-list (++ (close-run run parts) (List e))))
+          (quasi-parts (rest items) scope n1 empty-list (++ (close-run run parts (get scope here)) (List e))))
         (let (((e n1) (quasi-form item scope n)))
           (quasi-parts (rest items) scope n1 (++ run (List e)) parts))))))
 
-(sig close-run (Fn ((List Expr) (List Expr)) (List Expr)))
-(defn close-run (run parts) (if (= (len run) 0) parts (++ parts (List (Tuple run NOWHERE ANY)))))
+(sig close-run (Fn ((List Expr) (List Expr) Pos) (List Expr)))
+(defn close-run (run parts pos) (if (= (len run) 0) parts (++ parts (List (ListOf run pos ANY)))))
 
-(sig join-parts (Fn ((List Expr)) Expr))
-(defn join-parts (parts)
+;; The parts joined, at `pos`, the template list's (so a type error in one points there).
+(sig join-parts (Fn ((List Expr) Pos) Expr))
+(defn join-parts (parts pos)
   (cond
-    ((= (len parts) 0) (Prim "empty-list" NOWHERE ANY))
+    ((= (len parts) 0) (Prim "empty-list" pos ANY))
     ((= (len parts) 1) (at parts 0))
-    (else (Call (Prim "++" NOWHERE ANY) parts NOWHERE ANY))))
+    (else (Call (Prim "++" pos ANY) parts pos ANY))))
 
 ;; --- types ---
 

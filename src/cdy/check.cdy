@@ -90,6 +90,14 @@
     (check-tops tops ctx (St map.empty 0 empty-list map.empty empty-list empty-list))))
 
 ;; Each definition named (typed Core), checked, then typed with what the check found.
+;; How an error in the defn `name` names it: `defn name`, or, for a macro's (expand.cdy,
+;; macro-program: `macro__m`, a name no program can write), `defmacro m`.
+(sig defn-label (Fn (String) String))
+(defn defn-label (name)
+  (if (and (> (string.len name) 7) (= (string.slice name 0 7) "macro__"))
+    (++ "defmacro " (string.slice name 7 (string.len name)))
+    (++ "defn " name)))
+
 (sig check-tops (Fn ((List Top) Ctx St) (Tup (List Top) (List String))))
 (defn check-tops (tops ctx st)
   (let (((st1 done)
@@ -113,7 +121,7 @@
         (match t
           ((TFn ptypes ret)
             (let ((inside (body-types ptypes)))
-              (check-expr body ret (format "defn {name}") (assoc c env (bind-all params inside (get c env) 0)) (typed-all params inside st))))
+              (check-expr body ret (defn-label name) (assoc c env (bind-all params inside (get c env) 0)) (typed-all params inside st))))
           (else st))))
     ((TExpr e) (get (infer e ctx st) st))
     (else st)))

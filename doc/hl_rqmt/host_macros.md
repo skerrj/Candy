@@ -1,0 +1,416 @@
+# Macros on the interpreter (HLD)
+
+**Status: accepted (2026-11-22), with the answers to its questions, as proposed (tasks
+[[B225]] to [[B231]]); for branch `host-macros`; steps 1 to 7 built (2026-11-24), to
+review. Epic:
+`python_complete.md` (its seventh branch). After tag `interpreter`.** Macros run on the
+interpreter instead of being translated to Python and run with `exec` ([[B41]]): macro
+code is checked like a program ([[B42]]), gets the prelude ([[B52]]), and is modules,
+not inclusion ([[B45]]); a template's built-in names mean the built-ins wherever it
+expands ([[B46]], narrowed: Question 2). What runs macros is then Candy's, so a
+translator on another host runs them the same way.
+
+## Where things stand
+
+- **How a macro runs today** (`macros.md`, "How `load-macros` runs macro code";
+  `expand.cdy`, `load-defs`): a file's `defmacro`s, with `form.cdy`'s definitions and
+  its macro files' helpers, become one flat macro program, `macro__NAME` a `defn` from
+  `(List Form)` to `Form` for each. `cdyc.cdy`'s `compile-macros` translates it to
+  Python (module `""`, quoting allowed, no type check), and `translator.cdy`'s
+  `load-macros` runs it with `exec` in a copy of the translator's namespace, putting
+  `form.cdy`'s names back to the translator's own so the macros build its `Form`s
+  ([[B70]]); `call-macro` calls one, prefixing a panic or a host error with the call's
+  position ([[macros.errors-at-call]]). A `Macro`'s function is typed `Any` ([[B49]]).
+- **What macro code sees** ([[macros.macro-code]]): the built-ins, `form.cdy`,
+  `translator` (for `gensym`'s `fresh-name`) and `string`'s built-ins qualified; its
+  macro files' helpers; not the prelude ([[B52]]; so `form.cdy` has `rest-of`). Its
+  module is `""` ([[B197]]'s second half). It isn't type-checked by Candy, and its
+  Python isn't by mypy ([[B42]]).
+- **Macro files** ([[macros.import-macros]]): `(import-macros m)` reads `m.cdy`; its
+  `import`s are inclusion, pasting files in as helpers ([[B45]]); a file's macro files
+  are compiled for it, again for each file that imports them ([[B63]]).
+- **Templates** mean what the use site sees ([[B46]]): `put` expands to `(text x)`, so a
+  file that defines `text` breaks every `put` in it, with an error in the expansion.
+- **The interpreter** (`interpreter.md`) runs checked Core: `interpret` folds the
+  top-level forms into a `Ctx` (globals by `global-key`) and calls `main`. Its table
+  has every built-in a program can use, not `translator`'s.
+- **The macros in use:** the prelude's `cond` and `put` (`prelude_macros.cdy`), the test
+  module's `deftest` and `check` (`test_macros.cdy`), and the test programs' own
+  (`tst/cdy/cdyc/macros.cdy`, `macro_files.cdy`, `lib/`). The translator's own source
+  calls `cond` 127 times and `put` 18.
+
+## Goals
+
+- **No `exec`:** a macro program is analysed, checked and run on the interpreter; its
+  forms cross to the interpreter as `Value`s and its result comes back a `Form`.
+  `load-macros` goes, and so does putting `form.cdy`'s names back ([[B41]], [[B70]]).
+- **Macro code checked** ([[B42]]): the macro program is type-checked before it runs, so
+  a macro that returns an `Int` is an error at its `defmacro`, not a confusing one later;
+  a `Macro`'s function is typed, `(Fn ((List Form)) Form)` ([[B49]], narrowed).
+- **Macro code gets the prelude** ([[B52]]): `rest`, `Maybe`, `find`; `rest-of` goes.
+- **Macro files are modules** ([[B45]]): a macro file is a module, its `import`s real
+  imports, its helpers its own definitions; macro code's module is its file's
+  ([[B197]]); each macro module is loaded once per translation ([[B63]]).
+- **Translated programs unchanged:** macros run while translating, inside the
+  translator, so a translated program holds only their expansions and never needs the
+  interpreter; it still depends on `cdy_rt` alone. Its Python is byte for byte today's,
+  checked at each step by comparing every test program's translation with the `bin`
+  before (`cmp3`) and by the fixpoint (the translator, its `cond`s expanded on the
+  interpreter, translating itself to the same text). The only differences are at
+  translation time: a macro's error messages, macro code's new type errors, and, from
+  step 5, a program that defines its own `text` translating where it failed before.
+- **Templates' built-ins are hygienic** (Question 2): a symbol in a template that names
+  a built-in or a prelude name is written qualified, `system.text`, so a file's own
+  `text` doesn't change `put`.
+
+## Not goals
+
+- **`gensym`'s purity** ([[B43]], low): `fresh-name` stays the host's counter, in the
+  interpreter's table for macro code only (Question 5).
+- **A macro that expands into `import` or `defmacro`** ([[B44]], low): needs top-level
+  forms expanded one at a time, before `include`, include and expand one loop
+  ([[B224]]); later, though the epic gave [[B44]] to this branch (Question 1).
+- **`expand.cdy`'s knowledge of special forms' shapes** ([[B61]]): `syntax.cdy` could
+  take it over, but it isn't how macros run; later.
+- **`form.cdy` next to every translator** ([[B64]], low): it stays, now as the source
+  of macro code's `form` module, which the interpreter needs as Core.
+- **A template's helpers across modules** ([[B46]]'s first case): a template that calls
+  its macro file's own helper still needs the helper where it expands, since a macro
+  file runs only while translating (Question 2).
+- **Speed:** macro code was compiled; on the interpreter it is slower per call, but the
+  expansions are small (Pros and cons).
+
+## Proposal
+
+### The macro program
+
+A file's macros come, as today, from its own `defmacro`s and its `import-macros`. Each
+`defmacro` is still a `defn`, `macro__NAME` of type `(Fn ((List Form)) Form)`
+(`macro-program`). What changes is what is done with the program:
+
+1. **Analysed and checked** (`analyse-program`, then `type-check`), as a program is, with
+   the imports macro code gets implicitly (`macro-imports`): `form`, the prelude (step 3),
+   `translator`'s `fresh-name`, `string` qualified.
+2. **Loaded on the interpreter:** its top-level forms folded into a `Ctx`, as
+   `interpret` does before it calls `main` (a new `interp.load`, split out of
+   `interpret`); a macro is the global `macro__NAME` there (`interp.call`, a global by
+   its key with `Value`s in and out, which [[B217]] wants too).
+3. **Called through the bridge:** a `Macro`'s function is a Candy closure, `(fn (args)
+   ...)`, that turns the argument forms into `Value`s, calls the macro's global, and
+   turns the result back into a `Form`; `call-macro` calls it, as now (Question 3).
+
+`expand.cdy` doesn't import the interpreter or the checker: `cdyc.cdy` hands the
+Expander a function that does steps 1 and 2 (today it hands it `compile`), so the
+expander stays the forms' business.
+
+### Forms as values: the bridge
+
+A new module, `interp_macros.cdy` (Question 6): `form-value`, a translator's `Form` (and
+its `Pos`) as the interpreter's value of macro code's `form` module (a `VRec` of module
+`form`, its variant and its fields), and `value-form`, back; ten variants, by `match`.
+A form is copied each way at each call (Question 4): a `cond` with four clauses is a few
+dozen records. The result's check is the type checker's now, so `value-form` meets only
+a `Form`'s value; anything else is an internal error.
+
+### Errors
+
+A macro's `fail`, an out-of-range `at` in it and the host's errors (a recursion too
+deep) are still reported at the call, with the macro's name
+([[macros.errors-at-call]]): `call-macro` does it, retyped generically,
+`(Fn ((Fn ((List a)) b) (List a) String) b)` in place of `Any`s, its Python unchanged
+(Question 3). What the host's error was changes: `at` out of range is the interpreter's
+panic, `f: at: index out of range: 5, for length 0` in place of `f: IndexError`, the
+spec's message, so that row of the rule changes. A type error in macro code is a new
+error, at the `defmacro`'s code, with its position.
+
+### What checking macro code checks (step 2)
+
+The macro program is checked as a program is: each `macro__NAME` against its `sig`,
+`(Fn ((List Form)) Form)`, with every helper it calls and `form.cdy`'s definitions.
+So every expression of macro code is checked, whether or not the macro is ever called,
+and an error is at the macro's code, with its position: `(+ 1 "a")` in a body,
+`(list-items "x")`, a helper called with the wrong number of arguments, a body that
+gives an `Int`, an `(unq e)` in a template whose `e` isn't a `Form` (or an `(unq-sp e)`
+whose `e` isn't a `(List Form)`), since a template is analysed into calls of `Form`'s
+constructors. Until now none of it was: a bug showed only when the macro ran.
+
+What a form *contains* isn't checked there: `Form` is a syntax tree, so its type says
+"a form", not "a well-formed `if`" or "an expression of type `Int`". A template that
+leaves out an `if`'s `then`, or adds a `String` to an `Int`, is found as today, one stage
+later: its expansion goes back into the program, analysed and checked as the program's
+code, the error at the call ([[macros.errors-at-call]]), in the expansion's words
+([[B156]]). Two ways to check more at the `defmacro`, both later, not this branch's
+(the owner, 2026-11-23):
+
+- **Shapes in templates** ([[B232]]): a template's special forms checked against
+  `syntax.cdy`'s shapes, an `(unq e)` one form and an `(unq-sp e)` any number; shapes
+  only, not types. Cheap, since the shapes exist.
+- **Typed code** (`doc/brainstorm.md`): a template typed by what it builds, `(Code Int)`,
+  checked at the `defmacro`, as MetaOCaml does; a fit for expressions only, so a second
+  kind of macro, and a branch or more.
+
+### The prelude for macro code
+
+Macro code imports the prelude implicitly, as a program does. `prelude.cdy` uses no
+macros, so it can be loaded before the prelude's macros are, with no cycle; it stays
+written without them (a comment says why). `form.cdy`'s `rest-of` goes, for the
+prelude's `rest` (the translator's two calls and `test_macros.cdy`'s one).
+
+### Macro files as modules
+
+`(import-macros m)` reads `m.cdy` as a module of the macro world: its `import`s are real
+imports (`include.cdy`'s module reading, with the library's search), its other
+definitions its own, private as `(private ...)` says; its `defmacro`s are what it gives
+the importing file. Macro code's module is its file's stem, a file's own `defmacro`s
+included (in a `Ctx` of their own, so the stem is the program's too without a clash),
+and `form` is a module it imports, so quoting builds `form.Sym`, closing [[B197]]. The
+loaded macro modules are kept in the Expander, which threads through the translation's
+files, so each loads once ([[B63]]); a cycle is still an error.
+
+### Hygiene for built-ins (Question 2)
+
+In a `quasi` template, a symbol that names a built-in value (an operator too) or a
+prelude name, where the macro is defined, is written qualified: `(text x)` in `put`
+becomes `(system.text x)`. A program's own `text` then doesn't change `put` ([[B46]]'s
+note, [[programs.shadowing]]). Special forms and macro names stay as they are. A
+template that binds a built-in's name (`(let ((text ...)) ...)` in a template) is
+unusual; it would be qualified too, and so an error: `gensym` is the way
+([[macros.gensym]]).
+
+## Pros and cons
+
+- **For:** macros stop depending on the host running translated Python ([[B41]]); macro
+  code is checked like any code ([[B42]]); it sees the library a program sees
+  ([[B52]]); four tech-debt or leak items close with it ([[B45]], [[B63]], [[B70]],
+  [[B197]]); `translator.cdy` loses its two `Any`-typed macro built-ins; the interpreter
+  gets a second user, and the way in [[B217]] wants (`interp.call`).
+- **Against:** macro calls are slower, and every form crosses the bridge twice; the
+  interpreter's depth (about 130 calls, [[expr.tail-calls]]) bounds a macro's non-tail
+  recursion, where Python allowed about 1000 (the translator's macros are loops: `cond`
+  is a self tail call, `put` a `map`).
+- **The cost, measured:** a `cond`-like expansion of four clauses, written as macro code
+  over records of its own and run on the interpreter, takes about 0.2 ms (2000 in 0.45
+  s with the front end); the translator's 145 `cond`s and `put`s are a few
+  hundredths of a second. Loading the prelude's macros once per translation replaces
+  compiling them and running `exec`; step 1 measures the suite's time against today's.
+- **Why now:** the interpreter is built and checked against the spec; every item here is
+  the epic's for this branch.
+
+## Bootstrap
+
+Steps 1 to 5 are translator code in the language `bin` reads, with no new built-in:
+`call-macro`'s new type is a declaration (`translator.cdy`), its Python the same, and
+`bin` still uses its own `load-macros` to build T1. Step 6 drops `load-macros` from
+`translator.cdy`, `spelling.py` and `primitives.py`; the `bin` before still declares it
+and calls it, checking its declarations against the live `spelling.py`, so step 6 is
+staged `old-runtime` (`script/bootstrap.py`). *As built, step 6 is two commits, neither
+staged (step 6's note).* If step 3's `prelude_macros.cdy` uses the
+prelude, the `bin` before reads its own copy, so no staging there.
+
+## Steps
+
+1. **Macros on the interpreter:** the macro program as today (flat, module `""`, no
+   check) analysed and loaded on the interpreter (`interp.load`, `interp.call`); the
+   bridge (`interp_macros.cdy`); `Macro`'s function typed, `call-macro` retyped;
+   `fresh-name` in the interpreter's table for macro code; the Expander handed a loader
+   in place of `compile`. The spec's `IndexError` row; the suite's time compared.
+   *Done (2026-11-22). As built:* `interp.cdy`'s `load-tops` (split out of `interpret`)
+   and `call-global`, named so beside `interp_builtins.cdy`'s own `call`;
+   `interp_builtins.cdy`'s `MACRO_BUILTINS`, the table and `translator.fresh-name`;
+   `interp_macros.cdy`'s `macro-runner` (a macro program's `Ctx`, loaded once, and the
+   function each `macro__NAME` is) and the bridge, `form-value` and `value-form`, for
+   macro code's Form of a given module (`""` until step 4). `cdyc.cdy`'s
+   `macro-loader` replaces `compile-macros`: it analyses the macro program and hands it
+   to `macro-runner`. `Macro`'s `run` is `(Fn ((List Form)) Form)`, and `call-macro`
+   `(Fn ((Fn ((List a)) b) (List a) String) b)`, its Python the same. Two things the
+   HLD missed: quoting built a list of forms as a Core `Tuple`, which Python spells as
+   a list but the interpreter doesn't (`core.cdy`'s `form-list` and `close-run` now
+   `ListOf`; only macro code quotes, so no program's Python changes); and `load_macros`
+   restarted `gensym`'s count on each load, which keeps a translation's names from
+   depending on those before it, so `macro-loader` restarts it the same way, by a
+   `load-macros` of no Python, *for now*: step 6 gives the restart a built-in of its
+   own. [[macros.errors-at-call]]'s `IndexError` row is now the interpreter's message.
+   Test: `test_forms_cross_to_the_interpreter_and_back`. The suite takes as long as
+   before (56 s), and translating the translator 1.02 s against 0.98 s. Checked against
+   `boot/95`'s `bin`: the same output for all 108 programs. No staging.
+2. **Macro code checked** ([[B42]]): the macro program type-checked before it loads;
+   every macro in use passes; [[macros.macro-code]] says it is checked, with an error
+   example.
+   *Done (2026-11-23). As built:* `cdyc.cdy`'s `macro-loader` runs `type-check` on the
+   analysed macro program before `macro-runner`; every macro in use passed as it was
+   (the prelude's, the test module's, the test programs'). Two messages read badly for
+   macro code, so: an error in a macro's body names it `defmacro m`, not the `defn
+   macro__m` it becomes (`check.cdy`'s `defn-label`); and a template's list has the
+   template's position, not the `defmacro`'s (`core.cdy`'s `quasi-list`, `close-run`,
+   `join-parts`). The rule is its own, [[macros.checked]], with four error rows;
+   [[macros.macro-code]] loses its *for now*, and [[B42]] goes to review. No program's
+   Python changes (macro code isn't emitted); checked against `boot/96`'s `bin`.
+3. **The prelude for macro code** ([[B52]]): imported implicitly; `rest-of` goes;
+   [[macros.macro-code]].
+   *Done (2026-11-23). As built:* `cdyc.cdy`'s `macro-prelude` reads and analyses
+   `prelude.cdy` once per translation, as module `prelude` (it imports nothing and uses
+   no macros, so it needs no expanding: no cycle); `macro-imports` takes its exports, so
+   macro code imports it as a program does, and `macro-loader` checks and loads its
+   definitions with each macro program. `form.cdy`'s `rest-of` is gone, for `rest`
+   (`test_macros.cdy`, and two test files). [[macros.macro-code]] says macro code sees
+   the prelude, and runs on the interpreter (so `show` and `text` are Candy's), with an
+   example using `find`, `with-default` and `rest`. `test_quoting_in_macro_code`, which
+   still translates macro code to Python, passes the prelude's exports. The translator
+   and the suite take as long as before (1.04 s to translate the translator; the suite
+   61 s against 60). Checked against `boot/97`'s `bin`: 104 of the 108 programs the
+   same; the other four use the prelude in macro code (`macros.cdy`, `test_test.cdy`
+   through `test_macros.cdy`, and two spec examples), which that `bin` can't run, and
+   `macros.cdy` and `test_test.cdy` translate as they did under it before this step.
+4. **Macro files as modules** ([[B45]], [[B63]], [[B197]]): `import-macros` reads a
+   module; macro code's module is its file's; each loaded once per translation;
+   [[macros.import-macros]]. Built as two commits: 4a the modules, 4b each loaded once.
+   *4a done (2026-11-23). As built:* a macro file is read with `read-modules`, so its
+   `import`s are real (a name list, qualified and private names); the modules it imports
+   are expanded as a program's and analysed as macro code (`cdyc.cdy`'s
+   `macro-module`: they run only while translating, so they can quote and see `Form`, as
+   they could when they were pasted in); the file itself is expanded as a macro file
+   (`expand.cdy`'s `expand-macro-file`: its helpers with the macros it imports, then its
+   defmacros as `macro__NAME` defns) and analysed as macro code of its own module, its
+   stem (`load-macro-file`). A file's own defmacros are a program of their own, of no
+   module, `""`, as a top module's names have no prefix (`load-own-macros`), so no stem
+   can clash with an imported macro file's. Both import macro code's base: the prelude
+   and `form`, analysed once per translation (`MacroBase`, `macro-base`), `form` a module
+   now, so quoting builds `form.Sym` (`core.cdy`'s `FORM`; [[B197]]), and `translator`
+   and `string` declared; a macro file's helpers are an import of its module, so the
+   importer's own defmacros call them unqualified, as before. `load-macro-tops` checks
+   and loads a macro program's modules, with the base, on the interpreter. Inclusion is
+   gone from `include.cdy` (`read-program`, `include-forms`, the error for a macro file's
+   import with a list), and so are `macro-prelude`, `macro-loader` and
+   `translate-expanded`. The checker found two old slips in macro code: quoting a `2l`,
+   `3b` or `1.5f` gave its variant's field a `Long`, `Byte` or `Float` where the field
+   holds an `Int` or `Double` (`core.cdy`'s `field-literal`), and the quoting test built
+   a `(List Form)` with `Tup`; `test_quoting_in_macro_code` now loads its file as macro
+   code on the interpreter (`cdyc.cdy`'s `load-macro-code`). New test:
+   `test_macro_file_is_a_module`; [[macros.import-macros]] and [[programs.import]] say
+   a macro file's `import` is a module's. Translating the translator 1.06 s against
+   1.05 s; checked against `boot/98`'s `bin`: the same output for all 108 programs.
+   *4b done (2026-11-23). As built:* the Expander keeps the macro files loaded so far, by
+   key (`loaded`), and every function that may load one hands it back with them:
+   `import-file` (from `loaded`, or else `load-new`), `import-all`, `expand-file`,
+   `expand-macro-file`, `expand-program`, `cdyc.cdy`'s `load-macro-file` and
+   `expand-modules`, which now folds over the modules, handing it from each to the next
+   (its start a typed `NO_READY`, [[B184]] again). A macro file's expansion doesn't
+   depend on its importer, so one load serves them all. Eight modules importing one
+   macro file: 0.20 s to 0.15 s. Test: `test_macro_file_loads_once` (a macro file's
+   top-level `put` runs as it loads: three lines under `boot/99`'s `bin`, one now);
+   [[macros.import-macros]] says once per translation. Checked against `boot/99`'s
+   `bin`: the same output for all 108 programs.
+5. **Hygiene for built-ins** ([[B46]], narrowed; Question 2): a template's built-in and
+   prelude names qualified; [[programs.shadowing]]'s *for now* about `put` and `text`
+   goes, with an example.
+   *Done (2026-11-24). As built:* `core.cdy`'s `hygienic`, called by `quasi-form` on a
+   template's symbol: a name the macro's module sees as a prelude value becomes
+   `prelude.name`, one it sees as a built-in every file sees (`is-everyones`, an
+   operator too) `system.name`; one it defines or imports, a special form's, a
+   macro's, a type's, a variant's stays as written. An import's qualified-only name
+   (`Unlisted`: macro code's `(import string ())` gives `len` one) and `Elsewhere` give
+   way, as they do in `resolve`. A qualified built-in is spelled as the bare one, so
+   the translated Python is the same: against `boot/100`'s `bin`, 109 programs, the one
+   that differs the new example, which `boot/100` gets wrong. The new rule is
+   [[macros.hygiene]], with the example and an error row (a template that binds `len`
+   binds `system.len`); [[programs.shadowing]]'s *for now* is gone. [[B46]] stays open
+   for its other half, a macro file's helpers ((b) in Question 2). On the way:
+   `boot/100` is the first three-digit tag, and `script/bootstrap.py`'s `tagged_steps`
+   listed the tags as git sorts names, `boot/100` after `boot/10`; it sorts by number
+   now. Translating the translator 1.21 s, as `boot/100`'s `bin` (the machine slower
+   today than at step 4).
+6. **`load-macros` dropped** ([[B41]], [[B70]]; staged): from `translator.cdy`,
+   `spelling.py`, `primitives.py`, with a built-in that restarts `gensym`'s count in
+   its place (step 1); `macros.md`'s account of `exec` marked history;
+   [[B49]] narrowed to `module-dir`. Built as two commits, neither staged: staging
+   `old-runtime` can't do it in one, since in the step's tree the `bin` before reads
+   the step's `translator.cdy`, with the new built-in, and checks it against its own
+   runtime's `spelling.py`, which has no spelling for it ("declared in none of ...").
+   6a adds the built-in and uses it, `load-macros` kept, which the `bin` before calls
+   and the step's runtime still has; 6b drops `load-macros`, which the `bin` of 6a no
+   longer calls.
+   *6a done (2026-11-24). As built:* `translator.restart-fresh-names`, `(Fn (Unit)
+   Unit)`, the runtime's `restart_fresh_names`, called by `cdyc.cdy`'s
+   `load-macro-tops` in a `do` (mypy rejects binding a call that returns `None`), where
+   it called `load-macros` of no Python; the translator's built-ins are six until 6b
+   ([[library.builtins]], [[programs.shadowing]], CLAUDE.md). Test:
+   `test_fresh_name` restarts with it. Checked against `boot/101`'s `bin`: the same
+   output for all 109 programs.
+   *6b done (2026-11-24). As built:* `load-macros` out of `translator.cdy`, `spelling.py`
+   (`MACRO`) and `primitives.py` (`load_macros`, with its test and fixtures); the
+   translator's built-ins five again. `macros.md`'s "How `load-macros` runs macro code"
+   and its rejection of an interpreter marked history; CLAUDE.md's "Macros" says how
+   macros run now. [[B41]] and [[B70]] to review; [[B49]] narrowed to `module-dir`.
+   `bin`'s Python is the same as 6a's (a declaration dropped emits nothing); checked
+   against `boot/102`'s `bin`: the same output for all 109 programs.
+7. **Docs:** CLAUDE.md ("Macros", "The interpreter"), `macros.md`, `modules.md`'s
+   "Macro modules on the host", the epic's seventh branch *done*; "Looking back".
+   *Done (2026-11-24). As built:* CLAUDE.md's "Macros" (6b), "The interpreter" (it
+   runs macro code too), its file list (`interp_macros.cdy`) and history (the seventh
+   branch); `macros.md` (6b: the `exec` and the rejected interpreter history);
+   `modules.md`'s "Macro modules on the host" and its hygiene item *done*; the epic's
+   seventh branch *done*, with its table's rows; "Looking back", below.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **A second implementation finds a second user.** The interpreter was built for the
+  spec; running macros on it took a bridge of under 70 lines (`interp_macros.cdy`) and
+  a loader, and closed seven items. Its trampoline, written for depth, is why a `cond`
+  of any length expands.
+- **Checking code that never ran checked finds old slips.** The type checker, given
+  macro code for the first time, found a quoted `2l` filling an `Int` field and a test
+  building a `(List Form)` with `Tup`: both wrong by Candy's rules for years, both let
+  through by Python's tuples.
+- **A cache wants a value handed on, not a variable.** Loading a macro file once per
+  translation meant threading the Expander through every function that might load one
+  (`expand-modules` a fold): mechanical, and the types found each place it was missed.
+- **Hygiene is a question of where a name is looked up.** Qualifying a template's
+  built-ins is ten lines, once the macro's own module's table says what each name is;
+  the one surprise was an import's qualified-only name (`string`'s `len`), which gives
+  way to the built-in there as everywhere.
+- **Plan the staging, then check it.** Step 6 was planned as one `old-runtime` step, but
+  the bin before checks the step's library against its own runtime, so a new built-in
+  can't arrive with its predecessor's removal; two unstaged commits did it. Run the
+  next step's check (`test_newest_step_reads_the_library`) before deciding.
+- **Numbered names outgrow their width.** `boot/100` sorted after `boot/10`: sort by the
+  number, not the text.
+
+## Questions
+
+1. **Scope:** in, [[B41]], [[B42]], [[B52]], [[B45]], [[B63]], [[B70]], [[B197]]'s second
+   half, and [[B46]] for built-ins (Question 2); out, [[B43]] (Question 5), [[B44]],
+   [[B61]], [[B64]], each low or not how macros run. **Proposed: as listed.** Or take
+   [[B44]] too, expanding top-level forms one at a time before `include`: a change to
+   the pipeline's order, its own branch's size.
+   *Answer (2026-11-22, the owner): as listed; [[B44]] left out, though the epic gave it
+   this branch, and its fix filed as [[B224]] (include and expand as one loop).*
+2. **Hygiene:** (a) a template's symbols that name built-ins or prelude names written
+   qualified (`system.text`), which fixes `put` and `text`, leaving a template's call of
+   its macro file's own helper as it is; (b) Clojure's whole rule, every free symbol
+   qualified, a macro file's helpers then needed where it expands, so macro files would
+   be imported for the program too, not only while translating; (c) none, [[B46]] left
+   open. **Proposed: (a):** the case that bites, every program's `put`, for a small
+   change to `quasi`; (b) changes what a macro file is.
+   *Answer (2026-11-22, the owner): (a).*
+3. **Errors at the call:** keep `call-macro`, retyped generically, catching what the
+   interpreter raises (proposed); or have the interpreter return a panic as a value
+   (every `eval` a `Result`: a rewrite, and slower); or drop the prefix (worse errors).
+   **Proposed: keep `call-macro`, retyped:** one host built-in, its Python unchanged, so
+   no staging.
+   *Answer (2026-11-22, the owner): as proposed.*
+4. **Forms across the bridge:** copied each way at each call (proposed); or a `Value`
+   variant holding the translator's `Form` itself, no copy, but the interpreter's
+   `match`, `get`, `=` and `show` then each know a second kind of record. **Proposed:
+   copied:** the interpreter stays one kind of record, and the copies are small.
+   *Answer (2026-11-22, the owner): copied.*
+5. **`gensym`** ([[B43]]): `fresh-name` in the interpreter's table, the host's counter,
+   for macro code only (proposed); or pure now, a counter passed through expansion,
+   every macro taking and returning it. **Proposed: the table entry:** [[B43]] is low,
+   and the pure version changes every macro's type.
+   *Answer (2026-11-22, the owner): the table entry.*
+6. **The bridge's module:** `interp_macros.cdy` (proposed), beside `interp.cdy` and
+   `interp_builtins.cdy`; or in `expand.cdy`, which then imports the interpreter.
+   **Proposed: `interp_macros.cdy`**, so `expand.cdy` stays the forms'.
+   *Answer (2026-11-22, the owner): `interp_macros.cdy`.*

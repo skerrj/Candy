@@ -10,12 +10,15 @@
 ;; a value) ---
 (sig py-spellings (Map String (Tup String String String)))
 
-;; --- macros (the macros are Python functions on Forms) ---
-(sig load-macros (Fn (String Any (Map String Bool)) (Map String Any)))
-(sig call-macro (Fn (Any (List Any) String) Any))
+;; --- macros (functions on Forms, run on the interpreter) ---
+;; `f` applied to `args`, a panic or a host error in it starting with `where` (a macro's
+;; call: macros.errors-at-call).
+(sig call-macro (Fn ((Fn ((List a)) b) (List a) String) b))
 
 ;; --- the translator's own directory, where its library is ---
 (sig module-dir (Fn (Any) String))
 
-;; --- a name no program has written, for gensym (form.cdy) ---
+;; --- a name no program has written, for gensym (form.cdy); and its count restarted, as
+;; the translator does each time it loads macro code ---
 (sig fresh-name (Fn (String) String))
+(sig restart-fresh-names (Fn (Unit) Unit))

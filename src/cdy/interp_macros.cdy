@@ -1,0 +1,67 @@
+;;; interp_macros: macros on the interpreter (doc/hl_rqmt/host_macros.md). A macro program
+;;; (expand.cdy, macro-program) is loaded on the interpreter, and each macro becomes a
+;;; function on the translator's Forms: its arguments cross to the interpreter as the
+;;; values of macro code's own Form (a VRec of macro code's `form` module), copied, and its
+;;; result crosses back (Question 4).
+
+(import form)
+(import core (Top))
+(import interp)
+(import interp_builtins (MACRO_BUILTINS))
+
+;; How to run the macros of the macro program `tops`, loaded on the interpreter once: the
+;; function a macro's `defn` (`macro__NAME`) is, by its key (global-key), on the
+;; translator's Forms, which cross as the values of macro code's module `form`.
+(sig macro-runner (Fn ((List Top)) (Fn (String) (Fn ((List Form)) Form))))
+(defn macro-runner (tops)
+  (let ((cx (load-tops tops MACRO_BUILTINS)))
+    (fn (key) (fn (args) (value-form (call-global cx key (List (VList (map (fn (a) (form-value "form" a)) args)))))))))
+
+;; --- across: a Form as a value, and back ---
+
+;; `p` as the value of macro code's Pos, of module `module`.
+(sig pos-value (Fn (String Pos) Value))
+(defn pos-value (module p)
+  (VRec module "Pos" (List (Tup "file" (VStr (get p file))) (Tup "line" (VInt (get p line))) (Tup "col" (VInt (get p col))))))
+
+;; `f` as the value of macro code's Form, of module `module`: its variant and its fields.
+(sig form-value (Fn (String Form) Value))
+(defn form-value (module f)
+  (let ((at-pos (fn (name field v) (VRec module name (List (Tup field v) (Tup "pos" (pos-value module (form-pos f))))))))
+    (match f
+      ((Sym name _) (at-pos "Sym" "name" (VStr name)))
+      ((Lst items _) (at-pos "Lst" "items" (VList (map (fn (i) (form-value module i)) items))))
+      ((Txt s _) (at-pos "Txt" "val" (VStr s)))
+      ((IntLit n _) (at-pos "IntLit" "val" (VInt n)))
+      ((LongLit n _) (at-pos "LongLit" "val" (VInt n)))
+      ((ByteLit n _) (at-pos "ByteLit" "val" (VInt n)))
+      ((FloatLit x _) (at-pos "FloatLit" "val" (VDouble x)))
+      ((DoubleLit x _) (at-pos "DoubleLit" "val" (VDouble x)))
+      ((CharLit c _) (at-pos "CharLit" "val" (VChar c)))
+      ((BoolLit b _) (at-pos "BoolLit" "val" (VBool b))))))
+
+;; The Pos `v` is.
+(sig value-pos (Fn (Value) Pos))
+(defn value-pos (v)
+  (Pos (str-of (field-of v "file")) (int-of (field-of v "line")) (int-of (field-of v "col"))))
+
+;; The Form `v` is: a macro's result, which the type checker says is a Form (step 2;
+;; anything else is an internal error).
+(sig value-form (Fn (Value) Form))
+(defn value-form (v)
+  (match v
+    ((VRec _ name _)
+      (let ((pos (value-pos (field-of v "pos"))))
+        (cond
+          ((= name "Sym") (Sym (str-of (field-of v "name")) pos))
+          ((= name "Lst") (Lst (map value-form (list-of (field-of v "items"))) pos))
+          ((= name "Txt") (Txt (str-of (field-of v "val")) pos))
+          ((= name "IntLit") (IntLit (int-of (field-of v "val")) pos))
+          ((= name "LongLit") (LongLit (int-of (field-of v "val")) pos))
+          ((= name "ByteLit") (ByteLit (int-of (field-of v "val")) pos))
+          ((= name "FloatLit") (FloatLit (double-of (field-of v "val")) pos))
+          ((= name "DoubleLit") (DoubleLit (double-of (field-of v "val")) pos))
+          ((= name "CharLit") (CharLit (char-of (field-of v "val")) pos))
+          ((= name "BoolLit") (BoolLit (truth (field-of v "val")) pos))
+          (else (fail (++ "internal error: interp: a macro gave a " name ", not a Form"))))))
+    (else (fail "internal error: interp: a macro gave a value that isn't a Form"))))

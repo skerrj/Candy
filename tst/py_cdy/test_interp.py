@@ -161,3 +161,16 @@ def test_interpret_panics(source: str, t1_path: Path, tmp_path: Path) -> None:
     )
     assert done.returncode == 1
     assert done.stderr == PANICS[source]
+
+
+# Every kind of form, with its position, crosses to the interpreter as macro code's Form
+# and comes back the same (interp_macros.cdy; doc/hl_rqmt/host_macros.md).
+FORMS = '(f (1 2l 3b 1.5f 2.5) "s" \\x true)\n(g)\n'
+
+
+def test_forms_cross_to_the_interpreter_and_back(t1: ModuleType) -> None:
+    forms = t1.read__read_source("t.cdy", FORMS)
+    assert len(forms) == 2
+    for form in forms:
+        value = t1.interp_macros__form_value("form", form)
+        assert t1.interp_macros__value_form(value) == form

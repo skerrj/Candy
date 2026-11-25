@@ -1,12 +1,15 @@
 ;;; Expand: macros (doc/hl_rqmt/macros.md), between include and analyse. A file's macros
 ;;; are its top-level `defmacro`s and those of the macro files it imports with
 ;;; `(import-macros name)`. The defmacros become a macro program, which the translator
-;;; translates and loads into itself (load-macros); then every call of a macro is replaced
-;;; by what the macro returns, until no macro calls are left.
+;;; analyses and loads on its interpreter (cdyc.cdy, load-macro-file; interp_macros.cdy;
+;;; doc/hl_rqmt/host_macros.md); then every call of a macro is replaced by what the macro
+;;; returns, until no macro calls are left.
 ;;;
-;;; A macro file's other forms are helpers: they run while translating, as part of the
-;;; macro programs of its own defmacros and of the files that import it, and never in the
-;;; program.
+;;; A macro file is a module of the macro world (doc/hl_rqmt/host_macros.md, step 4): its
+;;; `import`s are real imports, its other definitions its helpers, which run only while
+;;; translating; its defmacros become functions of its module (macro-program), which its
+;;; importers' macros call. A file's own defmacros are a small program of their own, with
+;;; no module (""), which sees the macro files the file imports.
 ;;;
 ;;; Every file but the prelude itself also imports the prelude's macros (`cond`, from
 ;;; prelude_macros.cdy, which is kept next to the translator, like form.cdy). They are
@@ -21,63 +24,92 @@
 (import translator)
 (import map ())
 
-;; What a file's macro imports bring it: their macros, their helpers by file (each file's
-;; once, and before the files that use them), and the files loaded so far.
-(deft Imports ((macros (List Macro)) (helpers (List (Tup String (List Form)))) (seen (Map String Bool))))
+;; A module of the macro world, analysed: its key, what it exports, its definitions.
+(deft Loaded ((key String) (exports Exports) (tops (List Top))))
 
-;; A file with its macros expanded: its other forms, the macros it can use (its imports'
-;; and its own), its own macros, and its imports' helpers.
-(deft Expanded
-  ((forms (List Form))
-   (macros (Map String Macro))
-   (own (List Macro))
-   (helpers (List (Tup String (List Form))))))
+;; A macro file, loaded: its key, its macros, and the modules its macro code is, each after
+;; those it imports, itself last (not the prelude and form, which every macro program
+;; has: cdyc.cdy, MacroBase).
+(deft MacroFile ((key String) (macros (List Macro)) (modules (List Loaded))))
+
+;; What a file's macro imports bring it: their macros, the macro files (each once), and
+;; the files loaded so far.
+(deft Imports ((macros (List Macro)) (files (List MacroFile)) (seen (Map String Bool))))
+
+;; A file with its macros expanded: its other forms, and the macros it can use (its
+;; imports' and its own).
+(deft Expanded ((forms (List Form)) (macros (Map String Macro))))
+
+;; A macro file's forms expanded (expand-macro-file): its helpers, expanded with the macros
+;; it imports (not its own), then its defmacros as defns (macro-program); its defmacros;
+;; the macros it imports; and the macro files they come from.
+(deft MacroForms
+  ((forms (List Form)) (defs (List Form)) (macros (Map String Macro)) (files (List MacroFile))))
 
 ;; What expanding needs, made once per translation (new-expander): the built-ins
-;; (read-builtins), how a macro program becomes Python (`compile`), and the prelude's
-;; macros, loaded (`prelude`), which every file but the prelude's own starts from.
+;; (read-builtins); how a macro file is loaded (`load-file`: its path, the Expander, and
+;; the macro files being loaded, for a cycle); how a file's own defmacros are (`load-own`:
+;; their defns, and the macro files the file imports, giving the function a defn is, by
+;; its name); the prelude's macros, loaded (`prelude`), which every file but the
+;; prelude's own starts from; and the macro files loaded so far, by key (`loaded`), each
+;; loaded once per translation ([[B63]]): an Expander is handed on, through the
+;; translation's modules, by each function that may load one. cdyc.cdy makes the two
+;; loaders (load-macro-file, load-own-macros); `load-file` hands the Expander back too.
 (deft Expander
-  ((builtins (Map String Builtin)) (compile (Fn ((List Form)) String)) (prelude Imports)))
+  ((builtins (Map String Builtin))
+   (load-file (Fn (String Expander (List String)) (Tup MacroFile Expander)))
+   (load-own (Fn ((List Form) (List MacroFile)) (Fn (String) (Fn ((List Form)) Form))))
+   (prelude Imports)
+   (loaded (Map String MacroFile))))
 
-;; The Expander for `builtins` and `compile`, the prelude's macros loaded with them.
-(sig new-expander (Fn ((Map String Builtin) (Fn ((List Form)) String)) Expander))
-(defn new-expander (builtins compile)
-  (let ((bare (Expander builtins compile (Imports empty-list empty-list map.empty)))
+;; The Expander for `builtins` and the loaders, the prelude's macros loaded with them.
+(sig new-expander
+  (Fn ((Map String Builtin)
+       (Fn (String Expander (List String)) (Tup MacroFile Expander))
+       (Fn ((List Form) (List MacroFile)) (Fn (String) (Fn ((List Form)) Form))))
+      Expander))
+(defn new-expander (builtins load-file load-own)
+  (let ((bare (Expander builtins load-file load-own (Imports empty-list empty-list map.empty) map.empty))
         (path (library-path "prelude_macros.cdy"))
-        (form (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE)))
-    (assoc bare prelude (import-file form bare empty-list (get bare prelude)))))
+        (form (Lst (List (Sym "import-macros" NOWHERE) (Txt path NOWHERE)) NOWHERE))
+        ((imports ex) (import-file form bare empty-list (get bare prelude))))
+    (assoc ex prelude imports)))
 
 ;; The program's forms with its defmacros and macro imports taken out and its macro calls
-;; expanded, and its macros.
+;; expanded, its macros, and `ex` with the macro files it loaded.
 (sig expand-program
-  (Fn ((List Form) Expander) (Tup (List Form) (Map String Macro))))
+  (Fn ((List Form) Expander) (Tup (List Form) (Map String Macro) Expander)))
 (defn expand-program (forms ex)
-  (let ((done (expand-file forms false ex empty-list)))
-    (Tup (get done forms) (get done macros))))
+  (let (((done ex1) (expand-file forms ex empty-list)))
+    (Tup (get done forms) (get done macros) ex1)))
 
 (sig MACRO_HEADS (List String))
 (def MACRO_HEADS (List "defmacro" "import-macros"))
 
-;; `forms` expanded. In a macro file (`macro-file`), the other forms are helpers, which can
-;; use only the imported macros (the file's own are compiled with them). `loading` holds the
-;; macro files being loaded, to catch a cycle.
-(sig expand-file (Fn ((List Form) Bool Expander (List String)) Expanded))
-(defn expand-file (forms macro-file ex loading)
-  (let ((imports (import-all (pick-forms forms (List "import-macros") true) ex loading (get ex prelude)))
+;; `forms`, a file of the program, expanded, and `ex` with the macro files it loaded.
+;; `loading` holds the macro files being loaded, to catch a cycle.
+(sig expand-file (Fn ((List Form) Expander (List String)) (Tup Expanded Expander)))
+(defn expand-file (forms ex loading)
+  (let (((imports ex1) (import-all (pick-forms forms (List "import-macros") true) ex loading (get ex prelude)))
         (imported (macro-map (get imports macros) map.empty))
         (defs (expand-defs (pick-forms forms (List "defmacro") true) imported))
-        (rest (pick-forms forms MACRO_HEADS false))
-        (helpers (if macro-file (splice-dos (expand-all rest imported)) empty-list))
-        (own
-          (if (= (len defs) 0)
-            empty-list
-            (load-defs defs (++ (helper-forms (get imports helpers)) helpers) ex)))
+        (own (if (= (len defs) 0) empty-list (load-own-defs defs (get imports files) ex1)))
         (macros (macro-map own imported)))
-    (Expanded
-      (if macro-file helpers (splice-dos (expand-all rest macros)))
-      macros
-      own
-      (get imports helpers))))
+    (Tup (Expanded (splice-dos (expand-all (pick-forms forms MACRO_HEADS false) macros)) macros) ex1)))
+
+;; The forms of a macro file, expanded: its helpers with the macros it imports, its
+;; defmacros as defns; with the macro files it imports loaded (`loading` as for
+;; expand-file), and `ex` with them. cdyc.cdy's load-file analyses and loads them as the
+;; file's module.
+(sig expand-macro-file (Fn ((List Form) Expander (List String)) (Tup MacroForms Expander)))
+(defn expand-macro-file (forms ex loading)
+  (let ((builtins (get ex builtins))
+        ((imports ex1) (import-all (pick-forms forms (List "import-macros") true) ex loading (get ex prelude)))
+        (imported (macro-map (get imports macros) map.empty))
+        (defs (expand-defs (pick-forms forms (List "defmacro") true) imported))
+        (checked (unique-names defs builtins map.empty))
+        (helpers (splice-dos (expand-all (pick-forms forms MACRO_HEADS false) imported))))
+    (Tup (MacroForms (++ helpers (macro-program defs builtins)) defs imported (get imports files)) ex1)))
 
 ;; `forms`, a file's top level after expansion, with each `(do form*)` replaced by its
 ;; forms, spliced in, a `do` among them too (programs.top-do): so a macro can define
@@ -131,26 +163,36 @@
 
 ;; --- macro files ---
 
-;; `start` with the macro files of the (import-macros "path") forms `forms` loaded.
-(sig import-all (Fn ((List Form) Expander (List String) Imports) Imports))
+;; `start` with the macro files of the (import-macros "path") forms `forms` loaded, and
+;; `ex` with them.
+(sig import-all (Fn ((List Form) Expander (List String) Imports) (Tup Imports Expander)))
 (defn import-all (forms ex loading start)
-  (fold (fn (acc form) (import-file form ex loading acc)) start forms))
+  (fold (fn (acc form) (let (((imports e) acc)) (import-file form e loading imports))) (Tup start ex) forms))
 
-;; `acc` with the macro file of `form` loaded, unless it was already.
-(sig import-file (Fn (Form Expander (List String) Imports) Imports))
+;; `acc` with the macro file of `form` added, unless it was already, and `ex` with it: from
+;; `ex` if it was loaded before in this translation, or else loaded now.
+(sig import-file (Fn (Form Expander (List String) Imports) (Tup Imports Expander)))
 (defn import-file (form ex loading acc)
   (let ((path (macro-path form))
         (key (path-resolve path)))
     (cond
-      ((map.has (get acc seen) key) acc)
+      ((map.has (get acc seen) key) (Tup acc ex))
       ((contains key loading)
         (fail (format "{(pos-text (form-pos form))}import-macros: {path} imports itself")))
       (else
-        (let ((done (expand-file (read-program path) true ex (++ loading (List key)))))
-          (Imports
-            (++ (get acc macros) (get done own))
-            (add-helpers (++ (get done helpers) (List (Tup key (get done forms)))) (get acc helpers))
-            (map.set (get acc seen) key true)))))))
+        (let (((file ex1) (if (map.has (get ex loaded) key) (Tup (map.at (get ex loaded) key) ex) (load-new path key ex loading))))
+          (Tup
+            (Imports
+              (++ (get acc macros) (get file macros))
+              (add-files (List file) (get acc files))
+              (map.set (get acc seen) key true))
+            ex1))))))
+
+;; The macro file at `path` (its key `key`) loaded, and `ex` with it kept.
+(sig load-new (Fn (String String Expander (List String)) (Tup MacroFile Expander)))
+(defn load-new (path key ex loading)
+  (let (((file ex1) ((get ex load-file) path ex (++ loading (List key)))))
+    (Tup file (assoc ex1 loaded (map.set (get ex1 loaded) key file)))))
 
 ;; The path in (import-macros "path"), which include.cdy put there.
 (sig macro-path (Fn (Form) String))
@@ -159,36 +201,21 @@
     ((Txt path _) path)
     (else (fail (++ (pos-text (form-pos form)) "import-macros: expected (import-macros name)")))))
 
-;; `start` with the helper groups `groups` added, except files it has already.
-(sig add-helpers
-  (Fn ((List (Tup String (List Form))) (List (Tup String (List Form)))) (List (Tup String (List Form)))))
-(defn add-helpers (groups start)
-  (fold
-    (fn (acc g) (let (((key _forms) g)) (if (has-helpers key acc) acc (++ acc (List g)))))
-    start
-    groups))
+;; `start` with the macro files `files` added, except those it has already.
+(sig add-files (Fn ((List MacroFile) (List MacroFile)) (List MacroFile)))
+(defn add-files (files start)
+  (fold (fn (acc f) (if (any (fn (g) (= (get g key) (get f key))) acc) acc (++ acc (List f)))) start files))
 
-(sig has-helpers (Fn (String (List (Tup String (List Form)))) Bool))
-(defn has-helpers (key groups)
-  (any (fn (g) (let (((k _forms) g)) (= k key))) groups))
+;; --- loading macros ---
 
-;; The forms of all the helper groups.
-(sig helper-forms (Fn ((List (Tup String (List Form)))) (List Form)))
-(defn helper-forms (groups)
-  (concat (map (fn (g) (let (((_key forms) g)) forms)) groups)))
-
-;; --- compiling and loading macros ---
-
-;; The macros `defs` define, compiled with the helper forms `helpers` and loaded.
-(sig load-defs (Fn ((List Form) (List Form) Expander) (List Macro)))
-(defn load-defs (defs helpers ex)
+;; The macros a file's own defmacros `defs` define, loaded with the macro files `files`
+;; it imports, whose helpers they can call.
+(sig load-own-defs (Fn ((List Form) (List MacroFile) Expander) (List Macro)))
+(defn load-own-defs (defs files ex)
   (let ((builtins (get ex builtins))
-        (compile (get ex compile))
         (checked (unique-names defs builtins map.empty))
-        (form-forms (form-defs nil))
-        (python (compile (++ form-forms helpers (macro-program defs builtins))))
-        (loaded (load-macros python sym-name (mangled-names (map.keys (top-names form-forms))))))
-    (macro-list defs loaded)))
+        (run ((get ex load-own) (macro-program defs builtins) files)))
+    (macro-list defs run)))
 
 ;; The built-ins, from special.cdy, system.cdy and the declaration modules (include.cdy),
 ;; which are kept next to the translator (read-builtins).
@@ -201,19 +228,6 @@
         (fn (file) (let ((path (library-path file))) (Tup file (read-source path (slurp path)))))
         (++ (List "system.cdy") (map (fn (name) (++ name ".cdy")) (declaration-modules nil))))
       py-spellings)))
-
-;; The Python names of `names` (form.cdy's), which load-macros sets back to the translator's.
-(sig mangled-names (Fn ((List String)) (Map String Bool)))
-(defn mangled-names (names)
-  (fold (fn (m n) (map.set m (py-mangle n) true)) map.empty names))
-
-;; Form and its helpers, which macro code may use: form.cdy, read as it is (so it can't
-;; use macros), without its import of translator, which macro code imports implicitly
-;; (macro-imports, cdyc.cdy).
-(sig form-defs (Fn (Unit) (List Form)))
-(defn form-defs (_)
-  (let ((path (library-path "form.cdy")))
-    (filter (fn (form) (not (is-import form))) (read-source path (slurp path)))))
 
 ;; Each (defmacro name params body) as a function from the arguments to a form:
 ;; (sig macro__name (Fn ((List Form)) Form))
@@ -292,16 +306,16 @@
             defs)))
     true))
 
-;; The macro each of `defs` defines, with its function from `loaded` (by Python name).
-(sig macro-list (Fn ((List Form) (Map String Any)) (List Macro)))
-(defn macro-list (defs loaded)
+;; The macro each of `defs` defines, with its function from `run-of` (by its defn's name).
+(sig macro-list (Fn ((List Form) (Fn (String) (Fn ((List Form)) Form))) (List Macro)))
+(defn macro-list (defs run-of)
   (map
     (fn (d)
       (let ((items (list-items d))
             (name (sym-name (at items 1)))
             (params (at items 2))
             (arity (if (= (sym-name params) "") (len (list-items params)) -1))
-            (run (map.at loaded (py-mangle (macro-fn name)))))
+            (run (run-of (macro-fn name))))
         (Macro name arity run (form-pos d))))
     defs))
 

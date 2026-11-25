@@ -1,7 +1,7 @@
 ;; quo and quasi build Form values (doc/hl_rqmt/macros.md, step 2). They are only allowed
-;; in macro code, so test_self_host.py translates this as macro code, with Form from the
-;; translator's form.cdy, as a macro program has it.
-(import ../../../../src/cdy/form)
+;; in macro code, so test_self_host.py loads this as a macro file, on the interpreter, with
+;; form.cdy's Form, as macro code has it (doc/hl_rqmt/host_macros.md, step 4); its
+;; top-level expressions run as it loads.
 (import string ())
 
 ;; A form written back as text.
@@ -21,7 +21,7 @@
 
 (sig show-all (Fn ((List Form) (List String)) (List String)))
 (defn show-all (forms acc)
-  (if (= (len forms) 0) acc (show-all (rest-of forms) (++ acc (List (show (at forms 0)))))))
+  (if (= (len forms) 0) acc (show-all (drop 1 forms) (++ acc (List (show (at forms 0)))))))
 
 (put-line (show (quo (if (< x 1) "small" (f x 2.5 3.0f 7l 2b \c true ())))))
 (put-line (text (= (form-pos (quo x)) NOWHERE)))
@@ -29,7 +29,7 @@
 (sig test Form)
 (def test (quo (ready)))
 (sig args (List Form))
-(def args (Tup (quo a) (quo (b c))))
+(def args (List (quo a) (quo (b c))))
 (put-line (show (quasi (when (unq test) (go (unq-sp args)) (unq-sp empty-list) done))))
 (put-line (show (quasi (unq (Sym "plain" NOWHERE)))))
 (put-line (show (quasi ((unq-sp args)))))

@@ -16,6 +16,7 @@
 (import check)
 (import interp)
 (import interp_builtins)
+(import interp_macros)
 (import translator)
 (import map ())
 
@@ -34,33 +35,206 @@
   (let ((builtins (library-builtins nil)))
     (python-of (type-check (program-tops modules parse builtins) builtins) (get (at modules (- (len modules) 1)) stem))))
 
-;; The Expander for a translation: the built-ins read once, and the prelude's macros loaded
-;; once, for every module ([[B66]], [[B62]]).
+;; The Expander for a translation: the built-ins read once, the macro world's base analysed
+;; once, and the prelude's macros loaded once, for every module ([[B66]], [[B62]]).
 (sig expander (Fn ((Map String Builtin)) Expander))
-(defn expander (builtins) (new-expander builtins (compile-macros builtins (macro-imports nil))))
+(defn expander (builtins)
+  (let ((base (macro-base builtins)))
+    (new-expander builtins (load-macro-file builtins base) (load-own-macros builtins base))))
+
+;; --- the macro world (doc/hl_rqmt/host_macros.md) ---
+
+;; What every macro program has, made once per translation (macro-base): the imports macro
+;; code makes implicitly, besides the prelude's (`imports`: form, translator and string;
+;; macro-imports), and the modules it runs with, analysed: the prelude and form.
+(deft MacroBase ((imports (List Import)) (modules (List Loaded))))
+
+;; The macro world's base. The prelude and form import nothing but each other and
+;; translator, and use no macros, so they need no expanding: loading them needs no macros,
+;; and so no cycle with the prelude's macros (prelude_macros.cdy).
+(sig macro-base (Fn ((Map String Builtin)) MacroBase))
+(defn macro-base (builtins)
+  (let ((prelude-path (library-path "prelude.cdy"))
+        (prelude-forms (read-source prelude-path (slurp prelude-path)))
+        (prelude-exports (module-exports prelude-forms "prelude"))
+        (translator (declaration-exports "translator"))
+        (form-path (library-path "form.cdy"))
+        (form-forms (filter (fn (f) (not (is-import f))) (read-source form-path (slurp form-path))))
+        (form-exports (module-exports form-forms "form")))
+    (MacroBase
+      (macro-imports form-exports translator)
+      (List
+        (Loaded
+          (path-resolve prelude-path)
+          prelude-exports
+          (analyse-module prelude-forms prelude-exports empty-list map.empty builtins read-hole map.empty false))
+        (Loaded
+          (path-resolve form-path)
+          form-exports
+          (analyse-module
+            form-forms
+            form-exports
+            (List (Import prelude-exports NOWHERE None) (Import translator NOWHERE None))
+            map.empty builtins read-hole map.empty false))))))
+
+;; What the library's declaration module `name` declares, its built-ins.
+(sig declaration-exports (Fn (String) Exports))
+(defn declaration-exports (name)
+  (let ((path (library-path (++ name ".cdy")))) (declared-exports (read-source path (slurp path)) name)))
+
+;; What macro code imports implicitly, besides the prelude, as a program does: form
+;; (`Form`, its helpers, `gensym`), unqualified; translator, the library's (`gensym`
+;; calls fresh-name); and string's built-ins, only qualified (`string.join`), as a program
+;; imports it by convention, `(import string ())`. Of translator and string only their
+;; built-ins: string's Candy (`string.trim`) isn't macro code's.
+(sig macro-imports (Fn (Exports Exports) (List Import)))
+(defn macro-imports (form translator)
+  (List
+    (Import form NOWHERE None)
+    (Import translator NOWHERE None)
+    (Import (declaration-exports "string") NOWHERE (Some empty-list))))
+
+;; How a macro file is loaded (expand.cdy's Expander, `load-file`), with `builtins` and the
+;; macro world's `base`: read as modules (include.cdy, read-modules), its imports real, the
+;; modules it imports expanded as a program's (each with the macros it imports and
+;; defines) and analysed as macro code (macro-module), and the file itself expanded as a
+;; macro file (expand.cdy,
+;; expand-macro-file) and analysed as macro code, of its own module (its stem), with
+;; macro code's imports and those of the macro files it imports (whose helpers it can
+;; call); then all of it, with the base and the macro files it imports, checked and loaded
+;; on the interpreter (load-macro-tops), its macros the functions of its defmacros.
+(sig load-macro-file
+  (Fn ((Map String Builtin) MacroBase) (Fn (String Expander (List String)) (Tup MacroFile Expander))))
+(defn load-macro-file (builtins base)
+  (fn (path ex loading)
+    (let ((modules (read-modules path))
+          (file (at modules (- (len modules) 1)))
+          (base-keys (map (fn (l) (get l key)) (get base modules)))
+          (others (filter (fn (m) (not (contains (get m key) base-keys))) (take (- (len modules) 1) modules)))
+          ((ready ex1) (expand-modules others ex))
+          ((expanded ex2) (expand-macro-file (get file forms) ex1 loading))
+          (files (get expanded files))
+          (deps (add-loaded (concat (map (fn (f) (get f modules)) files)) empty-list))
+          (by-key (loaded-exports (++ (get base modules) deps) (exports-by-key ready)))
+          (stem (get file stem))
+          (exports (module-exports (get expanded forms) stem))
+          (macros (get expanded macros))
+          (own-imports
+            (++ (imported (get file imports) by-key) (implicit-imports base (get file imports) by-key) (file-imports files)))
+          (mine
+            (++ (map (fn (r) (macro-module r base by-key builtins)) ready)
+               (List
+                 (Loaded
+                   (path-resolve path)
+                   exports
+                   (analyse-module
+                     (get expanded forms) exports own-imports map.empty builtins
+                     (fn (text where) (expand-all (read-hole text where) macros)) macros true)))))
+          (all (add-loaded mine deps))
+          (run (load-macro-tops builtins (++ (get base modules) all) empty-list)))
+      (Tup (MacroFile (path-resolve path) (macro-list (get expanded defs) (fn (name) (run (global-key stem name)))) all) ex2))))
+
+;; The module `r`, which a macro file imports, analysed as macro code, since it runs only
+;; while translating: it can quote, and sees what macro code imports implicitly, as the
+;; macro file does (`base`), besides its own imports (`by-key`'s).
+(sig macro-module (Fn (Ready MacroBase (Map String Exports) (Map String Builtin)) Loaded))
+(defn macro-module (r base by-key builtins)
+  (let ((m (get r module))
+        (macros (get r macros)))
+    (Loaded
+      (get m key)
+      (get r exports)
+      (analyse-module
+        (get r forms)
+        (get r exports)
+        (++ (imported (get m imports) by-key) (implicit-imports base (get m imports) by-key))
+        map.empty
+        builtins
+        (fn (text where) (expand-all (read-hole text where) macros))
+        macros
+        true))))
+
+;; How a file's own defmacros are loaded (expand.cdy's Expander, `load-own`): their defns
+;; analysed as macro code of no module (""), as a top module's names have none, importing
+;; the prelude, macro code's imports, and the macro files the file imports (whose helpers
+;; they can call); then checked and loaded with the base and those files' modules,
+;; giving the function each defn is, by its name.
+(sig load-own-macros
+  (Fn ((Map String Builtin) MacroBase) (Fn ((List Form) (List MacroFile)) (Fn (String) (Fn ((List Form)) Form)))))
+(defn load-own-macros (builtins base)
+  (fn (forms files)
+    (let ((deps (add-loaded (concat (map (fn (f) (get f modules)) files)) empty-list))
+          (prelude (get (at (get base modules) 0) exports))
+          (imports (++ (List (Import prelude NOWHERE None)) (get base imports) (file-imports files))))
+      (load-macro-tops
+        builtins
+        (++ (get base modules) deps)
+        (analyse-module forms (module-exports forms "") imports map.empty builtins read-hole map.empty true)))))
+
+;; The macro program of the modules `loaded` and the definitions `tops`, type-checked as a
+;; program is (check.cdy; doc/hl_rqmt/host_macros.md, "What checking macro code checks")
+;; and loaded on the interpreter (interp_macros.cdy): the function each of its defns is, by
+;; its key (global-key). Each load restarts gensym's count (restart-fresh-names), so a
+;; translation's names don't depend on the translations before it.
+(sig load-macro-tops (Fn ((Map String Builtin) (List Loaded) (List Top)) (Fn (String) (Fn ((List Form)) Form))))
+(defn load-macro-tops (builtins loaded tops)
+  (let ((all (type-check (++ (concat (map (fn (l) (get l tops)) loaded)) tops) builtins)))
+    (do (restart-fresh-names nil) (macro-runner all))))
+
+;; `start` with the modules `loaded` added, each once, in order.
+(sig add-loaded (Fn ((List Loaded) (List Loaded)) (List Loaded)))
+(defn add-loaded (loaded start)
+  (fold (fn (acc l) (if (any (fn (m) (= (get m key) (get l key))) acc) acc (++ acc (List l)))) start loaded))
+
+;; `start` with the exports of the modules `loaded`, by key.
+(sig loaded-exports (Fn ((List Loaded) (Map String Exports)) (Map String Exports)))
+(defn loaded-exports (loaded start)
+  (fold (fn (m l) (map.set m (get l key) (get l exports))) start loaded))
+
+;; Macro code's implicit imports (`base`'s), but those of a module its `imps` import by
+;; name already (a macro file's `(import string)`).
+(sig implicit-imports (Fn (MacroBase (List Imp) (Map String Exports)) (List Import)))
+(defn implicit-imports (base imps by-key)
+  (let ((stems (map (fn (imp) (get (map.at by-key (get imp key)) stem)) imps)))
+    (filter (fn (i) (not (contains (get (get i exports) stem) stems))) (get base imports))))
+
+;; An import of each of the macro files `files`, its own module (the last of its modules).
+(sig file-imports (Fn ((List MacroFile)) (List Import)))
+(defn file-imports (files)
+  (map
+    (fn (f) (let ((modules (get f modules))) (Import (get (at modules (- (len modules) 1)) exports) NOWHERE None)))
+    files))
 
 ;; The definitions of the program `modules`, analysed (see translate-modules); not yet
 ;; type-checked (check.cdy).
 (sig program-tops (Fn ((List Module) (Fn (String Pos) (List Form)) (Map String Builtin)) (List Top)))
 (defn program-tops (modules parse builtins)
-  (let ((ready (expand-modules modules (expander builtins)))
+  (let (((ready _ex) (expand-modules modules (expander builtins)))
         (by-key (exports-by-key ready))
         (elsewhere (elsewhere-names (exports-of ready))))
     (analyse-modules ready by-key elsewhere builtins parse)))
 
 ;; Each of `modules` with its macros expanded. A declaration module (translator.cdy) exports
 ;; what it declares, its built-ins, as well as what its definitions, ordinary Candy,
-;; define (doc/hl_rqmt/stdlib.md, Question 2).
-(sig expand-modules (Fn ((List Module) Expander) (List Ready)))
+;; define (doc/hl_rqmt/stdlib.md, Question 2). With them, `ex` with the macro files they
+;; loaded, handed on from each module to the next, so each loads once ([[B63]]).
+(sig expand-modules (Fn ((List Module) Expander) (Tup (List Ready) Expander)))
 (defn expand-modules (modules ex)
-  (map
-    (fn (m)
-      (let ((declaring (is-declaration (get m key)))
+  (fold
+    (fn (acc m)
+      (let (((done e) acc)
+            (declaring (is-declaration (get m key)))
             (all (get m forms))
-            ((forms macros) (expand-program (if declaring (definitions all) all) ex))
+            ((forms macros e1) (expand-program (if declaring (definitions all) all) e))
             (own (module-exports forms (get m stem))))
-        (Ready m forms macros (if declaring (with-declared own all (get m stem)) own))))
+        (Tup (++ done (List (Ready m forms macros (if declaring (with-declared own all (get m stem)) own)))) e1)))
+    (Tup NO_READY ex)
     modules))
+
+;; No modules: a typed start for expand-modules' fold, which mypy would type by its shape,
+;; an empty tuple ([[B184]]).
+(sig NO_READY (List Ready))
+(def NO_READY empty-list)
 
 (sig exports-by-key (Fn ((List Ready)) (Map String Exports)))
 (defn exports-by-key (ready)
@@ -94,33 +268,14 @@
 (defn imported (imps by-key)
   (map (fn (imp) (Import (map.at by-key (get imp key)) (get imp pos) (get imp only))) imps))
 
-;; How a macro program (expand.cdy) becomes Python, with `builtins` and macro code's
-;; `imports` (macro-imports), each read once per translation. It is macro code, so it can
-;; quote.
-(sig compile-macros (Fn ((Map String Builtin) (List Import)) (Fn ((List Form)) String)))
-(defn compile-macros (builtins imports)
-  (fn (forms) (translate-expanded forms read-hole map.empty true builtins imports)))
-
-;; `forms`, one program with no imports and no macro calls left, as Python; `macros` are
-;; the program's macros, `builtins` the built-ins, and `imports` what it imports
-;; implicitly.
-(sig translate-expanded
-  (Fn ((List Form) (Fn (String Pos) (List Form)) (Map String Macro) Bool (Map String Builtin) (List Import)) String))
-(defn translate-expanded (forms parse macros quoting builtins imports)
-  (python-of (analyse-program forms imports builtins parse macros quoting) ""))
-
-;; What macro code imports implicitly: translator, the library's (`gensym`, form.cdy,
-;; calls fresh-name); and string's built-ins, only qualified (`string.join`), as a program
-;; imports it by convention, `(import string ())`. A macro file's import of either adds
-;; nothing (include.cdy, include-forms). Only their built-ins: macro code doesn't get the
-;; library's Candy, as it doesn't get the prelude ([[B52]]).
-(sig macro-imports (Fn (Unit) (List Import)))
-(defn macro-imports (_)
-  (let ((translator (library-path "translator.cdy"))
-        (string (library-path "string.cdy")))
-    (List
-      (Import (declared-exports (read-source translator (slurp translator)) "translator") NOWHERE None)
-      (Import (declared-exports (read-source string (slurp string)) "string") NOWHERE (Some empty-list)))))
+;; Loads the Candy file at `path` as a macro file, on the interpreter, as import-macros
+;; does: its top-level expressions run as it loads. For a test of macro code
+;; (test_self_host.py's test_quoting_in_macro_code).
+(sig load-macro-code (Fn (String) Unit))
+(defn load-macro-code (path)
+  (let ((ex (expander (library-builtins nil)))
+        (_file ((get ex load-file) path ex empty-list)))
+    nil))
 
 ;; The definitions `tops` as a Python module, which first makes a panic stop the program
 ;; with its message (`stop_on_panic`; spec/60-library.md, library.errors); `top` is the
