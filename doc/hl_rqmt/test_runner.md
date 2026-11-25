@@ -218,6 +218,17 @@ reads.
    programs; translating the translator as before.
 4. **pytest on the Candy runner:** `test_spec.py` as above, `examples` and `error_table`
    gone; the time compared.
+   *Done (2026-11-25). As built:* `test_spec.py`'s tests are per file: `test_candy` (the
+   Candy runner's checks), `test_python` (each `run` and `panic` example translated by
+   T1 and run as a process, every failure listed by `file:line`), `test_mypy_strict`
+   and `test_t1_and_t2_agree`, these three over the Candy reader's examples. Which files
+   have examples is decided at collection, before T1 is built, so by `doc_links.py`'s
+   fences (`has`), the same rules; the repros' strict marks are per file now. Gone: the
+   Python reader (`Example`, `PAIRS`, `examples`, `error_table`, `SpecError`), the
+   per-example tests (`test_run`, `test_error`, `test_panic`, `test_interpret`,
+   `test_interpret_panic`, `test_setup`) and step 2's `test_readers_agree`. 55 tests and
+   3 expected failures in place of 546 and 3, in 32 s against 30; the suite 373 tests
+   in place of 881, in 73 s as before. `bin` doesn't change.
 5. **Docs:** `executable_spec.md`'s "The runner" (its *lasting* answered),
    `spec/README.md` (how to run the spec), CLAUDE.md (the layout, the runner), the
    epic's eighth branch *done*; "Looking back".
