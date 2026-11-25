@@ -1,6 +1,7 @@
 # The spec's runner in Candy (HLD)
 
-**Status: draft (2026-11-25), for the owner's review; for branch `test-runner`. Epic:
+**Status: accepted (2026-11-25), with the answers to its questions, as proposed (tasks
+[[B233]] to [[B237]]); for branch `test-runner`. Epic:
 `python_complete.md` (its eighth branch). After tag `host-macros`.** The spec's runner,
 which reads a spec file's examples and checks each one, written in Candy, a module of the
 translator: it runs each example on the interpreter, or translates it, and reports by
@@ -175,26 +176,32 @@ reads.
    process). **Proposed: the spec and the repros only:** the test programs are about
    whole programs and the fixpoint, mostly Python's business, and a process built-in is
    more porting surface for a check that is Python's anyway.
+   *Answer (2026-11-25, the owner): the spec and the repros only.*
 2. **Catching a panic:** `catch-panic` in `translator.cdy`, for tools (proposed); or in
    `system.cdy`, every program's (a panic then catchable everywhere, against the
    semantics HLD's Question 11); or no catch, a process per `error` example (325
    processes of about 0.14 s each, about 45 s more, and a process built-in).
    **Proposed: `translator.cdy`:** a program can't see it, so the rule for programs
    stays, and it is the shape Rust's `catch_unwind` has, for a later host.
+   *Answer (2026-11-25, the owner): `catch-panic` in `translator.cdy`, for tools.*
 3. **Capturing output:** `capture-output`, the host's stdout redirected (proposed); or
    the interpreter writing to a buffer it hands back, every output built-in's
    interpreter function changed to thread it, pure but a rewrite of its table's I/O.
    **Proposed: `capture-output`:** one host line, and the interpreter unchanged.
+   *Answer (2026-11-25, the owner): `capture-output`.*
 4. **pytest's tests:** per file, the Candy runner's failures as the message (proposed);
    or per example, as now, which needs the examples at collection time, before T1 is
    built (the checked-in `bin`'s reader, then, one build behind). **Proposed: per
    file:** the message names each failing example by `file:line`, and the flag checks
    one file on its own.
+   *Answer (2026-11-25, the owner): per file.*
 5. **Where it lives:** a module of the translator, `spec_runner.cdy`, run by a flag
    (proposed); or a program of its own that imports the translator's modules, with its
    own `bin`. **Proposed: a module and a flag,** as `--interpret` is: one program, one
    `bin`.
+   *Answer (2026-11-25, the owner): a module, `src/cdy/spec_runner.cdy`, and a flag.*
 6. **Fences in two readers:** `test_doc_links.py` keeps `doc_links.py`'s `blocks` for
    its checks of rules and links (proposed); or it calls the Candy reader too, needing
    T1 where today it needs nothing built. **Proposed: keep it:** those checks are about
    the docs, which the epic's Question 8 left in Python, and `blocks` is 20 lines.
+   *Answer (2026-11-25, the owner): keep `doc_links.py`'s reader.*

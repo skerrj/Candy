@@ -20,3 +20,5 @@ translator unchanged (Rust's `std::panic::catch_unwind`, Go's `recover`). For
 ## Notes
 
 - 2026-11-02, the owner: noted with Question 11's answer, panic and `Result`.
+- 2026-11-25, Claude: taken up by `test-runner` (`test_runner.md`, Question 2, the owner's
+  answer): `catch-panic` in `translator.cdy`, for tools, step 1 ([[B233]]).
