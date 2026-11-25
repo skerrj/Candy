@@ -1,7 +1,8 @@
 # Macros on the interpreter (HLD)
 
 **Status: accepted (2026-11-22), with the answers to its questions, as proposed (tasks
-[[B225]] to [[B231]]); for branch `host-macros`. Epic:
+[[B225]] to [[B231]]); for branch `host-macros`; steps 1 to 7 built (2026-11-24), to
+review. Epic:
 `python_complete.md` (its seventh branch). After tag `interpreter`.** Macros run on the
 interpreter instead of being translated to Python and run with `exec` ([[B41]]): macro
 code is checked like a program ([[B42]]), gets the prelude ([[B52]]), and is modules,
@@ -344,6 +345,37 @@ prelude, the `bin` before reads its own copy, so no staging there.
    against `boot/102`'s `bin`: the same output for all 109 programs.
 7. **Docs:** CLAUDE.md ("Macros", "The interpreter"), `macros.md`, `modules.md`'s
    "Macro modules on the host", the epic's seventh branch *done*; "Looking back".
+   *Done (2026-11-24). As built:* CLAUDE.md's "Macros" (6b), "The interpreter" (it
+   runs macro code too), its file list (`interp_macros.cdy`) and history (the seventh
+   branch); `macros.md` (6b: the `exec` and the rejected interpreter history);
+   `modules.md`'s "Macro modules on the host" and its hygiene item *done*; the epic's
+   seventh branch *done*, with its table's rows; "Looking back", below.
+
+## Looking back
+
+What the branch taught, and what a later one will meet again:
+
+- **A second implementation finds a second user.** The interpreter was built for the
+  spec; running macros on it took a bridge of under 70 lines (`interp_macros.cdy`) and
+  a loader, and closed seven items. Its trampoline, written for depth, is why a `cond`
+  of any length expands.
+- **Checking code that never ran checked finds old slips.** The type checker, given
+  macro code for the first time, found a quoted `2l` filling an `Int` field and a test
+  building a `(List Form)` with `Tup`: both wrong by Candy's rules for years, both let
+  through by Python's tuples.
+- **A cache wants a value handed on, not a variable.** Loading a macro file once per
+  translation meant threading the Expander through every function that might load one
+  (`expand-modules` a fold): mechanical, and the types found each place it was missed.
+- **Hygiene is a question of where a name is looked up.** Qualifying a template's
+  built-ins is ten lines, once the macro's own module's table says what each name is;
+  the one surprise was an import's qualified-only name (`string`'s `len`), which gives
+  way to the built-in there as everywhere.
+- **Plan the staging, then check it.** Step 6 was planned as one `old-runtime` step, but
+  the bin before checks the step's library against its own runtime, so a new built-in
+  can't arrive with its predecessor's removal; two unstaged commits did it. Run the
+  next step's check (`test_newest_step_reads_the_library`) before deciding.
+- **Numbered names outgrow their width.** `boot/100` sorted after `boot/10`: sort by the
+  number, not the text.
 
 ## Questions
 

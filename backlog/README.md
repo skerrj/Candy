@@ -85,7 +85,7 @@ By kind, then priority.
 | [B228](B228-host-macros-step-4.md) | host-macros step 4: Macro files as modules | task | review | normal |
 | [B229](B229-host-macros-step-5.md) | host-macros step 5: Hygiene for built-ins | task | review | normal |
 | [B230](B230-host-macros-step-6.md) | host-macros step 6: `load-macros` dropped | task | review | normal |
-| [B231](B231-host-macros-step-7.md) | host-macros step 7: Docs | task | open | normal |
+| [B231](B231-host-macros-step-7.md) | host-macros step 7: Docs | task | review | normal |
 | [B1](B1-markdown-injection.md) | Highlight `candy` fences in Markdown, in the VS Code extension | task | open | low |
 
 ### idea

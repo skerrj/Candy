@@ -210,11 +210,16 @@ same thing. Two steps:
 - **Macro modules on the host:** caching compiled macro files, and letting the macro
   program import the translator's `form` module instead of copying it. Macro code runs in
   the translator, so this concerns the host's modules, whatever the target.
+  *Done in `host-macros`:* a macro file is a module of macro code, loaded once per
+  translation, and `form` a module macro code imports; it runs on the interpreter, so
+  no Python module is copied ([[macros.import-macros]]).
 - **Qualified template symbols** in `quasi` (macro hygiene); export lists or private names;
   a plain `import` bringing a file's `defmacro`s; `system.cdy` and `prelude.cdy`.
   *Since:* private names are `(private ...)` (`namespaces`, [[programs.private]]), and
   `system.cdy` and `prelude.cdy` came with `system-prelude`; the rest are
-  `host-macros`' ([[B45]], [[B46]]).
+  `host-macros`' ([[B45]], [[B46]]), which made a macro file's `import`s real and
+  qualified a template's built-in names ([[macros.hygiene]]); a plain `import`
+  bringing `defmacro`s, and a template's helpers, are still open.
 
 ## Questions (decided: the simplest option for the MVP)
 
